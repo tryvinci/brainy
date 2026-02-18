@@ -1,0 +1,44 @@
+[
+  {
+    "hypothesis_id": "HYP-001",
+    "title": "Belief challenge should trigger on repeated outcome deltas",
+    "description": "If expected-observed deltas exceed threshold over a persistence window, belief quality improves when status transitions to challenged.",
+    "component": "reflection",
+    "confidence": 0.72,
+    "evidence_refs": [
+      "docs/brainy/00-context-capture.md"
+    ],
+    "risk_level": "medium",
+    "falsification_test": "tests/test_reflection.py::test_reflection_downgrades_conviction_on_outcome_failure",
+    "owner": "brainy-core",
+    "status": "active"
+  },
+  {
+    "hypothesis_id": "HYP-002",
+    "title": "Complement-first conflict handling reduces premature belief retirement",
+    "description": "Belief systems preserve useful nuance if complement checks are attempted before contradiction elimination.",
+    "component": "belief_graph",
+    "confidence": 0.64,
+    "evidence_refs": [
+      "docs/brainy/architecture/03-conflict-reconciliation.md"
+    ],
+    "risk_level": "medium",
+    "falsification_test": "tests/test_belief_graph.py::test_belief_graph_builds_and_flags_conflicts",
+    "owner": "brainy-core",
+    "status": "active"
+  },
+  {
+    "hypothesis_id": "HYP-003",
+    "title": "Taste-tag-aware retrieval improves strategic relevance",
+    "description": "Retrieval ranking that boosts taste and identity markers improves context quality for preference-sensitive queries.",
+    "component": "retrieval",
+    "confidence": 0.67,
+    "evidence_refs": [
+      "docs/brainy/00-context-capture.md"
+    ],
+    "risk_level": "medium",
+    "falsification_test": "tests/test_retrieval.py::test_retrieval_returns_taste_aware_context_bundle",
+    "owner": "brainy-core",
+    "status": "active"
+  }
+]
