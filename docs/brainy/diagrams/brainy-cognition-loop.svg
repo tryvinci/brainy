@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500">
+  <style>
+    .box { fill: #f4f1e8; stroke: #1f2937; stroke-width: 2; rx: 8; }
+    .text { font-family: 'Iowan Old Style', 'Palatino Linotype', serif; font-size: 15px; fill: #111827; }
+    .arrow { stroke: #1f2937; stroke-width: 2; marker-end: url(#arrowhead); fill: none; }
+    .title { font-family: 'Iowan Old Style', 'Palatino Linotype', serif; font-size: 24px; fill: #111827; font-weight: 700; }
+  </style>
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#1f2937" />
+    </marker>
+  </defs>
+
+  <text x="24" y="40" class="title">Brainy Cognition Loop</text>
+
+  <rect x="30" y="80" width="180" height="60" class="box" />
+  <text x="58" y="115" class="text">Identity Priors</text>
+
+  <rect x="260" y="80" width="180" height="60" class="box" />
+  <text x="291" y="115" class="text">Principles</text>
+
+  <rect x="490" y="80" width="180" height="60" class="box" />
+  <text x="545" y="115" class="text">Episodes</text>
+
+  <rect x="720" y="80" width="180" height="60" class="box" />
+  <text x="760" y="115" class="text">Patterns</text>
+
+  <rect x="950" y="80" width="210" height="60" class="box" />
+  <text x="1004" y="115" class="text">Belief Graph</text>
+
+  <rect x="950" y="210" width="210" height="60" class="box" />
+  <text x="1022" y="245" class="text">Actions</text>
+
+  <rect x="950" y="340" width="210" height="60" class="box" />
+  <text x="1009" y="375" class="text">Outcomes</text>
+
+  <rect x="720" y="340" width="180" height="60" class="box" />
+  <text x="763" y="375" class="text">Reflection</text>
+
+  <rect x="490" y="340" width="180" height="60" class="box" />
+  <text x="522" y="375" class="text">Reconciliation</text>
+
+  <rect x="260" y="340" width="180" height="60" class="box" />
+  <text x="289" y="375" class="text">Taste Signals</text>
+
+  <line x1="210" y1="110" x2="260" y2="110" class="arrow" />
+  <line x1="440" y1="110" x2="490" y2="110" class="arrow" />
+  <line x1="670" y1="110" x2="720" y2="110" class="arrow" />
+  <line x1="900" y1="110" x2="950" y2="110" class="arrow" />
+  <line x1="1055" y1="140" x2="1055" y2="210" class="arrow" />
+  <line x1="1055" y1="270" x2="1055" y2="340" class="arrow" />
+  <line x1="950" y1="370" x2="900" y2="370" class="arrow" />
+  <line x1="720" y1="370" x2="670" y2="370" class="arrow" />
+  <line x1="490" y1="370" x2="440" y2="370" class="arrow" />
+  <line x1="350" y1="340" x2="350" y2="140" class="arrow" />
+  <line x1="350" y1="140" x2="950" y2="140" class="arrow" />
+</svg>
