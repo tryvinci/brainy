@@ -1,0 +1,86 @@
+{
+  "public_track": [
+    {
+      "name": "brainy-public-track",
+      "score": 1.0,
+      "latency_ms": 0.24341701646335423,
+      "details": {
+        "artifact_count": 5,
+        "belief_count": 1
+      }
+    },
+    {
+      "name": "mem0",
+      "score": 0.0,
+      "latency_ms": 0.0,
+      "details": {
+        "status": "skipped",
+        "reason": "missing MEM0_API_KEY"
+      }
+    },
+    {
+      "name": "supermemory",
+      "score": 0.0,
+      "latency_ms": 0.0,
+      "details": {
+        "status": "skipped",
+        "reason": "missing SUPERMEMORY_API_KEY"
+      }
+    },
+    {
+      "name": "zep",
+      "score": 0.0,
+      "latency_ms": 0.0,
+      "details": {
+        "status": "skipped",
+        "reason": "missing ZEP_API_KEY"
+      }
+    },
+    {
+      "name": "letta",
+      "score": 0.0,
+      "latency_ms": 0.0,
+      "details": {
+        "status": "skipped",
+        "reason": "missing LETTA_API_KEY"
+      }
+    },
+    {
+      "name": "memobase",
+      "score": 0.0,
+      "latency_ms": 0.0,
+      "details": {
+        "status": "skipped",
+        "reason": "missing MEMOBASE_API_KEY"
+      }
+    },
+    {
+      "name": "cognee",
+      "score": 0.0,
+      "latency_ms": 0.0,
+      "details": {
+        "status": "skipped",
+        "reason": "missing COGNEE_API_KEY"
+      }
+    }
+  ],
+  "cognitive_track": [
+    {
+      "name": "brainy-cognitive-track",
+      "score": 1.0,
+      "latency_ms": 0.05212498945184052,
+      "details": {
+        "updated": 1,
+        "challenged": 1
+      }
+    }
+  ],
+  "public_summary": {
+    "average_score": 0.143,
+    "average_latency_ms": 0.035
+  },
+  "cognitive_summary": {
+    "average_score": 1.0,
+    "average_latency_ms": 0.052
+  }
+}
