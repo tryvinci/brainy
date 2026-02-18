@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from brainy.belief_graph import BeliefGraphEngine
 from brainy.consolidation import ConsolidationEngine
+from brainy.governance import GovernanceEngine
 from brainy.ingestion import IngestionEngine
 from brainy.reflection import ReflectionEngine
 from brainy.repository import InMemoryRepository
@@ -16,3 +17,4 @@ class BrainyService:
         self.belief_graph = BeliefGraphEngine(self.repository)
         self.retrieval = RetrievalEngine(self.repository)
         self.reflection = ReflectionEngine(self.repository)
+        self.governance = GovernanceEngine(self.repository)
