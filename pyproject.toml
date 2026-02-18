@@ -1,0 +1,25 @@
+[project]
+name = 'brainy'
+version = '0.1.0'
+description = 'Brainy smart-human memory system'
+readme = 'README.md'
+requires-python = '>=3.11'
+authors = [{ name = 'Brainy Team' }]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ['pytest>=8.0.0']
+
+[build-system]
+requires = ['setuptools>=68.0.0']
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools]
+package-dir = {'' = 'src'}
+
+[tool.setuptools.packages.find]
+where = ['src']
+
+[tool.pytest.ini_options]
+pythonpath = ['src']
+testpaths = ['tests']
