@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.omx/logs/
+.omx/state/
+.omx/metrics.json
+.omx/tmux-hook.json
