@@ -5,3 +5,6 @@ __pycache__/
 .omx/state/
 .omx/metrics.json
 .omx/tmux-hook.json
+.DS_Store
+bin/
+.cache/
