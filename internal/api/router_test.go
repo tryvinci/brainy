@@ -11,10 +11,6 @@ import (
 	"brainy/internal/memory"
 )
 
-type apiStoreStub struct {
-	memoryStore *memoryStoreAdapter
-}
-
 type memoryStoreAdapter struct {
 	records map[string]memory.MemoryRecord
 }

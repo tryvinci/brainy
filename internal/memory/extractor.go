@@ -86,7 +86,7 @@ func classifySentence(sentence string) (ExtractedMemory, bool) {
 	if strings.HasPrefix(lower, "i am ") || strings.HasPrefix(lower, "i'm ") || strings.HasPrefix(lower, "my name is ") || strings.Contains(lower, "i work at ") || strings.Contains(lower, "i live in ") {
 		return ExtractedMemory{
 			Kind:       KindProfile,
-			Content:    canonicalizeProfile(sentence),
+			Content:    titleSentence(NormalizeText(sentence)),
 			SourceText: sentence,
 			Confidence: 0.9,
 			Explain: map[string]any{
@@ -98,7 +98,7 @@ func classifySentence(sentence string) (ExtractedMemory, bool) {
 	if strings.Contains(lower, " is ") || strings.Contains(lower, " are ") || strings.Contains(lower, " date ") || strings.Contains(lower, "launch") {
 		return ExtractedMemory{
 			Kind:       KindFact,
-			Content:    canonicalizeFact(sentence),
+			Content:    titleSentence(NormalizeText(sentence)),
 			SourceText: sentence,
 			Confidence: 0.78,
 			Explain: map[string]any{
@@ -116,18 +116,11 @@ func canonicalizePreference(sentence string) string {
 	normalized = strings.TrimPrefix(normalized, "i ")
 	normalized = strings.TrimPrefix(normalized, "I'm ")
 	normalized = strings.TrimPrefix(normalized, "i'm ")
-	if strings.HasPrefix(strings.ToLower(normalized), "prefer ") || strings.HasPrefix(strings.ToLower(normalized), "prefers ") {
-		return "Prefers " + strings.TrimSpace(normalized[strings.Index(strings.ToLower(normalized), "prefer")+6:])
+	lowerNormalized := strings.ToLower(normalized)
+	if strings.HasPrefix(lowerNormalized, "prefer ") || strings.HasPrefix(lowerNormalized, "prefers ") {
+		return "Prefers " + strings.TrimSpace(normalized[strings.Index(lowerNormalized, "prefer")+6:])
 	}
 	return titleSentence(normalized)
-}
-
-func canonicalizeProfile(sentence string) string {
-	return titleSentence(NormalizeText(sentence))
-}
-
-func canonicalizeFact(sentence string) string {
-	return titleSentence(NormalizeText(sentence))
 }
 
 func titleSentence(value string) string {

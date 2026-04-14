@@ -55,6 +55,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 	}
 
 	for _, extracted := range memories {
+		now := s.now()
 		record := MemoryRecord{
 			MemoryID:          s.id("mem"),
 			TenantID:          req.TenantID,
@@ -68,8 +69,8 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 			Confidence:        extracted.Confidence,
 			ExtractionVersion: "deterministic-v1",
 			Explain:           extracted.Explain,
-			CreatedAt:         s.now(),
-			UpdatedAt:         s.now(),
+			CreatedAt:         now,
+			UpdatedAt:         now,
 		}
 
 		upserted, err := s.store.UpsertMemory(ctx, record)

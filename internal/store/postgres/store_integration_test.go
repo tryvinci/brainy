@@ -142,7 +142,7 @@ func TestStoreUpsertIsConcurrencySafeForDuplicateIngests(t *testing.T) {
 			defer wg.Done()
 			now := time.Now().UTC()
 			_, err := store.UpsertMemory(ctx, memory.MemoryRecord{
-				MemoryID:          "mem_concurrent_" + time.Now().UTC().Format("150405.000000") + "_" + string(rune('a'+index)),
+				MemoryID:          "mem_concurrent_" + strconv.Itoa(index),
 				TenantID:          "t1",
 				SubjectID:         "u1",
 				Kind:              memory.KindPreference,

@@ -45,14 +45,14 @@ def run_fixture(base_url: str, fixture_path: pathlib.Path) -> dict:
         result["passed"] = False
         result["errors"].append("created count below expected minimum")
 
-    results = search_response.get("results", [])
-    if len(results) < expectations.get("min_results", 1):
+    search_results = search_response.get("results", [])
+    if len(search_results) < expectations.get("min_results", 1):
         result["passed"] = False
         result["errors"].append("search result count below expected minimum")
-    elif "first_kind" in expectations and results[0].get("kind") != expectations["first_kind"]:
+    elif "first_kind" in expectations and search_results[0].get("kind") != expectations["first_kind"]:
         result["passed"] = False
         result["errors"].append("first search result kind mismatch")
-    elif "first_content_contains" in expectations and expectations["first_content_contains"] not in results[0].get("content", ""):
+    elif "first_content_contains" in expectations and expectations["first_content_contains"] not in search_results[0].get("content", ""):
         result["passed"] = False
         result["errors"].append("first search result content mismatch")
 
@@ -65,11 +65,11 @@ def run_fixture(base_url: str, fixture_path: pathlib.Path) -> dict:
             result["errors"].append("repeat ingest did not dedupe as expected")
 
     if fixture.get("suppress_after_search"):
-        if not results:
+        if not search_results:
             result["passed"] = False
             result["errors"].append("cannot suppress without initial search result")
         else:
-            suppress_target = results[0]["memory_id"]
+            suppress_target = search_results[0]["memory_id"]
             tenant_id = fixture["search"]["tenant_id"]
             subject_id = fixture["search"]["subject_id"]
             post_json(
@@ -78,8 +78,9 @@ def run_fixture(base_url: str, fixture_path: pathlib.Path) -> dict:
                 {},
             )
             search_after = get_json(base_url, "/memories/search", fixture["search"])
-            result["search_after_suppress_count"] = len(search_after.get("results", []))
-            if len(search_after.get("results", [])) != 0:
+            search_after_results = search_after.get("results", [])
+            result["search_after_suppress_count"] = len(search_after_results)
+            if search_after_results:
                 result["passed"] = False
                 result["errors"].append("suppression did not remove result from later search")
 
