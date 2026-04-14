@@ -1,0 +1,192 @@
+package postgres
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"time"
+
+	"brainy/internal/memory"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type Store struct {
+	pool *pgxpool.Pool
+}
+
+func New(ctx context.Context, databaseURL string) (*Store, error) {
+	pool, err := pgxpool.New(ctx, databaseURL)
+	if err != nil {
+		return nil, err
+	}
+	return &Store{pool: pool}, nil
+}
+
+func NewWithPool(pool *pgxpool.Pool) *Store {
+	return &Store{pool: pool}
+}
+
+func (s *Store) Close() {
+	if s.pool != nil {
+		s.pool.Close()
+	}
+}
+
+func (s *Store) EnsureSchema(ctx context.Context) error {
+	_, err := s.pool.Exec(ctx, `
+CREATE TABLE IF NOT EXISTS memory_records (
+    memory_id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    content TEXT NOT NULL,
+    source_text TEXT NOT NULL,
+    source_type TEXT NOT NULL,
+    dedupe_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    confidence DOUBLE PRECISION NOT NULL DEFAULT 0,
+    extraction_version TEXT NOT NULL DEFAULT 'deterministic-v1',
+    explain JSONB NOT NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS memory_records_unique_dedupe
+ON memory_records (tenant_id, subject_id, dedupe_key);
+CREATE INDEX IF NOT EXISTS memory_records_lookup
+ON memory_records (tenant_id, subject_id, status, updated_at DESC);
+`)
+	return err
+}
+
+func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
+	explain, err := json.Marshal(record.Explain)
+	if err != nil {
+		return memory.StoreUpsertResult{}, err
+	}
+
+	var existing memory.MemoryRecord
+	row := s.pool.QueryRow(ctx, `
+SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND dedupe_key = $3
+`, record.TenantID, record.SubjectID, record.DedupeKey)
+
+	var rawExplain []byte
+	err = row.Scan(
+		&existing.MemoryID,
+		&existing.TenantID,
+		&existing.SubjectID,
+		&existing.Kind,
+		&existing.Content,
+		&existing.SourceText,
+		&existing.SourceType,
+		&existing.DedupeKey,
+		&existing.Status,
+		&existing.Confidence,
+		&existing.ExtractionVersion,
+		&rawExplain,
+		&existing.CreatedAt,
+		&existing.UpdatedAt,
+	)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return memory.StoreUpsertResult{}, err
+	}
+
+	if err == nil {
+		_ = json.Unmarshal(rawExplain, &existing.Explain)
+		if existing.Content == record.Content && existing.Status == memory.StatusActive {
+			return memory.StoreUpsertResult{Record: existing, State: "deduped"}, nil
+		}
+
+		record.MemoryID = existing.MemoryID
+		record.CreatedAt = existing.CreatedAt
+		_, err = s.pool.Exec(ctx, `
+UPDATE memory_records
+SET content = $4,
+    source_text = $5,
+    source_type = $6,
+    status = $7,
+    confidence = $8,
+    extraction_version = $9,
+    explain = $10,
+    updated_at = $11
+WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.SourceType, record.Status, record.Confidence, record.ExtractionVersion, explain, record.UpdatedAt)
+		if err != nil {
+			return memory.StoreUpsertResult{}, err
+		}
+		return memory.StoreUpsertResult{Record: record, State: "updated"}, nil
+	}
+
+	_, err = s.pool.Exec(ctx, `
+INSERT INTO memory_records (
+    memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
+    status, confidence, extraction_version, explain, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8,
+    $9, $10, $11, $12, $13, $14
+)
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt)
+	if err != nil {
+		return memory.StoreUpsertResult{}, err
+	}
+
+	return memory.StoreUpsertResult{Record: record, State: "created"}, nil
+}
+
+func (s *Store) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
+	rows, err := s.pool.Query(ctx, `
+SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+ORDER BY updated_at DESC, memory_id ASC
+`, tenantID, subjectID, memory.StatusActive)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []memory.MemoryRecord
+	for rows.Next() {
+		var record memory.MemoryRecord
+		var rawExplain []byte
+		if err := rows.Scan(
+			&record.MemoryID,
+			&record.TenantID,
+			&record.SubjectID,
+			&record.Kind,
+			&record.Content,
+			&record.SourceText,
+			&record.SourceType,
+			&record.DedupeKey,
+			&record.Status,
+			&record.Confidence,
+			&record.ExtractionVersion,
+			&rawExplain,
+			&record.CreatedAt,
+			&record.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal(rawExplain, &record.Explain)
+		out = append(out, record)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) SuppressMemory(ctx context.Context, tenantID, subjectID, memoryID string) error {
+	commandTag, err := s.pool.Exec(ctx, `
+UPDATE memory_records
+SET status = $4, updated_at = $5
+WHERE tenant_id = $1 AND subject_id = $2 AND memory_id = $3
+`, tenantID, subjectID, memoryID, memory.StatusSuppressed, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if commandTag.RowsAffected() == 0 {
+		return errors.New("memory not found")
+	}
+	return nil
+}

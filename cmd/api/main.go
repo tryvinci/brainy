@@ -1,24 +1,36 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 
+	"brainy/internal/api"
 	"brainy/internal/config"
+	"brainy/internal/memory"
+	"brainy/internal/store/postgres"
 )
 
 func main() {
 	cfg := config.Load()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})
+	store, err := postgres.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer store.Close()
 
+	if err := store.EnsureSchema(ctx); err != nil {
+		log.Fatal(err)
+	}
+
+	service := memory.NewService(store)
 	server := &http.Server{
 		Addr:    cfg.HTTPAddr,
-		Handler: mux,
+		Handler: api.NewRouter(service),
 	}
 
 	log.Printf("brainy api listening on %s", cfg.HTTPAddr)
