@@ -2,7 +2,7 @@ package postgres
 
 import (
 	"context"
-	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -14,16 +14,10 @@ import (
 func TestStoreUpsertListAndSuppressWithEmbeddedPostgres(t *testing.T) {
 	ctx := context.Background()
 	port := uint32(54329)
-	runtimePath := "file://" + mustAbs(t, ".tmp/embedded-postgres/runtime")
-	dataPath := mustAbs(t, ".tmp/embedded-postgres/data")
-	binariesPath := mustAbs(t, ".tmp/embedded-postgres/binaries")
-
-	if err := os.MkdirAll(dataPath, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(binariesPath, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	root := t.TempDir()
+	runtimePath := "file://" + filepath.Join(root, "runtime")
+	dataPath := filepath.Join(root, "data")
+	binariesPath := filepath.Join(root, "binaries")
 
 	postgres := embeddedpostgres.NewDatabase(
 		embeddedpostgres.DefaultConfig().
@@ -99,13 +93,4 @@ func TestStoreUpsertListAndSuppressWithEmbeddedPostgres(t *testing.T) {
 	if len(memoriesAfterSuppress) != 0 {
 		t.Fatalf("expected 0 memories after suppress, got %d", len(memoriesAfterSuppress))
 	}
-}
-
-func mustAbs(t *testing.T, path string) string {
-	t.Helper()
-	abs, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return abs + "/" + path
 }

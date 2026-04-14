@@ -49,6 +49,14 @@ go run ./cmd/api
 go run ./cmd/worker
 ```
 
+### Eval harness
+
+```bash
+python3 evals/run_eval.py --base-url http://127.0.0.1:8080
+```
+
+Current parity fixtures live under `fixtures/parity/`.
+
 ### Environment
 
 Copy or populate `.env.example` as needed.

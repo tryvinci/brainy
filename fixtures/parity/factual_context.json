@@ -1,0 +1,25 @@
+{
+  "name": "factual_context",
+  "ingest": {
+    "tenant_id": "fixture-fact",
+    "subject_id": "user-fact",
+    "source_type": "conversation",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Launch date is May 12."
+      }
+    ]
+  },
+  "search": {
+    "tenant_id": "fixture-fact",
+    "subject_id": "user-fact",
+    "q": "What is the launch date"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_kind": "fact",
+    "first_content_contains": "Launch date"
+  }
+}

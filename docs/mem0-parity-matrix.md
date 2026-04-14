@@ -29,6 +29,12 @@ It records which behaviors are treated as parity targets, which are approximate 
 - duplicate-ingest scenario
 - memory correction or suppression scenario
 
+## Current Local Fixtures
+
+- `fixtures/parity/response_style_preference.json`
+- `fixtures/parity/profile_lookup.json`
+- `fixtures/parity/factual_context.json`
+
 ## Open Follow-Ups
 
 - capture concrete Mem0 example fixtures into `fixtures/parity/`

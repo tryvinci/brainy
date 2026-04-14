@@ -1,0 +1,25 @@
+{
+  "name": "profile_lookup",
+  "ingest": {
+    "tenant_id": "fixture-profile",
+    "subject_id": "user-profile",
+    "source_type": "conversation",
+    "messages": [
+      {
+        "role": "user",
+        "content": "I work at Acme."
+      }
+    ]
+  },
+  "search": {
+    "tenant_id": "fixture-profile",
+    "subject_id": "user-profile",
+    "q": "Where does the user work"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_kind": "profile",
+    "first_content_contains": "Acme"
+  }
+}
