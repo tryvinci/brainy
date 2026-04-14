@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,10 +14,11 @@ import (
 )
 
 func TestStoreUpsertListAndSuppressWithEmbeddedPostgres(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
 	ctx := context.Background()
-	port := uint32(54329)
+	port := randomPort(0)
 	root := t.TempDir()
-	runtimePath := "file://" + filepath.Join(root, "runtime")
 	dataPath := filepath.Join(root, "data")
 	binariesPath := filepath.Join(root, "binaries")
 
@@ -26,19 +29,19 @@ func TestStoreUpsertListAndSuppressWithEmbeddedPostgres(t *testing.T) {
 			Password("brainy").
 			Database("brainy").
 			Version(embeddedpostgres.V17).
-			RuntimePath(runtimePath).
+			RuntimePath(filepath.Join(root, "runtime")).
 			DataPath(dataPath).
 			BinariesPath(binariesPath),
 	)
 
 	if err := postgres.Start(); err != nil {
-		t.Skipf("embedded postgres unavailable: %v", err)
+		t.Fatalf("embedded postgres unavailable: %v", err)
 	}
 	defer func() {
 		_ = postgres.Stop()
 	}()
 
-	store, err := New(ctx, "postgres://brainy:brainy@localhost:54329/brainy?sslmode=disable")
+	store, err := New(ctx, dsn(port))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,4 +96,96 @@ func TestStoreUpsertListAndSuppressWithEmbeddedPostgres(t *testing.T) {
 	if len(memoriesAfterSuppress) != 0 {
 		t.Fatalf("expected 0 memories after suppress, got %d", len(memoriesAfterSuppress))
 	}
+}
+
+func TestStoreUpsertIsConcurrencySafeForDuplicateIngests(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	root := t.TempDir()
+	port := randomPort(101)
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() {
+		_ = postgres.Stop()
+	}()
+
+	store, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	if err := store.EnsureSchema(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	const attempts = 8
+	errs := make(chan error, attempts)
+	var wg sync.WaitGroup
+	for i := 0; i < attempts; i++ {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			now := time.Now().UTC()
+			_, err := store.UpsertMemory(ctx, memory.MemoryRecord{
+				MemoryID:          "mem_concurrent_" + time.Now().UTC().Format("150405.000000") + "_" + string(rune('a'+index)),
+				TenantID:          "t1",
+				SubjectID:         "u1",
+				Kind:              memory.KindPreference,
+				Content:           "Prefers concise answers",
+				SourceText:        "I prefer concise answers",
+				SourceType:        "conversation",
+				DedupeKey:         memory.DedupeKey("t1", "u1", memory.KindPreference, "Prefers concise answers"),
+				Status:            memory.StatusActive,
+				Confidence:        0.9,
+				ExtractionVersion: "deterministic-v1",
+				Explain:           map[string]any{"rule": "test"},
+				CreatedAt:         now,
+				UpdatedAt:         now,
+			})
+			errs <- err
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("unexpected concurrent upsert error: %v", err)
+		}
+	}
+
+	records, err := store.ListActiveMemories(ctx, "t1", "u1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(records) != 1 {
+		t.Fatalf("expected 1 active memory after concurrent upserts, got %d", len(records))
+	}
+}
+
+func dsn(port uint32) string {
+	return "postgres://brainy:brainy@localhost:" + fmtUint(port) + "/brainy?sslmode=disable"
+}
+
+func fmtUint(value uint32) string {
+	return strconv.FormatUint(uint64(value), 10)
+}
+
+func randomPort(offset uint32) uint32 {
+	return 45000 + uint32(time.Now().UTC().UnixNano()%5000) + offset
 }

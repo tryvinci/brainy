@@ -96,3 +96,23 @@ func TestRouterIngestAndSearch(t *testing.T) {
 		t.Fatalf("expected 1 search result, got %d", len(response.Results))
 	}
 }
+
+func TestRouterReturnsStructuredErrorPayload(t *testing.T) {
+	service := memory.NewService(newMemoryStoreAdapter())
+	handler := NewRouter(service)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/memories/search", nil)
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", recorder.Code)
+	}
+
+	var payload map[string]map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to decode error payload: %v", err)
+	}
+	if payload["error"]["code"] != "bad_request" {
+		t.Fatalf("expected bad_request error code, got %q", payload["error"]["code"])
+	}
+}

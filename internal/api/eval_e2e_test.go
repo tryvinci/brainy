@@ -4,7 +4,9 @@ import (
 	"context"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 
 	"brainy/internal/memory"
 	"brainy/internal/store/postgres"
@@ -14,6 +16,8 @@ import (
 )
 
 func TestEvalHarnessAgainstHTTPServer(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
 	store := startEmbeddedStoreForAPI(t)
 	defer store.Close()
 
@@ -34,7 +38,7 @@ func startEmbeddedStoreForAPI(t *testing.T) *postgres.Store {
 	t.Helper()
 
 	root := t.TempDir()
-	port := uint32(54529)
+	port := 52000 + uint32(time.Now().UTC().UnixNano()%5000)
 	db := embeddedpostgres.NewDatabase(
 		embeddedpostgres.DefaultConfig().
 			Port(port).
@@ -42,19 +46,19 @@ func startEmbeddedStoreForAPI(t *testing.T) *postgres.Store {
 			Password("brainy").
 			Database("brainy").
 			Version(embeddedpostgres.V17).
-			RuntimePath("file://" + filepath.Join(root, "runtime")).
+			RuntimePath(filepath.Join(root, "runtime")).
 			DataPath(filepath.Join(root, "data")).
 			BinariesPath(filepath.Join(root, "binaries")),
 	)
 
 	if err := db.Start(); err != nil {
-		t.Skipf("embedded postgres unavailable: %v", err)
+		t.Fatalf("embedded postgres unavailable: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = db.Stop()
 	})
 
-	store, err := postgres.New(context.Background(), "postgres://brainy:brainy@localhost:54529/brainy?sslmode=disable")
+	store, err := postgres.New(context.Background(), "postgres://brainy:brainy@localhost:"+strconv.FormatUint(uint64(port), 10)+"/brainy?sslmode=disable")
 	if err != nil {
 		t.Fatal(err)
 	}

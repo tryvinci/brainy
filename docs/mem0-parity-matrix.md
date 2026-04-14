@@ -22,21 +22,21 @@ It records which behaviors are treated as parity targets, which are approximate 
 | Embeddings / rerankers | intentional deviation | Deferred until deterministic baseline passes fixtures. |
 | Provider-backed extraction | intentional deviation | Deferred until after local extraction and parity fixtures are stable. |
 
-## Fixture Sources To Capture
-
-- public Mem0 examples used for memory ingestion
-- public search examples used for retrieval comparisons
-- duplicate-ingest scenario
-- memory correction or suppression scenario
-
 ## Current Local Fixtures
 
 - `fixtures/parity/response_style_preference.json`
 - `fixtures/parity/profile_lookup.json`
 - `fixtures/parity/factual_context.json`
 
+## Fixture Provenance
+
+| Fixture | Provenance | Notes |
+| --- | --- | --- |
+| `response_style_preference.json` | Derived from the pinned Mem0 README examples at commit `a670333d67be1207b5be2fc73af60c3439444f48`: the CLI memory-add example `Prefers dark mode and vim keybindings` and the basic usage `memory.search(query=message, user_id=user_id)` flow. | This is the current direct parity reference fixture. |
+| `profile_lookup.json` | Synthetic baseline fixture | Used to verify deterministic profile retrieval behavior; not claimed as a direct Mem0 example match. |
+| `factual_context.json` | Synthetic baseline fixture | Used to verify deterministic factual retrieval behavior; not claimed as a direct Mem0 example match. |
+
 ## Open Follow-Ups
 
-- capture concrete Mem0 example fixtures into `fixtures/parity/`
-- record exact upstream files or docs used for each fixture
+- capture additional public Mem0 examples into `fixtures/parity/` as the API surface widens
 - update this matrix as the API surface gets closer to or farther from the reference

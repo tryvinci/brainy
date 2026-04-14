@@ -66,14 +66,63 @@ func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (m
 		return memory.StoreUpsertResult{}, err
 	}
 
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return memory.StoreUpsertResult{}, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	insertRow := tx.QueryRow(ctx, `
+INSERT INTO memory_records (
+    memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
+    status, confidence, extraction_version, explain, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8,
+    $9, $10, $11, $12, $13, $14
+)
+ON CONFLICT (tenant_id, subject_id, dedupe_key) DO NOTHING
+RETURNING memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt)
+
+	var inserted memory.MemoryRecord
+	var insertedExplain []byte
+	err = insertRow.Scan(
+		&inserted.MemoryID,
+		&inserted.TenantID,
+		&inserted.SubjectID,
+		&inserted.Kind,
+		&inserted.Content,
+		&inserted.SourceText,
+		&inserted.SourceType,
+		&inserted.DedupeKey,
+		&inserted.Status,
+		&inserted.Confidence,
+		&inserted.ExtractionVersion,
+		&insertedExplain,
+		&inserted.CreatedAt,
+		&inserted.UpdatedAt,
+	)
+	if err == nil {
+		_ = json.Unmarshal(insertedExplain, &inserted.Explain)
+		if err := tx.Commit(ctx); err != nil {
+			return memory.StoreUpsertResult{}, err
+		}
+		return memory.StoreUpsertResult{Record: inserted, State: "created"}, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return memory.StoreUpsertResult{}, err
+	}
+
 	var existing memory.MemoryRecord
-	row := s.pool.QueryRow(ctx, `
+	var rawExplain []byte
+	row := tx.QueryRow(ctx, `
 SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND dedupe_key = $3
+FOR UPDATE
 `, record.TenantID, record.SubjectID, record.DedupeKey)
-
-	var rawExplain []byte
 	err = row.Scan(
 		&existing.MemoryID,
 		&existing.TenantID,
@@ -90,19 +139,21 @@ WHERE tenant_id = $1 AND subject_id = $2 AND dedupe_key = $3
 		&existing.CreatedAt,
 		&existing.UpdatedAt,
 	)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	if err != nil {
 		return memory.StoreUpsertResult{}, err
 	}
+	_ = json.Unmarshal(rawExplain, &existing.Explain)
 
-	if err == nil {
-		_ = json.Unmarshal(rawExplain, &existing.Explain)
-		if existing.Content == record.Content && existing.Status == memory.StatusActive {
-			return memory.StoreUpsertResult{Record: existing, State: "deduped"}, nil
+	if existing.Content == record.Content && existing.Status == memory.StatusActive {
+		if err := tx.Commit(ctx); err != nil {
+			return memory.StoreUpsertResult{}, err
 		}
+		return memory.StoreUpsertResult{Record: existing, State: "deduped"}, nil
+	}
 
-		record.MemoryID = existing.MemoryID
-		record.CreatedAt = existing.CreatedAt
-		_, err = s.pool.Exec(ctx, `
+	record.MemoryID = existing.MemoryID
+	record.CreatedAt = existing.CreatedAt
+	_, err = tx.Exec(ctx, `
 UPDATE memory_records
 SET content = $4,
     source_text = $5,
@@ -114,26 +165,14 @@ SET content = $4,
     updated_at = $11
 WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
 `, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.SourceType, record.Status, record.Confidence, record.ExtractionVersion, explain, record.UpdatedAt)
-		if err != nil {
-			return memory.StoreUpsertResult{}, err
-		}
-		return memory.StoreUpsertResult{Record: record, State: "updated"}, nil
-	}
-
-	_, err = s.pool.Exec(ctx, `
-INSERT INTO memory_records (
-    memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
-    status, confidence, extraction_version, explain, created_at, updated_at
-) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, $12, $13, $14
-)
-`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt)
 	if err != nil {
 		return memory.StoreUpsertResult{}, err
 	}
 
-	return memory.StoreUpsertResult{Record: record, State: "created"}, nil
+	if err := tx.Commit(ctx); err != nil {
+		return memory.StoreUpsertResult{}, err
+	}
+	return memory.StoreUpsertResult{Record: record, State: "updated"}, nil
 }
 
 func (s *Store) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {

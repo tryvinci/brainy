@@ -29,19 +29,19 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 
 func (r *Router) handleIngest(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 		return
 	}
 
 	var payload memory.IngestRequest
 	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid json body", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
 		return
 	}
 
 	result, err := r.service.Ingest(req.Context(), payload)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 
@@ -50,7 +50,7 @@ func (r *Router) handleIngest(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 		return
 	}
 
@@ -61,7 +61,7 @@ func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 		req.URL.Query().Get("q"),
 	)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 
@@ -70,27 +70,27 @@ func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 
 func (r *Router) handleMemoryAction(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 		return
 	}
 
 	path := strings.TrimPrefix(req.URL.Path, "/memories/")
 	if !strings.HasSuffix(path, "/suppress") {
-		http.NotFound(w, req)
+		writeError(w, http.StatusNotFound, "not_found", "route not found")
 		return
 	}
 
 	memoryID := strings.TrimSuffix(path, "/suppress")
 	memoryID = strings.TrimSuffix(memoryID, "/")
 	if memoryID == "" {
-		http.Error(w, "memory id is required", http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "bad_request", "memory id is required")
 		return
 	}
 
 	tenantID := req.URL.Query().Get("tenant_id")
 	subjectID := req.URL.Query().Get("subject_id")
 	if err := r.service.Suppress(req.Context(), tenantID, subjectID, memoryID); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
 
@@ -104,4 +104,13 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func writeError(w http.ResponseWriter, status int, code, message string) {
+	writeJSON(w, status, map[string]any{
+		"error": map[string]string{
+			"code":    code,
+			"message": message,
+		},
+	})
 }
