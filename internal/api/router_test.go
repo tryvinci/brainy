@@ -62,10 +62,19 @@ func (s *memoryStoreAdapter) SuppressMemory(_ context.Context, tenantID, subject
 func (s *memoryStoreAdapter) CorrectMemory(_ context.Context, tenantID, subjectID, memoryID, content, sourceText string) (memory.MemoryRecord, error) {
 	for key, record := range s.records {
 		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {
+			newDedupeKey := memory.DedupeKey(tenantID, subjectID, record.Kind, content)
+			for otherKey, other := range s.records {
+				if otherKey == key {
+					continue
+				}
+				if other.TenantID == tenantID && other.SubjectID == subjectID && other.DedupeKey == newDedupeKey {
+					return memory.MemoryRecord{}, memory.ErrMemoryConflict
+				}
+			}
 			delete(s.records, key)
 			record.Content = content
 			record.SourceText = sourceText
-			record.DedupeKey = memory.DedupeKey(tenantID, subjectID, record.Kind, content)
+			record.DedupeKey = newDedupeKey
 			record.Status = memory.StatusActive
 			s.records[record.DedupeKey] = record
 			return record, nil
@@ -206,6 +215,47 @@ func TestRouterCorrectsMemory(t *testing.T) {
 	}
 	if searchResponse.Results[0].Content != "Prefers detailed answers" {
 		t.Fatalf("expected corrected content, got %q", searchResponse.Results[0].Content)
+	}
+}
+
+func TestRouterReturnsConflictForDuplicateCorrection(t *testing.T) {
+	service := memory.NewService(newMemoryStoreAdapter())
+	handler := NewRouter(service)
+
+	for _, content := range []string{"I prefer concise answers.", "I prefer detailed answers."} {
+		body, err := json.Marshal(memory.IngestRequest{
+			TenantID:   "t1",
+			SubjectID:  "u1",
+			SourceType: "conversation",
+			Messages: []memory.Message{
+				{Role: "user", Content: content},
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodPost, "/ingest", bytes.NewReader(body))
+		handler.ServeHTTP(recorder, request)
+	}
+
+	searchRecorder := httptest.NewRecorder()
+	searchRequest := httptest.NewRequest(http.MethodGet, "/memories/search?tenant_id=t1&subject_id=u1&q=How+should+I+answer", nil)
+	handler.ServeHTTP(searchRecorder, searchRequest)
+	var searchResponse memory.SearchResponse
+	if err := json.Unmarshal(searchRecorder.Body.Bytes(), &searchResponse); err != nil {
+		t.Fatal(err)
+	}
+
+	correctRecorder := httptest.NewRecorder()
+	correctRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/memories/"+searchResponse.Results[0].MemoryID+"/correct?tenant_id=t1&subject_id=u1",
+		bytes.NewReader([]byte(`{"content":"Prefers detailed answers"}`)),
+	)
+	handler.ServeHTTP(correctRecorder, correctRequest)
+	if correctRecorder.Code != http.StatusConflict {
+		t.Fatalf("expected conflict status 409, got %d", correctRecorder.Code)
 	}
 }
 

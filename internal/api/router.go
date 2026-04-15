@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -148,6 +149,14 @@ func (r *Router) handleCorrect(w http.ResponseWriter, req *http.Request, path st
 	subjectID := req.URL.Query().Get("subject_id")
 	result, err := r.service.Correct(req.Context(), tenantID, subjectID, memoryID, payload)
 	if err != nil {
+		if errors.Is(err, memory.ErrMemoryConflict) {
+			writeError(w, http.StatusConflict, "conflict", err.Error())
+			return
+		}
+		if errors.Is(err, memory.ErrMemoryNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", err.Error())
+			return
+		}
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}

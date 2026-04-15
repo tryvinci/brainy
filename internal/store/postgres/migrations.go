@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const migrationLockID int64 = 884211
+
 type migration struct {
 	version int
 	name    string
@@ -60,6 +62,7 @@ CREATE TABLE IF NOT EXISTS extraction_jobs (
     status TEXT NOT NULL,
     attempts INTEGER NOT NULL DEFAULT 0,
     failure_reason TEXT,
+    lease_expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL,
     processed_at TIMESTAMPTZ
@@ -68,10 +71,30 @@ CREATE INDEX IF NOT EXISTS extraction_jobs_pending_lookup
 ON extraction_jobs (status, created_at);
 `,
 	},
+	{
+		version: 3,
+		name:    "add_job_lease_expiry",
+		sql: `
+ALTER TABLE extraction_jobs
+ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ;
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {
-	if _, err := s.pool.Exec(ctx, `
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, migrationLockID); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version INTEGER PRIMARY KEY,
     name TEXT NOT NULL,
@@ -83,7 +106,7 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 
 	for _, migration := range migrations {
 		var applied bool
-		if err := s.pool.QueryRow(ctx, `
+		if err := tx.QueryRow(ctx, `
 SELECT EXISTS(
     SELECT 1
     FROM schema_migrations
@@ -96,26 +119,16 @@ SELECT EXISTS(
 			continue
 		}
 
-		tx, err := s.pool.Begin(ctx)
-		if err != nil {
-			return err
-		}
-
 		if _, err := tx.Exec(ctx, migration.sql); err != nil {
-			_ = tx.Rollback(ctx)
 			return fmt.Errorf("apply migration %d (%s): %w", migration.version, migration.name, err)
 		}
 		if _, err := tx.Exec(ctx, `
 INSERT INTO schema_migrations (version, name, applied_at)
 VALUES ($1, $2, $3)
 `, migration.version, migration.name, time.Now().UTC()); err != nil {
-			_ = tx.Rollback(ctx)
 			return fmt.Errorf("record migration %d (%s): %w", migration.version, migration.name, err)
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return err
 		}
 	}
 
-	return nil
+	return tx.Commit(ctx)
 }

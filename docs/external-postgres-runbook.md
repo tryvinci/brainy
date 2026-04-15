@@ -77,9 +77,11 @@ curl -X POST 'http://127.0.0.1:8080/memories/<memory_id>/suppress?tenant_id=t1&s
 
 ## Expected Results
 
-- API boot applies migrations successfully
+- API and worker boot can both call the migration runner safely because migrations are serialized with a database advisory lock
 - synchronous ingest returns created/updated/deduped counts
 - async ingest returns `ingest_id` and `job_id`
 - loop-mode worker eventually processes pending jobs
+- stale in-progress jobs are reclaimable after the lease window if a worker crashes mid-processing
 - correction changes later search output
+- duplicate corrections that would collide with an existing canonical memory return a conflict instead of silently corrupting state
 - suppression removes later search results

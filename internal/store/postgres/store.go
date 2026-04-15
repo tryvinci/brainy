@@ -13,7 +13,8 @@ import (
 )
 
 type Store struct {
-	pool *pgxpool.Pool
+	pool     *pgxpool.Pool
+	jobLease time.Duration
 }
 
 func New(ctx context.Context, databaseURL string) (*Store, error) {
@@ -21,11 +22,15 @@ func New(ctx context.Context, databaseURL string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Store{pool: pool}, nil
+	return &Store{pool: pool, jobLease: 30 * time.Second}, nil
 }
 
 func NewWithPool(pool *pgxpool.Pool) *Store {
-	return &Store{pool: pool}
+	return &Store{pool: pool, jobLease: 30 * time.Second}
+}
+
+func NewWithPoolAndLease(pool *pgxpool.Pool, jobLease time.Duration) *Store {
+	return &Store{pool: pool, jobLease: jobLease}
 }
 
 func (s *Store) Close() {
@@ -199,7 +204,7 @@ WHERE tenant_id = $1 AND subject_id = $2 AND memory_id = $3
 		return err
 	}
 	if commandTag.RowsAffected() == 0 {
-		return errors.New("memory not found")
+		return memory.ErrMemoryNotFound
 	}
 	return nil
 }
@@ -246,6 +251,20 @@ FOR UPDATE
 	record.DedupeKey = memory.DedupeKey(tenantID, subjectID, record.Kind, content)
 	record.Status = memory.StatusActive
 	record.UpdatedAt = time.Now().UTC()
+
+	var duplicateMemoryID string
+	err = tx.QueryRow(ctx, `
+SELECT memory_id
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND dedupe_key = $3 AND memory_id <> $4
+LIMIT 1
+`, tenantID, subjectID, record.DedupeKey, memoryID).Scan(&duplicateMemoryID)
+	if err == nil {
+		return memory.MemoryRecord{}, memory.ErrMemoryConflict
+	}
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return memory.MemoryRecord{}, err
+	}
 
 	explain, err := json.Marshal(record.Explain)
 	if err != nil {
@@ -298,9 +317,9 @@ INSERT INTO raw_ingests (
 
 	if _, err := tx.Exec(ctx, `
 INSERT INTO extraction_jobs (
-    job_id, ingest_id, status, attempts, created_at, updated_at
+    job_id, ingest_id, status, attempts, lease_expires_at, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, 0, $4, $5
+    $1, $2, $3, 0, NULL, $4, $5
 )
 `, jobID, ingestID, memory.JobStatusPending, now, now); err != nil {
 		return err
@@ -322,11 +341,11 @@ func (s *Store) ClaimNextExtractionJob(ctx context.Context) (memory.ExtractionJo
 SELECT j.job_id, j.ingest_id, j.attempts, j.created_at, i.payload
 FROM extraction_jobs j
 JOIN raw_ingests i ON i.ingest_id = j.ingest_id
-WHERE j.status = $1
+WHERE j.status = $1 OR (j.status = $2 AND j.lease_expires_at <= $3)
 ORDER BY j.created_at ASC
 FOR UPDATE OF j SKIP LOCKED
 LIMIT 1
-`, memory.JobStatusPending)
+`, memory.JobStatusPending, memory.JobStatusInProgress, time.Now().UTC())
 
 	var job memory.ExtractionJob
 	var payload []byte
@@ -343,9 +362,9 @@ LIMIT 1
 
 	if _, err := tx.Exec(ctx, `
 UPDATE extraction_jobs
-SET status = $2, attempts = attempts + 1, updated_at = $3
+SET status = $2, attempts = attempts + 1, updated_at = $3, lease_expires_at = $4
 WHERE job_id = $1
-`, job.JobID, memory.JobStatusInProgress, time.Now().UTC()); err != nil {
+`, job.JobID, memory.JobStatusInProgress, time.Now().UTC(), time.Now().UTC().Add(s.jobLease)); err != nil {
 		return memory.ExtractionJob{}, false, err
 	}
 
@@ -368,7 +387,7 @@ func (s *Store) CompleteExtractionJob(ctx context.Context, jobID, ingestID strin
 
 	if _, err := tx.Exec(ctx, `
 UPDATE extraction_jobs
-SET status = $2, updated_at = $3, processed_at = $3
+SET status = $2, updated_at = $3, processed_at = $3, lease_expires_at = NULL
 WHERE job_id = $1
 `, jobID, memory.JobStatusCompleted, now); err != nil {
 		return err
@@ -395,7 +414,7 @@ func (s *Store) FailExtractionJob(ctx context.Context, jobID, ingestID, reason s
 
 	if _, err := tx.Exec(ctx, `
 UPDATE extraction_jobs
-SET status = $2, failure_reason = $3, updated_at = $4
+SET status = $2, failure_reason = $3, updated_at = $4, lease_expires_at = NULL
 WHERE job_id = $1
 `, jobID, memory.JobStatusFailed, reason, now); err != nil {
 		return err
