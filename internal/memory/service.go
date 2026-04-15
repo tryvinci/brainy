@@ -42,8 +42,8 @@ func NewService(store Store) *Service {
 }
 
 func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, error) {
-	if req.TenantID == "" || req.SubjectID == "" || req.SourceType == "" || len(req.Messages) == 0 {
-		return IngestResult{}, errors.New("tenant_id, subject_id, source_type, and messages are required")
+	if err := validateIngestRequest(req); err != nil {
+		return IngestResult{}, err
 	}
 
 	memories := s.extractor.Extract(req)
@@ -104,8 +104,8 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 }
 
 func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncIngestResult, error) {
-	if req.TenantID == "" || req.SubjectID == "" || req.SourceType == "" || len(req.Messages) == 0 {
-		return AsyncIngestResult{}, errors.New("tenant_id, subject_id, source_type, and messages are required")
+	if err := validateIngestRequest(req); err != nil {
+		return AsyncIngestResult{}, err
 	}
 
 	result := AsyncIngestResult{
@@ -249,6 +249,13 @@ func preferenceResponseQuery(record MemoryRecord, queryTokens []string) bool {
 		}
 	}
 	return false
+}
+
+func validateIngestRequest(req IngestRequest) error {
+	if req.TenantID == "" || req.SubjectID == "" || req.SourceType == "" || len(req.Messages) == 0 {
+		return errors.New("tenant_id, subject_id, source_type, and messages are required")
+	}
+	return nil
 }
 
 func tokenize(value string) []string {

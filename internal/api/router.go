@@ -30,27 +30,14 @@ func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (r *Router) handleIngest(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
-		return
-	}
-
-	var payload memory.IngestRequest
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
-		return
-	}
-
-	result, err := r.service.Ingest(req.Context(), payload)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
-		return
-	}
-
-	writeJSON(w, http.StatusOK, result)
+	r.handleIngestRequest(w, req, false)
 }
 
 func (r *Router) handleIngestAsync(w http.ResponseWriter, req *http.Request) {
+	r.handleIngestRequest(w, req, true)
+}
+
+func (r *Router) handleIngestRequest(w http.ResponseWriter, req *http.Request, async bool) {
 	if req.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
 		return
@@ -62,12 +49,23 @@ func (r *Router) handleIngestAsync(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	result, err := r.service.IngestAsync(req.Context(), payload)
+	var (
+		result any
+		status = http.StatusOK
+		err    error
+	)
+	if async {
+		result, err = r.service.IngestAsync(req.Context(), payload)
+		status = http.StatusAccepted
+	} else {
+		result, err = r.service.Ingest(req.Context(), payload)
+	}
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
 	}
-	writeJSON(w, http.StatusAccepted, result)
+
+	writeJSON(w, status, result)
 }
 
 func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
@@ -111,8 +109,7 @@ func (r *Router) handleMemoryAction(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) handleSuppress(w http.ResponseWriter, req *http.Request, path string) {
-	memoryID := strings.TrimSuffix(path, "/suppress")
-	memoryID = strings.TrimSuffix(memoryID, "/")
+	memoryID := memoryIDFromActionPath(path, "/suppress")
 	if memoryID == "" {
 		writeError(w, http.StatusBadRequest, "bad_request", "memory id is required")
 		return
@@ -132,8 +129,7 @@ func (r *Router) handleSuppress(w http.ResponseWriter, req *http.Request, path s
 }
 
 func (r *Router) handleCorrect(w http.ResponseWriter, req *http.Request, path string) {
-	memoryID := strings.TrimSuffix(path, "/correct")
-	memoryID = strings.TrimSuffix(memoryID, "/")
+	memoryID := memoryIDFromActionPath(path, "/correct")
 	if memoryID == "" {
 		writeError(w, http.StatusBadRequest, "bad_request", "memory id is required")
 		return
@@ -162,6 +158,10 @@ func (r *Router) handleCorrect(w http.ResponseWriter, req *http.Request, path st
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+func memoryIDFromActionPath(path, suffix string) string {
+	return strings.TrimSuffix(strings.TrimSuffix(path, suffix), "/")
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

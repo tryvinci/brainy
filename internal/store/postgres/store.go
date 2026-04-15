@@ -39,6 +39,16 @@ func (s *Store) Close() {
 	}
 }
 
+func decodeExplain(data []byte) map[string]any {
+	if len(data) == 0 {
+		return nil
+	}
+
+	var explain map[string]any
+	_ = json.Unmarshal(data, &explain)
+	return explain
+}
+
 func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
 	explain, err := json.Marshal(record.Explain)
 	if err != nil {
@@ -84,7 +94,7 @@ RETURNING memory_id, tenant_id, subject_id, kind, content, source_text, source_t
 		&inserted.UpdatedAt,
 	)
 	if err == nil {
-		_ = json.Unmarshal(insertedExplain, &inserted.Explain)
+		inserted.Explain = decodeExplain(insertedExplain)
 		if err := tx.Commit(ctx); err != nil {
 			return memory.StoreUpsertResult{}, err
 		}
@@ -121,7 +131,7 @@ FOR UPDATE
 	if err != nil {
 		return memory.StoreUpsertResult{}, err
 	}
-	_ = json.Unmarshal(rawExplain, &existing.Explain)
+	existing.Explain = decodeExplain(rawExplain)
 
 	if existing.Content == record.Content && existing.Status == memory.StatusActive {
 		if err := tx.Commit(ctx); err != nil {
@@ -244,7 +254,7 @@ FOR UPDATE
 	); err != nil {
 		return memory.MemoryRecord{}, err
 	}
-	_ = json.Unmarshal(rawExplain, &record.Explain)
+	record.Explain = decodeExplain(rawExplain)
 
 	record.Content = content
 	record.SourceText = sourceText
@@ -337,6 +347,7 @@ func (s *Store) ClaimNextExtractionJob(ctx context.Context) (memory.ExtractionJo
 		_ = tx.Rollback(ctx)
 	}()
 
+	now := time.Now().UTC()
 	row := tx.QueryRow(ctx, `
 SELECT j.job_id, j.ingest_id, j.attempts, j.created_at, i.payload
 FROM extraction_jobs j
@@ -345,7 +356,7 @@ WHERE j.status = $1 OR (j.status = $2 AND j.lease_expires_at <= $3)
 ORDER BY j.created_at ASC
 FOR UPDATE OF j SKIP LOCKED
 LIMIT 1
-`, memory.JobStatusPending, memory.JobStatusInProgress, time.Now().UTC())
+`, memory.JobStatusPending, memory.JobStatusInProgress, now)
 
 	var job memory.ExtractionJob
 	var payload []byte
@@ -364,7 +375,7 @@ LIMIT 1
 UPDATE extraction_jobs
 SET status = $2, attempts = attempts + 1, updated_at = $3, lease_expires_at = $4
 WHERE job_id = $1
-`, job.JobID, memory.JobStatusInProgress, time.Now().UTC(), time.Now().UTC().Add(s.jobLease)); err != nil {
+`, job.JobID, memory.JobStatusInProgress, now, now.Add(s.jobLease)); err != nil {
 		return memory.ExtractionJob{}, false, err
 	}
 
