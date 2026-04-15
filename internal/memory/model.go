@@ -23,6 +23,11 @@ type IngestRequest struct {
 	SourceType string    `json:"source_type"`
 }
 
+type CorrectionRequest struct {
+	Content    string `json:"content"`
+	SourceText string `json:"source_text,omitempty"`
+}
+
 type MemoryRecord struct {
 	MemoryID          string
 	TenantID          string
@@ -66,6 +71,13 @@ type SearchResult struct {
 
 type SearchResponse struct {
 	Results []SearchResult `json:"results"`
+}
+
+type MutationResult struct {
+	MemoryID string `json:"memory_id"`
+	Kind     string `json:"kind"`
+	Content  string `json:"content"`
+	Status   string `json:"status"`
 }
 
 type ExtractedMemory struct {

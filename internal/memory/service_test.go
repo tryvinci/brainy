@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -50,6 +51,22 @@ func (s *memoryStoreStub) SuppressMemory(_ context.Context, tenantID, subjectID,
 	return nil
 }
 
+func (s *memoryStoreStub) CorrectMemory(_ context.Context, tenantID, subjectID, memoryID, content, sourceText string) (MemoryRecord, error) {
+	for key, record := range s.records {
+		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {
+			delete(s.records, key)
+			record.Content = content
+			record.SourceText = sourceText
+			record.DedupeKey = DedupeKey(tenantID, subjectID, record.Kind, content)
+			record.Status = StatusActive
+			record.UpdatedAt = time.Now().UTC()
+			s.records[record.DedupeKey] = record
+			return record, nil
+		}
+	}
+	return MemoryRecord{}, errors.New("memory not found")
+}
+
 func TestServiceIngestSearchAndSuppress(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)
@@ -87,5 +104,40 @@ func TestServiceIngestSearchAndSuppress(t *testing.T) {
 	}
 	if len(searchAfterSuppress.Results) != 0 {
 		t.Fatalf("expected 0 results after suppression, got %d", len(searchAfterSuppress.Results))
+	}
+}
+
+func TestServiceCorrectUpdatesLaterSearchResults(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+
+	result, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "I prefer concise answers."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ingest failed: %v", err)
+	}
+
+	_, err = service.Correct(context.Background(), "t1", "u1", result.Memories[0].MemoryID, CorrectionRequest{
+		Content: "Prefers detailed answers",
+	})
+	if err != nil {
+		t.Fatalf("correct failed: %v", err)
+	}
+
+	search, err := service.Search(context.Background(), "t1", "u1", "How should I answer?")
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(search.Results) != 1 {
+		t.Fatalf("expected 1 search result, got %d", len(search.Results))
+	}
+	if search.Results[0].Content != "Prefers detailed answers" {
+		t.Fatalf("expected corrected content, got %q", search.Results[0].Content)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -52,6 +53,21 @@ func (s *memoryStoreAdapter) SuppressMemory(_ context.Context, tenantID, subject
 		}
 	}
 	return nil
+}
+
+func (s *memoryStoreAdapter) CorrectMemory(_ context.Context, tenantID, subjectID, memoryID, content, sourceText string) (memory.MemoryRecord, error) {
+	for key, record := range s.records {
+		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {
+			delete(s.records, key)
+			record.Content = content
+			record.SourceText = sourceText
+			record.DedupeKey = memory.DedupeKey(tenantID, subjectID, record.Kind, content)
+			record.Status = memory.StatusActive
+			s.records[record.DedupeKey] = record
+			return record, nil
+		}
+	}
+	return memory.MemoryRecord{}, errors.New("memory not found")
 }
 
 func TestRouterIngestAndSearch(t *testing.T) {
@@ -110,5 +126,60 @@ func TestRouterReturnsStructuredErrorPayload(t *testing.T) {
 	}
 	if payload["error"]["code"] != "bad_request" {
 		t.Fatalf("expected bad_request error code, got %q", payload["error"]["code"])
+	}
+}
+
+func TestRouterCorrectsMemory(t *testing.T) {
+	service := memory.NewService(newMemoryStoreAdapter())
+	handler := NewRouter(service)
+
+	body, err := json.Marshal(memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages: []memory.Message{
+			{Role: "user", Content: "I prefer concise answers."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ingestRecorder := httptest.NewRecorder()
+	ingestRequest := httptest.NewRequest(http.MethodPost, "/ingest", bytes.NewReader(body))
+	handler.ServeHTTP(ingestRecorder, ingestRequest)
+	if ingestRecorder.Code != http.StatusOK {
+		t.Fatalf("expected ingest status 200, got %d", ingestRecorder.Code)
+	}
+
+	var ingestResponse memory.IngestResult
+	if err := json.Unmarshal(ingestRecorder.Body.Bytes(), &ingestResponse); err != nil {
+		t.Fatal(err)
+	}
+
+	correctRecorder := httptest.NewRecorder()
+	correctRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/memories/"+ingestResponse.Memories[0].MemoryID+"/correct?tenant_id=t1&subject_id=u1",
+		bytes.NewReader([]byte(`{"content":"Prefers detailed answers"}`)),
+	)
+	handler.ServeHTTP(correctRecorder, correctRequest)
+	if correctRecorder.Code != http.StatusOK {
+		t.Fatalf("expected correction status 200, got %d", correctRecorder.Code)
+	}
+
+	searchRecorder := httptest.NewRecorder()
+	searchRequest := httptest.NewRequest(http.MethodGet, "/memories/search?tenant_id=t1&subject_id=u1&q=How+should+I+answer", nil)
+	handler.ServeHTTP(searchRecorder, searchRequest)
+
+	var searchResponse memory.SearchResponse
+	if err := json.Unmarshal(searchRecorder.Body.Bytes(), &searchResponse); err != nil {
+		t.Fatal(err)
+	}
+	if len(searchResponse.Results) != 1 {
+		t.Fatalf("expected 1 search result, got %d", len(searchResponse.Results))
+	}
+	if searchResponse.Results[0].Content != "Prefers detailed answers" {
+		t.Fatalf("expected corrected content, got %q", searchResponse.Results[0].Content)
 	}
 }

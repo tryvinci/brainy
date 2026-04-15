@@ -13,6 +13,7 @@ type Store interface {
 	UpsertMemory(ctx context.Context, record MemoryRecord) (StoreUpsertResult, error)
 	ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]MemoryRecord, error)
 	SuppressMemory(ctx context.Context, tenantID, subjectID, memoryID string) error
+	CorrectMemory(ctx context.Context, tenantID, subjectID, memoryID, content, sourceText string) (MemoryRecord, error)
 }
 
 type StoreUpsertResult struct {
@@ -139,6 +140,32 @@ func (s *Service) Suppress(ctx context.Context, tenantID, subjectID, memoryID st
 		return errors.New("tenant_id, subject_id, and memory_id are required")
 	}
 	return s.store.SuppressMemory(ctx, tenantID, subjectID, memoryID)
+}
+
+func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID string, req CorrectionRequest) (MutationResult, error) {
+	if tenantID == "" || subjectID == "" || memoryID == "" {
+		return MutationResult{}, errors.New("tenant_id, subject_id, and memory_id are required")
+	}
+	content := NormalizeText(req.Content)
+	if content == "" {
+		return MutationResult{}, errors.New("content is required")
+	}
+	sourceText := NormalizeText(req.SourceText)
+	if sourceText == "" {
+		sourceText = content
+	}
+
+	record, err := s.store.CorrectMemory(ctx, tenantID, subjectID, memoryID, content, sourceText)
+	if err != nil {
+		return MutationResult{}, err
+	}
+
+	return MutationResult{
+		MemoryID: record.MemoryID,
+		Kind:     record.Kind,
+		Content:  record.Content,
+		Status:   record.Status,
+	}, nil
 }
 
 func scoreMemory(record MemoryRecord, queryTokens []string) (float64, map[string]any) {

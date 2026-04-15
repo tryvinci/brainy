@@ -75,11 +75,20 @@ func (r *Router) handleMemoryAction(w http.ResponseWriter, req *http.Request) {
 	}
 
 	path := strings.TrimPrefix(req.URL.Path, "/memories/")
-	if !strings.HasSuffix(path, "/suppress") {
+	switch {
+	case strings.HasSuffix(path, "/suppress"):
+		r.handleSuppress(w, req, path)
+		return
+	case strings.HasSuffix(path, "/correct"):
+		r.handleCorrect(w, req, path)
+		return
+	default:
 		writeError(w, http.StatusNotFound, "not_found", "route not found")
 		return
 	}
+}
 
+func (r *Router) handleSuppress(w http.ResponseWriter, req *http.Request, path string) {
 	memoryID := strings.TrimSuffix(path, "/suppress")
 	memoryID = strings.TrimSuffix(memoryID, "/")
 	if memoryID == "" {
@@ -98,6 +107,31 @@ func (r *Router) handleMemoryAction(w http.ResponseWriter, req *http.Request) {
 		"memory_id": memoryID,
 		"status":    memory.StatusSuppressed,
 	})
+}
+
+func (r *Router) handleCorrect(w http.ResponseWriter, req *http.Request, path string) {
+	memoryID := strings.TrimSuffix(path, "/correct")
+	memoryID = strings.TrimSuffix(memoryID, "/")
+	if memoryID == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "memory id is required")
+		return
+	}
+
+	var payload memory.CorrectionRequest
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+		return
+	}
+
+	tenantID := req.URL.Query().Get("tenant_id")
+	subjectID := req.URL.Query().Get("subject_id")
+	result, err := r.service.Correct(req.Context(), tenantID, subjectID, memoryID, payload)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
