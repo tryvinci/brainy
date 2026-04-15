@@ -24,6 +24,7 @@ It records which behaviors are treated as parity targets, which are approximate 
 
 ## Current Local Fixtures
 
+- `fixtures/parity/dark_mode_vim_preference.json`
 - `fixtures/parity/response_style_preference.json`
 - `fixtures/parity/profile_lookup.json`
 - `fixtures/parity/factual_context.json`
@@ -32,6 +33,7 @@ It records which behaviors are treated as parity targets, which are approximate 
 
 | Fixture | Provenance | Notes |
 | --- | --- | --- |
+| `dark_mode_vim_preference.json` | Directly derived from the pinned Mem0 README CLI example `mem0 add "Prefers dark mode and vim keybindings" --user-id alice` at commit `a670333d67be1207b5be2fc73af60c3439444f48`. | Direct parity reference for CLI-style preference capture and search. |
 | `response_style_preference.json` | Derived from the pinned Mem0 README examples at commit `a670333d67be1207b5be2fc73af60c3439444f48`: the CLI memory-add example `Prefers dark mode and vim keybindings` and the basic usage `memory.search(query=message, user_id=user_id)` flow. | This is the current direct parity reference fixture. |
 | `profile_lookup.json` | Synthetic baseline fixture | Used to verify deterministic profile retrieval behavior; not claimed as a direct Mem0 example match. |
 | `factual_context.json` | Synthetic baseline fixture | Used to verify deterministic factual retrieval behavior; not claimed as a direct Mem0 example match. |

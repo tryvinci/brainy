@@ -15,11 +15,12 @@ The active rebuild target is the thin-slice contract in:
 This first execution slice is intentionally narrow:
 
 - `POST /ingest`
+- `POST /ingest/async`
 - `GET /memories/search`
 - deterministic local extraction
 - Postgres persistence
 - duplicate-ingest idempotency
-- one correction or suppression path
+- correction and suppression paths
 - no external model, embedding, or reranker dependency
 
 ## Repository Layout
@@ -49,6 +50,12 @@ go run ./cmd/api
 go run ./cmd/worker
 ```
 
+For a long-running worker:
+
+```bash
+BRAINY_WORKER_MODE=loop go run ./cmd/worker
+```
+
 ### Eval harness
 
 ```bash
@@ -56,6 +63,8 @@ python3 evals/run_eval.py --base-url http://127.0.0.1:8080
 ```
 
 Current parity fixtures live under `fixtures/parity/`.
+
+For an operator-oriented local setup using an external Postgres instance, see [docs/external-postgres-runbook.md](/Users/sid/Documents/Projects/vinci/code/brainy/docs/external-postgres-runbook.md).
 
 ### Environment
 
