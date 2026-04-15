@@ -14,6 +14,10 @@ type Store interface {
 	ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]MemoryRecord, error)
 	SuppressMemory(ctx context.Context, tenantID, subjectID, memoryID string) error
 	CorrectMemory(ctx context.Context, tenantID, subjectID, memoryID, content, sourceText string) (MemoryRecord, error)
+	EnqueueIngestJob(ctx context.Context, ingestID, jobID string, req IngestRequest) error
+	ClaimNextExtractionJob(ctx context.Context) (ExtractionJob, bool, error)
+	CompleteExtractionJob(ctx context.Context, jobID, ingestID string) error
+	FailExtractionJob(ctx context.Context, jobID, ingestID, reason string) error
 }
 
 type StoreUpsertResult struct {
@@ -96,6 +100,22 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		})
 	}
 
+	return result, nil
+}
+
+func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncIngestResult, error) {
+	if req.TenantID == "" || req.SubjectID == "" || req.SourceType == "" || len(req.Messages) == 0 {
+		return AsyncIngestResult{}, errors.New("tenant_id, subject_id, source_type, and messages are required")
+	}
+
+	result := AsyncIngestResult{
+		IngestID: s.id("ing"),
+		JobID:    s.id("job"),
+		Accepted: true,
+	}
+	if err := s.store.EnqueueIngestJob(ctx, result.IngestID, result.JobID, req); err != nil {
+		return AsyncIngestResult{}, err
+	}
 	return result, nil
 }
 

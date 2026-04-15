@@ -17,6 +17,7 @@ func NewRouter(service *memory.Service) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", router.handleHealth)
 	mux.HandleFunc("/ingest", router.handleIngest)
+	mux.HandleFunc("/ingest/async", router.handleIngestAsync)
 	mux.HandleFunc("/memories/search", router.handleSearch)
 	mux.HandleFunc("/memories/", router.handleMemoryAction)
 	return mux
@@ -46,6 +47,26 @@ func (r *Router) handleIngest(w http.ResponseWriter, req *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleIngestAsync(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		return
+	}
+
+	var payload memory.IngestRequest
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+		return
+	}
+
+	result, err := r.service.IngestAsync(req.Context(), payload)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusAccepted, result)
 }
 
 func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {

@@ -9,6 +9,15 @@ const (
 
 	StatusActive     = "active"
 	StatusSuppressed = "suppressed"
+
+	RawIngestStatusPending   = "pending"
+	RawIngestStatusProcessed = "processed"
+	RawIngestStatusFailed    = "failed"
+
+	JobStatusPending    = "pending"
+	JobStatusInProgress = "in_progress"
+	JobStatusCompleted  = "completed"
+	JobStatusFailed     = "failed"
 )
 
 type Message struct {
@@ -46,12 +55,18 @@ type MemoryRecord struct {
 }
 
 type IngestResult struct {
-	IngestID  string               `json:"ingest_id"`
-	Accepted  bool                 `json:"accepted"`
-	Created   int                  `json:"created"`
-	Updated   int                  `json:"updated"`
-	Deduped   int                  `json:"deduped"`
-	Memories  []IngestResultMemory `json:"memories"`
+	IngestID string               `json:"ingest_id"`
+	Accepted bool                 `json:"accepted"`
+	Created  int                  `json:"created"`
+	Updated  int                  `json:"updated"`
+	Deduped  int                  `json:"deduped"`
+	Memories []IngestResultMemory `json:"memories"`
+}
+
+type AsyncIngestResult struct {
+	IngestID string `json:"ingest_id"`
+	JobID    string `json:"job_id"`
+	Accepted bool   `json:"accepted"`
 }
 
 type IngestResultMemory struct {
@@ -86,4 +101,12 @@ type ExtractedMemory struct {
 	SourceText string
 	Confidence float64
 	Explain    map[string]any
+}
+
+type ExtractionJob struct {
+	JobID     string
+	IngestID  string
+	Request   IngestRequest
+	Attempts  int
+	CreatedAt time.Time
 }

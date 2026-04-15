@@ -14,10 +14,14 @@ import (
 
 type memoryStoreAdapter struct {
 	records map[string]memory.MemoryRecord
+	jobs    map[string]memory.ExtractionJob
 }
 
 func newMemoryStoreAdapter() *memoryStoreAdapter {
-	return &memoryStoreAdapter{records: map[string]memory.MemoryRecord{}}
+	return &memoryStoreAdapter{
+		records: map[string]memory.MemoryRecord{},
+		jobs:    map[string]memory.ExtractionJob{},
+	}
 }
 
 func (s *memoryStoreAdapter) UpsertMemory(_ context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
@@ -68,6 +72,27 @@ func (s *memoryStoreAdapter) CorrectMemory(_ context.Context, tenantID, subjectI
 		}
 	}
 	return memory.MemoryRecord{}, errors.New("memory not found")
+}
+
+func (s *memoryStoreAdapter) EnqueueIngestJob(_ context.Context, ingestID, jobID string, req memory.IngestRequest) error {
+	s.jobs[jobID] = memory.ExtractionJob{JobID: jobID, IngestID: ingestID, Request: req}
+	return nil
+}
+
+func (s *memoryStoreAdapter) ClaimNextExtractionJob(_ context.Context) (memory.ExtractionJob, bool, error) {
+	for jobID, job := range s.jobs {
+		delete(s.jobs, jobID)
+		return job, true, nil
+	}
+	return memory.ExtractionJob{}, false, nil
+}
+
+func (s *memoryStoreAdapter) CompleteExtractionJob(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (s *memoryStoreAdapter) FailExtractionJob(_ context.Context, _, _, _ string) error {
+	return nil
 }
 
 func TestRouterIngestAndSearch(t *testing.T) {
@@ -181,5 +206,37 @@ func TestRouterCorrectsMemory(t *testing.T) {
 	}
 	if searchResponse.Results[0].Content != "Prefers detailed answers" {
 		t.Fatalf("expected corrected content, got %q", searchResponse.Results[0].Content)
+	}
+}
+
+func TestRouterAsyncIngestReturnsAcceptedJob(t *testing.T) {
+	service := memory.NewService(newMemoryStoreAdapter())
+	handler := NewRouter(service)
+
+	body, err := json.Marshal(memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages: []memory.Message{
+			{Role: "user", Content: "I prefer concise answers."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/ingest/async", bytes.NewReader(body))
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("expected async ingest status 202, got %d", recorder.Code)
+	}
+
+	var response memory.AsyncIngestResult
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatal(err)
+	}
+	if !response.Accepted || response.JobID == "" || response.IngestID == "" {
+		t.Fatalf("expected accepted async ingest with ids, got %+v", response)
 	}
 }

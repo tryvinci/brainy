@@ -270,3 +270,142 @@ WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
 	}
 	return record, nil
 }
+
+func (s *Store) EnqueueIngestJob(ctx context.Context, ingestID, jobID string, req memory.IngestRequest) error {
+	payload, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now().UTC()
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if _, err := tx.Exec(ctx, `
+INSERT INTO raw_ingests (
+    ingest_id, tenant_id, subject_id, source_type, payload, status, created_at, updated_at
+) VALUES (
+    $1, $2, $3, $4, $5, $6, $7, $8
+)
+`, ingestID, req.TenantID, req.SubjectID, req.SourceType, payload, memory.RawIngestStatusPending, now, now); err != nil {
+		return err
+	}
+
+	if _, err := tx.Exec(ctx, `
+INSERT INTO extraction_jobs (
+    job_id, ingest_id, status, attempts, created_at, updated_at
+) VALUES (
+    $1, $2, $3, 0, $4, $5
+)
+`, jobID, ingestID, memory.JobStatusPending, now, now); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func (s *Store) ClaimNextExtractionJob(ctx context.Context) (memory.ExtractionJob, bool, error) {
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return memory.ExtractionJob{}, false, err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	row := tx.QueryRow(ctx, `
+SELECT j.job_id, j.ingest_id, j.attempts, j.created_at, i.payload
+FROM extraction_jobs j
+JOIN raw_ingests i ON i.ingest_id = j.ingest_id
+WHERE j.status = $1
+ORDER BY j.created_at ASC
+FOR UPDATE OF j SKIP LOCKED
+LIMIT 1
+`, memory.JobStatusPending)
+
+	var job memory.ExtractionJob
+	var payload []byte
+	if err := row.Scan(&job.JobID, &job.IngestID, &job.Attempts, &job.CreatedAt, &payload); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return memory.ExtractionJob{}, false, nil
+		}
+		return memory.ExtractionJob{}, false, err
+	}
+
+	if err := json.Unmarshal(payload, &job.Request); err != nil {
+		return memory.ExtractionJob{}, false, err
+	}
+
+	if _, err := tx.Exec(ctx, `
+UPDATE extraction_jobs
+SET status = $2, attempts = attempts + 1, updated_at = $3
+WHERE job_id = $1
+`, job.JobID, memory.JobStatusInProgress, time.Now().UTC()); err != nil {
+		return memory.ExtractionJob{}, false, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return memory.ExtractionJob{}, false, err
+	}
+	job.Attempts++
+	return job, true, nil
+}
+
+func (s *Store) CompleteExtractionJob(ctx context.Context, jobID, ingestID string) error {
+	now := time.Now().UTC()
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if _, err := tx.Exec(ctx, `
+UPDATE extraction_jobs
+SET status = $2, updated_at = $3, processed_at = $3
+WHERE job_id = $1
+`, jobID, memory.JobStatusCompleted, now); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+UPDATE raw_ingests
+SET status = $2, updated_at = $3, processed_at = $3
+WHERE ingest_id = $1
+`, ingestID, memory.RawIngestStatusProcessed, now); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+func (s *Store) FailExtractionJob(ctx context.Context, jobID, ingestID, reason string) error {
+	now := time.Now().UTC()
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	if _, err := tx.Exec(ctx, `
+UPDATE extraction_jobs
+SET status = $2, failure_reason = $3, updated_at = $4
+WHERE job_id = $1
+`, jobID, memory.JobStatusFailed, reason, now); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+UPDATE raw_ingests
+SET status = $2, updated_at = $3
+WHERE ingest_id = $1
+`, ingestID, memory.RawIngestStatusFailed, now); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}

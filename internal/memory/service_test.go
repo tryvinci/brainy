@@ -9,10 +9,14 @@ import (
 
 type memoryStoreStub struct {
 	records map[string]MemoryRecord
+	jobs    map[string]ExtractionJob
 }
 
 func newMemoryStoreStub() *memoryStoreStub {
-	return &memoryStoreStub{records: map[string]MemoryRecord{}}
+	return &memoryStoreStub{
+		records: map[string]MemoryRecord{},
+		jobs:    map[string]ExtractionJob{},
+	}
 }
 
 func (s *memoryStoreStub) UpsertMemory(_ context.Context, record MemoryRecord) (StoreUpsertResult, error) {
@@ -65,6 +69,27 @@ func (s *memoryStoreStub) CorrectMemory(_ context.Context, tenantID, subjectID, 
 		}
 	}
 	return MemoryRecord{}, errors.New("memory not found")
+}
+
+func (s *memoryStoreStub) EnqueueIngestJob(_ context.Context, ingestID, jobID string, req IngestRequest) error {
+	s.jobs[jobID] = ExtractionJob{JobID: jobID, IngestID: ingestID, Request: req}
+	return nil
+}
+
+func (s *memoryStoreStub) ClaimNextExtractionJob(_ context.Context) (ExtractionJob, bool, error) {
+	for jobID, job := range s.jobs {
+		delete(s.jobs, jobID)
+		return job, true, nil
+	}
+	return ExtractionJob{}, false, nil
+}
+
+func (s *memoryStoreStub) CompleteExtractionJob(_ context.Context, _, _ string) error {
+	return nil
+}
+
+func (s *memoryStoreStub) FailExtractionJob(_ context.Context, _, _, _ string) error {
+	return nil
 }
 
 func TestServiceIngestSearchAndSuppress(t *testing.T) {
@@ -139,5 +164,28 @@ func TestServiceCorrectUpdatesLaterSearchResults(t *testing.T) {
 	}
 	if search.Results[0].Content != "Prefers detailed answers" {
 		t.Fatalf("expected corrected content, got %q", search.Results[0].Content)
+	}
+}
+
+func TestServiceIngestAsyncEnqueuesJob(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+
+	result, err := service.IngestAsync(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "I prefer concise answers."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("async ingest failed: %v", err)
+	}
+	if !result.Accepted || result.JobID == "" || result.IngestID == "" {
+		t.Fatalf("expected accepted async ingest with ids, got %+v", result)
+	}
+	if len(store.jobs) != 1 {
+		t.Fatalf("expected 1 enqueued job, got %d", len(store.jobs))
 	}
 }
