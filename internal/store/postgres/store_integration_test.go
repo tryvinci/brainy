@@ -47,7 +47,7 @@ func TestStoreUpsertListAndSuppressWithEmbeddedPostgres(t *testing.T) {
 	}
 	defer store.Close()
 
-	if err := store.EnsureSchema(ctx); err != nil {
+	if err := store.ApplyMigrations(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -129,7 +129,7 @@ func TestStoreUpsertIsConcurrencySafeForDuplicateIngests(t *testing.T) {
 	}
 	defer store.Close()
 
-	if err := store.EnsureSchema(ctx); err != nil {
+	if err := store.ApplyMigrations(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -188,4 +188,82 @@ func fmtUint(value uint32) string {
 
 func randomPort(offset uint32) uint32 {
 	return 45000 + uint32(time.Now().UTC().UnixNano()%5000) + offset
+}
+
+func TestApplyMigrationsSupportsFreshAndUpgradeFlows(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	root := t.TempDir()
+	port := randomPort(202)
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() {
+		_ = postgres.Stop()
+	}()
+
+	store, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	if err := store.ApplyMigrations(ctx); err != nil {
+		t.Fatalf("fresh migrations failed: %v", err)
+	}
+	if err := store.ApplyMigrations(ctx); err != nil {
+		t.Fatalf("idempotent migration rerun failed: %v", err)
+	}
+
+	if _, err := store.pool.Exec(ctx, `
+DROP TABLE IF EXISTS extraction_jobs;
+DROP TABLE IF EXISTS raw_ingests;
+DELETE FROM schema_migrations WHERE version = 2;
+`); err != nil {
+		t.Fatalf("failed to simulate v1 schema state: %v", err)
+	}
+
+	if err := store.ApplyMigrations(ctx); err != nil {
+		t.Fatalf("upgrade migrations failed: %v", err)
+	}
+
+	var rawIngestsExists bool
+	if err := store.pool.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+    FROM information_schema.tables
+    WHERE table_name = 'raw_ingests'
+)
+`).Scan(&rawIngestsExists); err != nil {
+		t.Fatal(err)
+	}
+	if !rawIngestsExists {
+		t.Fatalf("expected raw_ingests table after upgrade migration")
+	}
+
+	var appliedVersionTwo bool
+	if err := store.pool.QueryRow(ctx, `
+SELECT EXISTS (
+    SELECT 1
+    FROM schema_migrations
+    WHERE version = 2
+)
+`).Scan(&appliedVersionTwo); err != nil {
+		t.Fatal(err)
+	}
+	if !appliedVersionTwo {
+		t.Fatalf("expected migration version 2 to be recorded after upgrade")
+	}
 }

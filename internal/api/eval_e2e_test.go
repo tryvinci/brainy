@@ -62,7 +62,7 @@ func startEmbeddedStoreForAPI(t *testing.T) *postgres.Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.EnsureSchema(context.Background()); err != nil {
+	if err := store.ApplyMigrations(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	return store

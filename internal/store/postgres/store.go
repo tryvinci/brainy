@@ -34,32 +34,6 @@ func (s *Store) Close() {
 	}
 }
 
-func (s *Store) EnsureSchema(ctx context.Context) error {
-	_, err := s.pool.Exec(ctx, `
-CREATE TABLE IF NOT EXISTS memory_records (
-    memory_id TEXT PRIMARY KEY,
-    tenant_id TEXT NOT NULL,
-    subject_id TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    content TEXT NOT NULL,
-    source_text TEXT NOT NULL,
-    source_type TEXT NOT NULL,
-    dedupe_key TEXT NOT NULL,
-    status TEXT NOT NULL,
-    confidence DOUBLE PRECISION NOT NULL DEFAULT 0,
-    extraction_version TEXT NOT NULL DEFAULT 'deterministic-v1',
-    explain JSONB NOT NULL DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL
-);
-CREATE UNIQUE INDEX IF NOT EXISTS memory_records_unique_dedupe
-ON memory_records (tenant_id, subject_id, dedupe_key);
-CREATE INDEX IF NOT EXISTS memory_records_lookup
-ON memory_records (tenant_id, subject_id, status, updated_at DESC);
-`)
-	return err
-}
-
 func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
 	explain, err := json.Marshal(record.Explain)
 	if err != nil {

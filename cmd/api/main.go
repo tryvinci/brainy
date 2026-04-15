@@ -23,7 +23,7 @@ func main() {
 	}
 	defer store.Close()
 
-	if err := store.EnsureSchema(ctx); err != nil {
+	if err := store.ApplyMigrations(ctx); err != nil {
 		log.Fatal(err)
 	}
 
