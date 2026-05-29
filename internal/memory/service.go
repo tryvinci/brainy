@@ -260,13 +260,20 @@ func scoreMemory(record MemoryRecord, queryTokens []string) (float64, map[string
 	}
 
 	if len(matched) == 0 {
-		if preferenceResponseQuery(record, queryTokens) {
-			return 0.82, map[string]any{
-				"matched_terms": []string{"response_style"},
-				"ranking_basis": "deterministic_baseline",
-			}
+		if !preferenceResponseQuery(record, queryTokens) {
+			return 0, nil
 		}
-		return 0, nil
+		score := 0.82
+		explain := map[string]any{
+			"matched_terms": []string{"response_style"},
+			"ranking_basis": "deterministic_baseline",
+		}
+		if record.CorrectedAt != nil {
+			score += 0.3
+			explain["corrected"] = true
+			explain["corrected_at"] = record.CorrectedAt.Format(time.RFC3339)
+		}
+		return score, explain
 	}
 
 	score := float64(len(matched)) / float64(len(queryTokens))

@@ -118,6 +118,79 @@ func startEmbeddedStoreForAPI(t *testing.T) *postgres.Store {
 	return store
 }
 
+func TestCorrectionStickiness(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	store := startEmbeddedStoreForAPI(t)
+	defer store.Close()
+
+	service := memory.NewService(store)
+	ctx := context.Background()
+
+	_, err := service.Ingest(ctx, memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "I prefer Python."}},
+	})
+	if err != nil {
+		t.Fatalf("ingest failed: %v", err)
+	}
+
+	searchBefore, err := service.Search(ctx, "t1", "u1", "How should I respond?")
+	if err != nil {
+		t.Fatalf("search before correction failed: %v", err)
+	}
+	if len(searchBefore.Results) == 0 {
+		t.Fatal("expected at least one result before correction")
+	}
+	originalScore := searchBefore.Results[0].Score
+	memoryID := searchBefore.Results[0].MemoryID
+
+	_, err = service.Correct(ctx, "t1", "u1", memoryID, memory.CorrectionRequest{
+		Content:    "Prefers Ruby",
+		SourceText: "Actually I prefer Ruby.",
+	})
+	if err != nil {
+		t.Fatalf("correct failed: %v", err)
+	}
+
+	searchAfter, err := service.Search(ctx, "t1", "u1", "How should I respond?")
+	if err != nil {
+		t.Fatalf("search after correction failed: %v", err)
+	}
+	if len(searchAfter.Results) == 0 {
+		t.Fatal("expected at least one result after correction")
+	}
+	if searchAfter.Results[0].Content != "Prefers Ruby" {
+		t.Fatalf("expected corrected content 'Prefers Ruby', got %q", searchAfter.Results[0].Content)
+	}
+	if searchAfter.Results[0].Score <= originalScore {
+		t.Fatalf("expected corrected score > original score, got %f <= %f", searchAfter.Results[0].Score, originalScore)
+	}
+	if !searchAfter.Results[0].Explain["corrected"].(bool) {
+		t.Fatalf("expected corrected flag in explain")
+	}
+
+	_, err = service.Ingest(ctx, memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "I prefer Python."}},
+	})
+	if err != nil {
+		t.Fatalf("re-ingest failed: %v", err)
+	}
+
+	searchFinal, err := service.Search(ctx, "t1", "u1", "How should I respond?")
+	if err != nil {
+		t.Fatalf("search after re-ingest failed: %v", err)
+	}
+	if len(searchFinal.Results) == 0 || searchFinal.Results[0].Content != "Prefers Ruby" {
+		t.Fatalf("correction did not stick after re-ingesting original content")
+	}
+}
+
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	wd, err := filepath.Abs(".")
