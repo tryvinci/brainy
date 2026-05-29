@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"brainy/internal/memory"
+	"brainy/internal/observability"
 )
 
 type storeStub struct {
@@ -59,7 +60,7 @@ func (s *storeStub) FailExtractionJob(_ context.Context, _, _, _ string) error {
 
 func TestProcessorProcessesQueuedJob(t *testing.T) {
 	store := newStoreStub()
-	processor := NewProcessor(store)
+	processor := NewProcessor(store, observability.NewMetrics())
 
 	_, err := store.EnqueueIngestJob(context.Background(), "ing_1", "job_1", "", memory.IngestRequest{
 		TenantID:   "t1",

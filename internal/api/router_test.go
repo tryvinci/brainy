@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"brainy/internal/memory"
+	"brainy/internal/observability"
 )
 
 type memoryStoreAdapter struct {
@@ -106,7 +107,7 @@ func (s *memoryStoreAdapter) FailExtractionJob(_ context.Context, _, _, _ string
 
 func TestRouterIngestAndSearch(t *testing.T) {
 	service := memory.NewService(newMemoryStoreAdapter())
-	handler := NewRouter(service)
+	handler := NewRouter(service, observability.NewMetrics())
 
 	body, err := json.Marshal(memory.IngestRequest{
 		TenantID:   "t1",
@@ -145,7 +146,7 @@ func TestRouterIngestAndSearch(t *testing.T) {
 
 func TestRouterReturnsStructuredErrorPayload(t *testing.T) {
 	service := memory.NewService(newMemoryStoreAdapter())
-	handler := NewRouter(service)
+	handler := NewRouter(service, observability.NewMetrics())
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/memories/search", nil)
@@ -165,7 +166,7 @@ func TestRouterReturnsStructuredErrorPayload(t *testing.T) {
 
 func TestRouterCorrectsMemory(t *testing.T) {
 	service := memory.NewService(newMemoryStoreAdapter())
-	handler := NewRouter(service)
+	handler := NewRouter(service, observability.NewMetrics())
 
 	body, err := json.Marshal(memory.IngestRequest{
 		TenantID:   "t1",
@@ -220,7 +221,7 @@ func TestRouterCorrectsMemory(t *testing.T) {
 
 func TestRouterReturnsConflictForDuplicateCorrection(t *testing.T) {
 	service := memory.NewService(newMemoryStoreAdapter())
-	handler := NewRouter(service)
+	handler := NewRouter(service, observability.NewMetrics())
 
 	for _, content := range []string{"I prefer concise answers.", "I prefer detailed answers."} {
 		body, err := json.Marshal(memory.IngestRequest{
@@ -261,7 +262,7 @@ func TestRouterReturnsConflictForDuplicateCorrection(t *testing.T) {
 
 func TestRouterAsyncIngestReturnsAcceptedJob(t *testing.T) {
 	service := memory.NewService(newMemoryStoreAdapter())
-	handler := NewRouter(service)
+	handler := NewRouter(service, observability.NewMetrics())
 
 	body, err := json.Marshal(memory.IngestRequest{
 		TenantID:   "t1",

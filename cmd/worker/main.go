@@ -2,50 +2,57 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"brainy/internal/config"
 	"brainy/internal/jobs"
+	"brainy/internal/observability"
 	"brainy/internal/store/postgres"
 )
 
 func main() {
 	cfg := config.Load()
+	logger := observability.NewLogger()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	store, err := postgres.New(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("failed to create store", "error", err)
+		os.Exit(1)
 	}
 	defer store.Close()
 
 	if err := store.ApplyMigrations(ctx); err != nil {
-		log.Fatal(err)
+		logger.Error("failed to apply migrations", "error", err)
+		os.Exit(1)
 	}
 
-	processor := jobs.NewProcessor(store)
+	metrics := observability.NewMetrics()
+	processor := jobs.NewProcessor(store, metrics)
 	switch cfg.WorkerMode {
 	case "loop":
-		runLoop(processor, cfg.WorkerPollInterval)
+		runLoop(processor, cfg.WorkerPollInterval, logger)
 	default:
 		processed, err := processor.ProcessNext(context.Background())
 		if err != nil {
-			log.Fatal(err)
+			logger.Error("processing failed", "error", err)
+			os.Exit(1)
 		}
 		if !processed {
-			log.Printf("brainy worker booted in %s mode with database target %s and found no pending jobs", cfg.Environment, cfg.DatabaseURL)
+			logger.Info("brainy worker booted", "mode", cfg.Environment, "database", cfg.DatabaseURL, "pending_jobs", 0)
 			return
 		}
-		log.Printf("brainy worker processed one pending extraction job")
+		logger.Info("brainy worker processed one pending extraction job")
 	}
 }
 
-func runLoop(processor *jobs.Processor, interval time.Duration) {
-	log.Printf("brainy worker entering loop mode with poll interval %s", interval)
+func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Logger) {
+	logger.Info("brainy worker entering loop mode", "poll_interval", interval.String())
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -55,7 +62,8 @@ func runLoop(processor *jobs.Processor, interval time.Duration) {
 	for {
 		processed, err := processor.ProcessNext(ctx)
 		if err != nil {
-			log.Fatal(err)
+			logger.Error("processing failed", "error", err)
+			os.Exit(1)
 		}
 		if processed {
 			continue
@@ -63,7 +71,7 @@ func runLoop(processor *jobs.Processor, interval time.Duration) {
 
 		select {
 		case <-ctx.Done():
-			log.Printf("brainy worker shutting down")
+			logger.Info("brainy worker shutting down")
 			return
 		case <-ticker.C:
 		}

@@ -5,18 +5,22 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"brainy/internal/memory"
+	"brainy/internal/observability"
 )
 
 type Router struct {
 	service *memory.Service
+	metrics *observability.Metrics
 }
 
-func NewRouter(service *memory.Service) http.Handler {
-	router := &Router{service: service}
+func NewRouter(service *memory.Service, metrics *observability.Metrics) http.Handler {
+	router := &Router{service: service, metrics: metrics}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", router.handleHealth)
+	mux.HandleFunc("/metrics", router.handleMetrics)
 	mux.HandleFunc("/ingest", router.handleIngest)
 	mux.HandleFunc("/ingest/async", router.handleIngestAsync)
 	mux.HandleFunc("/memories/search", router.handleSearch)
@@ -27,6 +31,11 @@ func NewRouter(service *memory.Service) http.Handler {
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
+}
+
+func (r *Router) handleMetrics(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	_, _ = w.Write([]byte(r.metrics.Prometheus()))
 }
 
 func (r *Router) handleIngest(w http.ResponseWriter, req *http.Request) {
@@ -49,6 +58,7 @@ func (r *Router) handleIngestRequest(w http.ResponseWriter, req *http.Request, a
 		return
 	}
 
+	start := time.Now()
 	var (
 		result any
 		status = http.StatusOK
@@ -60,6 +70,7 @@ func (r *Router) handleIngestRequest(w http.ResponseWriter, req *http.Request, a
 	} else {
 		result, err = r.service.Ingest(req.Context(), payload)
 	}
+	r.metrics.RecordIngest(time.Since(start), err != nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return
@@ -74,12 +85,14 @@ func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	start := time.Now()
 	result, err := r.service.Search(
 		req.Context(),
 		req.URL.Query().Get("tenant_id"),
 		req.URL.Query().Get("subject_id"),
 		req.URL.Query().Get("q"),
 	)
+	r.metrics.RecordSearch(time.Since(start), err != nil)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return

@@ -6,19 +6,22 @@ import (
 	"time"
 
 	"brainy/internal/memory"
+	"brainy/internal/observability"
 )
 
 type Processor struct {
 	store     memory.Store
 	extractor memory.Extractor
+	metrics   *observability.Metrics
 	now       func() time.Time
 	id        func(prefix string) string
 }
 
-func NewProcessor(store memory.Store) *Processor {
+func NewProcessor(store memory.Store, metrics *observability.Metrics) *Processor {
 	return &Processor{
 		store:     store,
 		extractor: memory.NewExtractor(),
+		metrics:   metrics,
 		now:       time.Now().UTC,
 		id: func(prefix string) string {
 			return fmt.Sprintf("%s_%d", prefix, time.Now().UTC().UnixNano())
@@ -33,6 +36,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	}
 
 	for _, extracted := range p.extractor.Extract(job.Request) {
+		p.metrics.RecordExtraction()
 		now := p.now()
 		record := memory.MemoryRecord{
 			MemoryID:          p.id("mem"),

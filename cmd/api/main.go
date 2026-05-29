@@ -2,39 +2,50 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"brainy/internal/api"
 	"brainy/internal/config"
 	"brainy/internal/memory"
+	"brainy/internal/observability"
 	"brainy/internal/store/postgres"
 )
 
 func main() {
 	cfg := config.Load()
+	var logger *slog.Logger = observability.NewLogger()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	store, err := postgres.New(ctx, cfg.DatabaseURL)
 	if err != nil {
-		log.Fatal(err)
+		logger.Error("failed to create store", "error", err)
+		os.Exit(1)
 	}
 	defer store.Close()
 
 	if err := store.ApplyMigrations(ctx); err != nil {
-		log.Fatal(err)
+		logger.Error("failed to apply migrations", "error", err)
+		os.Exit(1)
 	}
 
+	metrics := observability.NewMetrics()
 	service := memory.NewService(store)
+	router := api.NewRouter(service, metrics)
+	router = observability.TraceIDMiddleware(router)
+	router = observability.LoggingMiddleware(logger)(router)
+
 	server := &http.Server{
 		Addr:    cfg.HTTPAddr,
-		Handler: api.NewRouter(service),
+		Handler: router,
 	}
 
-	log.Printf("brainy api listening on %s", cfg.HTTPAddr)
+	logger.Info("brainy api listening", "addr", cfg.HTTPAddr)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+		logger.Error("server error", "error", err)
+		os.Exit(1)
 	}
 }

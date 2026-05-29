@@ -10,6 +10,7 @@ import (
 
 	"brainy/internal/jobs"
 	"brainy/internal/memory"
+	"brainy/internal/observability"
 	"brainy/internal/store/postgres"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
@@ -23,7 +24,7 @@ func TestEvalHarnessAgainstHTTPServer(t *testing.T) {
 	defer store.Close()
 
 	service := memory.NewService(store)
-	server := httptest.NewServer(NewRouter(service))
+	server := httptest.NewServer(NewRouter(service, observability.NewMetrics()))
 	defer server.Close()
 
 	repoRoot := repoRoot(t)
@@ -42,7 +43,7 @@ func TestAsyncIngestBecomesSearchableAfterProcessorRuns(t *testing.T) {
 	defer store.Close()
 
 	service := memory.NewService(store)
-	server := httptest.NewServer(NewRouter(service))
+	server := httptest.NewServer(NewRouter(service, observability.NewMetrics()))
 	defer server.Close()
 
 	asyncBody := `{"tenant_id":"t1","subject_id":"u1","source_type":"conversation","messages":[{"role":"user","content":"I prefer concise answers."}]}`
@@ -65,7 +66,7 @@ func TestAsyncIngestBecomesSearchableAfterProcessorRuns(t *testing.T) {
 		t.Fatalf("expected 0 results before worker processing, got %d", len(searchBefore.Results))
 	}
 
-	processor := jobs.NewProcessor(store)
+	processor := jobs.NewProcessor(store, observability.NewMetrics())
 	processed, err := processor.ProcessNext(context.Background())
 	if err != nil {
 		t.Fatalf("processor failed: %v", err)
