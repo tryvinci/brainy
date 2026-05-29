@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"brainy/internal/memory"
@@ -300,42 +301,73 @@ WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
 	return record, nil
 }
 
-func (s *Store) EnqueueIngestJob(ctx context.Context, ingestID, jobID string, req memory.IngestRequest) error {
+func (s *Store) EnqueueIngestJob(ctx context.Context, ingestID, jobID, idempotencyKey string, req memory.IngestRequest) (memory.EnqueueResult, error) {
 	payload, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return memory.EnqueueResult{}, err
 	}
 
 	now := time.Now().UTC()
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		return err
+		return memory.EnqueueResult{}, err
 	}
 	defer func() {
 		_ = tx.Rollback(ctx)
 	}()
 
+	if idempotencyKey != "" {
+		var existingIngestID, existingJobID string
+		err := tx.QueryRow(ctx, `
+SELECT ingest_id, (
+    SELECT job_id FROM extraction_jobs WHERE ingest_id = raw_ingests.ingest_id LIMIT 1
+)
+FROM raw_ingests
+WHERE idempotency_key = $1
+`, idempotencyKey).Scan(&existingIngestID, &existingJobID)
+		if err == nil {
+			_ = tx.Rollback(ctx)
+			return memory.EnqueueResult{
+				IngestID:  existingIngestID,
+				JobID:     existingJobID,
+				Accepted:  true,
+				Duplicate: true,
+			}, nil
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return memory.EnqueueResult{}, err
+		}
+	}
+
 	if _, err := tx.Exec(ctx, `
 INSERT INTO raw_ingests (
-    ingest_id, tenant_id, subject_id, source_type, payload, status, created_at, updated_at
+    ingest_id, tenant_id, subject_id, source_type, payload, status, idempotency_key, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, $4, $5, $6, $7, $8
+    $1, $2, $3, $4, $5, $6, $7, $8, $9
 )
-`, ingestID, req.TenantID, req.SubjectID, req.SourceType, payload, memory.RawIngestStatusPending, now, now); err != nil {
-		return err
+`, ingestID, req.TenantID, req.SubjectID, req.SourceType, payload, memory.RawIngestStatusPending, idempotencyKey, now, now); err != nil {
+		return memory.EnqueueResult{}, err
 	}
 
 	if _, err := tx.Exec(ctx, `
 INSERT INTO extraction_jobs (
-    job_id, ingest_id, status, attempts, lease_expires_at, created_at, updated_at
+    job_id, ingest_id, status, attempts, max_attempts, lease_expires_at, created_at, updated_at
 ) VALUES (
-    $1, $2, $3, 0, NULL, $4, $5
+    $1, $2, $3, 0, 3, NULL, $4, $5
 )
 `, jobID, ingestID, memory.JobStatusPending, now, now); err != nil {
-		return err
+		return memory.EnqueueResult{}, err
 	}
 
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return memory.EnqueueResult{}, err
+	}
+	return memory.EnqueueResult{
+		IngestID:  ingestID,
+		JobID:     jobID,
+		Accepted:  true,
+		Duplicate: false,
+	}, nil
 }
 
 func (s *Store) ClaimNextExtractionJob(ctx context.Context) (memory.ExtractionJob, bool, error) {
@@ -349,10 +381,11 @@ func (s *Store) ClaimNextExtractionJob(ctx context.Context) (memory.ExtractionJo
 
 	now := time.Now().UTC()
 	row := tx.QueryRow(ctx, `
-SELECT j.job_id, j.ingest_id, j.attempts, j.created_at, i.payload
+SELECT j.job_id, j.ingest_id, j.attempts, j.max_attempts, j.created_at, i.payload
 FROM extraction_jobs j
 JOIN raw_ingests i ON i.ingest_id = j.ingest_id
-WHERE j.status = $1 OR (j.status = $2 AND j.lease_expires_at <= $3)
+WHERE (j.status = $1 OR (j.status = $2 AND j.lease_expires_at <= $3))
+  AND j.attempts < j.max_attempts
 ORDER BY j.created_at ASC
 FOR UPDATE OF j SKIP LOCKED
 LIMIT 1
@@ -360,7 +393,7 @@ LIMIT 1
 
 	var job memory.ExtractionJob
 	var payload []byte
-	if err := row.Scan(&job.JobID, &job.IngestID, &job.Attempts, &job.CreatedAt, &payload); err != nil {
+	if err := row.Scan(&job.JobID, &job.IngestID, &job.Attempts, &job.MaxAttempts, &job.CreatedAt, &payload); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return memory.ExtractionJob{}, false, nil
 		}
@@ -371,11 +404,12 @@ LIMIT 1
 		return memory.ExtractionJob{}, false, err
 	}
 
+	backoff := s.jobLease * time.Duration(1<<min(job.Attempts, 6))
 	if _, err := tx.Exec(ctx, `
 UPDATE extraction_jobs
 SET status = $2, attempts = attempts + 1, updated_at = $3, lease_expires_at = $4
 WHERE job_id = $1
-`, job.JobID, memory.JobStatusInProgress, now, now.Add(s.jobLease)); err != nil {
+`, job.JobID, memory.JobStatusInProgress, now, now.Add(backoff)); err != nil {
 		return memory.ExtractionJob{}, false, err
 	}
 
@@ -384,6 +418,13 @@ WHERE job_id = $1
 	}
 	job.Attempts++
 	return job, true, nil
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (s *Store) CompleteExtractionJob(ctx context.Context, jobID, ingestID string) error {
@@ -423,13 +464,40 @@ func (s *Store) FailExtractionJob(ctx context.Context, jobID, ingestID, reason s
 		_ = tx.Rollback(ctx)
 	}()
 
-	if _, err := tx.Exec(ctx, `
+	var attempts, maxAttempts int
+	err = tx.QueryRow(ctx, `
+SELECT attempts, max_attempts FROM extraction_jobs WHERE job_id = $1
+`, jobID).Scan(&attempts, &maxAttempts)
+	if err != nil {
+		return err
+	}
+
+	if attempts >= maxAttempts {
+		deadLetterID := fmt.Sprintf("dl_%d", now.UnixNano())
+		if _, err := tx.Exec(ctx, `
+INSERT INTO dead_letter_jobs (
+    dead_letter_id, job_id, ingest_id, failure_reason, attempts, created_at, dead_lettered_at
+) VALUES ($1, $2, $3, $4, $5, $6, $6)
+`, deadLetterID, jobID, ingestID, reason, attempts, now); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
 UPDATE extraction_jobs
 SET status = $2, failure_reason = $3, updated_at = $4, lease_expires_at = NULL
 WHERE job_id = $1
 `, jobID, memory.JobStatusFailed, reason, now); err != nil {
-		return err
+			return err
+		}
+	} else {
+		if _, err := tx.Exec(ctx, `
+UPDATE extraction_jobs
+SET status = $2, failure_reason = $3, updated_at = $4, lease_expires_at = NULL
+WHERE job_id = $1
+`, jobID, memory.JobStatusPending, reason, now); err != nil {
+			return err
+		}
 	}
+
 	if _, err := tx.Exec(ctx, `
 UPDATE raw_ingests
 SET status = $2, updated_at = $3

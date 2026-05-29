@@ -104,9 +104,17 @@ type ExtractedMemory struct {
 }
 
 type ExtractionJob struct {
-	JobID     string
-	IngestID  string
-	Request   IngestRequest
-	Attempts  int
-	CreatedAt time.Time
+	JobID        string
+	IngestID     string
+	Request      IngestRequest
+	Attempts     int
+	MaxAttempts  int
+	CreatedAt    time.Time
+}
+
+type EnqueueResult struct {
+	IngestID  string `json:"ingest_id"`
+	JobID     string `json:"job_id"`
+	Accepted  bool   `json:"accepted"`
+	Duplicate bool   `json:"duplicate"`
 }

@@ -79,6 +79,31 @@ ALTER TABLE extraction_jobs
 ADD COLUMN IF NOT EXISTS lease_expires_at TIMESTAMPTZ;
 `,
 	},
+	{
+		version: 4,
+		name:    "harden_job_queue",
+		sql: `
+ALTER TABLE raw_ingests
+ADD COLUMN IF NOT EXISTS idempotency_key TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS raw_ingests_idempotency_key_unique
+ON raw_ingests (idempotency_key) WHERE idempotency_key IS NOT NULL;
+
+ALTER TABLE extraction_jobs
+ADD COLUMN IF NOT EXISTS max_attempts INTEGER NOT NULL DEFAULT 3;
+
+CREATE TABLE IF NOT EXISTS dead_letter_jobs (
+    dead_letter_id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL,
+    ingest_id TEXT NOT NULL,
+    failure_reason TEXT NOT NULL,
+    attempts INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL,
+    dead_lettered_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS dead_letter_jobs_lookup
+ON dead_letter_jobs (job_id, ingest_id);
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

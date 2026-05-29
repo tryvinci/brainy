@@ -40,9 +40,9 @@ func (s *storeStub) CorrectMemory(_ context.Context, _, _, _, _, _ string) (memo
 	return memory.MemoryRecord{}, nil
 }
 
-func (s *storeStub) EnqueueIngestJob(_ context.Context, ingestID, jobID string, req memory.IngestRequest) error {
+func (s *storeStub) EnqueueIngestJob(_ context.Context, ingestID, jobID, _ string, req memory.IngestRequest) (memory.EnqueueResult, error) {
 	s.jobs[jobID] = memory.ExtractionJob{JobID: jobID, IngestID: ingestID, Request: req}
-	return nil
+	return memory.EnqueueResult{IngestID: ingestID, JobID: jobID, Accepted: true}, nil
 }
 
 func (s *storeStub) ClaimNextExtractionJob(_ context.Context) (memory.ExtractionJob, bool, error) {
@@ -61,7 +61,7 @@ func TestProcessorProcessesQueuedJob(t *testing.T) {
 	store := newStoreStub()
 	processor := NewProcessor(store)
 
-	err := store.EnqueueIngestJob(context.Background(), "ing_1", "job_1", memory.IngestRequest{
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_1", "job_1", "", memory.IngestRequest{
 		TenantID:   "t1",
 		SubjectID:  "u1",
 		SourceType: "conversation",

@@ -71,9 +71,9 @@ func (s *memoryStoreStub) CorrectMemory(_ context.Context, tenantID, subjectID, 
 	return MemoryRecord{}, errors.New("memory not found")
 }
 
-func (s *memoryStoreStub) EnqueueIngestJob(_ context.Context, ingestID, jobID string, req IngestRequest) error {
+func (s *memoryStoreStub) EnqueueIngestJob(_ context.Context, ingestID, jobID, _ string, req IngestRequest) (EnqueueResult, error) {
 	s.jobs[jobID] = ExtractionJob{JobID: jobID, IngestID: ingestID, Request: req}
-	return nil
+	return EnqueueResult{IngestID: ingestID, JobID: jobID, Accepted: true}, nil
 }
 
 func (s *memoryStoreStub) ClaimNextExtractionJob(_ context.Context) (ExtractionJob, bool, error) {

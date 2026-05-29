@@ -442,7 +442,7 @@ func TestClaimNextExtractionJobReclaimsExpiredInProgressJob(t *testing.T) {
 			{Role: "user", Content: "I prefer concise answers."},
 		},
 	}
-	if err := store.EnqueueIngestJob(ctx, "ing_1", "job_1", req); err != nil {
+	if _, err := store.EnqueueIngestJob(ctx, "ing_1", "job_1", "", req); err != nil {
 		t.Fatal(err)
 	}
 

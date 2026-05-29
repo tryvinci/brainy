@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -14,7 +16,7 @@ type Store interface {
 	ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]MemoryRecord, error)
 	SuppressMemory(ctx context.Context, tenantID, subjectID, memoryID string) error
 	CorrectMemory(ctx context.Context, tenantID, subjectID, memoryID, content, sourceText string) (MemoryRecord, error)
-	EnqueueIngestJob(ctx context.Context, ingestID, jobID string, req IngestRequest) error
+	EnqueueIngestJob(ctx context.Context, ingestID, jobID, idempotencyKey string, req IngestRequest) (EnqueueResult, error)
 	ClaimNextExtractionJob(ctx context.Context) (ExtractionJob, bool, error)
 	CompleteExtractionJob(ctx context.Context, jobID, ingestID string) error
 	FailExtractionJob(ctx context.Context, jobID, ingestID, reason string) error
@@ -113,10 +115,28 @@ func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncInge
 		JobID:    s.id("job"),
 		Accepted: true,
 	}
-	if err := s.store.EnqueueIngestJob(ctx, result.IngestID, result.JobID, req); err != nil {
+	idempotencyKey := s.idempotencyKey(req)
+	enqueueResult, err := s.store.EnqueueIngestJob(ctx, result.IngestID, result.JobID, idempotencyKey, req)
+	if err != nil {
 		return AsyncIngestResult{}, err
 	}
+	if enqueueResult.Duplicate {
+		return AsyncIngestResult{
+			IngestID: enqueueResult.IngestID,
+			JobID:    enqueueResult.JobID,
+			Accepted: true,
+		}, nil
+	}
 	return result, nil
+}
+
+func (s *Service) idempotencyKey(req IngestRequest) string {
+	parts := []string{req.TenantID, req.SubjectID, req.SourceType}
+	for _, m := range req.Messages {
+		parts = append(parts, m.Role, m.Content)
+	}
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	return hex.EncodeToString(sum[:])
 }
 
 func (s *Service) Search(ctx context.Context, tenantID, subjectID, query string) (SearchResponse, error) {
