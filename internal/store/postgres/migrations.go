@@ -115,6 +115,29 @@ CREATE INDEX IF NOT EXISTS memory_records_source_text_trgm
 ON memory_records USING gin(source_text gin_trgm_ops);
 `,
 	},
+	{
+		version: 6,
+		name:    "add_correction_lineage",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS corrected_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS correction_history (
+    history_id TEXT PRIMARY KEY,
+    memory_id TEXT NOT NULL,
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    previous_content TEXT NOT NULL,
+    corrected_content TEXT NOT NULL,
+    source_text TEXT NOT NULL,
+    corrected_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS correction_history_memory_lookup
+ON correction_history (memory_id, corrected_at DESC);
+CREATE INDEX IF NOT EXISTS correction_history_subject_lookup
+ON correction_history (tenant_id, subject_id, corrected_at DESC);
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

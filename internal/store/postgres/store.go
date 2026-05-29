@@ -73,11 +73,12 @@ INSERT INTO memory_records (
     $9, $10, $11, $12, $13, $14
 )
 ON CONFLICT (tenant_id, subject_id, dedupe_key) DO NOTHING
-RETURNING memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+RETURNING memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
 `, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt)
 
 	var inserted memory.MemoryRecord
 	var insertedExplain []byte
+	var insertedCorrectedAt *time.Time
 	err = insertRow.Scan(
 		&inserted.MemoryID,
 		&inserted.TenantID,
@@ -93,9 +94,11 @@ RETURNING memory_id, tenant_id, subject_id, kind, content, source_text, source_t
 		&insertedExplain,
 		&inserted.CreatedAt,
 		&inserted.UpdatedAt,
+		&insertedCorrectedAt,
 	)
 	if err == nil {
 		inserted.Explain = decodeExplain(insertedExplain)
+		inserted.CorrectedAt = insertedCorrectedAt
 		if err := tx.Commit(ctx); err != nil {
 			return memory.StoreUpsertResult{}, err
 		}
@@ -108,11 +111,12 @@ RETURNING memory_id, tenant_id, subject_id, kind, content, source_text, source_t
 	var existing memory.MemoryRecord
 	var rawExplain []byte
 	row := tx.QueryRow(ctx, `
-SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND dedupe_key = $3
 FOR UPDATE
 `, record.TenantID, record.SubjectID, record.DedupeKey)
+	var existingCorrectedAt *time.Time
 	err = row.Scan(
 		&existing.MemoryID,
 		&existing.TenantID,
@@ -128,11 +132,13 @@ FOR UPDATE
 		&rawExplain,
 		&existing.CreatedAt,
 		&existing.UpdatedAt,
+		&existingCorrectedAt,
 	)
 	if err != nil {
 		return memory.StoreUpsertResult{}, err
 	}
 	existing.Explain = decodeExplain(rawExplain)
+	existing.CorrectedAt = existingCorrectedAt
 
 	if existing.Content == record.Content && existing.Status == memory.StatusActive {
 		if err := tx.Commit(ctx); err != nil {
@@ -167,7 +173,7 @@ WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
 
 func (s *Store) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
 	rows, err := s.pool.Query(ctx, `
-SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
 ORDER BY updated_at DESC, memory_id ASC
@@ -181,6 +187,7 @@ ORDER BY updated_at DESC, memory_id ASC
 	for rows.Next() {
 		var record memory.MemoryRecord
 		var rawExplain []byte
+		var correctedAt *time.Time
 		if err := rows.Scan(
 			&record.MemoryID,
 			&record.TenantID,
@@ -196,10 +203,12 @@ ORDER BY updated_at DESC, memory_id ASC
 			&rawExplain,
 			&record.CreatedAt,
 			&record.UpdatedAt,
+			&correctedAt,
 		); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal(rawExplain, &record.Explain)
+		record.CorrectedAt = correctedAt
 		out = append(out, record)
 	}
 	return out, rows.Err()
@@ -210,7 +219,7 @@ func (s *Store) SearchActiveMemories(ctx context.Context, tenantID, subjectID st
 		limit = 100
 	}
 	rows, err := s.pool.Query(ctx, `
-SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
   AND content ILIKE ANY($4)
@@ -226,6 +235,7 @@ LIMIT $5
 	for rows.Next() {
 		var record memory.MemoryRecord
 		var rawExplain []byte
+		var correctedAt *time.Time
 		if err := rows.Scan(
 			&record.MemoryID,
 			&record.TenantID,
@@ -241,10 +251,12 @@ LIMIT $5
 			&rawExplain,
 			&record.CreatedAt,
 			&record.UpdatedAt,
+			&correctedAt,
 		); err != nil {
 			return nil, err
 		}
 		_ = json.Unmarshal(rawExplain, &record.Explain)
+		record.CorrectedAt = correctedAt
 		out = append(out, record)
 	}
 	return out, rows.Err()
@@ -276,8 +288,9 @@ func (s *Store) CorrectMemory(ctx context.Context, tenantID, subjectID, memoryID
 
 	var record memory.MemoryRecord
 	var rawExplain []byte
+	var correctedAt *time.Time
 	row := tx.QueryRow(ctx, `
-SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND memory_id = $3
 FOR UPDATE
@@ -297,16 +310,21 @@ FOR UPDATE
 		&rawExplain,
 		&record.CreatedAt,
 		&record.UpdatedAt,
+		&correctedAt,
 	); err != nil {
 		return memory.MemoryRecord{}, err
 	}
 	record.Explain = decodeExplain(rawExplain)
+	record.CorrectedAt = correctedAt
 
+	previousContent := record.Content
+	now := time.Now().UTC()
 	record.Content = content
 	record.SourceText = sourceText
 	record.DedupeKey = memory.DedupeKey(tenantID, subjectID, record.Kind, content)
 	record.Status = memory.StatusActive
-	record.UpdatedAt = time.Now().UTC()
+	record.UpdatedAt = now
+	record.CorrectedAt = &now
 
 	var duplicateMemoryID string
 	err = tx.QueryRow(ctx, `
@@ -334,9 +352,19 @@ SET content = $4,
     dedupe_key = $6,
     status = $7,
     explain = $8,
-    updated_at = $9
+    updated_at = $9,
+    corrected_at = $10
 WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
-`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.DedupeKey, record.Status, explain, record.UpdatedAt); err != nil {
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.DedupeKey, record.Status, explain, record.UpdatedAt, record.CorrectedAt); err != nil {
+		return memory.MemoryRecord{}, err
+	}
+
+	historyID := fmt.Sprintf("hist_%d", now.UnixNano())
+	if _, err := tx.Exec(ctx, `
+INSERT INTO correction_history (
+    history_id, memory_id, tenant_id, subject_id, previous_content, corrected_content, source_text, corrected_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`, historyID, memoryID, tenantID, subjectID, previousContent, content, sourceText, now); err != nil {
 		return memory.MemoryRecord{}, err
 	}
 

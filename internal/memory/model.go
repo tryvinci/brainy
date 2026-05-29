@@ -52,6 +52,7 @@ type MemoryRecord struct {
 	Explain           map[string]any
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+	CorrectedAt       *time.Time
 }
 
 type IngestResult struct {
