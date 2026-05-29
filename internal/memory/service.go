@@ -14,6 +14,7 @@ import (
 type Store interface {
 	UpsertMemory(ctx context.Context, record MemoryRecord) (StoreUpsertResult, error)
 	ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]MemoryRecord, error)
+	SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]MemoryRecord, error)
 	SuppressMemory(ctx context.Context, tenantID, subjectID, memoryID string) error
 	CorrectMemory(ctx context.Context, tenantID, subjectID, memoryID, content, sourceText string) (MemoryRecord, error)
 	EnqueueIngestJob(ctx context.Context, ingestID, jobID, idempotencyKey string, req IngestRequest) (EnqueueResult, error)
@@ -144,12 +145,40 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, query string)
 		return SearchResponse{}, errors.New("tenant_id, subject_id, and q are required")
 	}
 
-	memories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
+	queryTokens := tokenize(query)
+
+	// Build ILIKE patterns from query tokens.
+	patterns := make([]string, 0, len(queryTokens))
+	for _, t := range queryTokens {
+		patterns = append(patterns, "%"+t+"%")
+	}
+
+	memories, err := s.store.SearchActiveMemories(ctx, tenantID, subjectID, patterns, 100)
 	if err != nil {
 		return SearchResponse{}, err
 	}
 
-	queryTokens := tokenize(query)
+	// Postgres ILIKE search may miss semantic matches (e.g., "respond" != "prefer").
+	// When query contains response-style keywords and we got few results, also load
+	// preference memories so the Go scorer can apply preferenceResponseQuery.
+	if len(memories) < 10 && hasResponseKeyword(queryTokens) {
+		allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
+		if err != nil {
+			return SearchResponse{}, err
+		}
+		preferenceIDs := make(map[string]struct{})
+		for _, m := range memories {
+			preferenceIDs[m.MemoryID] = struct{}{}
+		}
+		for _, m := range allMemories {
+			if m.Kind == KindPreference {
+				if _, ok := preferenceIDs[m.MemoryID]; !ok {
+					memories = append(memories, m)
+				}
+			}
+		}
+	}
+
 	results := make([]SearchResult, 0, len(memories))
 	for _, record := range memories {
 		score, explain := scoreMemory(record, queryTokens)
@@ -173,6 +202,16 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, query string)
 	})
 
 	return SearchResponse{Results: results}, nil
+}
+
+func hasResponseKeyword(tokens []string) bool {
+	for _, token := range tokens {
+		switch token {
+		case "respond", "response", "reply", "answer", "answers", "write":
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) Suppress(ctx context.Context, tenantID, subjectID, memoryID string) error {

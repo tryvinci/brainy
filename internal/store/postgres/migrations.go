@@ -104,6 +104,17 @@ CREATE INDEX IF NOT EXISTS dead_letter_jobs_lookup
 ON dead_letter_jobs (job_id, ingest_id);
 `,
 	},
+	{
+		version: 5,
+		name:    "add_trigram_search_index",
+		sql: `
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE INDEX IF NOT EXISTS memory_records_content_trgm
+ON memory_records USING gin(content gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS memory_records_source_text_trgm
+ON memory_records USING gin(source_text gin_trgm_ops);
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

@@ -205,6 +205,51 @@ ORDER BY updated_at DESC, memory_id ASC
 	return out, rows.Err()
 }
 
+func (s *Store) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.pool.Query(ctx, `
+SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND content ILIKE ANY($4)
+ORDER BY updated_at DESC
+LIMIT $5
+`, tenantID, subjectID, memory.StatusActive, patterns, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []memory.MemoryRecord
+	for rows.Next() {
+		var record memory.MemoryRecord
+		var rawExplain []byte
+		if err := rows.Scan(
+			&record.MemoryID,
+			&record.TenantID,
+			&record.SubjectID,
+			&record.Kind,
+			&record.Content,
+			&record.SourceText,
+			&record.SourceType,
+			&record.DedupeKey,
+			&record.Status,
+			&record.Confidence,
+			&record.ExtractionVersion,
+			&rawExplain,
+			&record.CreatedAt,
+			&record.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		_ = json.Unmarshal(rawExplain, &record.Explain)
+		out = append(out, record)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) SuppressMemory(ctx context.Context, tenantID, subjectID, memoryID string) error {
 	commandTag, err := s.pool.Exec(ctx, `
 UPDATE memory_records

@@ -35,6 +35,11 @@ func (s *storeStub) ListActiveMemories(_ context.Context, tenantID, subjectID st
 	return out, nil
 }
 
+func (s *storeStub) SearchActiveMemories(_ context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
+	_ = patterns
+	return s.ListActiveMemories(context.Background(), tenantID, subjectID)
+}
+
 func (s *storeStub) SuppressMemory(_ context.Context, _, _, _ string) error { return nil }
 
 func (s *storeStub) CorrectMemory(_ context.Context, _, _, _, _, _ string) (memory.MemoryRecord, error) {

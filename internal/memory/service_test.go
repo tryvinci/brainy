@@ -43,6 +43,11 @@ func (s *memoryStoreStub) ListActiveMemories(_ context.Context, tenantID, subjec
 	return out, nil
 }
 
+func (s *memoryStoreStub) SearchActiveMemories(_ context.Context, tenantID, subjectID string, patterns []string, limit int) ([]MemoryRecord, error) {
+	_ = patterns
+	return s.ListActiveMemories(context.Background(), tenantID, subjectID)
+}
+
 func (s *memoryStoreStub) SuppressMemory(_ context.Context, tenantID, subjectID, memoryID string) error {
 	for key, record := range s.records {
 		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {
