@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"brainy/internal/pack"
 )
 
 type Store interface {
@@ -31,17 +33,31 @@ type StoreUpsertResult struct {
 type Service struct {
 	store     Store
 	extractor Extractor
+	packs     *pack.Registry
 	now       func() time.Time
 	id        func(prefix string) string
 }
 
 func NewService(store Store) *Service {
+	reg, _ := pack.LoadRegistryFromDir("packs")
+	return NewServiceWithPacks(store, reg)
+}
+
+func NewServiceWithPacks(store Store, packs *pack.Registry) *Service {
+	if packs == nil {
+		packs = pack.NewRegistry()
+	}
 	return &Service{
 		store:     store,
 		extractor: NewExtractor(),
+		packs:     packs,
 		now:       time.Now().UTC,
 		id:        defaultID,
 	}
+}
+
+func (s *Service) applyPackFields(record *MemoryRecord, vertical, kind, content string) {
+	ApplyVerticalPack(record, vertical, kind, content, s.packs)
 }
 
 func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, error) {
@@ -80,6 +96,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		}
+		s.applyPackFields(&record, req.Vertical, extracted.Kind, extracted.Content)
 
 		upserted, err := s.store.UpsertMemory(ctx, record)
 		if err != nil {
@@ -132,7 +149,7 @@ func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncInge
 }
 
 func (s *Service) idempotencyKey(req IngestRequest) string {
-	parts := []string{req.TenantID, req.SubjectID, req.SourceType}
+	parts := []string{req.TenantID, req.SubjectID, req.SourceType, req.Vertical}
 	for _, m := range req.Messages {
 		parts = append(parts, m.Role, m.Content)
 	}
@@ -140,14 +157,13 @@ func (s *Service) idempotencyKey(req IngestRequest) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) Search(ctx context.Context, tenantID, subjectID, query string) (SearchResponse, error) {
+func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, query string) (SearchResponse, error) {
 	if tenantID == "" || subjectID == "" || query == "" {
 		return SearchResponse{}, errors.New("tenant_id, subject_id, and q are required")
 	}
 
 	queryTokens := tokenize(query)
 
-	// Build ILIKE patterns from query tokens.
 	patterns := make([]string, 0, len(queryTokens))
 	for _, t := range queryTokens {
 		patterns = append(patterns, "%"+t+"%")
@@ -158,9 +174,6 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, query string)
 		return SearchResponse{}, err
 	}
 
-	// Postgres ILIKE search may miss semantic matches (e.g., "respond" != "prefer").
-	// When query contains response-style keywords and we got few results, also load
-	// preference memories so the Go scorer can apply preferenceResponseQuery.
 	if len(memories) < 10 && hasResponseKeyword(queryTokens) {
 		allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
 		if err != nil {
@@ -179,9 +192,17 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, query string)
 		}
 	}
 
+	var packWeights map[string]int
+	if p, ok := s.packs.Get(vertical); ok {
+		packWeights = p.RankPolicy.PrimitiveWeights
+	}
+
 	results := make([]SearchResult, 0, len(memories))
 	for _, record := range memories {
-		score, explain := scoreMemory(record, queryTokens)
+		if vertical != "" && vertical != VerticalCore && record.Vertical != vertical && record.Vertical != VerticalCore {
+			continue
+		}
+		score, explain := scoreMemory(record, queryTokens, packWeights)
 		if score <= 0 {
 			continue
 		}
@@ -247,7 +268,7 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 	}, nil
 }
 
-func scoreMemory(record MemoryRecord, queryTokens []string) (float64, map[string]any) {
+func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map[string]int) (float64, map[string]any) {
 	contentTokens := tokenize(record.Content)
 	matched := make([]string, 0, len(queryTokens))
 	for _, queryToken := range queryTokens {
@@ -268,6 +289,7 @@ func scoreMemory(record MemoryRecord, queryTokens []string) (float64, map[string
 			"matched_terms": []string{"response_style"},
 			"ranking_basis": "deterministic_baseline",
 		}
+		applyPrimitiveBonus(&score, explain, record, primitiveWeights)
 		if record.CorrectedAt != nil {
 			score += 0.3
 			explain["corrected"] = true
@@ -277,19 +299,23 @@ func scoreMemory(record MemoryRecord, queryTokens []string) (float64, map[string
 	}
 
 	score := float64(len(matched)) / float64(len(queryTokens))
-	switch record.Kind {
-	case KindPreference:
-		score += 0.25
-	case KindProfile:
-		score += 0.15
-	case KindFact:
-		score += 0.05
+	if record.Primitive != PrimitivePrinciple && record.Primitive != PrimitiveIdentityPrior {
+		switch record.Kind {
+		case KindPreference:
+			score += 0.25
+		case KindProfile:
+			score += 0.15
+		case KindFact:
+			score += 0.05
+		}
 	}
 
 	explain := map[string]any{
 		"matched_terms": matched,
 		"ranking_basis": "deterministic_baseline",
 	}
+
+	applyPrimitiveBonus(&score, explain, record, primitiveWeights)
 
 	if record.CorrectedAt != nil {
 		score += 0.3
@@ -298,6 +324,20 @@ func scoreMemory(record MemoryRecord, queryTokens []string) (float64, map[string
 	}
 
 	return score, explain
+}
+
+func applyPrimitiveBonus(score *float64, explain map[string]any, record MemoryRecord, weights map[string]int) {
+	if record.Primitive == "" || len(weights) == 0 {
+		return
+	}
+	w, ok := weights[record.Primitive]
+	if !ok || w <= 0 {
+		return
+	}
+	bonus := float64(w) / 50.0
+	*score += bonus
+	explain["primitive"] = record.Primitive
+	explain["primitive_bonus"] = bonus
 }
 
 func preferenceResponseQuery(record MemoryRecord, queryTokens []string) bool {

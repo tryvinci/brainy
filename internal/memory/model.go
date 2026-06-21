@@ -10,6 +10,23 @@ const (
 	StatusActive     = "active"
 	StatusSuppressed = "suppressed"
 
+	VerticalCore = "core"
+
+	PrimitivePrinciple     = "principle"
+	PrimitiveIdentityPrior = "identity_prior"
+	PrimitiveEpisode       = "episode"
+	PrimitivePattern       = "pattern"
+	PrimitiveBelief        = "belief"
+	PrimitiveOutcome       = "outcome"
+	PrimitiveExperiment    = "experiment"
+	PrimitiveTasteSignal   = "taste_signal"
+	PrimitiveReflection    = "reflection"
+
+	LifecycleActive        = "active"
+	LifecycleDeprioritized = "deprioritized"
+	LifecycleArchived      = "archived"
+	LifecycleSuperseded    = "superseded"
+
 	RawIngestStatusPending   = "pending"
 	RawIngestStatusProcessed = "processed"
 	RawIngestStatusFailed    = "failed"
@@ -28,6 +45,7 @@ type Message struct {
 type IngestRequest struct {
 	TenantID   string    `json:"tenant_id"`
 	SubjectID  string    `json:"subject_id"`
+	Vertical   string    `json:"vertical,omitempty"`
 	Messages   []Message `json:"messages"`
 	SourceType string    `json:"source_type"`
 }
@@ -41,6 +59,12 @@ type MemoryRecord struct {
 	MemoryID          string
 	TenantID          string
 	SubjectID         string
+	Vertical          string
+	Primitive         string
+	Label             string
+	Scope             string
+	Metadata          map[string]any
+	LifecycleState    string
 	Kind              string
 	Content           string
 	SourceText        string

@@ -1,0 +1,177 @@
+# Marketing vertical pack v1
+# Labels map to cognitive primitives — not DB kind enums.
+# See docs/vertical/verticalization-model.md
+
+id: marketing
+version: "1.0.0"
+description: Brand voice, campaigns, audience, and content performance memory
+
+vocabulary:
+  brand_rule:
+    primitive: principle
+    kind: fact
+    description: Immutable brand or compliance rule
+
+  voice_profile:
+    primitive: identity_prior
+    kind: preference
+    description: Persistent brand voice and style prior
+
+  campaign:
+    primitive: episode
+    kind: fact
+    scoped: true
+    description: Time-bound campaign context
+
+  audience_segment:
+    primitive: episode
+    kind: profile
+    scoped: true
+    description: Audience or segment definition
+
+  creative_asset:
+    primitive: episode
+    kind: fact
+    description: Approved or referenced creative asset
+
+  performance_outcome:
+    primitive: outcome
+    kind: fact
+    description: Observed result from A/B test or campaign analytics
+
+  content_belief:
+    primitive: belief
+    kind: fact
+    description: Conviction-weighted content or format hypothesis
+
+  preference:
+    primitive: identity_prior
+    kind: preference
+    description: Soft style preference (non-immutable)
+
+  profile:
+    primitive: episode
+    kind: profile
+    description: Stable brand or topic positioning
+
+  fact:
+    primitive: episode
+    kind: fact
+    description: Contextual factual data (keywords, dates, etc.)
+
+metadata_schemas:
+  campaign:
+    type: object
+    required: [name, status]
+    properties:
+      name:
+        type: string
+      status:
+        type: string
+        enum: [draft, active, paused, completed, archived]
+      start_date:
+        type: string
+        format: date
+      end_date:
+        type: string
+        format: date
+      channels:
+        type: array
+        items:
+          type: string
+
+  audience_segment:
+    type: object
+    required: [name]
+    properties:
+      name:
+        type: string
+      criteria:
+        type: string
+      channel_prefs:
+        type: array
+        items:
+          type: string
+
+  creative_asset:
+    type: object
+    properties:
+      asset_type:
+        type: string
+        enum: [headline, body, image, video, email]
+      approval_status:
+        type: string
+        enum: [draft, approved, rejected]
+      campaign_id:
+        type: string
+
+  performance_outcome:
+    type: object
+    required: [metric, value]
+    properties:
+      metric:
+        type: string
+      value:
+        type: number
+      variant:
+        type: string
+      segment_id:
+        type: string
+
+  content_belief:
+    type: object
+    properties:
+      conviction:
+        type: number
+        minimum: 0
+        maximum: 1
+      evidence_refs:
+        type: array
+        items:
+          type: string
+
+lifecycle_rules:
+  - match:
+      label: campaign
+      metadata.status: archived
+    set:
+      lifecycle_state: archived
+      exclude_from_search: true
+
+  - match:
+      label: campaign
+      metadata.status: completed
+    set:
+      lifecycle_state: deprioritized
+      rank_multiplier: 0.5
+
+  - match:
+      label: campaign
+      metadata.status: active
+    set:
+      lifecycle_state: active
+      rank_multiplier: 1.5
+
+  - match:
+      label: creative_asset
+      metadata.approval_status: rejected
+    set:
+      lifecycle_state: suppressed
+      exclude_from_search: true
+
+rank_policy:
+  primitive_weights:
+    principle: 100
+    identity_prior: 80
+    belief: 60
+    outcome: 50
+    pattern: 40
+    episode: 20
+  scope_boost:
+    active_scope: 1.5
+
+governance:
+  default_tags: []
+  retention_days: null
+
+eval_fixtures: fixtures/vertical/marketing/

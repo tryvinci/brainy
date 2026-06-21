@@ -8,6 +8,6 @@ __pycache__/
 .DS_Store
 bin/
 .cache/
-api
-worker
+/api
+/worker
 *.exe

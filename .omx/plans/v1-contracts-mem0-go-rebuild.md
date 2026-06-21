@@ -186,3 +186,13 @@ This contract is satisfied only when:
 3. one correction or suppression flow updates later search results
 4. no network dependency is required for correctness
 5. explain/debug payloads are returned for search results
+
+## Post-Thin-Slice Extension (Vertical Packs)
+
+The frozen first slice uses `kind: profile|preference|fact` only. Vertical expansion adds cognitive **primitives** and **YAML packs** — not new `kind` enum values per domain.
+
+- Architecture: `docs/vertical/verticalization-model.md`
+- First pack: `packs/marketing/v1/pack.yaml`
+- v1 `kind` remains for Mem0-compat; packs map labels → `primitive` + legacy `kind`
+
+This is an intentional deviation from Mem0; see `docs/mem0-parity-matrix.md`.

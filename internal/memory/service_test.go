@@ -3,8 +3,12 @@ package memory
 import (
 	"context"
 	"errors"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
+
+	"brainy/internal/pack"
 )
 
 type memoryStoreStub struct {
@@ -116,7 +120,7 @@ func TestServiceIngestSearchAndSuppress(t *testing.T) {
 		t.Fatalf("expected 1 created memory, got %d", result.Created)
 	}
 
-	search, err := service.Search(context.Background(), "t1", "u1", "How should I respond?")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -128,7 +132,7 @@ func TestServiceIngestSearchAndSuppress(t *testing.T) {
 		t.Fatalf("suppress failed: %v", err)
 	}
 
-	searchAfterSuppress, err := service.Search(context.Background(), "t1", "u1", "How should I respond?")
+	searchAfterSuppress, err := service.Search(context.Background(), "t1", "u1", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search after suppress failed: %v", err)
 	}
@@ -160,7 +164,7 @@ func TestServiceCorrectUpdatesLaterSearchResults(t *testing.T) {
 		t.Fatalf("correct failed: %v", err)
 	}
 
-	search, err := service.Search(context.Background(), "t1", "u1", "How should I answer?")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "How should I answer?")
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -192,5 +196,51 @@ func TestServiceIngestAsyncEnqueuesJob(t *testing.T) {
 	}
 	if len(store.jobs) != 1 {
 		t.Fatalf("expected 1 enqueued job, got %d", len(store.jobs))
+	}
+}
+
+func TestVerticalPackPrincipleRanksAbovePreference(t *testing.T) {
+	reg, err := pack.LoadRegistryFromDir(filepath.Join("..", "..", "packs"))
+	if err != nil {
+		t.Fatalf("load packs: %v", err)
+	}
+	store := newMemoryStoreStub()
+	service := NewServiceWithPacks(store, reg)
+
+	_, err = service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "brand",
+		Vertical:   "marketing",
+		SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "I prefer warm casual copy."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("preference ingest: %v", err)
+	}
+
+	_, err = service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "brand",
+		Vertical:   "marketing",
+		SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Never mention competitor X in any copy."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("principle ingest: %v", err)
+	}
+
+search, err := service.Search(context.Background(), "t1", "brand", "marketing", "copy")
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(search.Results) < 2 {
+		t.Fatalf("expected at least 2 results, got %d", len(search.Results))
+	}
+	if !strings.Contains(strings.ToLower(search.Results[0].Content), "never") {
+		t.Fatalf("expected principle first, got %q", search.Results[0].Content)
 	}
 }

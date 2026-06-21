@@ -7,20 +7,24 @@ import (
 
 	"brainy/internal/memory"
 	"brainy/internal/observability"
+	"brainy/internal/pack"
 )
 
 type Processor struct {
 	store     memory.Store
 	extractor memory.Extractor
+	packs     *pack.Registry
 	metrics   *observability.Metrics
 	now       func() time.Time
 	id        func(prefix string) string
 }
 
 func NewProcessor(store memory.Store, metrics *observability.Metrics) *Processor {
+	reg, _ := pack.LoadRegistryFromDir("packs")
 	return &Processor{
 		store:     store,
 		extractor: memory.NewExtractor(),
+		packs:     reg,
 		metrics:   metrics,
 		now:       time.Now().UTC,
 		id: func(prefix string) string {
@@ -54,6 +58,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		}
+		memory.ApplyVerticalPack(&record, job.Request.Vertical, extracted.Kind, extracted.Content, p.packs)
 		if _, err := p.store.UpsertMemory(ctx, record); err != nil {
 			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
 			return true, err

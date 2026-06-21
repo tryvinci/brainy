@@ -18,9 +18,11 @@ It records which behaviors are treated as parity targets, which are approximate 
 | Search response shape | approximate-match | Response includes deterministic `explain` payloads from the baseline ranker. |
 | Duplicate ingest behavior | exact-match target | Identical logical memories must be idempotent. |
 | Corrections / suppression | exact-match target | Updated memory state must affect later retrieval deterministically. |
-| Async workers | intentional deviation | Deferred until after the synchronous thin slice is green. |
+| Async workers | implemented | Sync + async ingest, worker loop, DLQ/retries on `dev`. |
 | Embeddings / rerankers | intentional deviation | Deferred until deterministic baseline passes fixtures. |
 | Provider-backed extraction | intentional deviation | Deferred until after local extraction and parity fixtures are stable. |
+| Vertical memory packs | intentional deviation | Mem0 has no pack model. Brainy uses cognitive primitives + YAML packs (`packs/`). First pack: marketing v1. |
+| Cognitive primitive ranking | intentional deviation | Principle > IdentityPrior > Belief precedence; not in Mem0 reference. |
 
 ## Current Local Fixtures
 
@@ -42,3 +44,4 @@ It records which behaviors are treated as parity targets, which are approximate 
 
 - capture additional public Mem0 examples into `fixtures/parity/` as the API surface widens
 - update this matrix as the API surface gets closer to or farther from the reference
+- track vertical pack evals separately under `fixtures/vertical/` (not Mem0 parity)

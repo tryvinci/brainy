@@ -59,6 +59,18 @@ func splitSentences(text string) []string {
 func classifySentence(sentence string) (ExtractedMemory, bool) {
 	lower := strings.ToLower(sentence)
 
+	if strings.HasPrefix(lower, "never ") {
+		return ExtractedMemory{
+			Kind:       KindFact,
+			Content:    titleSentence(NormalizeText(sentence)),
+			SourceText: sentence,
+			Confidence: 0.95,
+			Explain: map[string]any{
+				"rule": "constraint_never",
+			},
+		}, true
+	}
+
 	if strings.Contains(lower, "prefer ") || strings.Contains(lower, "prefers ") {
 		return ExtractedMemory{
 			Kind:       KindPreference,

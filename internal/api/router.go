@@ -90,6 +90,7 @@ func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 		req.Context(),
 		req.URL.Query().Get("tenant_id"),
 		req.URL.Query().Get("subject_id"),
+		req.URL.Query().Get("vertical"),
 		req.URL.Query().Get("q"),
 	)
 	r.metrics.RecordSearch(time.Since(start), err != nil)

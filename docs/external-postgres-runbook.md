@@ -85,3 +85,27 @@ curl -X POST 'http://127.0.0.1:8080/memories/<memory_id>/suppress?tenant_id=t1&s
 - correction changes later search output
 - duplicate corrections that would collide with an existing canonical memory return a conflict instead of silently corrupting state
 - suppression removes later search results
+
+## Verification (CI parity)
+
+From repo root with the API running (`go run ./cmd/api`):
+
+```bash
+go test ./...
+python3 evals/run_eval.py --base-url http://127.0.0.1:8080
+python3 evals/correction_stickiness_eval.py --base-url http://127.0.0.1:8080
+```
+
+All three must pass before merge. GitHub Actions runs `go test ./...` on push/PR to `dev` and `main`.
+
+## Marketing vertical smoke (optional)
+
+With `vertical=marketing` on ingest, records receive pack labels and primitive rank weights from `packs/marketing/v1/pack.yaml`:
+
+```bash
+curl -X POST http://127.0.0.1:8080/ingest \
+  -H 'Content-Type: application/json' \
+  -d '{"tenant_id":"t1","subject_id":"brand-acme","vertical":"marketing","source_type":"conversation","messages":[{"role":"user","content":"Never mention competitor X. We prefer warm, concise copy."}]}'
+
+curl 'http://127.0.0.1:8080/memories/search?tenant_id=t1&subject_id=brand-acme&vertical=marketing&q=competitor'
+```

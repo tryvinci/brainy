@@ -21,7 +21,10 @@ This first execution slice is intentionally narrow:
 - Postgres persistence
 - duplicate-ingest idempotency
 - correction and suppression paths
-- no external model, embedding, or reranker dependency
+- async worker pipeline (retries, DLQ)
+- no external model, embedding, or reranker dependency (yet)
+
+**Vertical strategy (approved):** Cognitive primitives + YAML vertical packs — not per-vertical DB kinds. See [docs/vertical/verticalization-model.md](docs/vertical/verticalization-model.md). First wedge: marketing (`packs/marketing/v1/pack.yaml`).
 
 ## Repository Layout
 
@@ -29,7 +32,9 @@ This first execution slice is intentionally narrow:
 - `cmd/api/`: Go API entrypoint
 - `cmd/worker/`: Go worker entrypoint
 - `internal/`: private Go application packages
+- `packs/`: vertical pack definitions (YAML vocabulary, schemas, rank policy)
 - `docs/`: rebuild docs, parity tracking, and cutover guidance
+- `docs/vertical/`: verticalization model and marketing discovery
 - `.omx/plans/`: approved execution artifacts
 
 ## Mem0 Reference

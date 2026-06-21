@@ -50,10 +50,81 @@ func decodeExplain(data []byte) map[string]any {
 	return explain
 }
 
+func decodeMetadata(data []byte) map[string]any {
+	if len(data) == 0 {
+		return map[string]any{}
+	}
+	var metadata map[string]any
+	if err := json.Unmarshal(data, &metadata); err != nil || metadata == nil {
+		return map[string]any{}
+	}
+	return metadata
+}
+
+const memoryRecordSelectCols = `
+memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
+status, confidence, extraction_version, explain, created_at, updated_at, corrected_at,
+vertical, primitive, label, scope, metadata, lifecycle_state`
+
+func scanMemoryRow(row pgx.Row) (memory.MemoryRecord, error) {
+	var record memory.MemoryRecord
+	var rawExplain, rawMetadata []byte
+	var correctedAt *time.Time
+	err := row.Scan(
+		&record.MemoryID,
+		&record.TenantID,
+		&record.SubjectID,
+		&record.Kind,
+		&record.Content,
+		&record.SourceText,
+		&record.SourceType,
+		&record.DedupeKey,
+		&record.Status,
+		&record.Confidence,
+		&record.ExtractionVersion,
+		&rawExplain,
+		&record.CreatedAt,
+		&record.UpdatedAt,
+		&correctedAt,
+		&record.Vertical,
+		&record.Primitive,
+		&record.Label,
+		&record.Scope,
+		&rawMetadata,
+		&record.LifecycleState,
+	)
+	if err != nil {
+		return memory.MemoryRecord{}, err
+	}
+	record.Explain = decodeExplain(rawExplain)
+	record.Metadata = decodeMetadata(rawMetadata)
+	record.CorrectedAt = correctedAt
+	if record.Vertical == "" {
+		record.Vertical = memory.VerticalCore
+	}
+	if record.LifecycleState == "" {
+		record.LifecycleState = memory.LifecycleActive
+	}
+	return record, nil
+}
+
 func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
 	explain, err := json.Marshal(record.Explain)
 	if err != nil {
 		return memory.StoreUpsertResult{}, err
+	}
+	metadata, err := json.Marshal(record.Metadata)
+	if err != nil {
+		return memory.StoreUpsertResult{}, err
+	}
+	if record.Vertical == "" {
+		record.Vertical = memory.VerticalCore
+	}
+	if record.LifecycleState == "" {
+		record.LifecycleState = memory.LifecycleActive
+	}
+	if record.Metadata == nil {
+		record.Metadata = map[string]any{}
 	}
 
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -67,38 +138,19 @@ func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (m
 	insertRow := tx.QueryRow(ctx, `
 INSERT INTO memory_records (
     memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
-    status, confidence, extraction_version, explain, created_at, updated_at
+    status, confidence, extraction_version, explain, created_at, updated_at,
+    vertical, primitive, label, scope, metadata, lifecycle_state
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
-    $9, $10, $11, $12, $13, $14
+    $9, $10, $11, $12, $13, $14,
+    $15, $16, $17, $18, $19, $20
 )
 ON CONFLICT (tenant_id, subject_id, dedupe_key) DO NOTHING
-RETURNING memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
-`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt)
+RETURNING `+memoryRecordSelectCols+`
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState)
 
-	var inserted memory.MemoryRecord
-	var insertedExplain []byte
-	var insertedCorrectedAt *time.Time
-	err = insertRow.Scan(
-		&inserted.MemoryID,
-		&inserted.TenantID,
-		&inserted.SubjectID,
-		&inserted.Kind,
-		&inserted.Content,
-		&inserted.SourceText,
-		&inserted.SourceType,
-		&inserted.DedupeKey,
-		&inserted.Status,
-		&inserted.Confidence,
-		&inserted.ExtractionVersion,
-		&insertedExplain,
-		&inserted.CreatedAt,
-		&inserted.UpdatedAt,
-		&insertedCorrectedAt,
-	)
+	inserted, err := scanMemoryRow(insertRow)
 	if err == nil {
-		inserted.Explain = decodeExplain(insertedExplain)
-		inserted.CorrectedAt = insertedCorrectedAt
 		if err := tx.Commit(ctx); err != nil {
 			return memory.StoreUpsertResult{}, err
 		}
@@ -108,37 +160,16 @@ RETURNING memory_id, tenant_id, subject_id, kind, content, source_text, source_t
 		return memory.StoreUpsertResult{}, err
 	}
 
-	var existing memory.MemoryRecord
-	var rawExplain []byte
 	row := tx.QueryRow(ctx, `
-SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
+SELECT `+memoryRecordSelectCols+`
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND dedupe_key = $3
 FOR UPDATE
 `, record.TenantID, record.SubjectID, record.DedupeKey)
-	var existingCorrectedAt *time.Time
-	err = row.Scan(
-		&existing.MemoryID,
-		&existing.TenantID,
-		&existing.SubjectID,
-		&existing.Kind,
-		&existing.Content,
-		&existing.SourceText,
-		&existing.SourceType,
-		&existing.DedupeKey,
-		&existing.Status,
-		&existing.Confidence,
-		&existing.ExtractionVersion,
-		&rawExplain,
-		&existing.CreatedAt,
-		&existing.UpdatedAt,
-		&existingCorrectedAt,
-	)
+	existing, err := scanMemoryRow(row)
 	if err != nil {
 		return memory.StoreUpsertResult{}, err
 	}
-	existing.Explain = decodeExplain(rawExplain)
-	existing.CorrectedAt = existingCorrectedAt
 
 	if existing.Content == record.Content && existing.Status == memory.StatusActive {
 		if err := tx.Commit(ctx); err != nil {
@@ -158,9 +189,15 @@ SET content = $4,
     confidence = $8,
     extraction_version = $9,
     explain = $10,
-    updated_at = $11
+    updated_at = $11,
+    vertical = $12,
+    primitive = $13,
+    label = $14,
+    scope = $15,
+    metadata = $16,
+    lifecycle_state = $17
 WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
-`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.SourceType, record.Status, record.Confidence, record.ExtractionVersion, explain, record.UpdatedAt)
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.SourceType, record.Status, record.Confidence, record.ExtractionVersion, explain, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState)
 	if err != nil {
 		return memory.StoreUpsertResult{}, err
 	}
@@ -173,11 +210,12 @@ WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
 
 func (s *Store) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
 	rows, err := s.pool.Query(ctx, `
-SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
+SELECT `+memoryRecordSelectCols+`
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND lifecycle_state NOT IN ($4, $5)
 ORDER BY updated_at DESC, memory_id ASC
-`, tenantID, subjectID, memory.StatusActive)
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded)
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +224,7 @@ ORDER BY updated_at DESC, memory_id ASC
 	var out []memory.MemoryRecord
 	for rows.Next() {
 		var record memory.MemoryRecord
-		var rawExplain []byte
+		var rawExplain, rawMetadata []byte
 		var correctedAt *time.Time
 		if err := rows.Scan(
 			&record.MemoryID,
@@ -204,11 +242,21 @@ ORDER BY updated_at DESC, memory_id ASC
 			&record.CreatedAt,
 			&record.UpdatedAt,
 			&correctedAt,
+			&record.Vertical,
+			&record.Primitive,
+			&record.Label,
+			&record.Scope,
+			&rawMetadata,
+			&record.LifecycleState,
 		); err != nil {
 			return nil, err
 		}
-		_ = json.Unmarshal(rawExplain, &record.Explain)
+		record.Explain = decodeExplain(rawExplain)
+		record.Metadata = decodeMetadata(rawMetadata)
 		record.CorrectedAt = correctedAt
+		if record.Vertical == "" {
+			record.Vertical = memory.VerticalCore
+		}
 		out = append(out, record)
 	}
 	return out, rows.Err()
@@ -219,13 +267,14 @@ func (s *Store) SearchActiveMemories(ctx context.Context, tenantID, subjectID st
 		limit = 100
 	}
 	rows, err := s.pool.Query(ctx, `
-SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
+SELECT `+memoryRecordSelectCols+`
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
-  AND content ILIKE ANY($4)
+  AND lifecycle_state NOT IN ($4, $5)
+  AND content ILIKE ANY($6)
 ORDER BY updated_at DESC
-LIMIT $5
-`, tenantID, subjectID, memory.StatusActive, patterns, limit)
+LIMIT $7
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, patterns, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +283,7 @@ LIMIT $5
 	var out []memory.MemoryRecord
 	for rows.Next() {
 		var record memory.MemoryRecord
-		var rawExplain []byte
+		var rawExplain, rawMetadata []byte
 		var correctedAt *time.Time
 		if err := rows.Scan(
 			&record.MemoryID,
@@ -252,11 +301,21 @@ LIMIT $5
 			&record.CreatedAt,
 			&record.UpdatedAt,
 			&correctedAt,
+			&record.Vertical,
+			&record.Primitive,
+			&record.Label,
+			&record.Scope,
+			&rawMetadata,
+			&record.LifecycleState,
 		); err != nil {
 			return nil, err
 		}
-		_ = json.Unmarshal(rawExplain, &record.Explain)
+		record.Explain = decodeExplain(rawExplain)
+		record.Metadata = decodeMetadata(rawMetadata)
 		record.CorrectedAt = correctedAt
+		if record.Vertical == "" {
+			record.Vertical = memory.VerticalCore
+		}
 		out = append(out, record)
 	}
 	return out, rows.Err()
@@ -287,35 +346,16 @@ func (s *Store) CorrectMemory(ctx context.Context, tenantID, subjectID, memoryID
 	}()
 
 	var record memory.MemoryRecord
-	var rawExplain []byte
-	var correctedAt *time.Time
 	row := tx.QueryRow(ctx, `
-SELECT memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key, status, confidence, extraction_version, explain, created_at, updated_at, corrected_at
+SELECT `+memoryRecordSelectCols+`
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND memory_id = $3
 FOR UPDATE
 `, tenantID, subjectID, memoryID)
-	if err := row.Scan(
-		&record.MemoryID,
-		&record.TenantID,
-		&record.SubjectID,
-		&record.Kind,
-		&record.Content,
-		&record.SourceText,
-		&record.SourceType,
-		&record.DedupeKey,
-		&record.Status,
-		&record.Confidence,
-		&record.ExtractionVersion,
-		&rawExplain,
-		&record.CreatedAt,
-		&record.UpdatedAt,
-		&correctedAt,
-	); err != nil {
+	record, err = scanMemoryRow(row)
+	if err != nil {
 		return memory.MemoryRecord{}, err
 	}
-	record.Explain = decodeExplain(rawExplain)
-	record.CorrectedAt = correctedAt
 
 	previousContent := record.Content
 	now := time.Now().UTC()

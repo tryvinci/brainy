@@ -138,6 +138,22 @@ CREATE INDEX IF NOT EXISTS correction_history_subject_lookup
 ON correction_history (tenant_id, subject_id, corrected_at DESC);
 `,
 	},
+	{
+		version: 7,
+		name:    "add_vertical_pack_fields",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS vertical TEXT NOT NULL DEFAULT 'core',
+ADD COLUMN IF NOT EXISTS primitive TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS label TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS scope TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+ADD COLUMN IF NOT EXISTS lifecycle_state TEXT NOT NULL DEFAULT 'active';
+
+CREATE INDEX IF NOT EXISTS memory_records_vertical_lookup
+ON memory_records (tenant_id, subject_id, vertical, lifecycle_state, status);
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {
