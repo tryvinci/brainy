@@ -333,7 +333,7 @@ Decisions locked since project creation. Update Linear manually if MCP sync fail
 | **ENG-56** epic | Finance discovery (equal priority) | **Research-only / Phase 2** — deprioritized until marketing MVP (ENG-93) |
 | **ENG-82** | Marketing golden eval fixtures | Fixtures validate **pack + runtime**, not marketing-specific schema — **done** (BV-01–BV-10) |
 | **ENG-90** | Vertical eval harness | Run pack evals from `eval_fixtures` path in pack YAML — **done** via `TestVerticalEvalHarnessAgainstHTTPServer` in CI |
-| **ENG-93** | Vertical MVP | **Marketing pack MVP on general runtime** |
+| **ENG-93** | Vertical MVP | **Marketing pack MVP on general runtime** — benchmark in `evals/run_marketing_mvp_benchmark.py` |
 
 ### Issues unchanged
 
@@ -374,8 +374,8 @@ Phase 4 — Evals (MVP-5) ✅
 Phase 5 — Semantic retrieval
   ENG-87: pgvector (after PD ENG-63)
 
-Phase 6 — Marketing MVP
-  ENG-93: benchmark report vs Mem0 on vertical fixtures
+Phase 6 — Marketing MVP ✅
+  ENG-93: benchmark report vs Mem0 on vertical fixtures (`docs/vertical/marketing-mvp-benchmark.md`)
 
 Phase 7 — Finance (post-MVP)
   ENG-56/76/78: finance pack + evals (not schema fork)
