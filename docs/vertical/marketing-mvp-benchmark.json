@@ -1,0 +1,271 @@
+{
+  "benchmark_id": "marketing-mvp-v1",
+  "generated_at": "2026-06-23T00:36:38Z",
+  "mem0_reference_commit": "a670333d67be1207b5be2fc73af60c3439444f48",
+  "mvp_ready": true,
+  "parity": {
+    "passed": 4,
+    "total": 4,
+    "mem0_expected": "pass",
+    "results": [
+      {
+        "fixture": "dark_mode_vim_preference",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "factual_context",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "profile_lookup",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "response_style_preference",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "repeat_deduped": 1,
+        "search_after_suppress_count": 0
+      }
+    ]
+  },
+  "vertical": {
+    "passed": 11,
+    "total": 11,
+    "mem0_expected": "fail",
+    "results": [
+      {
+        "fixture": "bv01_principle_over_preference",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv02_suppression_leak",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "search_after_suppress_count": 0
+      },
+      {
+        "fixture": "bv03_voice_preference_ingest",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv04_correction_stickiness",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv05_core_vertical_unaffected",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv06_multi_brand_isolation",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 0,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv07_dedupe_marketing",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "repeat_deduped": 1
+      },
+      {
+        "fixture": "bv08_brand_rule_extraction",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv09_response_style_marketing",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv10_dual_message_brand_voice",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "lc01_archived_campaign_hidden",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 0,
+        "passed": true,
+        "errors": []
+      }
+    ]
+  },
+  "differentiation": {
+    "passed": 5,
+    "total": 5
+  },
+  "capabilities": [
+    {
+      "id": "principle_hierarchy",
+      "name": "Principle ranks above soft preference",
+      "mem0_has": false,
+      "gap": "Generic Mem0 has no Principle primitive; recency or preference kind wins ties.",
+      "fixtures": [
+        "bv01_principle_over_preference"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "suppression_leak",
+      "name": "Suppressed taboo never resurfaces",
+      "mem0_has": "approximate",
+      "gap": "Mem0 supports delete/suppress; Brainy adds explicit leak regression on vertical queries.",
+      "fixtures": [
+        "bv02_suppression_leak"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "voice_preference_ingest",
+      "name": "Marketing vertical maps preferences to voice_profile",
+      "mem0_has": false,
+      "gap": "Mem0 stores flat preference facts without pack label or primitive.",
+      "fixtures": [
+        "bv03_voice_preference_ingest"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "correction_stickiness",
+      "name": "Editorial correction persists in retrieval",
+      "mem0_has": "approximate",
+      "gap": "Mem0 supports updates; Brainy scores corrected memories higher deterministically.",
+      "fixtures": [
+        "bv04_correction_stickiness"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "core_vertical_isolation",
+      "name": "Core ingest unaffected by marketing pack weights",
+      "mem0_has": true,
+      "gap": "N/A \u2014 parity baseline.",
+      "fixtures": [
+        "bv05_core_vertical_unaffected"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "multi_brand_isolation",
+      "name": "Subject isolation prevents cross-brand bleed",
+      "mem0_has": "approximate",
+      "gap": "Mem0 user_id isolation is analogous; Brainy validates subject_id + vertical filter.",
+      "fixtures": [
+        "bv06_multi_brand_isolation"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "dedupe_idempotency",
+      "name": "Duplicate marketing ingest dedupes",
+      "mem0_has": true,
+      "gap": "N/A \u2014 parity target.",
+      "fixtures": [
+        "bv07_dedupe_marketing"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "brand_rule_extraction",
+      "name": "Never-sentences classify as brand_rule / principle",
+      "mem0_has": false,
+      "gap": "Mem0 has no brand_rule label or Principle primitive from heuristics.",
+      "fixtures": [
+        "bv08_brand_rule_extraction"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "response_style_ranking",
+      "name": "Response-style queries rank marketing preferences",
+      "mem0_has": "approximate",
+      "gap": "Mem0 may surface preferences; Brainy adds vertical-scoped primitive bonus.",
+      "fixtures": [
+        "bv09_response_style_marketing"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "dual_message_extraction",
+      "name": "Multi-message ingest extracts voice + rule",
+      "mem0_has": false,
+      "gap": "Mem0 lacks pack-driven multi-label extraction with principle precedence.",
+      "fixtures": [
+        "bv10_dual_message_brand_voice"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "campaign_lifecycle",
+      "name": "Archived campaign excluded from search",
+      "mem0_has": false,
+      "gap": "Mem0 has no pack lifecycle_rules or campaign metadata state machine.",
+      "fixtures": [
+        "lc01_archived_campaign_hidden"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    }
+  ]
+}

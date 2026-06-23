@@ -29,6 +29,14 @@ Marketing vertical fixtures:
 python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 ```
 
+Marketing MVP benchmark (parity + vertical suites, Mem0 gap report):
+
+```bash
+python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
+```
+
+Writes `docs/vertical/marketing-mvp-benchmark.json` and `.md`. Capability matrix: `evals/marketing_mvp_matrix.json`.
+
 Correction stickiness:
 
 ```bash
