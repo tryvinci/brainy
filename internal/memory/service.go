@@ -56,8 +56,8 @@ func NewServiceWithPacks(store Store, packs *pack.Registry) *Service {
 	}
 }
 
-func (s *Service) applyPackFields(record *MemoryRecord, vertical, kind, content string) {
-	ApplyVerticalPack(record, vertical, kind, content, s.packs)
+func (s *Service) applyPackFields(record *MemoryRecord, req IngestRequest, kind, content string) {
+	ApplyVerticalPack(record, req, kind, content, s.packs)
 }
 
 func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, error) {
@@ -96,7 +96,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		}
-		s.applyPackFields(&record, req.Vertical, extracted.Kind, extracted.Content)
+		s.applyPackFields(&record, req, extracted.Kind, extracted.Content)
 
 		upserted, err := s.store.UpsertMemory(ctx, record)
 		if err != nil {
@@ -199,10 +199,25 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, que
 
 	results := make([]SearchResult, 0, len(memories))
 	for _, record := range memories {
+		if !IsLifecycleSearchVisible(record.LifecycleState) {
+			continue
+		}
 		if vertical != "" && vertical != VerticalCore && record.Vertical != vertical && record.Vertical != VerticalCore {
 			continue
 		}
+		if p, ok := s.packs.Get(record.Vertical); ok {
+			if effect := p.LifecycleEffectFor(record.Label, record.Metadata); effect != nil && effect.ExcludeFromSearch {
+				continue
+			}
+		}
 		score, explain := scoreMemory(record, queryTokens, packWeights)
+		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
+			score *= mult
+			explain["lifecycle_rank_multiplier"] = mult
+			if state := record.LifecycleState; state != "" && state != LifecycleActive {
+				explain["lifecycle_state"] = state
+			}
+		}
 		if score <= 0 {
 			continue
 		}

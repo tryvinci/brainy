@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -25,7 +26,11 @@ func newMemoryStoreStub() *memoryStoreStub {
 
 func (s *memoryStoreStub) UpsertMemory(_ context.Context, record MemoryRecord) (StoreUpsertResult, error) {
 	if existing, ok := s.records[record.DedupeKey]; ok {
-		if existing.Content == record.Content && existing.Status == StatusActive {
+		if existing.Content == record.Content && existing.Status == StatusActive &&
+			metadataEqual(existing.Metadata, record.Metadata) &&
+			existing.LifecycleState == record.LifecycleState &&
+			existing.Label == record.Label &&
+			existing.Scope == record.Scope {
 			return StoreUpsertResult{Record: existing, State: "deduped"}, nil
 		}
 		record.MemoryID = existing.MemoryID
@@ -37,10 +42,27 @@ func (s *memoryStoreStub) UpsertMemory(_ context.Context, record MemoryRecord) (
 	return StoreUpsertResult{Record: record, State: "created"}, nil
 }
 
+func metadataEqual(left, right map[string]any) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for key, leftValue := range left {
+		rightValue, ok := right[key]
+		if !ok {
+			return false
+		}
+		if fmt.Sprint(leftValue) != fmt.Sprint(rightValue) {
+			return false
+		}
+	}
+	return true
+}
+
 func (s *memoryStoreStub) ListActiveMemories(_ context.Context, tenantID, subjectID string) ([]MemoryRecord, error) {
 	var out []MemoryRecord
 	for _, record := range s.records {
-		if record.TenantID == tenantID && record.SubjectID == subjectID && record.Status == StatusActive {
+		if record.TenantID == tenantID && record.SubjectID == subjectID && record.Status == StatusActive &&
+			IsLifecycleSearchVisible(record.LifecycleState) {
 			out = append(out, record)
 		}
 	}
@@ -242,5 +264,140 @@ search, err := service.Search(context.Background(), "t1", "brand", "marketing", 
 	}
 	if !strings.Contains(strings.ToLower(search.Results[0].Content), "never") {
 		t.Fatalf("expected principle first, got %q", search.Results[0].Content)
+	}
+}
+
+func TestLifecycleArchivedCampaignExcludedFromSearch(t *testing.T) {
+	reg, err := pack.LoadRegistryFromDir(filepath.Join("..", "..", "packs"))
+	if err != nil {
+		t.Fatalf("load packs: %v", err)
+	}
+	store := newMemoryStoreStub()
+	service := NewServiceWithPacks(store, reg)
+
+	_, err = service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "brand",
+		Vertical:   "marketing",
+		Label:      "campaign",
+		Metadata:   map[string]any{"name": "Summer Sale", "status": "archived"},
+		SourceType: "campaign",
+		Messages: []Message{
+			{Role: "user", Content: "Summer Sale campaign headline is Save 20% today."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ingest archived campaign: %v", err)
+	}
+
+	search, err := service.Search(context.Background(), "t1", "brand", "marketing", "Summer Sale headline")
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(search.Results) != 0 {
+		t.Fatalf("expected archived campaign hidden, got %d results", len(search.Results))
+	}
+}
+
+func TestLifecycleActiveCampaignRanksAboveCompleted(t *testing.T) {
+	reg, err := pack.LoadRegistryFromDir(filepath.Join("..", "..", "packs"))
+	if err != nil {
+		t.Fatalf("load packs: %v", err)
+	}
+	store := newMemoryStoreStub()
+	service := NewServiceWithPacks(store, reg)
+
+	_, err = service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "brand",
+		Vertical:   "marketing",
+		Label:      "campaign",
+		Metadata:   map[string]any{"name": "Winter", "status": "completed"},
+		SourceType: "campaign",
+		Messages: []Message{
+			{Role: "user", Content: "Winter splash sale is active."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ingest completed campaign: %v", err)
+	}
+
+	_, err = service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "brand",
+		Vertical:   "marketing",
+		Label:      "campaign",
+		Metadata:   map[string]any{"name": "Summer", "status": "active"},
+		SourceType: "campaign",
+		Messages: []Message{
+			{Role: "user", Content: "Summer splash sale is active."},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ingest active campaign: %v", err)
+	}
+
+	search, err := service.Search(context.Background(), "t1", "brand", "marketing", "splash sale")
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(search.Results) < 2 {
+		t.Fatalf("expected 2 results, got %d", len(search.Results))
+	}
+	if !strings.Contains(search.Results[0].Content, "Summer") {
+		t.Fatalf("expected active Summer campaign first, got %q", search.Results[0].Content)
+	}
+	if mult, ok := search.Results[0].Explain["lifecycle_rank_multiplier"].(float64); !ok || mult != 1.5 {
+		t.Fatalf("expected active lifecycle multiplier 1.5, got %v", search.Results[0].Explain["lifecycle_rank_multiplier"])
+	}
+}
+
+func TestLifecycleMetadataUpdateChangesState(t *testing.T) {
+	reg, err := pack.LoadRegistryFromDir(filepath.Join("..", "..", "packs"))
+	if err != nil {
+		t.Fatalf("load packs: %v", err)
+	}
+	store := newMemoryStoreStub()
+	service := NewServiceWithPacks(store, reg)
+
+	req := IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "brand",
+		Vertical:   "marketing",
+		Label:      "campaign",
+		Metadata:   map[string]any{"name": "Launch", "status": "active"},
+		SourceType: "campaign",
+		Messages: []Message{
+			{Role: "user", Content: "Launch campaign offer is free shipping."},
+		},
+	}
+	_, err = service.Ingest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("ingest active campaign: %v", err)
+	}
+
+	searchBefore, err := service.Search(context.Background(), "t1", "brand", "marketing", "Launch offer")
+	if err != nil {
+		t.Fatalf("search before archive: %v", err)
+	}
+	if len(searchBefore.Results) != 1 {
+		t.Fatalf("expected active campaign searchable, got %d", len(searchBefore.Results))
+	}
+
+	req.Metadata = map[string]any{"name": "Launch", "status": "archived"}
+	result, err := service.Ingest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("re-ingest archived campaign: %v", err)
+	}
+	if result.Updated != 1 {
+		t.Fatalf("expected metadata update, got created=%d updated=%d deduped=%d", result.Created, result.Updated, result.Deduped)
+	}
+
+	searchAfter, err := service.Search(context.Background(), "t1", "brand", "marketing", "Launch offer")
+	if err != nil {
+		t.Fatalf("search after archive: %v", err)
+	}
+	if len(searchAfter.Results) != 0 {
+		t.Fatalf("expected archived campaign hidden after update, got %d", len(searchAfter.Results))
 	}
 }

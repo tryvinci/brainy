@@ -25,6 +25,7 @@ const (
 	LifecycleActive        = "active"
 	LifecycleDeprioritized = "deprioritized"
 	LifecycleArchived      = "archived"
+	LifecycleSuppressed    = "suppressed"
 	LifecycleSuperseded    = "superseded"
 
 	RawIngestStatusPending   = "pending"
@@ -43,11 +44,14 @@ type Message struct {
 }
 
 type IngestRequest struct {
-	TenantID   string    `json:"tenant_id"`
-	SubjectID  string    `json:"subject_id"`
-	Vertical   string    `json:"vertical,omitempty"`
-	Messages   []Message `json:"messages"`
-	SourceType string    `json:"source_type"`
+	TenantID   string         `json:"tenant_id"`
+	SubjectID  string         `json:"subject_id"`
+	Vertical   string         `json:"vertical,omitempty"`
+	Label      string         `json:"label,omitempty"`
+	Scope      string         `json:"scope,omitempty"`
+	Metadata   map[string]any `json:"metadata,omitempty"`
+	Messages   []Message      `json:"messages"`
+	SourceType string         `json:"source_type"`
 }
 
 type CorrectionRequest struct {

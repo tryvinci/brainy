@@ -61,6 +61,18 @@ func decodeMetadata(data []byte) map[string]any {
 	return metadata
 }
 
+func metadataEqual(left, right map[string]any) bool {
+	leftJSON, err := json.Marshal(left)
+	if err != nil {
+		return false
+	}
+	rightJSON, err := json.Marshal(right)
+	if err != nil {
+		return false
+	}
+	return string(leftJSON) == string(rightJSON)
+}
+
 const memoryRecordSelectCols = `
 memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
 status, confidence, extraction_version, explain, created_at, updated_at, corrected_at,
@@ -172,10 +184,15 @@ FOR UPDATE
 	}
 
 	if existing.Content == record.Content && existing.Status == memory.StatusActive {
-		if err := tx.Commit(ctx); err != nil {
-			return memory.StoreUpsertResult{}, err
+		if metadataEqual(existing.Metadata, record.Metadata) &&
+			existing.LifecycleState == record.LifecycleState &&
+			existing.Label == record.Label &&
+			existing.Scope == record.Scope {
+			if err := tx.Commit(ctx); err != nil {
+				return memory.StoreUpsertResult{}, err
+			}
+			return memory.StoreUpsertResult{Record: existing, State: "deduped"}, nil
 		}
-		return memory.StoreUpsertResult{Record: existing, State: "deduped"}, nil
 	}
 
 	record.MemoryID = existing.MemoryID
@@ -213,9 +230,9 @@ func (s *Store) ListActiveMemories(ctx context.Context, tenantID, subjectID stri
 SELECT `+memoryRecordSelectCols+`
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
-  AND lifecycle_state NOT IN ($4, $5)
+  AND lifecycle_state NOT IN ($4, $5, $6)
 ORDER BY updated_at DESC, memory_id ASC
-`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded)
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed)
 	if err != nil {
 		return nil, err
 	}
@@ -270,11 +287,11 @@ func (s *Store) SearchActiveMemories(ctx context.Context, tenantID, subjectID st
 SELECT `+memoryRecordSelectCols+`
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
-  AND lifecycle_state NOT IN ($4, $5)
-  AND content ILIKE ANY($6)
+  AND lifecycle_state NOT IN ($4, $5, $6)
+  AND content ILIKE ANY($7)
 ORDER BY updated_at DESC
-LIMIT $7
-`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, patterns, limit)
+LIMIT $8
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed, patterns, limit)
 	if err != nil {
 		return nil, err
 	}

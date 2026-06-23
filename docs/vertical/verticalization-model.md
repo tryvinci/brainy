@@ -328,7 +328,7 @@ Decisions locked since project creation. Update Linear manually if MCP sync fail
 |---|---|---|
 | **ENG-85** | Vertical memory schema extension (kinds, metadata, entities) | **Verticalization runtime skeleton** — add `primitive`, `vertical`, `label`, `metadata`, `lifecycle_state`; pack loader; no new `kind` enums |
 | **ENG-81** | Brand voice memory model | **Principle + IdentityPrior rank behavior** — pack rules + rank pipeline; labels `brand_rule`, `voice_profile` stay in YAML only |
-| **ENG-83** | Campaign lifecycle semantics | **Pack lifecycle_rules** — already in marketing pack YAML; implement generic lifecycle engine in Go |
+| **ENG-83** | Campaign lifecycle semantics | **Pack lifecycle_rules** — generic lifecycle engine applies rules at ingest + search — **done** |
 | **ENG-76** | Finance memory taxonomy proposal | **Finance pack vocabulary draft** (Phase 2) — `packs/finance/v1/pack.yaml` when finance starts; not MVP-blocking |
 | **ENG-56** epic | Finance discovery (equal priority) | **Research-only / Phase 2** — deprioritized until marketing MVP (ENG-93) |
 | **ENG-82** | Marketing golden eval fixtures | Fixtures validate **pack + runtime**, not marketing-specific schema — **done** (BV-01–BV-10) |
@@ -363,7 +363,7 @@ Phase 2 — Brand voice behavior (MVP-1 cont.)
   ENG-81: Principle > IdentityPrior precedence in ranker
   Suppression leak tests for brand_rule label
 
-Phase 3 — Lifecycle engine (MVP-2)
+Phase 3 — Lifecycle engine (MVP-2) ✅
   ENG-83: generic lifecycle_state machine driven by pack lifecycle_rules
   Campaign active/archived retrieval behavior
 

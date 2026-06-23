@@ -58,7 +58,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		}
-		memory.ApplyVerticalPack(&record, job.Request.Vertical, extracted.Kind, extracted.Content, p.packs)
+		memory.ApplyVerticalPack(&record, job.Request, extracted.Kind, extracted.Content, p.packs)
 		if _, err := p.store.UpsertMemory(ctx, record); err != nil {
 			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
 			return true, err
