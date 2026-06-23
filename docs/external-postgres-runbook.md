@@ -93,6 +93,7 @@ From repo root with the API running (`go run ./cmd/api`):
 ```bash
 go test ./...
 python3 evals/run_eval.py --base-url http://127.0.0.1:8080
+python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 python3 evals/correction_stickiness_eval.py --base-url http://127.0.0.1:8080
 ```
 

@@ -65,9 +65,10 @@ BRAINY_WORKER_MODE=loop go run ./cmd/worker
 
 ```bash
 python3 evals/run_eval.py --base-url http://127.0.0.1:8080
+python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 ```
 
-Current parity fixtures live under `fixtures/parity/`.
+Current parity fixtures live under `fixtures/parity/`. Marketing vertical fixtures: `fixtures/vertical/marketing/`.
 
 For an operator-oriented local setup using an external Postgres instance, see [docs/external-postgres-runbook.md](/Users/sid/Documents/Projects/vinci/code/brainy/docs/external-postgres-runbook.md).
 

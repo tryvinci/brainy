@@ -331,8 +331,8 @@ Decisions locked since project creation. Update Linear manually if MCP sync fail
 | **ENG-83** | Campaign lifecycle semantics | **Pack lifecycle_rules** — already in marketing pack YAML; implement generic lifecycle engine in Go |
 | **ENG-76** | Finance memory taxonomy proposal | **Finance pack vocabulary draft** (Phase 2) — `packs/finance/v1/pack.yaml` when finance starts; not MVP-blocking |
 | **ENG-56** epic | Finance discovery (equal priority) | **Research-only / Phase 2** — deprioritized until marketing MVP (ENG-93) |
-| **ENG-82** | Marketing golden eval fixtures | Fixtures validate **pack + runtime**, not marketing-specific schema |
-| **ENG-90** | Vertical eval harness | Run pack evals from `eval_fixtures` path in pack YAML |
+| **ENG-82** | Marketing golden eval fixtures | Fixtures validate **pack + runtime**, not marketing-specific schema — **done** (BV-01–BV-10) |
+| **ENG-90** | Vertical eval harness | Run pack evals from `eval_fixtures` path in pack YAML — **done** via `TestVerticalEvalHarnessAgainstHTTPServer` in CI |
 | **ENG-93** | Vertical MVP | **Marketing pack MVP on general runtime** |
 
 ### Issues unchanged
@@ -367,9 +367,9 @@ Phase 3 — Lifecycle engine (MVP-2)
   ENG-83: generic lifecycle_state machine driven by pack lifecycle_rules
   Campaign active/archived retrieval behavior
 
-Phase 4 — Evals (MVP-5)
+Phase 4 — Evals (MVP-5) ✅
   ENG-82: fixtures/vertical/marketing/
-  ENG-90: CI integration
+  ENG-90: CI integration (go test ./... runs vertical eval e2e)
 
 Phase 5 — Semantic retrieval
   ENG-87: pgvector (after PD ENG-63)

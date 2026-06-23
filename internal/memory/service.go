@@ -289,6 +289,9 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 			"matched_terms": []string{"response_style"},
 			"ranking_basis": "deterministic_baseline",
 		}
+		if record.Primitive != "" {
+			explain["primitive"] = record.Primitive
+		}
 		applyPrimitiveBonus(&score, explain, record, primitiveWeights)
 		if record.CorrectedAt != nil {
 			score += 0.3
@@ -314,6 +317,9 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 		"matched_terms": matched,
 		"ranking_basis": "deterministic_baseline",
 	}
+	if record.Primitive != "" {
+		explain["primitive"] = record.Primitive
+	}
 
 	applyPrimitiveBonus(&score, explain, record, primitiveWeights)
 
@@ -336,7 +342,6 @@ func applyPrimitiveBonus(score *float64, explain map[string]any, record MemoryRe
 	}
 	bonus := float64(w) / 50.0
 	*score += bonus
-	explain["primitive"] = record.Primitive
 	explain["primitive_bonus"] = bonus
 }
 

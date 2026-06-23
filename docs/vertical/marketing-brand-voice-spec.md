@@ -190,7 +190,7 @@ Principles are **immutable by default** (Brainy architecture invariant).
 - [x] Test: `TestVerticalPackPrincipleRanksAbovePreference`
 - [ ] Pack-driven `classification_rules` (MVP-1.1)
 - [ ] `voice_profile` metadata schema in pack YAML
-- [ ] ENG-82 fixtures BV-01–BV-05
+- [x] ENG-82 fixtures BV-01–BV-10 — `fixtures/vertical/marketing/`, run via `evals/run_vertical_eval.py`
 
 ---
 

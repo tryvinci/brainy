@@ -44,4 +44,4 @@ It records which behaviors are treated as parity targets, which are approximate 
 
 - capture additional public Mem0 examples into `fixtures/parity/` as the API surface widens
 - update this matrix as the API surface gets closer to or farther from the reference
-- track vertical pack evals separately under `fixtures/vertical/` (not Mem0 parity)
+- Marketing eval fixtures | `fixtures/vertical/marketing/` (BV-01–BV-10)

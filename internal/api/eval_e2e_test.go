@@ -11,6 +11,7 @@ import (
 	"brainy/internal/jobs"
 	"brainy/internal/memory"
 	"brainy/internal/observability"
+	"brainy/internal/pack"
 	"brainy/internal/store/postgres"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
@@ -18,18 +19,34 @@ import (
 )
 
 func TestEvalHarnessAgainstHTTPServer(t *testing.T) {
+	runEvalHarness(t, "evals/run_eval.py", "fixtures/parity")
+}
+
+func TestVerticalEvalHarnessAgainstHTTPServer(t *testing.T) {
+	runEvalHarness(t, "evals/run_vertical_eval.py", "fixtures/vertical/marketing")
+}
+
+func runEvalHarness(t *testing.T, script, fixtureDir string) {
+	t.Helper()
 	t.Setenv("LANG", "C")
 	t.Setenv("LC_ALL", "C")
 	store := startEmbeddedStoreForAPI(t)
 	defer store.Close()
 
-	service := memory.NewService(store)
+	root := repoRoot(t)
+	reg, err := pack.LoadRegistryFromDir(filepath.Join(root, "packs"))
+	if err != nil {
+		t.Fatalf("load packs: %v", err)
+	}
+	service := memory.NewServiceWithPacks(store, reg)
 	server := httptest.NewServer(NewRouter(service, observability.NewMetrics()))
 	defer server.Close()
 
-	repoRoot := repoRoot(t)
-	command := exec.Command("python3", "evals/run_eval.py", "--base-url", server.URL)
-	command.Dir = repoRoot
+	command := exec.Command("python3", script, "--base-url", server.URL)
+	if fixtureDir != "" && script == "evals/run_eval.py" {
+		command.Args = append(command.Args, "--fixture-dir", fixtureDir)
+	}
+	command.Dir = root
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("eval harness failed: %v\n%s", err, string(output))

@@ -17,10 +17,26 @@ Start the API server first:
 go run ./cmd/api
 ```
 
-Then run:
+Parity fixtures (Mem0 thin-slice):
 
 ```bash
 python3 evals/run_eval.py --base-url http://127.0.0.1:8080
 ```
 
-The default fixture directory is `fixtures/parity/`.
+Marketing vertical fixtures:
+
+```bash
+python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
+```
+
+Correction stickiness:
+
+```bash
+python3 evals/correction_stickiness_eval.py --base-url http://127.0.0.1:8080
+```
+
+Default fixture directories:
+- `fixtures/parity/` — core parity
+- `fixtures/vertical/marketing/` — marketing pack golden scenarios (BV-01–BV-10)
+
+CI runs both parity and vertical suites via `go test ./internal/api/...` (`TestEvalHarnessAgainstHTTPServer`, `TestVerticalEvalHarnessAgainstHTTPServer`).

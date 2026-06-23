@@ -1,0 +1,25 @@
+{
+  "name": "bv02_suppression_leak",
+  "ingest": {
+    "tenant_id": "fixture-mkt-bv02",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "source_type": "brand_guidelines",
+    "messages": [{ "role": "user", "content": "Never mention competitor Zebra in marketing copy." }]
+  },
+  "search": {
+    "tenant_id": "fixture-mkt-bv02",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "Zebra competitor"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_content_contains": "Never"
+  },
+  "suppress_after_search": true,
+  "expect_after_suppress": {
+    "max_results": 0
+  }
+}
