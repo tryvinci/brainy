@@ -21,7 +21,8 @@ def post_json(base_url: str, path: str, payload: dict) -> dict:
 
 
 def get_json(base_url: str, path: str, params: dict[str, str]) -> dict:
-    query = urllib.parse.urlencode(params)
+    filtered = {key: value for key, value in params.items() if value}
+    query = urllib.parse.urlencode(filtered)
     with urllib.request.urlopen(f"{base_url}{path}?{query}") as response:
         return json.loads(response.read().decode("utf-8"))
 

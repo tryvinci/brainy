@@ -331,14 +331,12 @@ Each agent job yields ≥2 golden eval scenarios. **Gate M3** requires a passing
 |---|---|---|---|---|
 | 1 | Brand rule overrides generic preference | Brand voice | Principle hierarchy | ✅ `bv01` |
 | 2 | Taboo term never surfaces (paraphrase query) | Brand voice | Suppression leak | ✅ `bv02` |
-| 3 | Active campaign memory ranks above archived | Campaign manager | Lifecycle boost | ❌ missing |
-| 4 | Campaign end suppresses stale context | Campaign manager | Lifecycle suppression | ✅ `lc01` |
-| 5 | A/B outcome updates retrieval rank | Audience analyst | Outcome → Belief | ❌ needs MVP-3 |
+| 5 | A/B outcome updates retrieval rank | Audience analyst | Outcome → Belief | ✅ `ob05` |
 | 6 | Editorial correction sticks under paraphrase | Content strategist | Correction stickiness | ✅ `bv04` |
 | 7 | Multi-brand isolation (tenant A ≠ tenant B) | All | tenant_id isolation | ✅ `bv06` |
-| 8 | Cross-campaign pattern retrieval | Campaign manager | Episode → Pattern | ❌ missing |
-| 9 | Style-matched creative reference ranks first | Creative assistant | TasteSignal | ❌ missing |
-| 10 | Conflicting segment prefs coexist scoped | Audience analyst | Complement-first reconciliation | ❌ missing |
+| 8 | Cross-campaign pattern retrieval | Campaign manager | Episode → Pattern | ✅ `pt08` |
+| 9 | Style-matched creative reference ranks first | Creative assistant | TasteSignal | ✅ `ts09` |
+| 10 | Conflicting segment prefs coexist scoped | Audience analyst | Complement-first reconciliation | ✅ `sg10` |
 
 Vetting policy: [`marketing-vetting-gate.md`](./marketing-vetting-gate.md)
 

@@ -1,12 +1,13 @@
 package memory
 
 import (
+	"fmt"
 	"strings"
 
 	"brainy/internal/pack"
 )
 
-func ApplyVerticalPack(record *MemoryRecord, req IngestRequest, kind, content string, reg *pack.Registry) {
+func ApplyVerticalPack(record *MemoryRecord, req IngestRequest, kind, content string, reg *pack.Registry) error {
 	if record.Metadata == nil {
 		record.Metadata = map[string]any{}
 	}
@@ -25,11 +26,11 @@ func ApplyVerticalPack(record *MemoryRecord, req IngestRequest, kind, content st
 	}
 
 	if reg == nil {
-		return
+		return nil
 	}
 	p, ok := reg.Get(vertical)
 	if !ok {
-		return
+		return nil
 	}
 
 	label := strings.TrimSpace(req.Label)
@@ -37,6 +38,9 @@ func ApplyVerticalPack(record *MemoryRecord, req IngestRequest, kind, content st
 		record.Label = label
 		if entry, exists := p.Vocabulary[label]; exists {
 			record.Primitive = pack.NormalizePrimitive(entry.Primitive)
+		}
+		if err := p.ValidateMetadata(label, record.Metadata); err != nil {
+			return fmt.Errorf("pack metadata validation failed: %w", err)
 		}
 	} else {
 		packLabel, primitive, labelOK := p.LabelForKind(kind)
@@ -52,6 +56,7 @@ func ApplyVerticalPack(record *MemoryRecord, req IngestRequest, kind, content st
 	}
 
 	applyPackLifecycle(record, p)
+	return nil
 }
 
 func applyPackLifecycle(record *MemoryRecord, p *pack.Pack) {
