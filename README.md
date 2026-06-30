@@ -73,7 +73,14 @@ Current parity fixtures live under `fixtures/parity/`. Marketing vertical fixtur
 
 For an operator-oriented local setup using an external Postgres instance, see [docs/external-postgres-runbook.md](/Users/sid/Documents/Projects/vinci/code/brainy/docs/external-postgres-runbook.md).
 
-**Vetting & GTM:** Marketing proof gates and paths to open source, published benchmarks, and commercial API — [docs/vertical/marketing-vetting-gate.md](docs/vertical/marketing-vetting-gate.md), [docs/vertical/go-to-market-roadmap.md](docs/vertical/go-to-market-roadmap.md).
+**Vetting & GTM:** Marketing proof gates and paths to open source, published benchmarks, and commercial API — [docs/vertical/marketing-vetting-gate.md](docs/vertical/marketing-vetting-gate.md), [docs/vertical/go-to-market-roadmap.md](docs/vertical/go-to-market-roadmap.md), [docs/vertical/execution-plan.md](docs/vertical/execution-plan.md) (Linear ↔ GitHub sync).
+
+### Docker (local / staging)
+
+```bash
+docker compose up --build
+python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
+```
 
 ### Environment
 
