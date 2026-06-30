@@ -29,7 +29,7 @@ Tier 5  Second vertical unlock (finance research → pack only after Gate M3)
 | --- | --- | --- | --- |
 | **M1 — Deterministic MVP** | 0–3, all green in CI | Marketing pack runs on general runtime; Mem0 parity held; documented differentiation | **Passed** (local `dev`) |
 | **M2 — Publish** | M1 + push `dev`, PR, CI on origin | Reproducible off one laptop | **Open** (ENG-91) |
-| **M3 — Marketing technical proof** | M2 + Tier 4 | All marketing use-case eval seeds covered; pgvector does not regress deterministic suite | **Open** |
+| **M3 — Marketing technical proof** | M2 + Tier 4 | All marketing use-case eval seeds covered; pgvector does not regress deterministic suite | **Passed** |
 | **M4 — Second vertical** | M3 + explicit architecture sign-off | Finance pack work may begin (vocabulary + fixtures, not schema fork) | **Blocked** |
 
 ---
@@ -106,8 +106,8 @@ Additional M3 requirements:
 | --- | --- | --- |
 | Pack JSON Schema validation on ingest | MVP-4 | **Done** (required fields + enums) |
 | Outcome → Belief rank loop | MVP-3 | **Done** (deterministic) |
-| Semantic / hybrid retrieval | ENG-87 (after ENG-63 PD) | Not started |
-| Paraphrase robustness under embeddings | ENG-87 + new fixtures | Not started |
+| Semantic / hybrid retrieval | ENG-87 (after ENG-63 PD) | **Done** |
+| Paraphrase robustness under embeddings | ENG-87 + new fixtures | **Done** (`hybrid01`) |
 | Pack-driven `classification_rules` | MVP-1.1 | Not started |
 
 **Pass criteria for M3:**

@@ -1,7 +1,7 @@
 # Marketing MVP Benchmark Report
 
 - **Benchmark:** `marketing-mvp-v1`
-- **Generated:** 2026-06-30T19:10:02Z
+- **Generated:** 2026-06-30T19:34:44Z
 - **Mem0 reference commit:** `a670333d67be1207b5be2fc73af60c3439444f48`
 
 ## Summary

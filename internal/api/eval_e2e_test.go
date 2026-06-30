@@ -26,6 +26,10 @@ func TestVerticalEvalHarnessAgainstHTTPServer(t *testing.T) {
 	runEvalHarness(t, "evals/run_vertical_eval.py", "fixtures/vertical/marketing")
 }
 
+func TestHybridEvalHarnessAgainstHTTPServer(t *testing.T) {
+	runEvalHarness(t, "evals/run_hybrid_eval.py", "fixtures/hybrid")
+}
+
 func TestMarketingMVPBenchmarkAgainstHTTPServer(t *testing.T) {
 	runEvalHarness(t, "evals/run_marketing_mvp_benchmark.py", "")
 }
