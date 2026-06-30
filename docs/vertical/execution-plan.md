@@ -13,8 +13,8 @@
 | Gate | Name | Status | GitHub milestone | Linear milestone |
 | --- | --- | --- | --- | --- |
 | **M1** | Deterministic marketing MVP | **Done** | — | Gate M1: Marketing Deterministic MVP |
-| **M2** | Publish & OSS preview | **Done** (pending PR merge) | [#1](https://github.com/tryvinci/brainy/milestone/1) | Gate M2: Publish & OSS Preview |
-| **M3** | Marketing technical proof | Open | [#2](https://github.com/tryvinci/brainy/milestone/2) | Gate M3: Marketing Technical Proof |
+| **M2** | Publish & OSS preview | **Done** (PR #13 merged) | [#1](https://github.com/tryvinci/brainy/milestone/1) | Gate M2: Publish & OSS Preview |
+| **M3** | Marketing technical proof | **In progress** | [#2](https://github.com/tryvinci/brainy/milestone/2) | Gate M3: Marketing Technical Proof |
 | **M4** | Finance / second vertical | **Blocked** | — | — |
 | **M5** | Commercial API beta | Open | [#3](https://github.com/tryvinci/brainy/milestone/3) | Gate M5: Commercial API Beta |
 
@@ -36,17 +36,17 @@
 | [ENG-90](https://linear.app/engramhq/issue/ENG-90) | — | Vertical eval CI |
 | [ENG-93](https://linear.app/engramhq/issue/ENG-93) | — | Marketing MVP benchmark |
 
-### Gate M2 — Active
+### Gate M2 — Done
 
 | Linear | GitHub | Title | Status |
 | --- | --- | --- | --- |
-| [ENG-91](https://linear.app/engramhq/issue/ENG-91) | [#1](https://github.com/tryvinci/brainy/issues/1) / [PR #13](https://github.com/tryvinci/brainy/pull/13) | Open rebuild PR | PR open |
+| [ENG-91](https://linear.app/engramhq/issue/ENG-91) | [#1](https://github.com/tryvinci/brainy/issues/1) / [PR #13](https://github.com/tryvinci/brainy/pull/13) | Open rebuild PR | **Merged** |
 | [ENG-96](https://linear.app/engramhq/issue/ENG-96) | [#2](https://github.com/tryvinci/brainy/issues/2) | OSS legal files | Done |
-| [ENG-97](https://linear.app/engramhq/issue/ENG-97) | [#3](https://github.com/tryvinci/brainy/issues/3) | Docker Compose stack | Done — docker-smoke CI |
-| [ENG-98](https://linear.app/engramhq/issue/ENG-98) | [#4](https://github.com/tryvinci/brainy/issues/4) | Staging + post-deploy eval | Done — docker-smoke CI |
-| [ENG-100](https://linear.app/engramhq/issue/ENG-100) | [#9](https://github.com/tryvinci/brainy/issues/9) | Mem0 live competitor adapter | Done — optional MEM0_API_KEY |
+| [ENG-97](https://linear.app/engramhq/issue/ENG-97) | [#3](https://github.com/tryvinci/brainy/issues/3) | Docker Compose stack | Done |
+| [ENG-98](https://linear.app/engramhq/issue/ENG-98) | [#4](https://github.com/tryvinci/brainy/issues/4) | Staging + post-deploy eval | Done (docker-smoke CI) |
+| [ENG-100](https://linear.app/engramhq/issue/ENG-100) | [#9](https://github.com/tryvinci/brainy/issues/9) | Mem0 live competitor adapter | Done |
 
-### Gate M3
+### Gate M3 — Active
 
 | Linear | GitHub | Title |
 | --- | --- | --- |

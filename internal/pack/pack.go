@@ -22,13 +22,14 @@ type RankPolicy struct {
 }
 
 type Pack struct {
-	ID             string            `yaml:"id"`
-	Version        string            `yaml:"version"`
-	Description    string            `yaml:"description"`
-	Vocabulary     map[string]Entry  `yaml:"vocabulary"`
-	LifecycleRules []LifecycleRule   `yaml:"lifecycle_rules"`
-	RankPolicy     RankPolicy        `yaml:"rank_policy"`
-	EvalFixtures   string            `yaml:"eval_fixtures"`
+	ID              string                       `yaml:"id"`
+	Version         string                       `yaml:"version"`
+	Description     string                       `yaml:"description"`
+	Vocabulary      map[string]Entry             `yaml:"vocabulary"`
+	MetadataSchemas map[string]map[string]any    `yaml:"metadata_schemas"`
+	LifecycleRules  []LifecycleRule              `yaml:"lifecycle_rules"`
+	RankPolicy      RankPolicy                   `yaml:"rank_policy"`
+	EvalFixtures    string                       `yaml:"eval_fixtures"`
 }
 
 type Registry struct {
