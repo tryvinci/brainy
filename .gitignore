@@ -11,3 +11,4 @@ bin/
 /api
 /worker
 *.exe
+.cursor/
