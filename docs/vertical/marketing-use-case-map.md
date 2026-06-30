@@ -323,34 +323,41 @@ What generic memory (Mem0-style) misses for these jobs:
 
 ---
 
-## Eval Scenario Seeds (for ENG-82)
+## Eval Scenario Seeds (for ENG-82 / Gate M3)
 
-Each agent job yields ≥2 golden eval scenarios:
+Each agent job yields ≥2 golden eval scenarios. **Gate M3** requires a passing fixture (or tracked `skip`) for every row.
 
-| # | Scenario | Agent job | Validates |
-|---|---|---|---|
-| 1 | Brand rule overrides generic preference | Brand voice | Principle hierarchy |
-| 2 | Taboo term never surfaces (paraphrase query) | Brand voice | Suppression leak |
-| 3 | Active campaign memory ranks above archived | Campaign manager | Lifecycle boost |
-| 4 | Campaign end suppresses stale context | Campaign manager | Lifecycle suppression |
-| 5 | A/B outcome updates retrieval rank | Audience analyst | Outcome → Belief |
-| 6 | Editorial correction sticks under paraphrase | Content strategist | Correction stickiness |
-| 7 | Multi-brand isolation (tenant A ≠ tenant B) | All | tenant_id isolation |
-| 8 | Cross-campaign pattern retrieval | Campaign manager | Episode → Pattern |
-| 9 | Style-matched creative reference ranks first | Creative assistant | TasteSignal |
-| 10 | Conflicting segment prefs coexist scoped | Audience analyst | Complement-first reconciliation |
+| # | Scenario | Agent job | Validates | Fixture status |
+|---|---|---|---|---|
+| 1 | Brand rule overrides generic preference | Brand voice | Principle hierarchy | ✅ `bv01` |
+| 2 | Taboo term never surfaces (paraphrase query) | Brand voice | Suppression leak | ✅ `bv02` |
+| 3 | Active campaign memory ranks above archived | Campaign manager | Lifecycle boost | ❌ missing |
+| 4 | Campaign end suppresses stale context | Campaign manager | Lifecycle suppression | ✅ `lc01` |
+| 5 | A/B outcome updates retrieval rank | Audience analyst | Outcome → Belief | ❌ needs MVP-3 |
+| 6 | Editorial correction sticks under paraphrase | Content strategist | Correction stickiness | ✅ `bv04` |
+| 7 | Multi-brand isolation (tenant A ≠ tenant B) | All | tenant_id isolation | ✅ `bv06` |
+| 8 | Cross-campaign pattern retrieval | Campaign manager | Episode → Pattern | ❌ missing |
+| 9 | Style-matched creative reference ranks first | Creative assistant | TasteSignal | ❌ missing |
+| 10 | Conflicting segment prefs coexist scoped | Audience analyst | Complement-first reconciliation | ❌ missing |
+
+Vetting policy: [`marketing-vetting-gate.md`](./marketing-vetting-gate.md)
 
 ---
 
 ## Implementation Phases (marketing pack v1 on general runtime)
 
-| Phase | Scope | Repo touchpoints |
-|---|---|---|
-| **MVP-1** | Verticalization skeleton: `primitive`, `vertical`, `label`, `metadata` + static marketing pack | `model.go`, `packs/marketing/v1/`, rank policy in `service.go` |
-| **MVP-2** | Generic lifecycle state machine + campaign rules in pack | migrations, pack lifecycle_rules |
-| **MVP-3** | Outcome ingest + Belief conviction in rank pipeline | new endpoint, primitive precedence |
-| **MVP-4** | Pack JSON Schema validation on ingest | pack loader, extractor |
-| **MVP-5** | Marketing eval suite (ENG-82) | `fixtures/vertical/marketing/` |
+| Phase | Scope | Repo touchpoints | Gate |
+|---|---|---|---|
+| **MVP-1** | Verticalization skeleton + static marketing pack | `model.go`, `packs/marketing/v1/`, rank policy | M1 ✅ |
+| **MVP-2** | Generic lifecycle state machine + campaign rules in pack | `lifecycle_rules`, ENG-83 | M1 ✅ |
+| **MVP-5** | Marketing eval suite (ENG-82) + CI (ENG-90) + benchmark (ENG-93) | `fixtures/vertical/marketing/`, `evals/` | M1 ✅ |
+| **MVP-3** | Outcome ingest + Belief conviction in rank pipeline | new endpoint, primitive precedence | **M3** |
+| **MVP-4** | Pack JSON Schema validation on ingest | pack loader, extractor | **M3** |
+| **MVP-1.1** | Pack-driven `classification_rules` | `pack.yaml`, remove Go heuristics | **M3** |
+| **ENG-87** | Semantic / hybrid retrieval without deterministic regression | pgvector, new fixtures | **M3** |
+| **Finance pack** | Second vertical | `packs/finance/` — **blocked until Gate M4** | M4 |
+
+Do not start finance until **Gate M3** clears. See [`marketing-vetting-gate.md`](./marketing-vetting-gate.md).
 
 ---
 

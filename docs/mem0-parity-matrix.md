@@ -44,4 +44,5 @@ It records which behaviors are treated as parity targets, which are approximate 
 
 - capture additional public Mem0 examples into `fixtures/parity/` as the API surface widens
 - update this matrix as the API surface gets closer to or farther from the reference
-- Marketing eval fixtures | `fixtures/vertical/marketing/` (BV-01–BV-10)
+- Marketing eval fixtures | `fixtures/vertical/marketing/` (BV-01–BV-10, LC-01)
+- Vetting policy | `docs/vertical/marketing-vetting-gate.md` — finance blocked until Gate M3

@@ -272,6 +272,13 @@ Ship the **framework minimally** with one pack — do not over-build the registr
 | Primitive precedence in ranker | Full Belief lifecycle |
 | Generic lifecycle states | Event webhook invalidation |
 | Marketing eval fixtures | Multi-pack CI matrix |
+| Finance pack | **Gate M4** — see marketing vetting gate |
+
+### Vetting policy
+
+Marketing must pass **Gate M3** (technical proof) before finance or any second vertical. ENG-93 (MVP benchmark) is **Gate M1** only — not sufficient to start finance.
+
+Canonical policy: [`docs/vertical/marketing-vetting-gate.md`](./marketing-vetting-gate.md)
 
 ---
 
@@ -329,8 +336,8 @@ Decisions locked since project creation. Update Linear manually if MCP sync fail
 | **ENG-85** | Vertical memory schema extension (kinds, metadata, entities) | **Verticalization runtime skeleton** — add `primitive`, `vertical`, `label`, `metadata`, `lifecycle_state`; pack loader; no new `kind` enums |
 | **ENG-81** | Brand voice memory model | **Principle + IdentityPrior rank behavior** — pack rules + rank pipeline; labels `brand_rule`, `voice_profile` stay in YAML only |
 | **ENG-83** | Campaign lifecycle semantics | **Pack lifecycle_rules** — generic lifecycle engine applies rules at ingest + search — **done** |
-| **ENG-76** | Finance memory taxonomy proposal | **Finance pack vocabulary draft** (Phase 2) — `packs/finance/v1/pack.yaml` when finance starts; not MVP-blocking |
-| **ENG-56** epic | Finance discovery (equal priority) | **Research-only / Phase 2** — deprioritized until marketing MVP (ENG-93) |
+| **ENG-76** | Finance memory taxonomy proposal | **Research only** — no `packs/finance/` until marketing **Gate M3** (`marketing-vetting-gate.md`) |
+| **ENG-56** epic | Finance discovery (equal priority) | **Blocked at Gate M4** — research notes OK; implementation after marketing technical proof |
 | **ENG-82** | Marketing golden eval fixtures | Fixtures validate **pack + runtime**, not marketing-specific schema — **done** (BV-01–BV-10) |
 | **ENG-90** | Vertical eval harness | Run pack evals from `eval_fixtures` path in pack YAML — **done** via `TestVerticalEvalHarnessAgainstHTTPServer` in CI |
 | **ENG-93** | Vertical MVP | **Marketing pack MVP on general runtime** — benchmark in `evals/run_marketing_mvp_benchmark.py` |
@@ -371,14 +378,20 @@ Phase 4 — Evals (MVP-5) ✅
   ENG-82: fixtures/vertical/marketing/
   ENG-90: CI integration (go test ./... runs vertical eval e2e)
 
-Phase 5 — Semantic retrieval
+Phase 5 — Semantic retrieval (feeds Gate M3)
   ENG-87: pgvector (after PD ENG-63)
 
-Phase 6 — Marketing MVP ✅
-  ENG-93: benchmark report vs Mem0 on vertical fixtures (`docs/vertical/marketing-mvp-benchmark.md`)
+Phase 6 — Marketing MVP benchmark ✅ (Gate M1)
+  ENG-93: benchmark report (`docs/vertical/marketing-mvp-benchmark.md`)
 
-Phase 7 — Finance (post-MVP)
-  ENG-56/76/78: finance pack + evals (not schema fork)
+Phase 6b — Marketing technical proof (Gate M3) — **before finance**
+  Tier 4 eval seeds, MVP-3/4, semantic non-regression
+  Policy: `docs/vertical/marketing-vetting-gate.md`
+
+Phase 7 — Finance (Gate M4 only)
+  ENG-56/76/78: finance pack + evals — blocked until M3 clears
+
+Go-to-market (OSS, benchmarks, commercial): `docs/vertical/go-to-market-roadmap.md`
 ```
 
 ### Cancelled / rejected approaches

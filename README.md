@@ -73,6 +73,8 @@ Current parity fixtures live under `fixtures/parity/`. Marketing vertical fixtur
 
 For an operator-oriented local setup using an external Postgres instance, see [docs/external-postgres-runbook.md](/Users/sid/Documents/Projects/vinci/code/brainy/docs/external-postgres-runbook.md).
 
+**Vetting & GTM:** Marketing proof gates and paths to open source, published benchmarks, and commercial API — [docs/vertical/marketing-vetting-gate.md](docs/vertical/marketing-vetting-gate.md), [docs/vertical/go-to-market-roadmap.md](docs/vertical/go-to-market-roadmap.md).
+
 ### Environment
 
 Copy or populate `.env.example` as needed.
