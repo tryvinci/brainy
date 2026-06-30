@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"brainy/internal/pack"
+	"brainy/internal/embedding"
 )
 
 type Store interface {
@@ -107,6 +108,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		if err != nil {
 			return IngestResult{}, err
 		}
+		s.persistEmbedding(ctx, upserted.Record)
 
 		switch upserted.State {
 		case "created":
@@ -151,6 +153,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		if err != nil {
 			return IngestResult{}, err
 		}
+		s.persistEmbedding(ctx, upserted.Record)
 		switch upserted.State {
 		case "created":
 			result.Created++
@@ -239,13 +242,33 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
+	queryVector := embedding.Embed(query)
+	embedScores := s.embeddingScores(ctx, tenantID, subjectID, queryVector)
+	candidates := make(map[string]MemoryRecord, len(memories))
+	for _, record := range memories {
+		candidates[record.MemoryID] = record
+	}
+	if len(embedScores) > 0 {
+		allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
+		if err != nil {
+			return SearchResponse{}, err
+		}
+		for _, record := range allMemories {
+			if score := embedScores[record.MemoryID]; score >= 0.15 {
+				if _, ok := candidates[record.MemoryID]; !ok {
+					candidates[record.MemoryID] = record
+				}
+			}
+		}
+	}
+
 	var packWeights map[string]int
 	if p, ok := s.packs.Get(vertical); ok {
 		packWeights = p.RankPolicy.PrimitiveWeights
 	}
 
-	results := make([]SearchResult, 0, len(memories))
-	for _, record := range memories {
+	results := make([]SearchResult, 0, len(candidates))
+	for _, record := range candidates {
 		if !IsLifecycleSearchVisible(record.LifecycleState) {
 			continue
 		}
@@ -258,6 +281,14 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 			}
 		}
 		score, explain := scoreMemory(record, queryTokens, packWeights)
+		if explain == nil {
+			explain = map[string]any{}
+		}
+		embedScore := embedScores[record.MemoryID]
+		if embedScore == 0 {
+			embedScore = embedding.CosineSimilarity(queryVector, recordEmbedding(record))
+		}
+		score = applyHybridScore(score, explain, embedScore)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -324,6 +355,7 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 	if err != nil {
 		return MutationResult{}, err
 	}
+	s.persistEmbedding(ctx, record)
 
 	return MutationResult{
 		MemoryID: record.MemoryID,

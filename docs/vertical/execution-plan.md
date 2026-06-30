@@ -14,8 +14,8 @@
 | --- | --- | --- | --- | --- |
 | **M1** | Deterministic marketing MVP | **Done** | — | Gate M1: Marketing Deterministic MVP |
 | **M2** | Publish & OSS preview | **Done** (PR #13 merged) | [#1](https://github.com/tryvinci/brainy/milestone/1) | Gate M2: Publish & OSS Preview |
-| **M3** | Marketing technical proof | **In progress** | [#2](https://github.com/tryvinci/brainy/milestone/2) | Gate M3: Marketing Technical Proof |
-| **M4** | Finance / second vertical | **Blocked** | — | — |
+| **M3** | Marketing technical proof | **Done** | [#2](https://github.com/tryvinci/brainy/milestone/2) | Gate M3: Marketing Technical Proof |
+| **M4** | Finance / second vertical | **Unblocked** (research) | — | — |
 | **M5** | Commercial API beta | Open | [#3](https://github.com/tryvinci/brainy/milestone/3) | Gate M5: Commercial API Beta |
 
 ---
