@@ -1,0 +1,20 @@
+---
+description: Go coding standards for Brainy
+globs: "**/*.go"
+alwaysApply: false
+---
+
+# Go Code
+
+- Prefer deletion, reuse, and consolidation before new code.
+- Reuse existing packages (`internal/memory`, `internal/pack`, `internal/store/postgres`).
+- Use structured APIs/parsers over fragile string manipulation.
+- Avoid cleverness; optimize for readable diffs.
+- Avoid new dependencies unless they clearly remove more complexity than they add.
+- ASCII quotes only in code and comments.
+
+## Vertical packs (Brainy)
+- Domain labels live in `packs/{vertical}/v1/pack.yaml`, not as Postgres `kind` enums.
+- Runtime fields: `primitive`, `vertical`, `label`, `metadata`, `lifecycle_state`.
+- Marketing/finance terms (`brand_rule`, `thesis`) are pack vocabulary, not new Go types or DB enums.
+- See `docs/vertical/verticalization-model.md` before extending the memory model.

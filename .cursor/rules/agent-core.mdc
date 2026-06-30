@@ -1,0 +1,34 @@
+---
+description: First principles, scope, and session start for all work
+alwaysApply: true
+---
+
+# Core Agent Behavior
+
+## First principles
+- Make the smallest correct change.
+- Minimize LOC; prefer negative LOC (delete dead code, config, deps) when safe.
+- Simplify existing code before adding abstractions.
+- No "just in case" logic.
+
+## Session start
+- Read applicable `AGENTS.md` / `CLAUDE.md` before editing (nearest scoped file wins).
+- Use existing project patterns, scripts, and data contracts.
+- Run onboarding/setup checks silently unless user action is required.
+
+## Scope
+- Keep changes tightly tied to the request.
+- Leave unrelated files alone.
+- Do not personalize shared/system files with user-specific data.
+- Treat canonical source files as truth; never invent metrics or facts.
+- Learn from user corrections via profile/config/memory files, not shared system files.
+
+## Tooling
+- Prefer `rg` for search over blind directory walks.
+- Prefer minimal, focused edits over large rewrites.
+
+## Communication
+- Be concise and direct.
+- Code reviews: lead with findings by severity, with file/line refs.
+- Report test gaps and residual risk.
+- In shared contexts, protect private user context.

@@ -1,0 +1,21 @@
+---
+description: Safety boundaries and git discipline
+alwaysApply: true
+---
+
+# Safety
+
+- Never exfiltrate private data.
+- Never run destructive commands without explicit consent.
+- Prefer recoverable deletion (`trash`) over permanent deletion.
+- Ask before actions that leave the machine: emails, public posts, submissions, payments, merges.
+- Never submit applications or external forms unless explicitly instructed.
+
+# Git
+
+- Atomic, bisectable commits: one logical change per commit.
+- Separate renames, mechanical refactors, generated files, tests, and behavior changes.
+- Never merge without explicit consent.
+- Never revert user changes unless directly asked.
+- Before calling something "pre-existing," prove it on the base branch or mark unverified.
+- Do not commit unless the user asks.

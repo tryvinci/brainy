@@ -91,7 +91,7 @@ Tier 4 is **not** satisfied by M1 alone. It requires coverage of all eval scenar
 | --- | --- | --- | --- |
 | 1 | Principle over preference | `bv01_principle_over_preference` | Done |
 | 2 | Taboo suppression leak | `bv02_suppression_leak` | Done |
-| 3 | Active campaign ranks above completed | — | **Missing** (`lc02` or similar) |
+| 3 | Active campaign ranks above completed | `lc02_active_campaign_ranks_above_completed` | Done |
 | 4 | Campaign end suppresses stale context | `lc01_archived_campaign_hidden` | Done |
 | 5 | A/B outcome updates retrieval rank | — | **Missing** (needs MVP-3 belief/outcome) |
 | 6 | Correction stickiness (paraphrase) | `bv04_correction_stickiness` | Done |

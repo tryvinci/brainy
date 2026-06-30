@@ -1,0 +1,37 @@
+name: Docker smoke
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+jobs:
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start stack
+        run: docker compose up --build -d
+
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8080/healthz; then
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose logs
+          exit 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run marketing MVP benchmark against Docker API
+        run: python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v

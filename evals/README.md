@@ -45,9 +45,15 @@ python3 evals/correction_stickiness_eval.py --base-url http://127.0.0.1:8080
 
 Default fixture directories:
 - `fixtures/parity/` — core parity
-- `fixtures/vertical/marketing/` — marketing pack golden scenarios (BV-01–BV-10, LC-01 lifecycle)
+- `fixtures/vertical/marketing/` — marketing pack golden scenarios (BV-01–BV-10, LC-01–LC-02)
 
-CI runs parity, vertical, and MVP benchmark suites via `go test ./internal/api/...`.
+CI runs parity, vertical, and MVP benchmark suites via `go test ./internal/api/...`. Docker smoke: `.github/workflows/docker-smoke.yml`.
+
+Competitor benchmark (optional, requires `MEM0_API_KEY`):
+
+```bash
+python3 evals/run_competitor_benchmark.py --brainy-url http://127.0.0.1:8080
+```
 
 ## Vetting gates
 

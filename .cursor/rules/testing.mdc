@@ -1,0 +1,18 @@
+---
+description: Test discipline for Go and eval harnesses
+globs: "**/*_test.go,evals/**,fixtures/**"
+alwaysApply: false
+---
+
+# Testing
+
+- Run the narrowest meaningful test first (`go test ./internal/memory/...` before full suite).
+- Broaden scope when touching shared contracts (store, service, API router).
+- Add tests only where risk justifies it; do not test the obvious.
+- If tests cannot run, say why (e.g. embedded Postgres, sandbox shm).
+
+## Brainy eval layers
+- Unit: `go test ./...`
+- Parity: `python3 evals/run_eval.py` against running API
+- Vertical (marketing): `fixtures/vertical/marketing/` when ENG-82 lands
+- Postgres integration tests need full permissions outside sandbox.

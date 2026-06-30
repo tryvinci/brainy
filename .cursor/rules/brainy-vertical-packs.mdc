@@ -1,0 +1,26 @@
+---
+description: Vertical pack conventions when editing packs or vertical memory code
+globs: "packs/**,internal/pack/**,internal/memory/vertical.go,docs/vertical/**"
+alwaysApply: false
+---
+
+# Vertical Packs
+
+Verticals are **packs, not code paths**.
+
+## Pack YAML (`packs/{vertical}/v1/pack.yaml`)
+- `vocabulary`: domain labels mapped to `primitive` + legacy `kind`
+- `metadata_schemas`: JSON-schema-shaped validation per label
+- `lifecycle_rules`: generic state transitions (campaign end, archive)
+- `rank_policy.primitive_weights`: retrieval precedence
+- `eval_fixtures`: pointer to golden scenarios
+
+## Do
+- Add finance as `packs/finance/v1/pack.yaml`, not new DB enums.
+- Wire behavior through `ApplyVerticalPack` and pack loader.
+- Keep `profile|preference|fact` as Mem0-compat layer.
+
+## Do not
+- Add per-vertical `kind` values to Postgres or Go constants.
+- Fork rank/search logic per vertical.
+- Put marketing-only terms in core domain models.
