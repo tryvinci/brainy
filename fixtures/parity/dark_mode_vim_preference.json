@@ -1,0 +1,25 @@
+{
+  "name": "dark_mode_vim_preference",
+  "ingest": {
+    "tenant_id": "fixture-cli",
+    "subject_id": "alice",
+    "source_type": "conversation",
+    "messages": [
+      {
+        "role": "user",
+        "content": "Prefers dark mode and vim keybindings."
+      }
+    ]
+  },
+  "search": {
+    "tenant_id": "fixture-cli",
+    "subject_id": "alice",
+    "q": "What keybindings does Alice prefers"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_kind": "preference",
+    "first_content_contains": "vim keybindings"
+  }
+}

@@ -21,3 +21,18 @@
 - Every major claim in competitor analysis must be tagged as `evidence` or `inference`.
 - Architecture decisions must link to one or more hypotheses and falsification tests.
 - No state-of-the-art claim without reproducible benchmark runs.
+
+## Go rebuild — vertical track (2026)
+
+The Mem0-inspired Go service uses **marketing-first vertical proof** before any second domain.
+
+| Track | Doc | Status |
+| --- | --- | --- |
+| Architecture | `docs/vertical/verticalization-model.md` | Approved |
+| Marketing discovery | `docs/vertical/marketing-use-case-map.md` | Approved |
+| Vetting gates | `docs/vertical/marketing-vetting-gate.md` | **M1 passed; M3 open; finance blocked at M4** |
+| Eval harness | `evals/README.md` | CI via `go test ./...` |
+
+Finance and other verticals: research only until marketing **Gate M3** clears.
+
+Go-to-market (open source, published benchmarks, commercial API): [`docs/vertical/go-to-market-roadmap.md`](../vertical/go-to-market-roadmap.md).

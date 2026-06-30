@@ -1,0 +1,35 @@
+{
+  "name": "bv04_correction_stickiness",
+  "ingest": {
+    "tenant_id": "fixture-mkt-bv04",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "source_type": "conversation",
+    "messages": [{ "role": "user", "content": "I prefer warm conversational tone." }]
+  },
+  "search": {
+    "tenant_id": "fixture-mkt-bv04",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "writing tone"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1
+  },
+  "correct": {
+    "memory_index": 0,
+    "content": "Prefers crisp professional tone",
+    "source_text": "Use crisp professional tone instead"
+  },
+  "search_after_correct": {
+    "tenant_id": "fixture-mkt-bv04",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "professional tone"
+  },
+  "expect_after_correct": {
+    "min_results": 1,
+    "first_content_contains": "crisp professional"
+  }
+}

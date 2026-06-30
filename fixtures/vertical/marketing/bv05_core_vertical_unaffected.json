@@ -1,0 +1,20 @@
+{
+  "name": "bv05_core_vertical_unaffected",
+  "ingest": {
+    "tenant_id": "fixture-mkt-bv05",
+    "subject_id": "user-core",
+    "source_type": "conversation",
+    "messages": [{ "role": "user", "content": "I prefer concise answers." }]
+  },
+  "search": {
+    "tenant_id": "fixture-mkt-bv05",
+    "subject_id": "user-core",
+    "q": "How should I respond"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_kind": "preference",
+    "first_content_contains": "concise"
+  }
+}

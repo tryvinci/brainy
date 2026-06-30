@@ -1,140 +1,93 @@
 # Brainy
 
-Brainy is a memory system designed to emulate how high-performing humans learn, form taste, and adapt beliefs over time.
-
-It is built as a general cognitive-memory architecture, with marketing and branding intelligence as the first proving domain.
-
-## Vision
-
-Most memory systems optimize storage and retrieval quality. Brainy adds a higher-order layer:
-- stable principles and identity priors
-- ranked beliefs and conviction
-- conflict reconciliation
-- outcome-driven reflection and belief revision
-- explainability and governance checkpoints
-
-The goal is not only to remember more, but to reason better over time.
+Brainy is being rebuilt as a Go-first memory service with Mem0 used as a pinned behavioral reference, not as a codebase to fork wholesale.
 
 ## Current Status
 
-The implementation covers:
-- full planning and architecture specs in `docs/brainy/`
-- competitor reverse-engineering for 6 direct players
-- core sprint implementation (A through F)
-- benchmark harness with public and cognitive tracks
-- rollout thresholds and quarterly moat-review artifacts
+The original Python prototype has been archived under `archive/brainy-python-prototype/`.
 
-## System Architecture
+The active rebuild target is the thin-slice contract in:
 
-Core engines:
-- `IngestionEngine`: normalization and provenance capture
-- `ConsolidationEngine`: episode/fact/principle/taste-signal extraction
-- `BeliefGraphEngine`: hypothesis graph build, conflict detection, reconciliation triggers
-- `RetrievalEngine`: taste-aware context assembly
-- `ReflectionEngine`: conviction stop-loss and belief challenge transitions
-- `GovernanceEngine`: checkpoints, rollback, audit, explainability
+- `.omx/plans/v1-contracts-mem0-go-rebuild.md`
+- `.omx/plans/prd-mem0-go-rebuild.md`
+- `.omx/plans/test-spec-mem0-go-rebuild.md`
 
-Public service contract (`BrainyService`):
-- `ingest(...)`
-- `consolidate(scope)`
-- `retrieve(query)`
-- `rank_hypotheses(context)`
-- `record_outcome(...)`
-- `run_reflection(job)`
-- `explain(decision_id)`
+This first execution slice is intentionally narrow:
 
-## Repository Map
+- `POST /ingest`
+- `POST /ingest/async`
+- `GET /memories/search`
+- deterministic local extraction
+- Postgres persistence
+- duplicate-ingest idempotency
+- correction and suppression paths
+- async worker pipeline (retries, DLQ)
+- no external model, embedding, or reranker dependency (yet)
 
-- `src/brainy/`: core system implementation
-- `tests/`: scenario and contract tests
-- `docs/brainy/00-context-capture.md`: captured problem framing
-- `docs/brainy/01-program-plan.md`: phase plan and completion status
-- `docs/brainy/architecture/`: cognition model, data contracts, review artifacts
-- `docs/brainy/competitors/`: evidence packets, capability matrix, attack-surface map
-- `docs/brainy/diagrams/`: system diagrams and architecture SVG
-- `docs/brainy/benchmarks/`: latest benchmark reports and thresholds
+**Vertical strategy (approved):** Cognitive primitives + YAML vertical packs — not per-vertical DB kinds. See [docs/vertical/verticalization-model.md](docs/vertical/verticalization-model.md). First wedge: marketing (`packs/marketing/v1/pack.yaml`).
 
-## Competitor Scope (Direct Players)
+## Repository Layout
 
-- Mem0
-- Supermemory
-- Zep / Graphiti
-- Letta
-- Memobase
-- Cognee
+- `archive/brainy-python-prototype/`: archived Python prototype and tests
+- `cmd/api/`: Go API entrypoint
+- `cmd/worker/`: Go worker entrypoint
+- `internal/`: private Go application packages
+- `packs/`: vertical pack definitions (YAML vocabulary, schemas, rank policy)
+- `docs/`: rebuild docs, parity tracking, and cutover guidance
+- `docs/vertical/`: verticalization model and marketing discovery
+- `.omx/plans/`: approved execution artifacts
 
-Competitor claims are explicitly tagged as `evidence` or `inference` in the docs.
+## Mem0 Reference
 
-## Quick Start
+The pinned Mem0 reference for this rebuild is tracked in [docs/mem0-parity-matrix.md](/Users/sid/Documents/Projects/vinci/code/brainy/docs/mem0-parity-matrix.md).
 
-### 1. Install
+Current pinned upstream commit:
+
+- `a670333d67be1207b5be2fc73af60c3439444f48`
+
+## Local Development
+
+### Go tooling
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+go test ./...
+go run ./cmd/api
+go run ./cmd/worker
 ```
 
-### 2. Run tests
+For a long-running worker:
 
 ```bash
-python3 -m pytest -q
+BRAINY_WORKER_MODE=loop go run ./cmd/worker
 ```
 
-### 3. Run benchmarks
+### Eval harness
 
 ```bash
-python3 scripts_run_benchmark.py
+python3 evals/run_eval.py --base-url http://127.0.0.1:8080
+python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
+python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
 ```
 
-Benchmark outputs:
-- `docs/brainy/benchmarks/latest-report.json`
-- `docs/brainy/benchmarks/latest-report.md`
+Current parity fixtures live under `fixtures/parity/`. Marketing vertical fixtures: `fixtures/vertical/marketing/`.
 
-## Environment Variables
+For an operator-oriented local setup using an external Postgres instance, see [docs/external-postgres-runbook.md](/Users/sid/Documents/Projects/vinci/code/brainy/docs/external-postgres-runbook.md).
 
-Populate API keys to enable competitor adapter execution in benchmark runs:
-- `MEM0_API_KEY`
-- `SUPERMEMORY_API_KEY`
-- `ZEP_API_KEY`
-- `LETTA_API_KEY`
-- `MEMOBASE_API_KEY`
-- `COGNEE_API_KEY`
+**Vetting & GTM:** Marketing proof gates and paths to open source, published benchmarks, and commercial API — [docs/vertical/marketing-vetting-gate.md](docs/vertical/marketing-vetting-gate.md), [docs/vertical/go-to-market-roadmap.md](docs/vertical/go-to-market-roadmap.md), [docs/vertical/execution-plan.md](docs/vertical/execution-plan.md) (Linear ↔ GitHub sync).
 
-Reference file:
-- `.env.example`
+### Docker (local / staging)
 
-## Testing Coverage
+```bash
+docker compose up --build
+python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
+```
 
-Implemented test coverage includes:
-- ingestion normalization and provenance
-- consolidation extraction behavior
-- belief graph conflict handling
-- retrieval and ranking behavior
-- reflection stop-loss behavior
-- governance checkpoint/rollback/explain flows
-- end-to-end service contract
-- benchmark runner output structure
+### Environment
 
-## Program Artifacts
+Copy or populate `.env.example` as needed.
 
-Planning and architecture artifacts are kept first-class in this repo:
-- cognitive questions backlog for unresolved deep research threads
-- hypothesis ledger schema and seed hypotheses with falsification links
-- regression thresholds and rollout gates
-- quarterly moat review template
+## Execution Rules
 
-## Notes on "State of the Art"
-
-This repository intentionally avoids unsupported SOTA claims.
-A SOTA claim should only be made when:
-- competitor adapters are fully implemented
-- reproducible side-by-side runs are archived
-- benchmark methodology and caveats are published
-
-## Next Implementation Priorities
-
-1. Implement live competitor adapters (not stubs) for benchmark parity.
-2. Add persistence backends behind repository interfaces.
-3. Expand cognitive benchmarks for regime-shift and long-horizon identity coherence.
-4. Add CI automation for benchmark regression gates.
+- Preserve the archived prototype until the destructive-change gate passes.
+- Do not widen scope beyond the thin-slice contract until deterministic ingest -> persist -> search is green.
+- Keep Mem0 parity tracking explicit; do not use "Mem0-inspired" as a substitute for a pinned reference and documented deviations.

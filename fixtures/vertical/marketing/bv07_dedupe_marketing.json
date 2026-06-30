@@ -1,0 +1,24 @@
+{
+  "name": "bv07_dedupe_marketing",
+  "ingest": {
+    "tenant_id": "fixture-mkt-bv07",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "source_type": "conversation",
+    "messages": [{ "role": "user", "content": "I prefer short headlines." }]
+  },
+  "search": {
+    "tenant_id": "fixture-mkt-bv07",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "headlines"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_content_contains": "short headlines"
+  },
+  "repeat_ingest_expect": {
+    "deduped_at_least": 1
+  }
+}

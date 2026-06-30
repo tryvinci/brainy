@@ -1,0 +1,29 @@
+{
+  "name": "response_style_preference",
+  "ingest": {
+    "tenant_id": "fixture-preference",
+    "subject_id": "user-preference",
+    "source_type": "conversation",
+    "messages": [
+      {
+        "role": "user",
+        "content": "I prefer concise, direct answers."
+      }
+    ]
+  },
+  "search": {
+    "tenant_id": "fixture-preference",
+    "subject_id": "user-preference",
+    "q": "How should I respond"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_kind": "preference",
+    "first_content_contains": "concise"
+  },
+  "repeat_ingest_expect": {
+    "deduped_at_least": 1
+  },
+  "suppress_after_search": true
+}

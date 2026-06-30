@@ -1,0 +1,31 @@
+{
+  "name": "bv01_principle_over_preference",
+  "ingests": [
+    {
+      "tenant_id": "fixture-mkt-bv01",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "source_type": "conversation",
+      "messages": [{ "role": "user", "content": "I prefer warm casual copy." }]
+    },
+    {
+      "tenant_id": "fixture-mkt-bv01",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "source_type": "brand_guidelines",
+      "messages": [{ "role": "user", "content": "Never mention competitor X in any copy." }]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-mkt-bv01",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "competitor copy"
+  },
+  "expect": {
+    "created_at_least": 2,
+    "min_results": 1,
+    "first_content_contains": "Never",
+    "first_explain_primitive": "principle"
+  }
+}
