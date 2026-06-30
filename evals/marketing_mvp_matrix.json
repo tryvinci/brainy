@@ -1,0 +1,93 @@
+{
+  "benchmark_id": "marketing-mvp-v1",
+  "mem0_reference_commit": "a670333d67be1207b5be2fc73af60c3439444f48",
+  "parity_suite": {
+    "dir": "fixtures/parity",
+    "mem0_expected": "pass",
+    "note": "Thin-slice ingest, search, dedupe, correction — approximate Mem0 parity targets."
+  },
+  "vertical_suite": {
+    "dir": "fixtures/vertical/marketing",
+    "mem0_expected": "fail",
+    "note": "Requires cognitive primitives, vertical packs, and lifecycle rules not in Mem0 reference."
+  },
+  "capabilities": [
+    {
+      "id": "principle_hierarchy",
+      "name": "Principle ranks above soft preference",
+      "mem0_has": false,
+      "fixtures": ["bv01_principle_over_preference"],
+      "gap": "Generic Mem0 has no Principle primitive; recency or preference kind wins ties."
+    },
+    {
+      "id": "suppression_leak",
+      "name": "Suppressed taboo never resurfaces",
+      "mem0_has": "approximate",
+      "fixtures": ["bv02_suppression_leak"],
+      "gap": "Mem0 supports delete/suppress; Brainy adds explicit leak regression on vertical queries."
+    },
+    {
+      "id": "voice_preference_ingest",
+      "name": "Marketing vertical maps preferences to voice_profile",
+      "mem0_has": false,
+      "fixtures": ["bv03_voice_preference_ingest"],
+      "gap": "Mem0 stores flat preference facts without pack label or primitive."
+    },
+    {
+      "id": "correction_stickiness",
+      "name": "Editorial correction persists in retrieval",
+      "mem0_has": "approximate",
+      "fixtures": ["bv04_correction_stickiness"],
+      "gap": "Mem0 supports updates; Brainy scores corrected memories higher deterministically."
+    },
+    {
+      "id": "core_vertical_isolation",
+      "name": "Core ingest unaffected by marketing pack weights",
+      "mem0_has": true,
+      "fixtures": ["bv05_core_vertical_unaffected"],
+      "gap": "N/A — parity baseline."
+    },
+    {
+      "id": "multi_brand_isolation",
+      "name": "Subject isolation prevents cross-brand bleed",
+      "mem0_has": "approximate",
+      "fixtures": ["bv06_multi_brand_isolation"],
+      "gap": "Mem0 user_id isolation is analogous; Brainy validates subject_id + vertical filter."
+    },
+    {
+      "id": "dedupe_idempotency",
+      "name": "Duplicate marketing ingest dedupes",
+      "mem0_has": true,
+      "fixtures": ["bv07_dedupe_marketing"],
+      "gap": "N/A — parity target."
+    },
+    {
+      "id": "brand_rule_extraction",
+      "name": "Never-sentences classify as brand_rule / principle",
+      "mem0_has": false,
+      "fixtures": ["bv08_brand_rule_extraction"],
+      "gap": "Mem0 has no brand_rule label or Principle primitive from heuristics."
+    },
+    {
+      "id": "response_style_ranking",
+      "name": "Response-style queries rank marketing preferences",
+      "mem0_has": "approximate",
+      "fixtures": ["bv09_response_style_marketing"],
+      "gap": "Mem0 may surface preferences; Brainy adds vertical-scoped primitive bonus."
+    },
+    {
+      "id": "dual_message_extraction",
+      "name": "Multi-message ingest extracts voice + rule",
+      "mem0_has": false,
+      "fixtures": ["bv10_dual_message_brand_voice"],
+      "gap": "Mem0 lacks pack-driven multi-label extraction with principle precedence."
+    },
+    {
+      "id": "campaign_lifecycle",
+      "name": "Archived campaign excluded from search",
+      "mem0_has": false,
+      "fixtures": ["lc01_archived_campaign_hidden"],
+      "gap": "Mem0 has no pack lifecycle_rules or campaign metadata state machine."
+    }
+  ]
+}

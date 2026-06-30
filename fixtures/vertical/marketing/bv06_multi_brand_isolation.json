@@ -1,0 +1,29 @@
+{
+  "name": "bv06_multi_brand_isolation",
+  "ingests": [
+    {
+      "tenant_id": "fixture-mkt-bv06",
+      "subject_id": "brand-alpha",
+      "vertical": "marketing",
+      "source_type": "brand_guidelines",
+      "messages": [{ "role": "user", "content": "Never mention BrandAlpha rival OmegaCorp." }]
+    },
+    {
+      "tenant_id": "fixture-mkt-bv06",
+      "subject_id": "brand-beta",
+      "vertical": "marketing",
+      "source_type": "brand_guidelines",
+      "messages": [{ "role": "user", "content": "Never mention BrandBeta rival DeltaInc." }]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-mkt-bv06",
+    "subject_id": "brand-alpha",
+    "vertical": "marketing",
+    "q": "DeltaInc"
+  },
+  "expect": {
+    "created_at_least": 2,
+    "max_results": 0
+  }
+}

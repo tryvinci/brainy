@@ -1,0 +1,23 @@
+{
+  "name": "bv08_brand_rule_extraction",
+  "ingest": {
+    "tenant_id": "fixture-mkt-bv08",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "source_type": "compliance",
+    "messages": [{ "role": "user", "content": "Never use slang in customer-facing copy." }]
+  },
+  "search": {
+    "tenant_id": "fixture-mkt-bv08",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "slang customer copy"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_kind": "fact",
+    "first_content_contains": "Never",
+    "first_explain_primitive": "principle"
+  }
+}

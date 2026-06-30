@@ -1,0 +1,27 @@
+{
+  "name": "lc01_archived_campaign_hidden",
+  "ingest": {
+    "tenant_id": "fixture-mkt-lc01",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "label": "campaign",
+    "metadata": {
+      "name": "Summer Sale",
+      "status": "archived"
+    },
+    "source_type": "campaign",
+    "messages": [
+      { "role": "user", "content": "Summer Sale campaign headline is Save 20% today." }
+    ]
+  },
+  "search": {
+    "tenant_id": "fixture-mkt-lc01",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "Summer Sale headline"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "max_results": 0
+  }
+}
