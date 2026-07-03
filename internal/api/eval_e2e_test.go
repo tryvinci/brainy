@@ -34,6 +34,10 @@ func TestMarketingMVPBenchmarkAgainstHTTPServer(t *testing.T) {
 	runEvalHarness(t, "evals/run_marketing_mvp_benchmark.py", "")
 }
 
+func TestOpMemBenchmarkAgainstHTTPServer(t *testing.T) {
+	runEvalHarness(t, "evals/run_opmem.py", "")
+}
+
 func runEvalHarness(t *testing.T, script, fixtureDir string) {
 	t.Helper()
 	t.Setenv("LANG", "C")
