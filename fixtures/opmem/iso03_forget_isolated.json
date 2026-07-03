@@ -1,0 +1,12 @@
+{
+  "name": "iso03_forget_isolated",
+  "category": "isolation",
+  "description": "Forgetting one actor's memory must not affect an identical memory of another actor.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "alice", "content": "Never share the door code with vendors." },
+    { "op": "remember", "id": "m2", "actor": "bob", "content": "Never share the door code with vendors." },
+    { "op": "forget", "actor": "alice", "target": "m1" },
+    { "op": "recall", "actor": "alice", "query": "door code", "expect": { "max_results": 0 } },
+    { "op": "recall", "actor": "bob", "query": "door code", "expect": { "min_results": 1 } }
+  ]
+}

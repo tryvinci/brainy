@@ -1,0 +1,10 @@
+{
+  "name": "dup01_idempotent_remember",
+  "category": "idempotency",
+  "description": "Remembering identical content twice must not produce duplicate recall results.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "The wifi network name is FalconNet." },
+    { "op": "remember", "id": "m2", "actor": "a1", "content": "The wifi network name is FalconNet." },
+    { "op": "recall", "actor": "a1", "query": "wifi network", "expect": { "min_results": 1, "max_results": 1, "unique_contents": true } }
+  ]
+}

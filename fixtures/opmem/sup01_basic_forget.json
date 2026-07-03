@@ -1,0 +1,11 @@
+{
+  "name": "sup01_basic_forget",
+  "category": "suppression",
+  "description": "A forgotten memory must not appear in later recall.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "Never share the door code with vendors." },
+    { "op": "recall", "actor": "a1", "query": "door code", "expect": { "min_results": 1, "top_contains": "door code" } },
+    { "op": "forget", "actor": "a1", "target": "m1" },
+    { "op": "recall", "actor": "a1", "query": "door code", "expect": { "max_results": 0 } }
+  ]
+}
