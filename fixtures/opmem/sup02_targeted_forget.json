@@ -1,0 +1,12 @@
+{
+  "name": "sup02_targeted_forget",
+  "category": "suppression",
+  "description": "Forgetting one memory must not remove an unrelated memory.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "Never share the door code with vendors." },
+    { "op": "remember", "id": "m2", "actor": "a1", "content": "The wifi network name is FalconNet." },
+    { "op": "forget", "actor": "a1", "target": "m1" },
+    { "op": "recall", "actor": "a1", "query": "door code", "expect": { "must_exclude": ["door code"] } },
+    { "op": "recall", "actor": "a1", "query": "wifi network", "expect": { "min_results": 1, "top_contains": "falconnet" } }
+  ]
+}
