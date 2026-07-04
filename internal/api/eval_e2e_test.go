@@ -26,6 +26,10 @@ func TestVerticalEvalHarnessAgainstHTTPServer(t *testing.T) {
 	runEvalHarness(t, "evals/run_vertical_eval.py", "fixtures/vertical/marketing")
 }
 
+func TestHybridEvalHarnessAgainstHTTPServer(t *testing.T) {
+	runEvalHarness(t, "evals/run_hybrid_eval.py", "fixtures/hybrid")
+}
+
 func TestMarketingMVPBenchmarkAgainstHTTPServer(t *testing.T) {
 	runEvalHarness(t, "evals/run_marketing_mvp_benchmark.py", "")
 }
@@ -79,7 +83,7 @@ func TestAsyncIngestBecomesSearchableAfterProcessorRuns(t *testing.T) {
 		t.Fatalf("async ingest failed: %v\n%s", err, string(response))
 	}
 
-	searchBefore, err := service.Search(context.Background(), "t1", "u1", "", "How should I respond?")
+	searchBefore, err := service.Search(context.Background(), "t1", "u1", "", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search before processing failed: %v", err)
 	}
@@ -96,7 +100,7 @@ func TestAsyncIngestBecomesSearchableAfterProcessorRuns(t *testing.T) {
 		t.Fatalf("expected processor to claim one queued job")
 	}
 
-	searchAfter, err := service.Search(context.Background(), "t1", "u1", "", "How should I respond?")
+	searchAfter, err := service.Search(context.Background(), "t1", "u1", "", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search after processing failed: %v", err)
 	}
@@ -158,7 +162,7 @@ func TestCorrectionStickiness(t *testing.T) {
 		t.Fatalf("ingest failed: %v", err)
 	}
 
-	searchBefore, err := service.Search(ctx, "t1", "u1", "", "How should I respond?")
+	searchBefore, err := service.Search(ctx, "t1", "u1", "", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search before correction failed: %v", err)
 	}
@@ -176,7 +180,7 @@ func TestCorrectionStickiness(t *testing.T) {
 		t.Fatalf("correct failed: %v", err)
 	}
 
-	searchAfter, err := service.Search(ctx, "t1", "u1", "", "How should I respond?")
+	searchAfter, err := service.Search(ctx, "t1", "u1", "", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search after correction failed: %v", err)
 	}
@@ -203,7 +207,7 @@ func TestCorrectionStickiness(t *testing.T) {
 		t.Fatalf("re-ingest failed: %v", err)
 	}
 
-	searchFinal, err := service.Search(ctx, "t1", "u1", "", "How should I respond?")
+	searchFinal, err := service.Search(ctx, "t1", "u1", "", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search after re-ingest failed: %v", err)
 	}

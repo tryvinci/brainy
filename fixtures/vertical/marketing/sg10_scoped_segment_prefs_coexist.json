@@ -1,0 +1,37 @@
+{
+  "name": "sg10_scoped_segment_prefs_coexist",
+  "ingests": [
+    {
+      "tenant_id": "fixture-mkt-sg10",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "scope": "vip",
+      "label": "audience_segment",
+      "metadata": { "name": "VIP" },
+      "source_type": "segment",
+      "messages": [{ "role": "user", "content": "VIP segment prefers email over SMS for promotions." }]
+    },
+    {
+      "tenant_id": "fixture-mkt-sg10",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "scope": "mobile",
+      "label": "audience_segment",
+      "metadata": { "name": "Mobile" },
+      "source_type": "segment",
+      "messages": [{ "role": "user", "content": "Mobile users prefer SMS over email for promotions." }]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-mkt-sg10",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "scope": "vip",
+    "q": "promotions channel"
+  },
+  "expect": {
+    "created_at_least": 2,
+    "min_results": 2,
+    "first_content_contains": "email"
+  }
+}

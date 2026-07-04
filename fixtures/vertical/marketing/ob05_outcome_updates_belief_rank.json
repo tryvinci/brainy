@@ -1,0 +1,35 @@
+{
+  "name": "ob05_outcome_updates_belief_rank",
+  "ingests": [
+    {
+      "tenant_id": "fixture-mkt-ob05",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "label": "content_belief",
+      "metadata": { "conviction": 0.3 },
+      "source_type": "hypothesis",
+      "messages": [{ "role": "user", "content": "Emoji subject lines may improve open rates slightly." }]
+    },
+    {
+      "tenant_id": "fixture-mkt-ob05",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "label": "performance_outcome",
+      "metadata": { "metric": "open_rate", "value": 0.9, "variant": "emoji" },
+      "source_type": "ab_test",
+      "messages": [{ "role": "user", "content": "Emoji subject lines outperform plain by strong open rate lift." }]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-mkt-ob05",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "emoji subject lines"
+  },
+  "expect": {
+    "created_at_least": 2,
+    "min_results": 1,
+    "first_content_contains": "outperform",
+    "first_explain_primitive": "belief"
+  }
+}

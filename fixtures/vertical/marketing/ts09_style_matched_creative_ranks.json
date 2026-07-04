@@ -1,0 +1,35 @@
+{
+  "name": "ts09_style_matched_creative_ranks",
+  "ingests": [
+    {
+      "tenant_id": "fixture-mkt-ts09",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "label": "creative_asset",
+      "metadata": { "asset_type": "headline", "approval_status": "approved" },
+      "source_type": "creative",
+      "messages": [{ "role": "user", "content": "Corporate dense headline for enterprise buyers." }]
+    },
+    {
+      "tenant_id": "fixture-mkt-ts09",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "label": "style_signal",
+      "metadata": { "style_tags": ["minimal", "whitespace", "layout"] },
+      "source_type": "creative",
+      "messages": [{ "role": "user", "content": "Minimal layout headline with high whitespace." }]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-mkt-ts09",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "minimal layout headline"
+  },
+  "expect": {
+    "created_at_least": 2,
+    "min_results": 1,
+    "first_content_contains": "Minimal",
+    "first_explain_primitive": "taste_signal"
+  }
+}

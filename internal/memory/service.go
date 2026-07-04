@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"brainy/internal/pack"
+	"brainy/internal/embedding"
 )
 
 type Store interface {
@@ -56,17 +57,20 @@ func NewServiceWithPacks(store Store, packs *pack.Registry) *Service {
 	}
 }
 
-func (s *Service) applyPackFields(record *MemoryRecord, req IngestRequest, kind, content string) {
-	ApplyVerticalPack(record, req, kind, content, s.packs)
+func (s *Service) applyPackFields(record *MemoryRecord, req IngestRequest, kind, content string) error {
+	return ApplyVerticalPack(record, req, kind, content, s.packs)
 }
 
 func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, error) {
 	if err := validateIngestRequest(req); err != nil {
 		return IngestResult{}, err
 	}
+	if err := validatePackMetadata(s.packs, req); err != nil {
+		return IngestResult{}, err
+	}
 
-	memories := s.extractor.Extract(req)
-	if len(memories) == 0 {
+	memories := s.extractOrLabel(req)
+	if len(memories) == 0 && strings.TrimSpace(req.Label) != "performance_outcome" {
 		return IngestResult{
 			IngestID: s.id("ing"),
 			Accepted: true,
@@ -96,12 +100,15 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 			CreatedAt:         now,
 			UpdatedAt:         now,
 		}
-		s.applyPackFields(&record, req, extracted.Kind, extracted.Content)
+		if err := s.applyPackFields(&record, req, extracted.Kind, extracted.Content); err != nil {
+			return IngestResult{}, err
+		}
 
 		upserted, err := s.store.UpsertMemory(ctx, record)
 		if err != nil {
 			return IngestResult{}, err
 		}
+		s.persistEmbedding(ctx, upserted.Record)
 
 		switch upserted.State {
 		case "created":
@@ -112,6 +119,49 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 			result.Deduped++
 		}
 
+		result.Memories = append(result.Memories, IngestResultMemory{
+			MemoryID: upserted.Record.MemoryID,
+			Kind:     upserted.Record.Kind,
+			Content:  upserted.Record.Content,
+			Status:   upserted.Record.Status,
+		})
+	}
+
+	if belief, ok := synthesizeBeliefFromOutcome(req); ok {
+		now := s.now()
+		belief.MemoryID = s.id("mem")
+		belief.TenantID = req.TenantID
+		belief.SubjectID = req.SubjectID
+		belief.SourceType = req.SourceType
+		belief.DedupeKey = DedupeKey(req.TenantID, req.SubjectID, belief.Kind, belief.Content)
+		belief.Status = StatusActive
+		belief.Confidence = 0.9
+		belief.ExtractionVersion = "outcome-belief-v1"
+		belief.LifecycleState = LifecycleActive
+		belief.Vertical = strings.TrimSpace(req.Vertical)
+		if belief.Vertical == "" {
+			belief.Vertical = VerticalCore
+		}
+		if scope := strings.TrimSpace(req.Scope); scope != "" {
+			belief.Scope = scope
+		}
+		belief.CreatedAt = now
+		belief.UpdatedAt = now
+		belief.Explain = map[string]any{"rule": "outcome_to_belief"}
+
+		upserted, err := s.store.UpsertMemory(ctx, belief)
+		if err != nil {
+			return IngestResult{}, err
+		}
+		s.persistEmbedding(ctx, upserted.Record)
+		switch upserted.State {
+		case "created":
+			result.Created++
+		case "updated":
+			result.Updated++
+		default:
+			result.Deduped++
+		}
 		result.Memories = append(result.Memories, IngestResultMemory{
 			MemoryID: upserted.Record.MemoryID,
 			Kind:     upserted.Record.Kind,
@@ -157,7 +207,7 @@ func (s *Service) idempotencyKey(req IngestRequest) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, query string) (SearchResponse, error) {
+func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, scope, query string) (SearchResponse, error) {
 	if tenantID == "" || subjectID == "" || query == "" {
 		return SearchResponse{}, errors.New("tenant_id, subject_id, and q are required")
 	}
@@ -192,13 +242,33 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, que
 		}
 	}
 
+	queryVector := embedding.Embed(query)
+	embedScores := s.embeddingScores(ctx, tenantID, subjectID, queryVector)
+	candidates := make(map[string]MemoryRecord, len(memories))
+	for _, record := range memories {
+		candidates[record.MemoryID] = record
+	}
+	if len(embedScores) > 0 {
+		allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
+		if err != nil {
+			return SearchResponse{}, err
+		}
+		for _, record := range allMemories {
+			if score := embedScores[record.MemoryID]; score >= 0.15 {
+				if _, ok := candidates[record.MemoryID]; !ok {
+					candidates[record.MemoryID] = record
+				}
+			}
+		}
+	}
+
 	var packWeights map[string]int
 	if p, ok := s.packs.Get(vertical); ok {
 		packWeights = p.RankPolicy.PrimitiveWeights
 	}
 
-	results := make([]SearchResult, 0, len(memories))
-	for _, record := range memories {
+	results := make([]SearchResult, 0, len(candidates))
+	for _, record := range candidates {
 		if !IsLifecycleSearchVisible(record.LifecycleState) {
 			continue
 		}
@@ -211,6 +281,16 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, que
 			}
 		}
 		score, explain := scoreMemory(record, queryTokens, packWeights)
+		if explain == nil {
+			explain = map[string]any{}
+		}
+		embedScore := embedScores[record.MemoryID]
+		if embedScore == 0 {
+			embedScore = embedding.CosineSimilarity(queryVector, recordEmbedding(record))
+		}
+		score = applyHybridScore(score, explain, embedScore)
+		applyConvictionBoost(&score, explain, record)
+		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
 			score *= mult
 			explain["lifecycle_rank_multiplier"] = mult
@@ -218,6 +298,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, que
 				explain["lifecycle_state"] = state
 			}
 		}
+		applyScopeBoost(&score, explain, record, scope, s.packs)
 		if score <= 0 {
 			continue
 		}
@@ -274,6 +355,7 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 	if err != nil {
 		return MutationResult{}, err
 	}
+	s.persistEmbedding(ctx, record)
 
 	return MutationResult{
 		MemoryID: record.MemoryID,
@@ -383,6 +465,42 @@ func preferenceResponseQuery(record MemoryRecord, queryTokens []string) bool {
 		}
 	}
 	return false
+}
+
+func (s *Service) extractOrLabel(req IngestRequest) []ExtractedMemory {
+	memories := s.extractor.Extract(req)
+	if len(memories) > 0 {
+		return memories
+	}
+	label := strings.TrimSpace(req.Label)
+	if label == "" || s.packs == nil {
+		return nil
+	}
+	vertical := strings.TrimSpace(req.Vertical)
+	if vertical == "" {
+		vertical = VerticalCore
+	}
+	p, ok := s.packs.Get(vertical)
+	if !ok {
+		return nil
+	}
+	entry, ok := p.Vocabulary[label]
+	if !ok {
+		return nil
+	}
+	content := firstMessageContent(req)
+	if content == "" {
+		return nil
+	}
+	return []ExtractedMemory{{
+		Kind:       entry.Kind,
+		Content:    titleSentence(content),
+		SourceText: content,
+		Confidence: 0.9,
+		Explain: map[string]any{
+			"rule": "pack_label_direct",
+		},
+	}}
 }
 
 func validateIngestRequest(req IngestRequest) error {

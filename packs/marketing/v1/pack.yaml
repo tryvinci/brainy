@@ -34,6 +34,16 @@ vocabulary:
     kind: fact
     description: Approved or referenced creative asset
 
+  pattern:
+    primitive: pattern
+    kind: fact
+    description: Cross-episode recurring pattern
+
+  style_signal:
+    primitive: taste_signal
+    kind: preference
+    description: Style preference signal for creative ranking
+
   performance_outcome:
     primitive: outcome
     kind: fact
@@ -130,6 +140,14 @@ metadata_schemas:
         items:
           type: string
 
+  style_signal:
+    type: object
+    properties:
+      style_tags:
+        type: array
+        items:
+          type: string
+
 lifecycle_rules:
   - match:
       label: campaign
@@ -164,6 +182,7 @@ rank_policy:
     principle: 100
     identity_prior: 80
     belief: 60
+    taste_signal: 55
     outcome: 50
     pattern: 40
     episode: 20
