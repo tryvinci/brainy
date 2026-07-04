@@ -183,6 +183,13 @@ FOR UPDATE
 		return memory.StoreUpsertResult{}, err
 	}
 
+	if existing.Status == memory.StatusSuppressed {
+		if err := tx.Commit(ctx); err != nil {
+			return memory.StoreUpsertResult{}, err
+		}
+		return memory.StoreUpsertResult{Record: existing, State: "deduped"}, nil
+	}
+
 	if existing.Content == record.Content && existing.Status == memory.StatusActive {
 		if metadataEqual(existing.Metadata, record.Metadata) &&
 			existing.LifecycleState == record.LifecycleState &&
