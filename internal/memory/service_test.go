@@ -26,6 +26,9 @@ func newMemoryStoreStub() *memoryStoreStub {
 
 func (s *memoryStoreStub) UpsertMemory(_ context.Context, record MemoryRecord) (StoreUpsertResult, error) {
 	if existing, ok := s.records[record.DedupeKey]; ok {
+		if existing.Status == StatusSuppressed {
+			return StoreUpsertResult{Record: existing, State: "deduped"}, nil
+		}
 		if existing.Content == record.Content && existing.Status == StatusActive &&
 			metadataEqual(existing.Metadata, record.Metadata) &&
 			existing.LifecycleState == record.LifecycleState &&
@@ -399,5 +402,77 @@ func TestLifecycleMetadataUpdateChangesState(t *testing.T) {
 	}
 	if len(searchAfter.Results) != 0 {
 		t.Fatalf("expected archived campaign hidden after update, got %d", len(searchAfter.Results))
+	}
+}
+
+func TestSuppressedMemoryNotResurrectedOnReingest(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+
+	ingest, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "Never share the door code with vendors."}},
+	})
+	if err != nil {
+		t.Fatalf("ingest failed: %v", err)
+	}
+	if err := service.Suppress(context.Background(), "t1", "u1", ingest.Memories[0].MemoryID); err != nil {
+		t.Fatalf("suppress failed: %v", err)
+	}
+
+	reingest, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "Never share the door code with vendors."}},
+	})
+	if err != nil {
+		t.Fatalf("re-ingest failed: %v", err)
+	}
+	if reingest.Created != 0 {
+		t.Fatalf("expected no new memories after re-ingesting suppressed content, got created=%d", reingest.Created)
+	}
+
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "door code")
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(search.Results) != 0 {
+		t.Fatalf("expected suppressed memory to stay hidden after re-ingest, got %d results", len(search.Results))
+	}
+}
+
+func TestSearchPrefersNewerConflictingPreference(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+
+	if _, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "I prefer email updates."}},
+	}); err != nil {
+		t.Fatalf("first ingest failed: %v", err)
+	}
+	if _, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "I prefer SMS updates."}},
+	}); err != nil {
+		t.Fatalf("second ingest failed: %v", err)
+	}
+
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "updates")
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected at least one search result")
+	}
+	if !strings.Contains(strings.ToLower(search.Results[0].Content), "sms") {
+		t.Fatalf("expected newer SMS preference to rank first, got %q", search.Results[0].Content)
 	}
 }

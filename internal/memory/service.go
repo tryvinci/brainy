@@ -207,6 +207,11 @@ func (s *Service) idempotencyKey(req IngestRequest) string {
 	return hex.EncodeToString(sum[:])
 }
 
+type rankedSearchResult struct {
+	result    SearchResult
+	updatedAt time.Time
+}
+
 func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, scope, query string) (SearchResponse, error) {
 	if tenantID == "" || subjectID == "" || query == "" {
 		return SearchResponse{}, errors.New("tenant_id, subject_id, and q are required")
@@ -267,7 +272,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		packWeights = p.RankPolicy.PrimitiveWeights
 	}
 
-	results := make([]SearchResult, 0, len(candidates))
+	ranked := make([]rankedSearchResult, 0, len(candidates))
 	for _, record := range candidates {
 		if !IsLifecycleSearchVisible(record.LifecycleState) {
 			continue
@@ -302,21 +307,34 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		if score <= 0 {
 			continue
 		}
-		results = append(results, SearchResult{
-			MemoryID: record.MemoryID,
-			Kind:     record.Kind,
-			Content:  record.Content,
-			Score:    score,
-			Explain:  explain,
+		ranked = append(ranked, rankedSearchResult{
+			result: SearchResult{
+				MemoryID: record.MemoryID,
+				Kind:     record.Kind,
+				Content:  record.Content,
+				Score:    score,
+				Explain:  explain,
+			},
+			updatedAt: record.UpdatedAt,
 		})
 	}
 
-	sort.SliceStable(results, func(i, j int) bool {
-		if results[i].Score == results[j].Score {
-			return results[i].MemoryID < results[j].MemoryID
+	applyRelativeRecencyBoost(ranked)
+
+	sort.SliceStable(ranked, func(i, j int) bool {
+		if ranked[i].result.Score == ranked[j].result.Score {
+			if ranked[i].updatedAt.Equal(ranked[j].updatedAt) {
+				return ranked[i].result.MemoryID > ranked[j].result.MemoryID
+			}
+			return ranked[i].updatedAt.After(ranked[j].updatedAt)
 		}
-		return results[i].Score > results[j].Score
+		return ranked[i].result.Score > ranked[j].result.Score
 	})
+
+	results := make([]SearchResult, len(ranked))
+	for i, item := range ranked {
+		results[i] = item.result
+	}
 
 	return SearchResponse{Results: results}, nil
 }
@@ -427,6 +445,67 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 	}
 
 	return score, explain
+}
+
+const relativeRecencyBoostMax = 0.05
+
+func applyRelativeRecencyBoost(ranked []rankedSearchResult) {
+	if len(ranked) == 0 {
+		return
+	}
+	minUpdated := ranked[0].updatedAt
+	maxUpdated := ranked[0].updatedAt
+	for _, item := range ranked[1:] {
+		if item.updatedAt.Before(minUpdated) {
+			minUpdated = item.updatedAt
+		}
+		if item.updatedAt.After(maxUpdated) {
+			maxUpdated = item.updatedAt
+		}
+	}
+
+	span := maxUpdated.Sub(minUpdated)
+	if span == 0 {
+		ids := make([]string, len(ranked))
+		for i, item := range ranked {
+			ids[i] = item.result.MemoryID
+		}
+		sort.Strings(ids)
+		idRank := make(map[string]int, len(ids))
+		for i, id := range ids {
+			idRank[id] = i
+		}
+		maxRank := len(ids) - 1
+		for i := range ranked {
+			var bonus float64
+			if maxRank == 0 {
+				bonus = relativeRecencyBoostMax / 2
+			} else {
+				bonus = relativeRecencyBoostMax * float64(idRank[ranked[i].result.MemoryID]) / float64(maxRank)
+			}
+			ranked[i].result.Score += bonus
+			if ranked[i].result.Explain == nil {
+				ranked[i].result.Explain = map[string]any{}
+			}
+			ranked[i].result.Explain["recency_bonus"] = bonus
+		}
+		return
+	}
+
+	for i := range ranked {
+		var bonus float64
+		switch {
+		case span == 0:
+			bonus = relativeRecencyBoostMax / 2
+		default:
+			bonus = relativeRecencyBoostMax * float64(ranked[i].updatedAt.Sub(minUpdated)) / float64(span)
+		}
+		ranked[i].result.Score += bonus
+		if ranked[i].result.Explain == nil {
+			ranked[i].result.Explain = map[string]any{}
+		}
+		ranked[i].result.Explain["recency_bonus"] = bonus
+	}
 }
 
 func applyPrimitiveBonus(score *float64, explain map[string]any, record MemoryRecord, weights map[string]int) {
