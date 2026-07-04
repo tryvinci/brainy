@@ -1,7 +1,7 @@
 # Go-to-Market Roadmap — Open Source, Benchmarks, Commercial
 
-**Status:** Product planning (2026-06-23)  
-**Depends on:** [`marketing-vetting-gate.md`](./marketing-vetting-gate.md)  
+**Status:** Active (2026-07-04) — Gates M1–M3 done; launch tracks A→B→C sequential  
+**Depends on:** [`marketing-vetting-gate.md`](./marketing-vetting-gate.md) · [`execution-plan.md`](./execution-plan.md)  
 **Audience:** Founders, eng leads — what it takes from today to public repo, published benchmarks, and revenue.
 
 ---
@@ -10,49 +10,43 @@
 
 | Asset | Status |
 | --- | --- |
-| Go API (ingest, search, correct, suppress, async worker) | Built, local/staging only |
-| Marketing vertical pack + eval harness | Built, M1 passed locally |
-| CI (fixture regression) | Built, not on public origin yet |
-| LICENSE | **Missing** |
-| API auth / billing | **Missing** |
-| Live competitor benchmarks | **Not started** (documented Mem0 gap only) |
-| Hosted production API | **Not started** |
+| Go API (ingest, search, correct, suppress, async worker) | Built, Docker Compose + CI |
+| Marketing vertical pack + eval harness | **16/16 fixtures green** (Gate M3) |
+| OpMem operational benchmark | **12/12 expected** (PR #16+#17 merged to `dev`) |
+| CI (fixture regression) | Green on public `origin` |
+| LICENSE (Apache-2.0) | **Done** |
+| Docker Compose stack | **Done** |
+| Mem0 live competitor adapter | **Done** (ENG-100) |
+| Moat benchmark report + methodology | **Done** (Gate M3) |
+| API auth / billing | **Missing** (Track C — GH #11/#12) |
+| Hosted production API | **Not started** (Track C) |
 
-**Honest position:** Strong **engineering prototype** with reproducible internal vetting. Not yet a **public product** or **credible external benchmark publication**.
+**Honest position:** Marketing technical proof is **done**. Next is a **sequential public launch**: OSS preview (A) → benchmark-led narrative (B) → hosted beta (C).
 
 ---
 
-## Three outward-facing tracks (parallel after M2)
+## Three launch tracks (sequential after M3)
 
-These are independent timelines that share engineering foundations:
+Tracks run **in order**. Do not start B until A ships; do not start C until B publishes.
 
 ```
-                    M1 (now)
-                       │
-                       ▼
-              M2 — Publish & staging
-                       │
-       ┌───────────────┼───────────────┐
-       ▼               ▼               ▼
-  Track A          Track B          Track C
-  Open source      Benchmarks       Commercial API
-  (repo public)    (marketing moat)   (revenue)
-       │               │               │
-       └───────────────┴───────────────┘
-                       │
-              M3 — Marketing technical proof
-                       │
-       ┌───────────────┴───────────────┐
-       ▼                               ▼
-  OSS v1.0 claim                  Paid API beta
-  + benchmark report              + design partners
+M1 ──► M2 ──► M3 (Done)
+                  │
+                  ▼
+           Track A — OSS preview (v0.1.0)
+                  │
+                  ▼
+           Track B — Benchmark-led launch
+                  │
+                  ▼
+           Track C — Hosted API beta (M5)
 ```
 
 | Track | Minimum gate to **start** | Minimum gate to **claim publicly** |
 | --- | --- | --- |
-| **A. Open source** | M2 | M2 for “developer preview”; M3 for “marketing memory v1” |
-| **B. Published benchmarks** | M2 (staging + Mem0 API adapter) | M3 (full seed coverage + methodology doc) |
-| **C. Sell (API or OSS support)** | M3 + commercial hardening | M3 + 2–3 design partners + billing/auth |
+| **A. Open source preview** | M3 done | `v0.1.0` tagged, README quickstart, Docker reproduces evals |
+| **B. Published benchmarks** | Track A shipped | OpMem 12/12 + moat report public; launch blog/landing |
+| **C. Hosted API beta** | Track B published | M5: auth (#11), commercial checklist (#12), 2–3 design partners |
 
 Finance and second verticals remain **Gate M4** — unrelated to first public launch.
 
@@ -71,22 +65,21 @@ Two viable models (pick one before public launch):
 
 Recommendation for Brainy: **Apache-2.0** on runtime + marketing pack YAML. Keeps pack format adoptable; monetize hosted ops and support.
 
-### Checklist: developer preview (Gate M2)
+### Checklist: developer preview (Track A — active)
 
-Enough for a **public GitHub repo** labeled “early / not production”:
+Enough for **`v0.1.0` developer preview** on public `main`:
 
 | Item | Status | Effort |
 | --- | --- | --- |
-| Choose license + add `LICENSE` | Missing | Small |
-| Push `dev` to public `origin`, enable GitHub Actions | Open (ENG-91) | Small |
-| `README.md` — quickstart, architecture link, disclaimer | Partial | Small |
-| `CONTRIBUTING.md`, `SECURITY.md` | Missing | Small |
-| `.env.example` — no secrets, documented vars | Check | Small |
-| Docker Compose (API + Postgres + worker) | Missing | Medium |
-| Remove/archive internal-only paths (`.omx` policy?) | Partial | Small |
-| Issue templates / basic CODEOWNERS | Missing | Small |
+| Apache-2.0 `LICENSE` | Done | — |
+| Public repo + GitHub Actions | Done | — |
+| `README.md` — 5-min quickstart | In progress | Small |
+| `CONTRIBUTING.md`, `SECURITY.md` | Done | — |
+| `.env.example` | Done | — |
+| Docker Compose (API + Postgres + worker) | Done | — |
+| Merge `dev` → `main` + tag `v0.1.0` | Pending | Small |
 
-**Timeline:** 1–2 weeks after M1 if prioritized — mostly ops/docs, not new features.
+**Timeline:** ~1 week from M3 sign-off — mostly release ops, not new features.
 
 ### Checklist: credible OSS v1.0 (Gate M3)
 
@@ -228,25 +221,21 @@ Three test modes — see also [`marketing-vetting-gate.md`](./marketing-vetting-
 
 ---
 
-## Consolidated timeline (realistic)
+## Consolidated timeline (sequential tracks)
 
-Assuming part-time to one eng focus; adjust if dedicated.
-
-| Phase | Weeks (indic.) | Milestone | Unlocks |
+| Phase | Weeks (indic.) | Track | Unlocks |
 | --- | --- | --- | --- |
-| **M2** | 1–2 | Push public repo, staging, Docker, LICENSE | OSS preview, B1 benchmarks, dogfood |
-| **M3 eng** | 4–8 | lc02, MVP-3/4, ENG-87, remaining fixtures | Credible marketing proof |
-| **M3 publish** | 1–2 | B2–B3 benchmark reports, docs site | Blog, sales narrative |
-| **Commercial beta** | 6–10 | API keys, deploy, 2–3 partners | First revenue (manual) |
-| **OSS v1.0 tag** | — | M3 + release process | Community adoption |
-| **M4** | — | Finance research only after M3 sign-off | Second vertical |
+| **M2 + M3** | Done | Engineering gates | Technical proof complete |
+| **Track A** | 1 | OSS preview + `v0.1.0` | Public clone-and-run, contributor onboarding |
+| **Track B** | 2–4 | OpMem 12/12 publish + launch content | Mem0/SuperMemory-style benchmark narrative |
+| **Track C** | 6–10 | Auth, billing, design partners | First revenue (manual invoice) |
+| **M4** | — | Finance research (parallel, non-blocking) | Second vertical discovery |
 
 **Earliest honest dates (order of magnitude):**
 
-- **Public repo (preview):** ~2 weeks from M2 start  
-- **Published marketing vs Mem0 benchmark:** ~6–10 weeks (needs M3 + adapter work)  
-- **Paid API beta:** ~10–16 weeks from today (M3 + commercial layer)  
-- **Finance vertical:** after M4 — not on critical path to launch  
+- **`v0.1.0` developer preview:** ~1 week (Track A — now)
+- **Public benchmark launch post:** ~3–5 weeks after Track A (Track B)
+- **Paid API beta:** ~10–16 weeks from Track B start (Track C / M5)  
 
 ---
 
@@ -254,12 +243,14 @@ Assuming part-time to one eng focus; adjust if dedicated.
 
 | Decision | Recommendation |
 | --- | --- |
-| License | Apache-2.0 (runtime + packs) |
-| First public artifact | Repo + reproducible benchmark report (B1), not hosted API |
-| First revenue | Managed API for marketing agents (design partners) |
-| Competitor benchmarks | Mem0 first (pinned parity fixtures), Zep second (public track only) |
-| Finance | Blocked until M4 — not required for launch |
-| Claim discipline | No “SOTA” until B3 published with methodology |
+| License | Apache-2.0 (runtime + packs) — **done** |
+| Launch sequence | **Sequential:** A (OSS) → B (benchmarks) → C (hosted API) |
+| First public artifact | `v0.1.0` on `main` + README quickstart (Track A) |
+| Second public artifact | OpMem 12/12 + moat report launch post (Track B) |
+| First revenue | Managed API for marketing agents — Track C / M5 |
+| Competitor benchmarks | Mem0 adapter done; publish at Track B |
+| Finance | Gate M4 research — not on launch critical path |
+| Claim discipline | No “SOTA” until Track B published with methodology |
 
 ---
 
