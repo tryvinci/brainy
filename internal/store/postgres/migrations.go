@@ -154,6 +154,55 @@ CREATE INDEX IF NOT EXISTS memory_records_vertical_lookup
 ON memory_records (tenant_id, subject_id, vertical, lifecycle_state, status);
 `,
 	},
+	{
+		version: 8,
+		name:    "add_memory_embeddings",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS embedding REAL[];
+
+CREATE TABLE IF NOT EXISTS memory_embeddings (
+    memory_id TEXT PRIMARY KEY REFERENCES memory_records(memory_id) ON DELETE CASCADE,
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    embedding REAL[] NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS memory_embeddings_subject_lookup
+ON memory_embeddings (tenant_id, subject_id);
+`,
+	},
+	{
+		version: 9,
+		name:    "enable_pgvector_optional",
+		sql: `
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS vector;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+        ALTER TABLE memory_embeddings
+        ADD COLUMN IF NOT EXISTS embedding_vec vector(128);
+
+        UPDATE memory_embeddings
+        SET embedding_vec = embedding::vector(128)
+        WHERE embedding_vec IS NULL AND embedding IS NOT NULL;
+
+        CREATE INDEX IF NOT EXISTS memory_embeddings_vec_hnsw
+        ON memory_embeddings USING hnsw (embedding_vec vector_cosine_ops);
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

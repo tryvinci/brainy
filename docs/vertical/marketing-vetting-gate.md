@@ -29,7 +29,7 @@ Tier 5  Second vertical unlock (finance research → pack only after Gate M3)
 | --- | --- | --- | --- |
 | **M1 — Deterministic MVP** | 0–3, all green in CI | Marketing pack runs on general runtime; Mem0 parity held; documented differentiation | **Passed** (local `dev`) |
 | **M2 — Publish** | M1 + push `dev`, PR, CI on origin | Reproducible off one laptop | **Open** (ENG-91) |
-| **M3 — Marketing technical proof** | M2 + Tier 4 | All marketing use-case eval seeds covered; pgvector does not regress deterministic suite | **Open** |
+| **M3 — Marketing technical proof** | M2 + Tier 4 | All marketing use-case eval seeds covered; pgvector does not regress deterministic suite | **Passed** |
 | **M4 — Second vertical** | M3 + explicit architecture sign-off | Finance pack work may begin (vocabulary + fixtures, not schema fork) | **Blocked** |
 
 ---
@@ -93,21 +93,21 @@ Tier 4 is **not** satisfied by M1 alone. It requires coverage of all eval scenar
 | 2 | Taboo suppression leak | `bv02_suppression_leak` | Done |
 | 3 | Active campaign ranks above completed | `lc02_active_campaign_ranks_above_completed` | Done |
 | 4 | Campaign end suppresses stale context | `lc01_archived_campaign_hidden` | Done |
-| 5 | A/B outcome updates retrieval rank | — | **Missing** (needs MVP-3 belief/outcome) |
+| 5 | A/B outcome updates retrieval rank | `ob05_outcome_updates_belief_rank` | Done |
 | 6 | Correction stickiness (paraphrase) | `bv04_correction_stickiness` | Done |
 | 7 | Multi-brand isolation | `bv06_multi_brand_isolation` | Done |
-| 8 | Cross-campaign pattern retrieval | — | **Missing** |
-| 9 | Style-matched creative ranks first | — | **Missing** (needs TasteSignal or semantic) |
-| 10 | Scoped segment prefs coexist | — | **Missing** |
+| 8 | Cross-campaign pattern retrieval | `pt08_cross_campaign_pattern` | Done |
+| 9 | Style-matched creative ranks first | `ts09_style_matched_creative_ranks` | Done |
+| 10 | Scoped segment prefs coexist | `sg10_scoped_segment_prefs_coexist` | Done |
 
 Additional M3 requirements:
 
 | Capability | ENG / MVP | M3 status |
 | --- | --- | --- |
-| Pack JSON Schema validation on ingest | MVP-4 | Not started |
-| Outcome → Belief rank loop | MVP-3 | Not started |
-| Semantic / hybrid retrieval | ENG-87 (after ENG-63 PD) | Not started |
-| Paraphrase robustness under embeddings | ENG-87 + new fixtures | Not started |
+| Pack JSON Schema validation on ingest | MVP-4 | **Done** (required fields + enums) |
+| Outcome → Belief rank loop | MVP-3 | **Done** (deterministic) |
+| Semantic / hybrid retrieval | ENG-87 (after ENG-63 PD) | **Done** |
+| Paraphrase robustness under embeddings | ENG-87 + new fixtures | **Done** (`hybrid01`) |
 | Pack-driven `classification_rules` | MVP-1.1 | Not started |
 
 **Pass criteria for M3:**

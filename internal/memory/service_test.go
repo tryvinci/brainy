@@ -142,7 +142,7 @@ func TestServiceIngestSearchAndSuppress(t *testing.T) {
 		t.Fatalf("expected 1 created memory, got %d", result.Created)
 	}
 
-	search, err := service.Search(context.Background(), "t1", "u1", "", "How should I respond?")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestServiceIngestSearchAndSuppress(t *testing.T) {
 		t.Fatalf("suppress failed: %v", err)
 	}
 
-	searchAfterSuppress, err := service.Search(context.Background(), "t1", "u1", "", "How should I respond?")
+	searchAfterSuppress, err := service.Search(context.Background(), "t1", "u1", "", "", "How should I respond?")
 	if err != nil {
 		t.Fatalf("search after suppress failed: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestServiceCorrectUpdatesLaterSearchResults(t *testing.T) {
 		t.Fatalf("correct failed: %v", err)
 	}
 
-	search, err := service.Search(context.Background(), "t1", "u1", "", "How should I answer?")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "How should I answer?")
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestVerticalPackPrincipleRanksAbovePreference(t *testing.T) {
 		t.Fatalf("principle ingest: %v", err)
 	}
 
-search, err := service.Search(context.Background(), "t1", "brand", "marketing", "copy")
+search, err := service.Search(context.Background(), "t1", "brand", "marketing", "", "copy")
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestLifecycleArchivedCampaignExcludedFromSearch(t *testing.T) {
 		t.Fatalf("ingest archived campaign: %v", err)
 	}
 
-	search, err := service.Search(context.Background(), "t1", "brand", "marketing", "Summer Sale headline")
+	search, err := service.Search(context.Background(), "t1", "brand", "marketing", "", "Summer Sale headline")
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -337,7 +337,7 @@ func TestLifecycleActiveCampaignRanksAboveCompleted(t *testing.T) {
 		t.Fatalf("ingest active campaign: %v", err)
 	}
 
-	search, err := service.Search(context.Background(), "t1", "brand", "marketing", "splash sale")
+	search, err := service.Search(context.Background(), "t1", "brand", "marketing", "", "splash sale")
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -376,7 +376,7 @@ func TestLifecycleMetadataUpdateChangesState(t *testing.T) {
 		t.Fatalf("ingest active campaign: %v", err)
 	}
 
-	searchBefore, err := service.Search(context.Background(), "t1", "brand", "marketing", "Launch offer")
+	searchBefore, err := service.Search(context.Background(), "t1", "brand", "marketing", "", "Launch offer")
 	if err != nil {
 		t.Fatalf("search before archive: %v", err)
 	}
@@ -393,7 +393,7 @@ func TestLifecycleMetadataUpdateChangesState(t *testing.T) {
 		t.Fatalf("expected metadata update, got created=%d updated=%d deduped=%d", result.Created, result.Updated, result.Deduped)
 	}
 
-	searchAfter, err := service.Search(context.Background(), "t1", "brand", "marketing", "Launch offer")
+	searchAfter, err := service.Search(context.Background(), "t1", "brand", "marketing", "", "Launch offer")
 	if err != nil {
 		t.Fatalf("search after archive: %v", err)
 	}

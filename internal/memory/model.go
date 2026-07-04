@@ -78,6 +78,7 @@ type MemoryRecord struct {
 	Confidence        float64
 	ExtractionVersion string
 	Explain           map[string]any
+	Embedding         []float32
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	CorrectedAt       *time.Time

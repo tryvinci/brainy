@@ -1,6 +1,6 @@
 # Benchmark Methodology
 
-**Status:** Draft (Gate M2)  
+**Status:** Published (Gate M3)  
 **Mem0 reference:** commit `a670333d67be1207b5be2fc73af60c3439444f48`
 
 ## Purpose
@@ -27,9 +27,10 @@ python3 evals/run_competitor_benchmark.py --brainy-url http://127.0.0.1:8080
 
 ## Scoring
 
-Score **per capability** in `evals/marketing_mvp_matrix.json`, not a single aggregate. Document Mem0 wins on semantic paraphrase until ENG-87 ships.
+Score **per capability** in `evals/marketing_mvp_matrix.json`, not a single aggregate. Mem0 may still win on provider-quality embeddings at scale; Brainy documents deterministic hybrid retrieval in [marketing-moat-report.md](./marketing-moat-report.md).
 
 ## Artifacts
 
 - `docs/vertical/marketing-mvp-benchmark.md` — Brainy Tier 3 report
+- `docs/benchmarks/marketing-moat-report.md` — Tier 4 moat report (Gate M3)
 - `docs/benchmarks/competitor-parity-latest.json` — optional Mem0 side-by-side

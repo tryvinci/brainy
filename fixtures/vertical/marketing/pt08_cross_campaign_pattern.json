@@ -1,0 +1,43 @@
+{
+  "name": "pt08_cross_campaign_pattern",
+  "ingests": [
+    {
+      "tenant_id": "fixture-mkt-pt08",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "label": "campaign",
+      "metadata": { "name": "Spring", "status": "completed" },
+      "source_type": "campaign",
+      "messages": [{ "role": "user", "content": "Spring carousel ads outperformed static images." }]
+    },
+    {
+      "tenant_id": "fixture-mkt-pt08",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "label": "campaign",
+      "metadata": { "name": "Fall", "status": "completed" },
+      "source_type": "campaign",
+      "messages": [{ "role": "user", "content": "Fall carousel ads outperformed static images." }]
+    },
+    {
+      "tenant_id": "fixture-mkt-pt08",
+      "subject_id": "brand-acme",
+      "vertical": "marketing",
+      "label": "pattern",
+      "source_type": "analytics",
+      "messages": [{ "role": "user", "content": "Carousel format consistently outperforms static for similar audiences." }]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-mkt-pt08",
+    "subject_id": "brand-acme",
+    "vertical": "marketing",
+    "q": "carousel similar audiences"
+  },
+  "expect": {
+    "created_at_least": 3,
+    "min_results": 1,
+    "first_content_contains": "Carousel format",
+    "first_explain_primitive": "pattern"
+  }
+}
