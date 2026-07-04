@@ -12,3 +12,4 @@ bin/
 /worker
 *.exe
 .cursor/
+docs/benchmarks/opmem-latest.json
