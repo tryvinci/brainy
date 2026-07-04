@@ -399,6 +399,86 @@ func TestCorrectMemoryReturnsConflictOnDuplicateContent(t *testing.T) {
 	}
 }
 
+func TestUpsertMemoryPreservesSuppressedStatus(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	root := t.TempDir()
+	port := randomPort(605)
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() {
+		_ = postgres.Stop()
+	}()
+
+	store, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+
+	if err := store.ApplyMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	now := time.Now().UTC()
+	record := memory.MemoryRecord{
+		MemoryID:          "mem_sup",
+		TenantID:          "t1",
+		SubjectID:         "u1",
+		Kind:              memory.KindFact,
+		Content:           "Never share the door code with vendors",
+		SourceText:        "Never share the door code with vendors.",
+		SourceType:        "conversation",
+		DedupeKey:         memory.DedupeKey("t1", "u1", memory.KindFact, "Never share the door code with vendors"),
+		Status:            memory.StatusActive,
+		Confidence:        0.95,
+		ExtractionVersion: "deterministic-v1",
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}
+	if _, err := store.UpsertMemory(ctx, record); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SuppressMemory(ctx, "t1", "u1", "mem_sup"); err != nil {
+		t.Fatal(err)
+	}
+
+	reingest := record
+	reingest.MemoryID = "mem_sup_new"
+	reingest.UpdatedAt = now.Add(time.Minute)
+	upserted, err := store.UpsertMemory(ctx, reingest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if upserted.State != "deduped" {
+		t.Fatalf("expected deduped re-ingest of suppressed memory, got %q", upserted.State)
+	}
+	if upserted.Record.Status != memory.StatusSuppressed {
+		t.Fatalf("expected suppressed status to persist, got %q", upserted.Record.Status)
+	}
+
+	results, err := store.SearchActiveMemories(ctx, "t1", "u1", []string{"%door%"}, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("expected suppressed memory to stay out of search, got %d results", len(results))
+	}
+}
+
 func TestClaimNextExtractionJobReclaimsExpiredInProgressJob(t *testing.T) {
 	t.Setenv("LANG", "C")
 	t.Setenv("LC_ALL", "C")
