@@ -1,0 +1,14 @@
+{
+  "name": "iso02_tenant_isolation",
+  "category": "isolation",
+  "description": "Same subject id under a different tenant must see nothing.",
+  "actors": {
+    "a1": { "tenant": "t1", "subject": "shared-user" },
+    "a2": { "tenant": "t2", "subject": "shared-user" }
+  },
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "The wifi network name is FalconNet." },
+    { "op": "recall", "actor": "a2", "query": "wifi network", "expect": { "max_results": 0 } },
+    { "op": "recall", "actor": "a1", "query": "wifi network", "expect": { "min_results": 1 } }
+  ]
+}
