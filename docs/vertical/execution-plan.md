@@ -16,7 +16,46 @@
 | **M2** | Publish & OSS preview | **Done** (PR #13 merged) | [#1](https://github.com/tryvinci/brainy/milestone/1) | Gate M2: Publish & OSS Preview |
 | **M3** | Marketing technical proof | **Done** (PR #14 merged) | [#2](https://github.com/tryvinci/brainy/milestone/2) | Gate M3: Marketing Technical Proof |
 | **M4** | Finance / second vertical | **Unblocked** (research) | — | — |
-| **M5** | Commercial API beta | Open | [#3](https://github.com/tryvinci/brainy/milestone/3) | Gate M5: Commercial API Beta |
+| **M5** | Commercial API beta | Open (Track C) | [#3](https://github.com/tryvinci/brainy/milestone/3) | Gate M5: Commercial API Beta |
+
+---
+
+## Launch tracks (sequential — after M3)
+
+Public launch proceeds as **three sequential tracks**, not parallel workstreams. Each track must complete before the next starts.
+
+```
+M3 Done ──► Track A (OSS preview) ──► Track B (benchmark launch) ──► Track C (hosted beta)
+```
+
+| Track | Name | Start when | Done when | Status |
+| --- | --- | --- | --- | --- |
+| **A** | OSS developer preview | M3 signed off | `v0.1.0` on `main`, README quickstart, Docker green | **Active** |
+| **B** | Benchmark-led launch | Track A tagged | OpMem 12/12 published, moat report + methodology public, launch content | Next |
+| **C** | Hosted API beta | Track B published | GH [#11](https://github.com/tryvinci/brainy/issues/11) auth + [#12](https://github.com/tryvinci/brainy/issues/12) commercial checklist | Blocked on B |
+
+| Linear | Notes |
+| --- | --- |
+| [ENG-102](https://linear.app/engramhq/issue/ENG-102) | Track A — README quickstart + docs sync |
+| [ENG-103](https://linear.app/engramhq/issue/ENG-103) | Track A — merge `dev` → `main`, tag `v0.1.0` |
+| [ENG-104](https://linear.app/engramhq/issue/ENG-104) | Track B — OpMem 12/12 publish + launch narrative |
+
+### Track B — after v0.1.0
+
+| Step | Notes |
+| --- | --- |
+| Verify OpMem 12/12 on staging (`evals/run_opmem.py`) | PR #17 fixes `sup03`, `upd02` |
+| Update `docs/benchmarks/opmem-baseline-report.md` | Publish 12/12 score |
+| Public benchmark narrative (blog / landing) | Mem0/SuperMemory-style launch |
+
+### Track C — after benchmark launch
+
+| Linear / GitHub | Title |
+| --- | --- |
+| — | [#11](https://github.com/tryvinci/brainy/issues/11) API key auth per tenant |
+| — | [#12](https://github.com/tryvinci/brainy/issues/12) Commercial beta checklist |
+
+Finance (Gate M4) remains **research-only** and is not on the launch critical path.
 
 ---
 
@@ -59,7 +98,9 @@
 | — | [#7](https://github.com/tryvinci/brainy/issues/7) | Outcome → belief MVP-3 | Done |
 | — | [#8](https://github.com/tryvinci/brainy/issues/8) | Pack JSON Schema validation MVP-4 | Done |
 
-### Gate M5 — Commercial
+| — | [PR #16](https://github.com/tryvinci/brainy/pull/16), [PR #17](https://github.com/tryvinci/brainy/pull/17) | OpMem benchmark + fixes | **Merged** (Track A prereq) |
+
+### Gate M5 — Commercial (Track C)
 
 | Linear | GitHub | Title |
 | --- | --- | --- |
