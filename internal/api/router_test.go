@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"brainy/internal/memory"
@@ -27,6 +28,9 @@ func newMemoryStoreAdapter() *memoryStoreAdapter {
 
 func (s *memoryStoreAdapter) UpsertMemory(_ context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
 	if existing, ok := s.records[record.DedupeKey]; ok {
+		if existing.Status == memory.StatusSuppressed {
+			return memory.StoreUpsertResult{Record: existing, State: "deduped"}, nil
+		}
 		if existing.Content == record.Content && existing.Status == memory.StatusActive {
 			return memory.StoreUpsertResult{Record: existing, State: "deduped"}, nil
 		}
@@ -253,10 +257,21 @@ func TestRouterReturnsConflictForDuplicateCorrection(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var conciseMemoryID string
+	for _, result := range searchResponse.Results {
+		if strings.Contains(strings.ToLower(result.Content), "concise") {
+			conciseMemoryID = result.MemoryID
+			break
+		}
+	}
+	if conciseMemoryID == "" {
+		t.Fatal("expected concise preference in search results")
+	}
+
 	correctRecorder := httptest.NewRecorder()
 	correctRequest := httptest.NewRequest(
 		http.MethodPost,
-		"/memories/"+searchResponse.Results[0].MemoryID+"/correct?tenant_id=t1&subject_id=u1",
+		"/memories/"+conciseMemoryID+"/correct?tenant_id=t1&subject_id=u1",
 		bytes.NewReader([]byte(`{"content":"Prefers detailed answers"}`)),
 	)
 	handler.ServeHTTP(correctRecorder, correctRequest)

@@ -1,0 +1,11 @@
+{
+  "name": "cor02_correction_stickiness",
+  "category": "correction",
+  "description": "A correction must keep winning after the original content is re-ingested.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "I prefer Python for scripting." },
+    { "op": "revise", "actor": "a1", "target": "m1", "content": "Prefers Ruby for scripting" },
+    { "op": "remember", "id": "m2", "actor": "a1", "content": "I prefer Python for scripting." },
+    { "op": "recall", "actor": "a1", "query": "scripting", "expect": { "min_results": 1, "top_contains": "ruby" } }
+  ]
+}

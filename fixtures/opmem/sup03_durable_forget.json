@@ -1,0 +1,11 @@
+{
+  "name": "sup03_durable_forget",
+  "category": "suppression",
+  "description": "A forgotten memory must not resurrect when the same content is re-ingested.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "Never share the door code with vendors." },
+    { "op": "forget", "actor": "a1", "target": "m1" },
+    { "op": "remember", "id": "m2", "actor": "a1", "content": "Never share the door code with vendors." },
+    { "op": "recall", "actor": "a1", "query": "door code", "expect": { "max_results": 0 } }
+  ]
+}
