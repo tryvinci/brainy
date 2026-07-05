@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"brainy/internal/api"
+	"brainy/internal/auth"
 	"brainy/internal/config"
 	"brainy/internal/memory"
 	"brainy/internal/observability"
@@ -34,7 +35,9 @@ func main() {
 
 	metrics := observability.NewMetrics()
 	service := memory.NewService(store)
+	keyRing := auth.ParseKeyRing(cfg.APIKeys)
 	router := api.NewRouter(service, metrics)
+	router = api.APIKeyMiddleware(keyRing, cfg.RequireAPIKey)(router)
 	router = observability.TraceIDMiddleware(router)
 	router = observability.LoggingMiddleware(logger)(router)
 

@@ -11,15 +11,24 @@ type Config struct {
 	DatabaseURL        string
 	WorkerMode         string
 	WorkerPollInterval time.Duration
+	APIKeys            string
+	RequireAPIKey      bool
 }
 
 func Load() Config {
+	env := getenv("BRAINY_ENV", "development")
+	requireKey := getenv("BRAINY_REQUIRE_API_KEY", "") == "true"
+	if !requireKey && env == "production" {
+		requireKey = true
+	}
 	return Config{
-		Environment:        getenv("BRAINY_ENV", "development"),
+		Environment:        env,
 		HTTPAddr:           getenv("BRAINY_HTTP_ADDR", ":8080"),
 		DatabaseURL:        getenv("BRAINY_DATABASE_URL", "postgres://brainy:brainy@localhost:5432/brainy?sslmode=disable"),
 		WorkerMode:         getenv("BRAINY_WORKER_MODE", "once"),
 		WorkerPollInterval: getenvDuration("BRAINY_WORKER_POLL_INTERVAL", 2*time.Second),
+		APIKeys:            os.Getenv("BRAINY_API_KEYS"),
+		RequireAPIKey:      requireKey,
 	}
 }
 
