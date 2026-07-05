@@ -1,0 +1,10 @@
+{
+  "name": "upd01_stale_fact",
+  "category": "staleness",
+  "description": "When a fact is restated with a new value, recall must rank the newer value first.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "The launch date is May 12." },
+    { "op": "remember", "id": "m2", "actor": "a1", "content": "The launch date is June 3." },
+    { "op": "recall", "actor": "a1", "query": "launch date", "expect": { "min_results": 1, "top_contains": "june" } }
+  ]
+}

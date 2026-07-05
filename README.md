@@ -1,6 +1,36 @@
 # Brainy
 
-Brainy is being rebuilt as a Go-first memory service with Mem0 used as a pinned behavioral reference, not as a codebase to fork wholesale.
+Brainy is a Go-first **vertical memory** service: cognitive primitives + YAML packs, with marketing as the first wedge. Mem0 is a pinned behavioral reference, not a fork target.
+
+## 5-Minute Quickstart
+
+```bash
+git clone https://github.com/tryvinci/brainy.git && cd brainy
+docker compose up --build -d
+# wait for API health (~30s)
+curl -s http://127.0.0.1:8080/healthz
+```
+
+Ingest and search:
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/ingest \
+  -H 'Content-Type: application/json' \
+  -d '{"tenant_id":"demo","subject_id":"user-1","text":"We never use exclamation marks in brand copy."}'
+
+curl -s 'http://127.0.0.1:8080/memories/search?tenant_id=demo&subject_id=user-1&q=brand+voice+rules'
+```
+
+Run evals (API must be up):
+
+```bash
+python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
+python3 evals/run_opmem.py --base-url http://127.0.0.1:8080
+```
+
+**Disclaimer:** Developer preview (`v0.1.0`) — not production-ready. Local Docker runs without auth; hosted beta uses per-tenant API keys — see [commercial-beta-checklist.md](docs/commercial-beta-checklist.md) and [GitHub #11](https://github.com/tryvinci/brainy/issues/11).
+
+Docs: [verticalization model](docs/vertical/verticalization-model.md) · [OpMem 12/12 report](docs/benchmarks/opmem-baseline-report.md) · [launch narrative](docs/benchmarks/launch-narrative.md) · [GTM roadmap](docs/vertical/go-to-market-roadmap.md)
 
 ## Current Status
 

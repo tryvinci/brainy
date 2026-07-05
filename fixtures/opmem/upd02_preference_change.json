@@ -1,0 +1,10 @@
+{
+  "name": "upd02_preference_change",
+  "category": "staleness",
+  "description": "When a preference changes, recall must rank the newer preference first.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "I prefer email updates." },
+    { "op": "remember", "id": "m2", "actor": "a1", "content": "I prefer SMS updates." },
+    { "op": "recall", "actor": "a1", "query": "updates", "expect": { "min_results": 1, "top_contains": "sms" } }
+  ]
+}

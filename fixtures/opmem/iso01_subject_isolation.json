@@ -1,0 +1,10 @@
+{
+  "name": "iso01_subject_isolation",
+  "category": "isolation",
+  "description": "One subject's memories must be invisible to another subject.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "alice", "content": "My name is Alice Chen." },
+    { "op": "recall", "actor": "bob", "query": "Alice Chen", "expect": { "max_results": 0 } },
+    { "op": "recall", "actor": "alice", "query": "Alice Chen", "expect": { "min_results": 1, "top_contains": "alice chen" } }
+  ]
+}

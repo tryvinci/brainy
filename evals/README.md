@@ -55,6 +55,17 @@ Competitor benchmark (optional, requires `MEM0_API_KEY`):
 python3 evals/run_competitor_benchmark.py --brainy-url http://127.0.0.1:8080
 ```
 
+OpMem operational-correctness benchmark (suppression leaks, correction
+stickiness, isolation, staleness, idempotency — spec:
+`docs/research/opmem-spec.md`, fixtures: `fixtures/opmem/`):
+
+```bash
+python3 evals/run_opmem.py --systems verbatim,brainy --base-url http://127.0.0.1:8080
+```
+
+Task failures are diagnostic (reported, exit 0); only infrastructure errors
+fail the run. CI executes it via `TestOpMemBenchmarkAgainstHTTPServer`.
+
 ## Vetting gates
 
 Marketing must prove technical capabilities before finance or a second vertical. See [`docs/vertical/marketing-vetting-gate.md`](../docs/vertical/marketing-vetting-gate.md).
