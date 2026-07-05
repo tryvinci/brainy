@@ -18,7 +18,7 @@
 | Docker Compose stack | **Done** |
 | Mem0 live competitor adapter | **Done** (ENG-100) |
 | Moat benchmark report + methodology | **Done** (Gate M3) |
-| API auth / billing | **Missing** (Track C — GH #11/#12) |
+| API auth / billing | **Beta-ready** — API keys (#11), checklist (#12) |
 | Hosted production API | **Not started** (Track C) |
 
 **Honest position:** Marketing technical proof is **done**. Next is a **sequential public launch**: OSS preview (A) → benchmark-led narrative (B) → hosted beta (C).

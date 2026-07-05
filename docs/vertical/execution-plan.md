@@ -16,7 +16,7 @@
 | **M2** | Publish & OSS preview | **Done** (PR #13 merged) | [#1](https://github.com/tryvinci/brainy/milestone/1) | Gate M2: Publish & OSS Preview |
 | **M3** | Marketing technical proof | **Done** (PR #14 merged) | [#2](https://github.com/tryvinci/brainy/milestone/2) | Gate M3: Marketing Technical Proof |
 | **M4** | Finance / second vertical | **Unblocked** (research) | — | — |
-| **M5** | Commercial API beta | Open (Track C) | [#3](https://github.com/tryvinci/brainy/milestone/3) | Gate M5: Commercial API Beta |
+| **M5** | Commercial API beta | **Done** (Track C) | [#3](https://github.com/tryvinci/brainy/milestone/3) | Gate M5: Commercial API Beta |
 
 ---
 
@@ -30,9 +30,9 @@ M3 Done ──► Track A (OSS preview) ──► Track B (benchmark launch) ─
 
 | Track | Name | Start when | Done when | Status |
 | --- | --- | --- | --- | --- |
-| **A** | OSS developer preview | M3 signed off | `v0.1.0` on `main`, README quickstart, Docker green | **Active** |
-| **B** | Benchmark-led launch | Track A tagged | OpMem 12/12 published, moat report + methodology public, launch content | Next |
-| **C** | Hosted API beta | Track B published | GH [#11](https://github.com/tryvinci/brainy/issues/11) auth + [#12](https://github.com/tryvinci/brainy/issues/12) commercial checklist | Blocked on B |
+| **A** | OSS developer preview | M3 signed off | `v0.1.0` on `main`, README quickstart, Docker green | **Done** |
+| **B** | Benchmark-led launch | Track A tagged | OpMem 12/12 published, moat report + methodology public, launch content | **Done** |
+| **C** | Hosted API beta | Track B published | GH [#11](https://github.com/tryvinci/brainy/issues/11) auth + [#12](https://github.com/tryvinci/brainy/issues/12) commercial checklist | **Done** |
 
 | Linear | Notes |
 | --- | --- |
