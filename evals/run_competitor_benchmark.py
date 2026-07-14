@@ -11,8 +11,10 @@ import urllib.error
 ROOT = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
+import time
+
 from competitors.mem0_adapter import Mem0Adapter, run_fixture as run_mem0_fixture
-from run_eval import run_fixture as run_brainy_fixture
+from run_eval import _namespace_tenants, run_fixture as run_brainy_fixture
 
 
 def main() -> int:
@@ -32,21 +34,25 @@ def main() -> int:
 
     mem0 = Mem0Adapter()
     mem0_enabled = mem0.available()
+    nonce = str(int(time.time()))
     results = []
     overall = True
 
     for path in fixtures:
         entry = {"fixture": path.stem, "brainy": None, "mem0": None}
         try:
-            entry["brainy"] = run_brainy_fixture(args.brainy_url.rstrip("/"), path)
+            entry["brainy"] = run_brainy_fixture(args.brainy_url.rstrip("/"), path, nonce)
         except urllib.error.URLError as exc:
             entry["brainy"] = {"passed": False, "errors": [str(exc)]}
         if not entry["brainy"].get("passed"):
             overall = False
 
         if mem0_enabled:
-            fixture = json.loads(path.read_text(encoding="utf-8"))
-            entry["mem0"] = run_mem0_fixture(mem0, fixture)
+            fixture = _namespace_tenants(json.loads(path.read_text(encoding="utf-8")), nonce)
+            try:
+                entry["mem0"] = run_mem0_fixture(mem0, fixture)
+            except Exception as exc:  # noqa: BLE001
+                entry["mem0"] = {"passed": False, "errors": [f"{type(exc).__name__}: {exc}"]}
         else:
             entry["mem0"] = {"passed": None, "skipped": True, "reason": "MEM0_API_KEY not set"}
 
