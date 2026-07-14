@@ -6,6 +6,7 @@ import json
 import os
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 
@@ -38,6 +39,23 @@ class Mem0Adapter:
             "/v1/memories/",
             {"messages": messages, "user_id": user_id},
         )
+
+    def list_memories(self, user_id: str) -> list[dict]:
+        response = self._request("GET", f"/v1/memories/?user_id={urllib.parse.quote(user_id)}")
+        if isinstance(response, list):
+            return response
+        return response.get("results", response.get("memories", []))
+
+    def wait_until_ready(self, user_id: str, min_count: int = 1, timeout_s: float = 45.0) -> list[dict]:
+        """Mem0 add is async (PENDING); poll until memories are searchable."""
+        deadline = time.time() + timeout_s
+        last: list[dict] = []
+        while time.time() < deadline:
+            last = self.list_memories(user_id)
+            if len(last) >= min_count:
+                return last
+            time.sleep(2)
+        return last
 
     def search(self, user_id: str, query: str, top_k: int = 10) -> list[dict]:
         response = self._request(
@@ -76,14 +94,22 @@ def run_fixture(adapter: Mem0Adapter, fixture: dict) -> dict:
     user_id = mem0_user_id(tenant_id, subject_id)
 
     ingest_payloads = fixture.get("ingests") or [fixture["ingest"]]
+    expected = 0
     for payload in ingest_payloads:
         messages = payload.get("messages") or []
         if messages:
             adapter.add_messages(user_id, messages)
-            time.sleep(2)
+            expected += 1
+    if expected:
+        adapter.wait_until_ready(user_id, min_count=1)
 
     search = fixture["search"]
-    raw = adapter.search(mem0_user_id(search["tenant_id"], search["subject_id"]), search["q"])
+    search_user = mem0_user_id(search["tenant_id"], search["subject_id"])
+    raw = adapter.search(search_user, search["q"])
+    # One more poll if search races ahead of indexing.
+    if not raw:
+        adapter.wait_until_ready(search_user, min_count=1, timeout_s=20)
+        raw = adapter.search(search_user, search["q"])
     results = adapter.normalize_results(raw)
 
     errors: list[str] = []
