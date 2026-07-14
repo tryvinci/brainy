@@ -127,7 +127,9 @@ def main() -> int:
     parity_ok, parity_results = run_suite(args.base_url, parity_dir)
     vertical_ok, vertical_results = run_suite(args.base_url, vertical_dir)
 
-    fixture_results = {r["fixture"]: r for r in parity_results + vertical_results}
+    fixture_results = {
+        r["fixture"]: r for r in parity_results + vertical_results if r.get("fixture")
+    }
     caps = capability_results(matrix, fixture_results)
 
     diff_pass = sum(1 for c in caps if c["differentiation"])
