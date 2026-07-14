@@ -4,6 +4,7 @@ import argparse
 import json
 import pathlib
 import sys
+import time
 import urllib.error
 import urllib.parse
 
@@ -11,6 +12,21 @@ ROOT = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from httputil import get_json, post_json  # noqa: E402
+
+
+def _namespace_tenants(obj, nonce: str):
+    """Prefix tenant_id fields so shared staging re-runs stay hermetic."""
+    if isinstance(obj, dict):
+        out = {}
+        for key, value in obj.items():
+            if key == "tenant_id" and isinstance(value, str) and value:
+                out[key] = f"eval-{nonce}-{value}"
+            else:
+                out[key] = _namespace_tenants(value, nonce)
+        return out
+    if isinstance(obj, list):
+        return [_namespace_tenants(item, nonce) for item in obj]
+    return obj
 
 
 def check_expectations(
@@ -42,8 +58,8 @@ def check_expectations(
     return passed
 
 
-def run_fixture(base_url: str, fixture_path: pathlib.Path) -> dict:
-    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+def run_fixture(base_url: str, fixture_path: pathlib.Path, nonce: str) -> dict:
+    fixture = _namespace_tenants(json.loads(fixture_path.read_text(encoding="utf-8")), nonce)
     if fixture.get("skip"):
         return {
             "fixture": fixture["name"],
@@ -149,15 +165,27 @@ def run_fixture(base_url: str, fixture_path: pathlib.Path) -> dict:
 def run_suite(base_url: str, fixture_dir: pathlib.Path) -> tuple[bool, list[dict]]:
     fixtures = sorted(fixture_dir.glob("*.json"))
     if not fixtures:
-        return False, [{"passed": False, "error": "no fixtures found"}]
+        return False, [{"fixture": "_suite", "passed": False, "errors": ["no fixtures found"]}]
 
+    nonce = str(int(time.time()))
     results = []
     overall = True
     for fixture_path in fixtures:
+        name = fixture_path.stem
         try:
-            result = run_fixture(base_url.rstrip("/"), fixture_path)
+            result = run_fixture(base_url.rstrip("/"), fixture_path, nonce)
+        except urllib.error.HTTPError as exc:
+            result = {
+                "fixture": name,
+                "passed": False,
+                "errors": [f"HTTP {exc.code}: {exc.reason}"],
+            }
         except urllib.error.URLError as exc:
-            return False, [{"passed": False, "error": f"request failed for {fixture_path.name}: {exc}"}]
+            result = {
+                "fixture": name,
+                "passed": False,
+                "errors": [f"request failed: {exc}"],
+            }
         results.append(result)
         if not result.get("skipped"):
             overall = overall and result["passed"]
