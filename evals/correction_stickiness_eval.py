@@ -1,28 +1,13 @@
 from __future__ import annotations
 
 import argparse
-import json
+import pathlib
 import sys
 import urllib.error
 import urllib.parse
-import urllib.request
 
-
-def post_json(base_url: str, path: str, payload: dict) -> dict:
-    request = urllib.request.Request(
-        f"{base_url}{path}",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-def get_json(base_url: str, path: str, params: dict[str, str]) -> dict:
-    query = urllib.parse.urlencode(params)
-    with urllib.request.urlopen(f"{base_url}{path}?{query}") as response:
-        return json.loads(response.read().decode("utf-8"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from httputil import get_json, post_json  # noqa: E402
 
 
 def main() -> int:

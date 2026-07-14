@@ -1,21 +1,111 @@
-## Staging deploy & post-deploy eval
+# Staging deploy & post-deploy benchmarks
 
-After deploying API + Postgres + worker to a staging host:
+**Host:** Render (Blueprint)  
+**Source of truth:** [`render.yaml`](../render.yaml) on branch `dev`  
+**Goal:** Public staging URL for dogfood + HTTP benchmarks before API launch.
+
+---
+
+## Architecture
+
+| Service | Role |
+| --- | --- |
+| `brainy-api-staging` | Web — Docker image, health `/healthz` |
+| `brainy-worker-staging` | Worker — same image, `BRAINY_WORKER_MODE=loop` |
+| `brainy-staging-db` | Postgres 16 (basic-256mb) — migrations on API boot |
+
+pgvector is **optional** (migration v9 no-ops if the extension is missing). Staging still runs hybrid with the deterministic local embedder.
+
+---
+
+## One-time: apply Blueprint
+
+1. Push `render.yaml` on `dev` (already in repo after this change).
+2. Open: [Apply Blueprint (tryvinci/brainy)](https://dashboard.render.com/select-repo?type=blueprint&repo=https://github.com/tryvinci/brainy)
+3. Select branch **`dev`** (staging tracks staging branch).
+4. Set secret env (Dashboard → `brainy-api-staging`):
+   - `BRAINY_API_KEYS` — optional until you flip auth on  
+     Example (auth later): `*:sk_staging_bench,demo:sk_demo`
+5. Click **Apply**. Wait for DB + API + worker healthy (~5–10 min first deploy).
+6. Copy the API URL (e.g. `https://brainy-api-staging.onrender.com`).
+
+CLI alternative (if already logged into Render):
 
 ```bash
-export BRAINY_BASE_URL=https://staging.example.com
-python3 evals/run_marketing_mvp_benchmark.py --base-url "$BRAINY_BASE_URL"
-python3 evals/run_eval.py --base-url "$BRAINY_BASE_URL"
-python3 evals/run_vertical_eval.py --base-url "$BRAINY_BASE_URL"
+render blueprints validate
+# then Apply via Dashboard, or:
+# render blueprints apply   # interactive
 ```
 
-**Pass criteria (Gate M2):** all three runners exit 0; commit or archive the generated `marketing-mvp-benchmark.md` on release tags.
+Approximate cost: Postgres basic-256mb + 2× starter web/worker (not free tier — staging stays awake).
 
-**Docker local smoke (pre-staging):**
+---
+
+## Auth modes
+
+| Mode | Env | When |
+| --- | --- | --- |
+| **Open dogfood** (default Blueprint) | `BRAINY_REQUIRE_API_KEY=false` | Internal benches / quick curl |
+| **Keyed staging** | `REQUIRE=true` + `BRAINY_API_KEYS=*:sk_...` | Before sharing with partners |
+
+Wildcard tenant `*` authenticates without binding `tenant_id` (needed for OpMem, which synthesizes many tenants).
+
+---
+
+## Smoke
+
+```bash
+export BRAINY_BASE_URL=https://brainy-api-staging.onrender.com   # your URL
+curl -s "$BRAINY_BASE_URL/healthz"
+```
+
+With keys:
+
+```bash
+export BRAINY_API_KEY=sk_staging_bench
+curl -s -H "Authorization: Bearer $BRAINY_API_KEY" \
+  -X POST "$BRAINY_BASE_URL/ingest" \
+  -H 'Content-Type: application/json' \
+  -d '{"tenant_id":"demo","subject_id":"u1","source_type":"conversation","messages":[{"role":"user","content":"Prefer short answers."}]}'
+```
+
+---
+
+## Post-deploy benchmarks (API must be up)
+
+```bash
+export BRAINY_BASE_URL=https://brainy-api-staging.onrender.com
+# only if BRAINY_REQUIRE_API_KEY=true:
+# export BRAINY_API_KEY=sk_staging_bench
+
+python3 evals/run_eval.py --base-url "$BRAINY_BASE_URL"
+python3 evals/run_vertical_eval.py --base-url "$BRAINY_BASE_URL"
+python3 evals/run_opmem.py --systems verbatim,brainy --base-url "$BRAINY_BASE_URL"
+python3 evals/run_marketing_mvp_benchmark.py --base-url "$BRAINY_BASE_URL"
+python3 evals/run_hybrid_eval.py --base-url "$BRAINY_BASE_URL"
+```
+
+**Pass criteria:** all runners exit 0 (OpMem reports task failures diagnostically; infra errors fail the run).
+
+Eval scripts pick up `BRAINY_API_KEY` automatically (`evals/httputil.py`).
+
+---
+
+## Local substitute (pre-staging)
 
 ```bash
 docker compose up --build -d
 python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
 ```
 
-**Automated substitute (Gate M2):** GitHub Actions workflow `docker-smoke.yml` runs post-deploy evals against Docker Compose on every PR. Use this until a dedicated staging host exists.
+CI: `.github/workflows/docker-smoke.yml` + `go test ./internal/api/...`.
+
+---
+
+## Deploy loop after first apply
+
+1. Merge work to **`dev`**.
+2. Render auto-deploys (if Blueprint linked to `dev`) or **Manual Deploy** in Dashboard.
+3. Re-run the benchmark block above against `BRAINY_BASE_URL`.
+
+Promote to production only after Track C checklist leftovers (ToS, backups) — keep using **`dev`** → staging until then. Do not point the Blueprint at `main` until you intend prod.

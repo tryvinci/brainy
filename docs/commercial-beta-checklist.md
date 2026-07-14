@@ -58,9 +58,10 @@ Clients send `Authorization: Bearer sk_live_partner_a` on all routes except `/he
 | --- | --- | --- |
 | Docker Compose self-host | Done | `docker-compose.yml` |
 | CI (test + docker-smoke) | Done | GitHub Actions |
-| Staging deploy runbook | Done | [staging-deploy-runbook.md](./staging-deploy-runbook.md) |
+| Staging deploy runbook | Done | [staging-deploy-runbook.md](./staging-deploy-runbook.md) — Render Blueprint |
 | External Postgres runbook | Done | [external-postgres-runbook.md](./external-postgres-runbook.md) |
-| Production deploy | Todo | Render/Fly/ECS — pick one before GA |
+| Staging host (Render) | In progress | [`render.yaml`](../render.yaml) — apply Blueprint on `dev` |
+| Production deploy | Todo | Clone staging Blueprint → prod services after GA criteria |
 | Backups + RPO/RTO | Todo | Postgres PITR recommended |
 | Status page | Todo | Before GA |
 | On-call | Todo | Before GA |

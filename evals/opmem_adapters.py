@@ -7,10 +7,13 @@ namespace them per run so tasks stay hermetic on shared backends.
 """
 from __future__ import annotations
 
-import json
+import pathlib
+import sys
 import time
 import urllib.parse
-import urllib.request
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from httputil import get_json, post_json  # noqa: E402
 
 
 class VerbatimBaseline:
@@ -73,19 +76,9 @@ class BrainyAdapter:
         tenant, subject = actor
         return f"{self._ns}-{tenant}", subject
 
-    def _post(self, path: str, payload: dict) -> dict:
-        request = urllib.request.Request(
-            f"{self.base_url}{path}",
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.loads(response.read().decode("utf-8"))
-
     def remember(self, actor: tuple[str, str], content: str) -> list[str]:
         tenant, subject = self._scope(actor)
-        response = self._post("/ingest", {
+        response = post_json(self.base_url, "/ingest", {
             "tenant_id": tenant,
             "subject_id": subject,
             "source_type": "conversation",
@@ -95,21 +88,27 @@ class BrainyAdapter:
 
     def recall(self, actor: tuple[str, str], query: str) -> list[dict]:
         tenant, subject = self._scope(actor)
-        params = urllib.parse.urlencode({"tenant_id": tenant, "subject_id": subject, "q": query})
-        with urllib.request.urlopen(f"{self.base_url}/memories/search?{params}", timeout=30) as response:
-            body = json.loads(response.read().decode("utf-8"))
+        body = get_json(self.base_url, "/memories/search", {
+            "tenant_id": tenant,
+            "subject_id": subject,
+            "q": query,
+        })
         return [{"id": r["memory_id"], "content": r["content"]} for r in body.get("results", [])]
 
     def forget(self, actor: tuple[str, str], memory_ids: list[str]) -> None:
         tenant, subject = self._scope(actor)
         query = urllib.parse.urlencode({"tenant_id": tenant, "subject_id": subject})
         for memory_id in memory_ids:
-            self._post(f"/memories/{memory_id}/suppress?{query}", {})
+            post_json(self.base_url, f"/memories/{memory_id}/suppress?{query}", {})
 
     def revise(self, actor: tuple[str, str], memory_ids: list[str], content: str) -> None:
         tenant, subject = self._scope(actor)
         query = urllib.parse.urlencode({"tenant_id": tenant, "subject_id": subject})
-        self._post(f"/memories/{memory_ids[0]}/correct?{query}", {"content": content, "source_text": content})
+        post_json(
+            self.base_url,
+            f"/memories/{memory_ids[0]}/correct?{query}",
+            {"content": content, "source_text": content},
+        )
 
 
 class Mem0OpAdapter:
