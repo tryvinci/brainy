@@ -122,28 +122,35 @@ class Mem0OpAdapter:
 
         self._client = Mem0Adapter(api_key=api_key)
         self._run_nonce = str(int(time.time()))
+        self._counts: dict[str, int] = {}
 
     def available(self) -> bool:
         return self._client.available()
 
     def begin_task(self, task_name: str) -> None:
         self._ns = f"opmem-{self._run_nonce}-{task_name}"
+        self._counts = {}
 
     def _user_id(self, actor: tuple[str, str]) -> str:
         tenant, subject = actor
         return f"{self._ns}::{tenant}::{subject}"
 
     def remember(self, actor: tuple[str, str], content: str) -> list[str]:
-        response = self._client.add_messages(self._user_id(actor), [{"role": "user", "content": content}])
-        time.sleep(self.write_delay_seconds)
-        ids = _extract_mem0_ids(response)
+        user_id = self._user_id(actor)
+        self._client.add_messages(user_id, [{"role": "user", "content": content}])
+        self._counts[user_id] = self._counts.get(user_id, 0) + 1
+        listed = self._client.wait_until_ready(user_id, min_count=self._counts[user_id])
+        ids = [item["id"] for item in listed if isinstance(item, dict) and item.get("id")]
         if not ids:
-            # Fallback: locate the stored memory by searching its own content.
             ids = [r["id"] for r in self.recall(actor, content)[:1]]
-        return ids
+        return ids[-1:] if ids else []
 
     def recall(self, actor: tuple[str, str], query: str) -> list[dict]:
-        raw = self._client.search(self._user_id(actor), query)
+        user_id = self._user_id(actor)
+        raw = self._client.search(user_id, query)
+        if not raw and self._counts.get(user_id, 0):
+            self._client.wait_until_ready(user_id, min_count=1, timeout_s=20)
+            raw = self._client.search(user_id, query)
         normalized = self._client.normalize_results(raw)
         return [{"id": r["memory_id"], "content": r["content"]} for r in normalized]
 
@@ -155,6 +162,8 @@ class Mem0OpAdapter:
     def revise(self, actor: tuple[str, str], memory_ids: list[str], content: str) -> None:
         self._client._request("PUT", f"/v1/memories/{memory_ids[0]}/", {"text": content})
         time.sleep(self.write_delay_seconds)
+        user_id = self._user_id(actor)
+        self._client.wait_until_ready(user_id, min_count=1, timeout_s=20)
 
 
 def _extract_mem0_ids(response: dict | list) -> list[str]:

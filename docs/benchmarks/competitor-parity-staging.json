@@ -1,0 +1,85 @@
+{
+  "passed": true,
+  "mem0_enabled": true,
+  "brainy_url": "https://brainy-api-staging.onrender.com",
+  "results": [
+    {
+      "fixture": "dark_mode_vim_preference",
+      "brainy": {
+        "fixture": "dark_mode_vim_preference",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      "mem0": {
+        "fixture": "dark_mode_vim_preference",
+        "provider": "mem0",
+        "search_result_count": 2,
+        "passed": true,
+        "errors": [],
+        "top_content": "User prefers using vim keybindings for text editing and navigation"
+      }
+    },
+    {
+      "fixture": "factual_context",
+      "brainy": {
+        "fixture": "factual_context",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      "mem0": {
+        "fixture": "factual_context",
+        "provider": "mem0",
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "top_content": "User's launch date is May 12, 2027"
+      }
+    },
+    {
+      "fixture": "profile_lookup",
+      "brainy": {
+        "fixture": "profile_lookup",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      "mem0": {
+        "fixture": "profile_lookup",
+        "provider": "mem0",
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "top_content": "User works at Acme."
+      }
+    },
+    {
+      "fixture": "response_style_preference",
+      "brainy": {
+        "fixture": "response_style_preference",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "repeat_deduped": 1,
+        "search_after_suppress_count": 0
+      },
+      "mem0": {
+        "fixture": "response_style_preference",
+        "provider": "mem0",
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "top_content": "User prefers concise, direct answers when responding to queries, indicating a desire for brevity and clarity in communication."
+      }
+    }
+  ]
+}
