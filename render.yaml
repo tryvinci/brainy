@@ -1,0 +1,56 @@
+# Staging Blueprint — Brainy API + worker + Postgres
+# Deploy: https://dashboard.render.com/select-repo?type=blueprint
+# Branch tip: point the Blueprint at `dev` for staging (not main).
+previewsEnabled: false
+
+databases:
+  - name: brainy-staging-db
+    plan: basic-256mb
+    databaseName: brainy
+    user: brainy
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: brainy-api-staging
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    envVars:
+      - key: BRAINY_ENV
+        value: staging
+      - key: BRAINY_HTTP_ADDR
+        value: ":8080"
+      - key: BRAINY_DATABASE_URL
+        fromDatabase:
+          name: brainy-staging-db
+          property: connectionString
+      # Auth optional for staging dogfood. Set true + keys before partner share.
+      - key: BRAINY_REQUIRE_API_KEY
+        value: "false"
+      # Format: tenant:secret,...  Use *:sk_bench for benchmark tenants.
+      - key: BRAINY_API_KEYS
+        sync: false
+
+  - type: worker
+    name: brainy-worker-staging
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: /app/brainy-worker
+    envVars:
+      - key: BRAINY_ENV
+        value: staging
+      - key: BRAINY_WORKER_MODE
+        value: loop
+      - key: BRAINY_WORKER_POLL_INTERVAL
+        value: 2s
+      - key: BRAINY_DATABASE_URL
+        fromDatabase:
+          name: brainy-staging-db
+          property: connectionString

@@ -6,25 +6,11 @@ import pathlib
 import sys
 import urllib.error
 import urllib.parse
-import urllib.request
 
+ROOT = pathlib.Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
 
-def post_json(base_url: str, path: str, payload: dict) -> dict:
-    request = urllib.request.Request(
-        f"{base_url}{path}",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request) as response:
-        return json.loads(response.read().decode("utf-8"))
-
-
-def get_json(base_url: str, path: str, params: dict[str, str]) -> dict:
-    filtered = {key: value for key, value in params.items() if value}
-    query = urllib.parse.urlencode(filtered)
-    with urllib.request.urlopen(f"{base_url}{path}?{query}") as response:
-        return json.loads(response.read().decode("utf-8"))
+from httputil import get_json, post_json  # noqa: E402
 
 
 def check_expectations(

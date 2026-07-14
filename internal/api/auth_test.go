@@ -52,6 +52,20 @@ func TestAPIKeyMiddlewareRejectsTenantMismatch(t *testing.T) {
 	}
 }
 
+func TestAPIKeyMiddlewareWildcardTenantAllowsAny(t *testing.T) {
+	ring := auth.ParseKeyRing("*:sk_bench")
+	handler := APIKeyMiddleware(ring, true)(NewRouter(memory.NewService(newMemoryStoreAdapter()), observability.NewMetrics()))
+
+	req := httptest.NewRequest(http.MethodGet, "/memories/search?tenant_id=opmem-t1&subject_id=u1&q=test", nil)
+	req.Header.Set("Authorization", "Bearer sk_bench")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAPIKeyMiddlewareSkipsHealthz(t *testing.T) {
 	ring := auth.ParseKeyRing("demo:sk_demo")
 	handler := APIKeyMiddleware(ring, true)(NewRouter(memory.NewService(newMemoryStoreAdapter()), observability.NewMetrics()))

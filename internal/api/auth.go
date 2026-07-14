@@ -41,13 +41,19 @@ func APIKeyMiddleware(ring *auth.KeyRing, require bool) func(http.Handler) http.
 				return
 			}
 
+			// Wildcard tenant "*" authenticates without binding tenant_id
+			// (staging / OpMem benchmarks that synthesize many tenants).
 			requestTenant := tenantIDFromRequest(r)
-			if requestTenant != "" && requestTenant != tenantID {
+			if tenantID != "*" && requestTenant != "" && requestTenant != tenantID {
 				writeError(w, http.StatusForbidden, "forbidden", "tenant_id does not match API key")
 				return
 			}
 
-			next.ServeHTTP(w, r.WithContext(withTenant(r.Context(), tenantID)))
+			bound := tenantID
+			if tenantID == "*" && requestTenant != "" {
+				bound = requestTenant
+			}
+			next.ServeHTTP(w, r.WithContext(withTenant(r.Context(), bound)))
 		})
 	}
 }
