@@ -30,7 +30,7 @@ python3 evals/run_opmem.py --base-url http://127.0.0.1:8080
 
 **Disclaimer:** Developer preview (`v0.1.0`) — not production-ready. Local Docker runs without auth; hosted beta uses per-tenant API keys — see [commercial-beta-checklist.md](docs/commercial-beta-checklist.md) and [GitHub #11](https://github.com/tryvinci/brainy/issues/11).
 
-Docs: [verticalization model](docs/vertical/verticalization-model.md) · [OpMem 12/12 report](docs/benchmarks/opmem-baseline-report.md) · [launch narrative](docs/benchmarks/launch-narrative.md) · [GTM roadmap](docs/vertical/go-to-market-roadmap.md)
+Docs: [verticalization model](docs/vertical/verticalization-model.md) · [OpMem 12/12 report](docs/benchmarks/opmem-baseline-report.md) · [staging vs Mem0](docs/benchmarks/staging-competitive-report.md) · [research portal](docs/research/README.md) · [GTM roadmap](docs/vertical/go-to-market-roadmap.md)
 
 ## Current Status
 
