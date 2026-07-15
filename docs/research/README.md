@@ -12,6 +12,7 @@ Benchmark-backed claims for vertical memory. Goal: a public research surface in 
 | Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
 | Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
 | Public-bench ladder (LOCOMO …) | Plan | [public-bench-ladder.md](./public-bench-ladder.md) |
+| Proveable eval framework | Spec + L2/L3 harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
 
 ---
 
