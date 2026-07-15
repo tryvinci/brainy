@@ -5,9 +5,13 @@ import (
 	"encoding/hex"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 var whitespaceRE = regexp.MustCompile(`\s+`)
+
+// minEpisodeRunes: skip trivial fragments ("ok", "lol") but keep short dated facts.
+const minEpisodeRunes = 12
 
 type Extractor struct{}
 
@@ -17,14 +21,52 @@ func NewExtractor() Extractor {
 
 func (Extractor) Extract(req IngestRequest) []ExtractedMemory {
 	var extracted []ExtractedMemory
+	retainEpisodes := shouldRetainConversationEpisodes(req)
 	for _, message := range req.Messages {
-		for _, sentence := range splitSentences(message.Content) {
-			if memory, ok := classifySentence(sentence); ok {
+		for _, utterance := range splitUtterances(message.Content) {
+			if memory, ok := classifySentence(utterance); ok {
 				extracted = append(extracted, memory)
+				continue
+			}
+			// Keep free dialogue searchable without breaking labeled pack ingest
+			// (campaign / creative / analytics still fall through to pack_label_direct).
+			if retainEpisodes {
+				if episode, ok := conversationEpisode(utterance); ok {
+					extracted = append(extracted, episode)
+				}
 			}
 		}
 	}
 	return extracted
+}
+
+func shouldRetainConversationEpisodes(req IngestRequest) bool {
+	if strings.TrimSpace(req.Label) != "" {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(req.SourceType)) {
+	case "conversation", "chat", "dialogue", "message":
+		return true
+	default:
+		return false
+	}
+}
+
+func conversationEpisode(utterance string) (ExtractedMemory, bool) {
+	text := NormalizeText(utterance)
+	if text == "" || utf8.RuneCountInString(text) < minEpisodeRunes {
+		return ExtractedMemory{}, false
+	}
+	return ExtractedMemory{
+		Kind:       KindFact,
+		Content:    text,
+		SourceText: utterance,
+		Confidence: 0.7,
+		Explain: map[string]any{
+			"rule":      "conversation_episode",
+			"primitive": PrimitiveEpisode,
+		},
+	}, true
 }
 
 func NormalizeText(text string) string {
@@ -41,6 +83,32 @@ func DedupeKey(tenantID, subjectID, kind, content string) string {
 		strings.ToLower(NormalizeText(content)),
 	}, "::")))
 	return hex.EncodeToString(sum[:])
+}
+
+// splitUtterances prefers turn boundaries (newlines / Speaker: lines) so
+// multi-turn client payloads stay atomic. Falls back to sentence splits.
+func splitUtterances(text string) []string {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return nil
+	}
+
+	lines := strings.Split(text, "\n")
+	units := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		units = append(units, line)
+	}
+	if len(units) > 1 {
+		return units
+	}
+
+	// Single line / block: sentence-split for preference+fact combos.
+	return splitSentences(units[0])
 }
 
 func splitSentences(text string) []string {
