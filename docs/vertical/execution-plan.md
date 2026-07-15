@@ -2,9 +2,9 @@
 
 **Status:** Active (2026-07-04)  
 **Repo:** [tryvinci/brainy](https://github.com/tryvinci/brainy) (`dev`)  
-**Linear project:** [SoTA Vertical Memory (Brainy)](https://linear.app/engramhq/project/sota-vertical-memory-brainy-4efb2f9a793a)  
+**Linear project:** [Memory System (Brainy)](https://linear.app/engramhq/project/memory-system-brainy-3c71cdab5cd1)  
 **Linear doc:** [Marketing Vetting & GTM Execution Plan](https://linear.app/engramhq/document/marketing-vetting-and-gtm-execution-plan-177a372fc2eb)  
-**Policy:** [`marketing-vetting-gate.md`](./marketing-vetting-gate.md) · [`go-to-market-roadmap.md`](./go-to-market-roadmap.md)
+**Policy:** [`marketing-vetting-gate.md`](./marketing-vetting-gate.md) · [`go-to-market-roadmap.md`](./go-to-market-roadmap.md) · [`../research/proveable-eval-framework.md`](../research/proveable-eval-framework.md)
 
 ---
 
@@ -56,6 +56,33 @@ M3 Done ──► Track A (OSS preview) ──► Track B (benchmark launch) ─
 | — | [#12](https://github.com/tryvinci/brainy/issues/12) Commercial beta checklist |
 
 Finance (Gate M4) remains **research-only** and is not on the launch critical path.
+
+---
+
+## Track D — Public proveable eval (LOCOMO ladder)
+
+Post-launch research track. **OpMem stays the CI merge gate**; LOCOMO is publication, not blocking merge.
+
+| Layer | Deliverable | Status | Linear |
+| --- | --- | --- | --- |
+| L0–L1 | Own suites + research portal | Done | — |
+| L2 | `evals/public/` UnifiedResult + Brainy adapter + pins | **Done** | [ENG-163](https://linear.app/engramhq/issue/ENG-163) |
+| L3 | LOCOMO smoke (subset) + honest report | Todo (runner ready) | [ENG-164](https://linear.app/engramhq/issue/ENG-164) |
+| L4 | Full LOCOMO + latency/tokens + blog | Backlog | [ENG-165](https://linear.app/engramhq/issue/ENG-165) |
+| L5 | LongMemEval / BEAM subset | Backlog | [ENG-166](https://linear.app/engramhq/issue/ENG-166) |
+| L6 | MarketingMem public track | Backlog | [ENG-167](https://linear.app/engramhq/issue/ENG-167) |
+
+Epic: [ENG-162](https://linear.app/engramhq/issue/ENG-162) · Milestone: [Public Proveable Eval Framework](https://linear.app/engramhq/project/memory-system-brainy-3c71cdab5cd1)
+
+Docs: [`../research/public-bench-ladder.md`](../research/public-bench-ladder.md) · [`../research/proveable-eval-framework.md`](../research/proveable-eval-framework.md) · [`../../evals/public/`](../../evals/public/)
+
+**Anti-benchmax:** LOCOMO fails drive **product** work ([ENG-168](https://linear.app/engramhq/issue/ENG-168)), not harness games. L3 smoke 2/30 published; L4 waits on extract/rank/event-time lift, then same-pin remeasure.
+
+Reproduce:
+
+```bash
+cd evals && python -m public.locomo.run_smoke --conversations 1 --questions 30
+```
 
 ---
 

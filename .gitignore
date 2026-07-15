@@ -13,3 +13,6 @@ bin/
 *.exe
 .cursor/
 docs/benchmarks/opmem-latest.json
+datasets/locomo/
+docs/benchmarks/runs/
+docs/benchmarks/competitor-parity-latest.json

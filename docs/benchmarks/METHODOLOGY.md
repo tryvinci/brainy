@@ -35,7 +35,7 @@ python3 evals/run_opmem.py --systems brainy,mem0,verbatim --base-url http://127.
 
 Score **per capability** in `evals/marketing_mvp_matrix.json` and OpMem categories, not a single aggregate. Mem0 may still win on provider-quality embeddings at scale; Brainy documents deterministic hybrid retrieval in [marketing-moat-report.md](./marketing-moat-report.md).
 
-For LOCOMO-style posts, publish **accuracy × category + p95 latency + tokens/query**, and always outlink the dataset + judge model.
+For LOCOMO-style posts, publish **accuracy × category + p95 latency + tokens/query**, and always outlink the dataset + judge model. Use the proveable harness in [`evals/public/`](../../evals/public/) and refuse to publish if `require_pins()` returns gaps — see [proveable-eval-framework.md](../research/proveable-eval-framework.md).
 
 ## Artifacts
 

@@ -103,6 +103,13 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		if err := s.applyPackFields(&record, req, extracted.Kind, extracted.Content); err != nil {
 			return IngestResult{}, err
 		}
+		if rule, _ := extracted.Explain["rule"].(string); rule == "conversation_episode" {
+			record.Primitive = PrimitiveEpisode
+			record.ExtractionVersion = "conversational-v1"
+			if p, ok := extracted.Explain["primitive"].(string); ok && p != "" {
+				record.Primitive = p
+			}
+		}
 
 		upserted, err := s.store.UpsertMemory(ctx, record)
 		if err != nil {
@@ -349,6 +356,19 @@ func hasResponseKeyword(tokens []string) bool {
 	return false
 }
 
+func preferenceQuery(tokens []string) bool {
+	if hasResponseKeyword(tokens) {
+		return true
+	}
+	for _, token := range tokens {
+		switch token {
+		case "prefer", "prefers", "preference", "like", "likes", "love", "loves", "hate", "hates", "style", "tone", "concise", "detailed":
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Service) Suppress(ctx context.Context, tenantID, subjectID, memoryID string) error {
 	if tenantID == "" || subjectID == "" || memoryID == "" {
 		return errors.New("tenant_id, subject_id, and memory_id are required")
@@ -420,11 +440,23 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 	if record.Primitive != PrimitivePrinciple && record.Primitive != PrimitiveIdentityPrior {
 		switch record.Kind {
 		case KindPreference:
-			score += 0.25
+			// Preferential kind boost only when the query is actually about tastes/style.
+			if preferenceQuery(queryTokens) {
+				score += 0.25
+			} else {
+				score += 0.05
+			}
 		case KindProfile:
 			score += 0.15
 		case KindFact:
 			score += 0.05
+			// Exact-span / dense lexical overlap: reward episodic facts over topical prefs.
+			if float64(len(matched))/float64(len(queryTokens)) >= 0.5 {
+				score += 0.2
+			}
+			if record.Primitive == PrimitiveEpisode {
+				score += 0.1
+			}
 		}
 	}
 

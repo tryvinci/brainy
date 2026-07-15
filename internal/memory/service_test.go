@@ -476,3 +476,57 @@ func TestSearchPrefersNewerConflictingPreference(t *testing.T) {
 		t.Fatalf("expected newer SMS preference to rank first, got %q", search.Results[0].Content)
 	}
 }
+
+func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+
+	_, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Metadata: map[string]any{
+			"session_id":  "sess-1",
+			"observed_at": "2023-05-07T18:00:00Z",
+		},
+		Messages: []Message{
+			{Role: "user", Content: "Caroline: I went to the LGBTQ support group on 7 May 2023"},
+			{Role: "user", Content: "Melanie: Can't wait to see your show - the LGBTQ community needs more platforms like this"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ingest failed: %v", err)
+	}
+
+	var hasEpisode bool
+	var hasDate bool
+	for _, record := range store.records {
+		if record.Primitive == PrimitiveEpisode {
+			hasEpisode = true
+		}
+		if strings.Contains(strings.ToLower(record.Content), "7 may 2023") {
+			hasDate = true
+		}
+		if record.Metadata["session_id"] != "sess-1" {
+			t.Fatalf("expected session_id metadata copied, got %#v", record.Metadata)
+		}
+	}
+	if !hasDate {
+		t.Fatal("expected dated support-group turn retained as a memory")
+	}
+	if !hasEpisode {
+		t.Fatal("expected conversation_episode primitive on free dialogue")
+	}
+
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Caroline go to the LGBTQ support group")
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected search hits")
+	}
+	top := strings.ToLower(search.Results[0].Content)
+	if !strings.Contains(top, "7 may 2023") && !strings.Contains(top, "support group") {
+		t.Fatalf("expected dated fact to outrank topical preference neighbor, top=%q", search.Results[0].Content)
+	}
+}
