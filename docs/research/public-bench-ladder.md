@@ -15,8 +15,8 @@ Reference industry surfaces:
 ```
 L0  Own CI suites          ← DONE (parity, vertical, OpMem vs Mem0+verbatim)
 L1  Research portal + cites ← DONE (this folder + benchmarks/README)
-L2  Brainy adapter for public harness
-L3  LOCOMO smoke (top-k / subset) — publish warts and all
+L2  Brainy adapter for public harness ← DONE (evals/public/)
+L3  LOCOMO smoke (top-k / subset) — runner ready; publish after OpenAI-judged run
 L4  Full LOCOMO + latency/tokens + blog
 L5  LongMemEval + BEAM subset
 L6  Vertical “MarketingMem” public track (Brainy’s differentiation)
@@ -34,28 +34,15 @@ L6  Vertical “MarketingMem” public track (Brainy’s differentiation)
 
 ---
 
-## L2 — Brainy adapter (next eng)
+## L2 — Brainy adapter (DONE)
 
-Goal: plug Brainy into the same harness Mem0 uses so numbers are comparable.
+Shipped **option B**: in-repo [`evals/public/`](../../evals/public/) with Mem0-compatible `UnifiedResult`, `RunManifest` pins, Brainy HTTP backend, lexical + OpenAI judges.
 
-Options (pick one):
+Contract: [proveable-eval-framework.md](./proveable-eval-framework.md)
 
-| Option | Pros | Cons |
-| --- | --- | --- |
-| **A.** PR / fork of `mem0ai/memory-benchmarks` + Brainy backend | Same CLI as Mem0 blog | Upstream dependency, Python SDK mismatch |
-| **B.** Thin `evals/public/` that downloads LOCOMO JSON + implements Mem0 harness schema | Stays in-repo | More glue code |
-| **C.** Call Mem0 harness with a Brainy “Mem0-compatible” shim API | Fastest path if we only expose add/search | Couples to their client |
-
-**Recommend B** for control; mirror their `schema.py` metrics and cite LOCOMO upstream.
-
-Minimum Brainy surface for LOCOMO:
-
-1. Sessionized ingest of dialogue turns → `/ingest` (or batch API)
-2. Per-question retrieve → `/memories/search`
-3. Optional answerer LLM (OpenAI) — *judge is not Brainy*; pin model + temp=0
-4. Record: accuracy by category, p50/p95 search+answer latency, tokens
-
-Staging URL: `BRAINY_BASE_URL` + `BRAINY_API_KEY` as already used.
+```bash
+cd evals && python -m public.locomo.run_smoke --conversations 1 --questions 30
+```
 
 ---
 
@@ -117,3 +104,7 @@ Fixtures already exist under `fixtures/vertical/marketing/` (16) + OpMem (12). E
 | 2026-07-14 | Keep OpMem as CI gate; treat LOCOMO as Track B research, not merge gate |
 | 2026-07-14 | Prefer in-repo `evals/public/` adapter over hard-forking Mem0 harness |
 | 2026-07-14 | Publish incomplete tables rather than estimated scores |
+| 2026-07-14 | Proveability = dataset SHA + brainy commit + judge pins; lexical ≠ publishable J-score |
+| 2026-07-14 | Linear Track D: milestone Public Proveable Eval Framework (ENG-162…167) |
+| 2026-07-15 | Anti-benchmax: LOCOMO fails = product bugs; no dataset special-casing; re-measure after product |
+| 2026-07-15 | L3 smoke 2/30 — 28/30 retrieval miss; driver = extract+rank+no event time |
