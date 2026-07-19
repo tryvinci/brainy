@@ -137,11 +137,20 @@ def _llm_answer(question: str, memories: list[dict], config: LLMConfig) -> str:
         content = (m.get("content") or "").strip()
         if not content:
             continue
+        # Prefer statements over stored questions for QA context.
+        if content.endswith("?") and not any(ch.isdigit() for ch in content):
+            continue
         observed = (m.get("observed_at") or "").strip()
         if observed:
             lines.append(f"- {content} [event_time={observed}]")
         else:
             lines.append(f"- {content}")
+    if not lines:
+        # Fall back to raw memories if everything looked like a question.
+        for m in memories[:10]:
+            content = (m.get("content") or "").strip()
+            if content:
+                lines.append(f"- {content}")
     context = "\n".join(lines)
     return chat_completion(
         [
@@ -151,7 +160,7 @@ def _llm_answer(question: str, memories: list[dict], config: LLMConfig) -> str:
                     "Answer the question using only the memories below. "
                     "When a memory includes event_time / an absolute date in parentheses, "
                     "use that to resolve relative phrases like yesterday, two days ago, or last week. "
-                    "Prefer a concrete short answer (dates, names, places). "
+                    "Prefer a concrete short answer (dates, names, places, lists). "
                     "Never answer with only 'None' or 'N/A' if any memory is remotely relevant — "
                     "quote the best supporting memory instead. "
                     "If memories truly lack the answer, say you do not know."
