@@ -203,6 +203,17 @@ EXCEPTION
 END $$;
 `,
 	},
+	{
+		version: 10,
+		name:    "add_observed_at",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS observed_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS memory_records_observed_at_lookup
+ON memory_records (tenant_id, subject_id, observed_at DESC NULLS LAST);
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

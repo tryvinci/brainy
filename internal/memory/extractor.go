@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"regexp"
@@ -13,13 +14,25 @@ var whitespaceRE = regexp.MustCompile(`\s+`)
 // minEpisodeRunes: skip trivial fragments ("ok", "lol") but keep short dated facts.
 const minEpisodeRunes = 12
 
-type Extractor struct{}
-
-func NewExtractor() Extractor {
-	return Extractor{}
+// Extractor turns an ingest request into candidate memories.
+// Sync ingest uses DeterministicExtractor (no network).
+// The async worker may use ProviderExtractor when configured.
+type Extractor interface {
+	Extract(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error)
 }
 
-func (Extractor) Extract(req IngestRequest) []ExtractedMemory {
+type DeterministicExtractor struct{}
+
+func NewDeterministicExtractor() DeterministicExtractor {
+	return DeterministicExtractor{}
+}
+
+// NewExtractor returns the deterministic extractor (CI / sync default).
+func NewExtractor() DeterministicExtractor {
+	return NewDeterministicExtractor()
+}
+
+func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]ExtractedMemory, error) {
 	var extracted []ExtractedMemory
 	retainEpisodes := shouldRetainConversationEpisodes(req)
 	for _, message := range req.Messages {
@@ -37,7 +50,7 @@ func (Extractor) Extract(req IngestRequest) []ExtractedMemory {
 			}
 		}
 	}
-	return extracted
+	return extracted, nil
 }
 
 func shouldRetainConversationEpisodes(req IngestRequest) bool {
