@@ -274,3 +274,16 @@ func TestProviderExtractorEmptyCompletionFallsBackToBaseline(t *testing.T) {
 		t.Fatal("expected baseline episode memories")
 	}
 }
+
+func TestEnrichLastSaturdayAndYearsAgo(t *testing.T) {
+	// Session on Thursday 25 May 2023 → last Saturday = 20 May 2023
+	at := mustParseTime(t, "2023-05-25T12:00:00Z")
+	got := EnrichRelativeEventTime("I ran a charity race last Saturday", at)
+	if !strings.Contains(got, "20 May 2023") {
+		t.Fatalf("expected last Saturday resolved, got %q", got)
+	}
+	got = EnrichRelativeEventTime("A friend made it for my 18th birthday ten years ago", at)
+	if !strings.Contains(got, "10 years ago") || !strings.Contains(got, "2013") {
+		t.Fatalf("expected ten years ago absolute, got %q", got)
+	}
+}
