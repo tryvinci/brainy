@@ -70,24 +70,44 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 // time words ("yesterday", "last week") so search/answer can resolve event time.
 func EnrichRelativeEventTime(content string, at time.Time) string {
 	lower := strings.ToLower(content)
-	relative := false
-	for _, marker := range []string{
-		"yesterday", "today", "tomorrow",
-		"last week", "last month", "last year",
-		"next week", "next month", "next year",
-		"this week", "this month",
-		"last saturday", "last sunday", "last monday", "last tuesday", "last wednesday", "last thursday", "last friday",
-		"this saturday", "this sunday",
-	} {
-		if strings.Contains(lower, marker) {
-			relative = true
-			break
+	var event time.Time
+	switch {
+	case strings.Contains(lower, "day before yesterday"):
+		event = at.AddDate(0, 0, -2)
+	case strings.Contains(lower, "yesterday"):
+		event = at.AddDate(0, 0, -1)
+	case strings.Contains(lower, "tomorrow"):
+		event = at.AddDate(0, 0, 1)
+	case strings.Contains(lower, "last week"):
+		event = at.AddDate(0, 0, -7)
+	case strings.Contains(lower, "next week"):
+		event = at.AddDate(0, 0, 7)
+	case strings.Contains(lower, "last month"):
+		event = at.AddDate(0, -1, 0)
+	case strings.Contains(lower, "next month"):
+		event = at.AddDate(0, 1, 0)
+	case strings.Contains(lower, "last year"):
+		event = at.AddDate(-1, 0, 0)
+	case strings.Contains(lower, "next year"):
+		event = at.AddDate(1, 0, 0)
+	case strings.Contains(lower, "today"), strings.Contains(lower, "this week"), strings.Contains(lower, "this month"):
+		event = at
+	default:
+		// Weekday relatives: last Saturday etc. — fall back to session day.
+		for _, marker := range []string{
+			"last saturday", "last sunday", "last monday", "last tuesday", "last wednesday", "last thursday", "last friday",
+			"this saturday", "this sunday",
+		} {
+			if strings.Contains(lower, marker) {
+				event = at
+				break
+			}
+		}
+		if event.IsZero() {
+			return content
 		}
 	}
-	if !relative {
-		return content
-	}
-	stamp := at.Format("2 January 2006")
+	stamp := event.Format("2 January 2006")
 	if strings.Contains(lower, strings.ToLower(stamp)) {
 		return content
 	}
