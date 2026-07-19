@@ -126,9 +126,16 @@ def answer_from_memories(
     cfg = config or resolve_config(model=model)
     if cfg is not None:
         cfg = _with_model(cfg, model) if model else cfg
-        answer = _llm_answer(question, memories, cfg)
-        if _is_empty_answer(answer):
+        # Fact/list questions: extractive first (fewer empty/partial answers).
+        extractive_first = _prefers_extractive(question)
+        if extractive_first:
             answer = _llm_answer(question, memories, cfg, extractive=True)
+            if _is_empty_answer(answer):
+                answer = _llm_answer(question, memories, cfg, extractive=False)
+        else:
+            answer = _llm_answer(question, memories, cfg, extractive=False)
+            if _is_empty_answer(answer):
+                answer = _llm_answer(question, memories, cfg, extractive=True)
         if _is_empty_answer(answer):
             joined = _statement_join(memories)
             if joined:
@@ -194,8 +201,10 @@ def _llm_answer(
     if extractive:
         system = (
             "Extract the shortest answer to the question that is directly supported by the memories. "
-            "Copy key phrases from the memories. Do not say None or I do not know if any memory is relevant. "
-            "If multiple items apply, list them as a short comma-separated list."
+            "Copy key phrases from the memories (names, places, titles, identity labels, activities). "
+            "Do not say None or I do not know if any memory is relevant. "
+            "If multiple items apply, list ALL of them as a short comma-separated list. "
+            "For identity questions, prefer explicit labels like transgender woman when present."
         )
     else:
         system = (
