@@ -15,6 +15,15 @@ func TestProviderExtractorParsesStructuredMemories(t *testing.T) {
 		if r.URL.Path != "/chat/completions" {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
+		var sent struct {
+			MaxTokens int `json:"max_tokens"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&sent); err != nil {
+			t.Fatalf("decode request: %v", err)
+		}
+		if sent.MaxTokens <= 0 {
+			t.Fatalf("expected positive max_tokens to avoid reasoning-model truncation, got %d", sent.MaxTokens)
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{
 				{"message": map[string]any{
