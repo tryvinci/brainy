@@ -126,15 +126,31 @@ def answer_from_memories(
     cfg = config or resolve_config(model=model)
     if cfg is not None:
         cfg = _with_model(cfg, model) if model else cfg
-        answer = _llm_answer(question, memories, cfg)
-        if _is_empty_answer(answer):
+        # Fact/list questions: extractive first (fewer empty/partial answers).
+        extractive_first = _prefers_extractive(question)
+        if extractive_first:
             answer = _llm_answer(question, memories, cfg, extractive=True)
+            if _is_empty_answer(answer):
+                answer = _llm_answer(question, memories, cfg, extractive=False)
+        else:
+            answer = _llm_answer(question, memories, cfg, extractive=False)
+            if _is_empty_answer(answer):
+                answer = _llm_answer(question, memories, cfg, extractive=True)
         if _is_empty_answer(answer):
             joined = _statement_join(memories)
             if joined:
                 return joined, cfg.label + "+retrieval-concat"
         return answer, cfg.label
     return _statement_join(memories) or "", "retrieval-concat-v0"
+
+
+def _prefers_extractive(question: str) -> bool:
+    q = (question or "").strip().lower()
+    # Temporal when-questions do better with the normal answerer + event_time hints.
+    if q.startswith("when ") or " when " in q:
+        return False
+    starters = ("what ", "where ", "which ", "who ", "how many", "list ")
+    return q.startswith(starters) or (" status" in q) or ("identity" in q) or ("activities" in q)
 
 
 def _is_empty_answer(answer: str) -> bool:
@@ -194,8 +210,10 @@ def _llm_answer(
     if extractive:
         system = (
             "Extract the shortest answer to the question that is directly supported by the memories. "
-            "Copy key phrases from the memories. Do not say None or I do not know if any memory is relevant. "
-            "If multiple items apply, list them as a short comma-separated list."
+            "Copy key phrases from the memories (names, places, titles, identity labels, activities). "
+            "Do not say None or I do not know if any memory is relevant. "
+            "If multiple items apply, list ALL of them as a short comma-separated list. "
+            "For identity questions, prefer explicit labels like transgender woman when present."
         )
     else:
         system = (
