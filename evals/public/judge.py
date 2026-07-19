@@ -140,6 +140,7 @@ def answer_from_memories(
             joined = _statement_join(memories)
             if joined:
                 return joined, cfg.label + "+retrieval-concat"
+        answer = _augment_list_answer(question, answer, memories)
         return answer, cfg.label
     return _statement_join(memories) or "", "retrieval-concat-v0"
 
