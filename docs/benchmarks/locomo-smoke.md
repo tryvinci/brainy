@@ -1,7 +1,7 @@
-# LOCOMO smoke — `locomo-smoke-multihop-pass`
+# LOCOMO smoke — `locomo-smoke-topic-align`
 
-**Timestamp:** 2026-07-19T13:45:07Z  
-**Brainy commit:** `6e172b0ec9c1b23e838aa478446beb18333d0f1f`  
+**Timestamp:** 2026-07-19T13:49:42Z  
+**Brainy commit:** `32598b635cc01a0c637bc361eabd9d5b914ef534`  
 **Judge/Answerer:** `[REDACTED]`  
 **Ingest:** async  
 
@@ -9,19 +9,19 @@
 
 | Metric | Value |
 | --- | ---: |
-| Overall | 0.300 (9/30) |
+| Overall | **0.367 (11/30)** |
 
 | Category | Acc | n |
 | --- | ---: | ---: |
 | multi-hop | 0.100 | 10 |
-| open-domain | 0.500 | 4 |
-| temporal | 0.375 | 16 |
+| open-domain | 0.750 | 4 |
+| temporal | 0.438 | 16 |
 
 ## Ladder
 
 | Run | Overall |
 | --- | ---: |
-| Content-bearing ranking | 8/30 |
-| **Multi-hop second-pass** | **9/30 (30%)** |
+| Multi-hop second-pass | 9/30 |
+| **Topic-alignment + top-k 15** | **11/30 (36.7%)** |
 
-Taxonomy: {'correct': 9, 'retrieval_miss': 10, 'answer_judge_miss': 11}. L4 gate (≥12/30) unmet.
+Taxonomy: {'correct': 11, 'answer_judge_miss': 16, 'retrieval_miss': 3}. L4 gate (≥12/30) nearly met.

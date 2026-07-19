@@ -513,6 +513,39 @@ func relatedIntentTokens(token string) []string {
 	}
 }
 
+// topicAlignmentBoost rewards memories whose content matches the topical intent
+// of the query (e.g. identity ↔ gender/trans*), beyond surface-token overlap.
+func topicAlignmentBoost(queryTokens, contentTokens []string) float64 {
+	qset := map[string]struct{}{}
+	for _, token := range contentBearingTokens(queryTokens) {
+		qset[token] = struct{}{}
+	}
+	cset := map[string]struct{}{}
+	for _, token := range contentTokens {
+		cset[token] = struct{}{}
+	}
+	bonus := 0.0
+	for q := range qset {
+		for _, related := range relatedIntentTokens(q) {
+			if _, ok := cset[related]; ok {
+				bonus += 0.18
+				break
+			}
+			// prefix match for transgender/trans etc.
+			for c := range cset {
+				if tokensMatch(related, c) {
+					bonus += 0.18
+					break
+				}
+			}
+		}
+	}
+	if bonus > 0.45 {
+		return 0.45
+	}
+	return bonus
+}
+
 func applySessionNeighborBoost(score *float64, explain map[string]any, record MemoryRecord, seeds []MemoryRecord) {
 	sid := sessionIDOf(record)
 	if sid == "" {
@@ -673,6 +706,10 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 	if penalty := questionMemoryPenalty(queryTokens, record.Content); penalty != 0 {
 		score += penalty
 		explain["question_memory_penalty"] = penalty
+	}
+	if bonus := topicAlignmentBoost(queryTokens, contentTokens); bonus > 0 {
+		score += bonus
+		explain["topic_alignment_boost"] = bonus
 	}
 
 	applyPrimitiveBonus(&score, explain, record, primitiveWeights)
