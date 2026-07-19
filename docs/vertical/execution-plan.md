@@ -76,7 +76,7 @@ Epic: [ENG-162](https://linear.app/engramhq/issue/ENG-162) · Milestone: [Public
 
 Docs: [`../research/public-bench-ladder.md`](../research/public-bench-ladder.md) · [`../research/proveable-eval-framework.md`](../research/proveable-eval-framework.md) · [`../../evals/public/`](../../evals/public/)
 
-**Anti-benchmax:** LOCOMO fails drive **product** work ([ENG-168](https://linear.app/engramhq/issue/ENG-168)), not harness games. L3 smoke 2/30 published; L4 waits on extract/rank/event-time lift, then same-pin remeasure.
+**Anti-benchmax:** LOCOMO fails drive **product** work ([ENG-168](https://linear.app/engramhq/issue/ENG-168)), not harness games. L3 smoke remeasured **6/30** (2026-07-19) after async provider path + relative event-time; L4 gate (≥12/30) unmet — next real embeddings + multi-hop synthesis.
 
 Reproduce:
 
