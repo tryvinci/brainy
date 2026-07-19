@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -16,7 +17,10 @@ func TestExtractorExtractsPreferenceProfileAndFact(t *testing.T) {
 		},
 	}
 
-	memories := extractor.Extract(req)
+	memories, err := extractor.Extract(context.Background(), req)
+	if err != nil {
+		t.Fatalf("extract failed: %v", err)
+	}
 	if len(memories) != 3 {
 		t.Fatalf("expected 3 memories, got %d", len(memories))
 	}
@@ -44,7 +48,10 @@ func TestExtractorRetainsFreeDialogueEpisodes(t *testing.T) {
 		},
 	}
 
-	memories := extractor.Extract(req)
+	memories, err := extractor.Extract(context.Background(), req)
+	if err != nil {
+		t.Fatalf("extract failed: %v", err)
+	}
 	if len(memories) < 3 {
 		t.Fatalf("expected at least 3 memories from free dialogue, got %d: %+v", len(memories), memories)
 	}
@@ -84,7 +91,10 @@ func TestExtractorSkipsEpisodesWhenPackLabelSet(t *testing.T) {
 		},
 	}
 
-	memories := extractor.Extract(req)
+	memories, err := extractor.Extract(context.Background(), req)
+	if err != nil {
+		t.Fatalf("extract failed: %v", err)
+	}
 	for _, m := range memories {
 		if rule, _ := m.Explain["rule"].(string); rule == "conversation_episode" {
 			t.Fatalf("pack-labeled ingest must not create conversation_episode, got %+v", memories)

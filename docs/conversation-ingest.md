@@ -29,7 +29,17 @@ You may batch many messages in one request for throughput. Prefer **not** gluing
 1. Structured prefs / profile / facts when keyword rules match  
 2. Otherwise a **conversation episode** (`kind=fact`, `primitive=episode`) so casual dialogue is still searchable  
 
-`metadata.session_id` and `metadata.observed_at` are copied onto each memory (clients supply event time — see ENG-174 for search-time use).
+`metadata.session_id` and `metadata.observed_at` are copied onto each memory. `observed_at` is also stored as a typed event-time column and used for search recency (falling back to `updated_at` when unset).
+
+## Async provider extract
+
+Sync `/ingest` stays deterministic (no network). The worker may enable OpenAI-compatible provider extract via:
+
+- `BRAINY_PROVIDER_BASE_URL` (or `LLM_BASE_URL`)
+- `BRAINY_PROVIDER_API_KEY` (or `LLM_API_KEY`)
+- `BRAINY_PROVIDER_MODEL` (or `LLM_MODEL`)
+
+Provider failures fail the extraction job **before** upserts; the raw ingest payload is never rewritten.
 
 ## Anti-pattern
 
