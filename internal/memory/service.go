@@ -216,10 +216,17 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	}
 
 	queryTokens := tokenize(query)
+	contentQueryTokens := contentBearingTokens(queryTokens)
 
-	patterns := make([]string, 0, len(queryTokens))
-	for _, t := range queryTokens {
+	patterns := make([]string, 0, len(contentQueryTokens)+len(queryTokens))
+	for _, t := range contentQueryTokens {
 		patterns = append(patterns, "%"+t+"%")
+	}
+	// Fall back to all tokens only when content-bearing set is empty.
+	if len(patterns) == 0 {
+		for _, t := range queryTokens {
+			patterns = append(patterns, "%"+t+"%")
+		}
 	}
 
 	memories, err := s.store.SearchActiveMemories(ctx, tenantID, subjectID, patterns, 100)
@@ -479,10 +486,14 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 
 func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map[string]int) (float64, map[string]any) {
 	contentTokens := tokenize(record.Content)
-	matched := make([]string, 0, len(queryTokens))
-	for _, queryToken := range queryTokens {
+	bearingQuery := contentBearingTokens(queryTokens)
+	if len(bearingQuery) == 0 {
+		bearingQuery = queryTokens
+	}
+	matched := make([]string, 0, len(bearingQuery))
+	for _, queryToken := range bearingQuery {
 		for _, contentToken := range contentTokens {
-			if queryToken == contentToken {
+			if tokensMatch(queryToken, contentToken) {
 				matched = append(matched, queryToken)
 				break
 			}
@@ -510,7 +521,7 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 		return score, explain
 	}
 
-	score := float64(len(matched)) / float64(len(queryTokens))
+	score := float64(len(matched)) / float64(len(bearingQuery))
 	explain := map[string]any{
 		"matched_terms": matched,
 		"ranking_basis": "deterministic_baseline",
@@ -532,7 +543,7 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 			score += 0.15
 		case KindFact:
 			score += 0.05
-			overlap := float64(len(matched)) / float64(len(queryTokens))
+			overlap := float64(len(matched)) / float64(len(bearingQuery))
 			if overlap >= 0.5 {
 				score += 0.2
 				explain["dense_overlap_boost"] = 0.2
@@ -544,13 +555,21 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 		}
 	}
 
-	if bonus := exactSpanBoost(queryTokens, record.Content); bonus > 0 {
+	if bonus := exactSpanBoost(bearingQuery, record.Content); bonus > 0 {
 		score += bonus
 		explain["exact_span_boost"] = bonus
 	}
 	if bonus := dateTokenBoost(queryTokens, contentTokens, record); bonus > 0 {
 		score += bonus
 		explain["date_token_boost"] = bonus
+	}
+	if bonus := subjectMentionBoost(bearingQuery, contentTokens); bonus > 0 {
+		score += bonus
+		explain["subject_mention_boost"] = bonus
+	}
+	if penalty := questionMemoryPenalty(queryTokens, record.Content); penalty != 0 {
+		score += penalty
+		explain["question_memory_penalty"] = penalty
 	}
 
 	applyPrimitiveBonus(&score, explain, record, primitiveWeights)
@@ -562,6 +581,98 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 	}
 
 	return score, explain
+}
+
+func contentBearingTokens(tokens []string) []string {
+	out := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if isQueryStopword(token) {
+			continue
+		}
+		out = append(out, token)
+	}
+	return out
+}
+
+func isQueryStopword(token string) bool {
+	switch token {
+	case "a", "an", "the", "and", "or", "to", "of", "in", "on", "for", "is", "it", "as", "at", "by", "from",
+		"what", "which", "who", "whom", "whose", "where", "when", "why", "how",
+		"did", "does", "do", "has", "have", "had", "was", "were", "be", "been", "being",
+		"with", "about", "into", "over", "after", "before", "than", "then",
+		"me", "my", "you", "your", "we", "our", "they", "their", "he", "she", "his", "her",
+		"this", "that", "these", "those", "s":
+		return true
+	}
+	return false
+}
+
+func tokensMatch(queryToken, contentToken string) bool {
+	if queryToken == contentToken {
+		return true
+	}
+	// Light stemming: research≈researched, camp≈camped/camping.
+	if len(queryToken) >= 4 && len(contentToken) >= 4 {
+		if strings.HasPrefix(contentToken, queryToken) || strings.HasPrefix(queryToken, contentToken) {
+			return true
+		}
+	}
+	return false
+}
+
+// subjectMentionBoost rewards memories that mention a named subject from the query
+// (e.g. caroline / melanie) so multi-hop person questions don't drown in generic "what" hits.
+func subjectMentionBoost(queryTokens, contentTokens []string) float64 {
+	nameLike := make([]string, 0)
+	for _, token := range queryTokens {
+		if len(token) >= 4 && !isQueryStopword(token) {
+			// Heuristic: longer non-stop tokens often include person/topic nouns.
+			nameLike = append(nameLike, token)
+		}
+	}
+	if len(nameLike) == 0 {
+		return 0
+	}
+	contentSet := map[string]struct{}{}
+	for _, token := range contentTokens {
+		contentSet[token] = struct{}{}
+	}
+	hits := 0
+	for _, token := range nameLike {
+		if _, ok := contentSet[token]; ok {
+			hits++
+		}
+	}
+	if hits == 0 {
+		return 0
+	}
+	return 0.12 * float64(hits)
+}
+
+// questionMemoryPenalty downranks stored questions when the user query is itself a question
+// seeking facts — otherwise "What did ..." memories dominate over statements.
+func questionMemoryPenalty(queryTokens []string, content string) float64 {
+	ask := false
+	for _, token := range queryTokens {
+		switch token {
+		case "what", "which", "who", "where", "when", "why", "how":
+			ask = true
+		}
+	}
+	if !ask {
+		return 0
+	}
+	trimmed := strings.TrimSpace(content)
+	lower := strings.ToLower(trimmed)
+	if strings.HasSuffix(trimmed, "?") {
+		return -0.55
+	}
+	for _, prefix := range []string{"what ", "which ", "who ", "where ", "when ", "why ", "how ", "did ", "do ", "does "} {
+		if strings.HasPrefix(lower, prefix) {
+			return -0.4
+		}
+	}
+	return 0
 }
 
 func exactSpanBoost(queryTokens []string, content string) float64 {
