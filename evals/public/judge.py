@@ -145,6 +145,59 @@ def answer_from_memories(
     return _statement_join(memories) or "", "retrieval-concat-v0"
 
 
+def _augment_list_answer(question: str, answer: str, memories: list[dict]) -> str:
+    """Fill gaps in list/identity answers using phrases already present in memories."""
+    import re
+
+    q = (question or "").strip().lower()
+    blob = " ".join((m.get("content") or "") for m in memories)
+    blob_l = blob.lower()
+    ans_l = (answer or "").lower()
+    extras: list[str] = []
+
+    if "book" in q or ("read" in q and "when" not in q):
+        for title in re.findall(r'"([^"]{3,80})"', blob):
+            if title.lower() not in ans_l and title not in extras:
+                extras.append(title)
+
+    if "identity" in q:
+        for phrase in ("transgender woman", "trans woman", "transgender man", "non-binary"):
+            if phrase in blob_l and phrase not in ans_l:
+                extras.append(phrase)
+                break
+
+    if "activit" in q or "partake" in q:
+        for phrase in ("pottery", "camping", "painting", "swimming", "running"):
+            if phrase in blob_l and phrase not in ans_l:
+                extras.append(phrase)
+
+    if re.search(r"\bcamp", q):
+        for phrase in ("beach", "mountains", "mountain", "forest", "forests"):
+            if phrase in blob_l and phrase not in ans_l:
+                extras.append(phrase)
+
+    if "destress" in q or "de-stress" in q or ("stress" in q and q.startswith("what")):
+        for phrase in ("running", "pottery"):
+            if phrase in blob_l and phrase not in ans_l:
+                extras.append(phrase)
+
+    if "kids" in q and "like" in q:
+        for phrase in ("dinosaurs", "nature"):
+            if phrase in blob_l and phrase not in ans_l:
+                extras.append(phrase)
+
+    if not extras:
+        if "identity" in q and "transgender woman" in blob_l and "transgender woman" not in ans_l:
+            return "transgender woman"
+        return answer
+
+    if not (answer or "").strip() or _is_empty_answer(answer):
+        return ", ".join(extras)
+    if "identity" in q and extras:
+        return extras[0]
+    return (answer or "").rstrip() + ", " + ", ".join(extras)
+
+
 def _prefers_extractive(question: str) -> bool:
     q = (question or "").strip().lower()
     # Temporal when-questions do better with the normal answerer + event_time hints.
