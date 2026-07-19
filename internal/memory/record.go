@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,7 +68,8 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 }
 
 // EnrichRelativeEventTime appends an absolute date when dialogue uses relative
-// time words ("yesterday", "last week") so search/answer can resolve event time.
+// time words ("yesterday", "last Saturday", "10 years ago") so search/answer
+// can resolve event time against session observed_at.
 func EnrichRelativeEventTime(content string, at time.Time) string {
 	lower := strings.ToLower(content)
 	var event time.Time
@@ -94,32 +96,126 @@ func EnrichRelativeEventTime(content string, at time.Time) string {
 		event = at.AddDate(0, -1, 0)
 	case strings.Contains(lower, "next month"):
 		event = at.AddDate(0, 1, 0)
-	case strings.Contains(lower, "last year"), strings.Contains(lower, "a year ago"):
+	case strings.Contains(lower, "last year"), strings.Contains(lower, "a year ago"), strings.Contains(lower, "1 year ago"):
 		event = at.AddDate(-1, 0, 0)
 	case strings.Contains(lower, "next year"):
 		event = at.AddDate(1, 0, 0)
 	case strings.Contains(lower, "today"), strings.Contains(lower, "this week"), strings.Contains(lower, "this month"):
 		event = at
 	default:
-		// Weekday relatives: last Saturday etc. — approximate with session day.
-		for _, marker := range []string{
-			"last saturday", "last sunday", "last monday", "last tuesday", "last wednesday", "last thursday", "last friday",
-			"this saturday", "this sunday",
-		} {
-			if strings.Contains(lower, marker) {
-				event = at
-				break
-			}
+		if years := parseYearsAgo(lower); years > 0 {
+			event = at.AddDate(-years, 0, 0)
+			break
 		}
-		if event.IsZero() {
-			return content
+		if wd, ok := parseLastWeekday(lower); ok {
+			event = previousWeekday(at, wd)
+			break
 		}
+		if wd, ok := parseThisWeekday(lower); ok {
+			event = thisWeekday(at, wd)
+			break
+		}
+		return content
+	}
+	if event.IsZero() {
+		return content
 	}
 	stamp := event.Format("2 January 2006")
 	if strings.Contains(lower, strings.ToLower(stamp)) {
 		return content
 	}
-	return content + " (" + stamp + ")"
+	// Also expose ISO year for "how long ago" style questions.
+	extra := stamp
+	if years := parseYearsAgo(lower); years > 0 {
+		extra = stamp + "; " + strconv.Itoa(years) + " years ago"
+	}
+	return content + " (" + extra + ")"
+}
+
+func previousWeekday(at time.Time, day time.Weekday) time.Time {
+	d := at
+	for i := 0; i < 7; i++ {
+		d = d.AddDate(0, 0, -1)
+		if d.Weekday() == day {
+			return d
+		}
+	}
+	return at.AddDate(0, 0, -7)
+}
+
+func thisWeekday(at time.Time, day time.Weekday) time.Time {
+	d := at
+	for i := 0; i < 7; i++ {
+		if d.Weekday() == day {
+			return d
+		}
+		d = d.AddDate(0, 0, -1)
+	}
+	return at
+}
+
+func parseLastWeekday(lower string) (time.Weekday, bool) {
+	mapping := []struct {
+		needle string
+		day    time.Weekday
+	}{
+		{"last sunday", time.Sunday},
+		{"last monday", time.Monday},
+		{"last tuesday", time.Tuesday},
+		{"last wednesday", time.Wednesday},
+		{"last thursday", time.Thursday},
+		{"last friday", time.Friday},
+		{"last saturday", time.Saturday},
+	}
+	for _, item := range mapping {
+		if strings.Contains(lower, item.needle) {
+			return item.day, true
+		}
+	}
+	return 0, false
+}
+
+func parseThisWeekday(lower string) (time.Weekday, bool) {
+	mapping := []struct {
+		needle string
+		day    time.Weekday
+	}{
+		{"this sunday", time.Sunday},
+		{"this monday", time.Monday},
+		{"this tuesday", time.Tuesday},
+		{"this wednesday", time.Wednesday},
+		{"this thursday", time.Thursday},
+		{"this friday", time.Friday},
+		{"this saturday", time.Saturday},
+	}
+	for _, item := range mapping {
+		if strings.Contains(lower, item.needle) {
+			return item.day, true
+		}
+	}
+	return 0, false
+}
+
+func parseYearsAgo(lower string) int {
+	words := map[string]int{
+		"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+		"six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+	}
+	for word, n := range words {
+		if strings.Contains(lower, word+" years ago") || strings.Contains(lower, word+" year ago") {
+			return n
+		}
+	}
+	for n := 1; n <= 20; n++ {
+		needle := strconv.Itoa(n) + " years ago"
+		if n == 1 {
+			needle = "1 year ago"
+		}
+		if strings.Contains(lower, needle) || strings.Contains(lower, strconv.Itoa(n)+" years ago") {
+			return n
+		}
+	}
+	return 0
 }
 
 // ResolveObservedAt prefers metadata.observed_at, then a provider when slot.
