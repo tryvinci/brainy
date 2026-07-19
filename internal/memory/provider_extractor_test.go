@@ -1,0 +1,128 @@
+package memory
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestProviderExtractorParsesStructuredMemories(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/chat/completions" {
+			t.Fatalf("unexpected path %s", r.URL.Path)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"memories":[{"kind":"fact","content":"Caroline went to LGBTQ support group","source_text":"I went to the LGBTQ support group on 7 May 2023","confidence":0.9,"when":"2023-05-07"}]}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		APIKey:  "test",
+		Model:   "test-model",
+	}, server.Client())
+
+	memories, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Caroline: I went to the LGBTQ support group on 7 May 2023"},
+		},
+	})
+	if err != nil {
+		t.Fatalf("extract failed: %v", err)
+	}
+	if len(memories) != 1 {
+		t.Fatalf("expected 1 memory, got %d", len(memories))
+	}
+	if memories[0].When != "2023-05-07" {
+		t.Fatalf("expected when slot, got %#v", memories[0])
+	}
+	if memories[0].Explain["primitive"] != PrimitiveEpisode {
+		t.Fatalf("expected episode primitive for dated fact")
+	}
+}
+
+func TestProviderExtractorFailureDoesNotReturnBaseline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusGatewayTimeout)
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		Model:   "test-model",
+	}, server.Client())
+
+	_, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "I prefer concise answers."}},
+	})
+	if err == nil {
+		t.Fatal("expected provider failure")
+	}
+	if !strings.Contains(err.Error(), "504") && !strings.Contains(err.Error(), "status") {
+		t.Fatalf("expected status error, got %v", err)
+	}
+}
+
+func TestParseProviderMemoriesRejectsInvalidKind(t *testing.T) {
+	_, err := parseProviderMemories(`{"memories":[{"kind":"note","content":"x","source_text":"x"}]}`)
+	if err == nil {
+		t.Fatal("expected invalid kind error")
+	}
+}
+
+func TestBuildMemoryRecordSetsObservedAt(t *testing.T) {
+	record, err := BuildMemoryRecord("mem_1", mustParseTime(t, "2026-07-19T00:00:00Z"), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Metadata: map[string]any{
+			"observed_at": "2023-05-07T18:00:00Z",
+		},
+	}, ExtractedMemory{
+		Kind:       KindFact,
+		Content:    "Caroline went to LGBTQ support group",
+		SourceText: "I went to the LGBTQ support group on 7 May 2023",
+		Confidence: 0.9,
+		Explain:    map[string]any{"rule": "provider_extract", "primitive": PrimitiveEpisode},
+		When:       "2023-05-07",
+	}, nil)
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+	if record.ObservedAt == nil {
+		t.Fatal("expected ObservedAt")
+	}
+	if record.ObservedAt.Format("2006-01-02") != "2023-05-07" {
+		t.Fatalf("expected observed_at from metadata, got %s", record.ObservedAt)
+	}
+	if record.Primitive != PrimitiveEpisode {
+		t.Fatalf("expected episode primitive, got %s", record.Primitive)
+	}
+	if record.ExtractionVersion != providerExtractionVersion {
+		t.Fatalf("expected provider version, got %s", record.ExtractionVersion)
+	}
+}
+
+func mustParseTime(t *testing.T, raw string) time.Time {
+	t.Helper()
+	ts, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return ts.UTC()
+}

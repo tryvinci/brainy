@@ -13,6 +13,11 @@ type Config struct {
 	WorkerPollInterval time.Duration
 	APIKeys            string
 	RequireAPIKey      bool
+	// Provider extract (async worker). Empty BaseURL/Model => deterministic only.
+	ProviderBaseURL string
+	ProviderAPIKey  string
+	ProviderModel   string
+	ProviderTimeout time.Duration
 }
 
 func Load() Config {
@@ -29,6 +34,10 @@ func Load() Config {
 		WorkerPollInterval: getenvDuration("BRAINY_WORKER_POLL_INTERVAL", 2*time.Second),
 		APIKeys:            os.Getenv("BRAINY_API_KEYS"),
 		RequireAPIKey:      requireKey,
+		ProviderBaseURL:    getenv("BRAINY_PROVIDER_BASE_URL", os.Getenv("LLM_BASE_URL")),
+		ProviderAPIKey:     getenv("BRAINY_PROVIDER_API_KEY", os.Getenv("LLM_API_KEY")),
+		ProviderModel:      getenv("BRAINY_PROVIDER_MODEL", os.Getenv("LLM_MODEL")),
+		ProviderTimeout:    getenvDuration("BRAINY_PROVIDER_TIMEOUT", 45*time.Second),
 	}
 }
 

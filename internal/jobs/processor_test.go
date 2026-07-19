@@ -9,14 +9,16 @@ import (
 )
 
 type storeStub struct {
-	records map[string]memory.MemoryRecord
-	jobs    map[string]memory.ExtractionJob
+	records    map[string]memory.MemoryRecord
+	jobs       map[string]memory.ExtractionJob
+	failedJobs map[string]string
 }
 
 func newStoreStub() *storeStub {
 	return &storeStub{
-		records: map[string]memory.MemoryRecord{},
-		jobs:    map[string]memory.ExtractionJob{},
+		records:    map[string]memory.MemoryRecord{},
+		jobs:       map[string]memory.ExtractionJob{},
+		failedJobs: map[string]string{},
 	}
 }
 
@@ -61,7 +63,10 @@ func (s *storeStub) ClaimNextExtractionJob(_ context.Context) (memory.Extraction
 
 func (s *storeStub) CompleteExtractionJob(_ context.Context, _, _ string) error { return nil }
 
-func (s *storeStub) FailExtractionJob(_ context.Context, _, _, _ string) error { return nil }
+func (s *storeStub) FailExtractionJob(_ context.Context, jobID, _, reason string) error {
+	s.failedJobs[jobID] = reason
+	return nil
+}
 
 func TestProcessorProcessesQueuedJob(t *testing.T) {
 	store := newStoreStub()
@@ -89,4 +94,42 @@ func TestProcessorProcessesQueuedJob(t *testing.T) {
 	if len(store.records) != 1 {
 		t.Fatalf("expected 1 created memory, got %d", len(store.records))
 	}
+}
+
+func TestProcessorProviderFailureLeavesNoMemories(t *testing.T) {
+	store := newStoreStub()
+	failing := failingExtractor{err: context.DeadlineExceeded}
+	processor := NewProcessorWithExtractor(store, observability.NewMetrics(), failing)
+
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_fail", "job_fail", "", memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "Caroline went on 7 May 2023"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	processed, err := processor.ProcessNext(context.Background())
+	if err == nil {
+		t.Fatal("expected extract failure")
+	}
+	if !processed {
+		t.Fatal("expected job claim")
+	}
+	if len(store.records) != 0 {
+		t.Fatalf("provider failure must not upsert memories, got %d", len(store.records))
+	}
+	if store.failedJobs["job_fail"] == "" {
+		t.Fatal("expected FailExtractionJob called")
+	}
+}
+
+type failingExtractor struct {
+	err error
+}
+
+func (f failingExtractor) Extract(_ context.Context, _ memory.IngestRequest) ([]memory.ExtractedMemory, error) {
+	return nil, f.err
 }

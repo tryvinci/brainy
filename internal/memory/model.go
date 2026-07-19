@@ -82,6 +82,8 @@ type MemoryRecord struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	CorrectedAt       *time.Time
+	// ObservedAt is conversational event time (client metadata.observed_at or provider when).
+	ObservedAt *time.Time
 }
 
 type IngestResult struct {
@@ -131,6 +133,8 @@ type ExtractedMemory struct {
 	SourceText string
 	Confidence float64
 	Explain    map[string]any
+	When       string // optional temporal slot from provider extract
+	Duration   string
 }
 
 type ExtractionJob struct {

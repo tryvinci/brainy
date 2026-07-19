@@ -76,12 +76,12 @@ func metadataEqual(left, right map[string]any) bool {
 const memoryRecordSelectCols = `
 memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
 status, confidence, extraction_version, explain, created_at, updated_at, corrected_at,
-vertical, primitive, label, scope, metadata, lifecycle_state`
+vertical, primitive, label, scope, metadata, lifecycle_state, observed_at`
 
 func scanMemoryRow(row pgx.Row) (memory.MemoryRecord, error) {
 	var record memory.MemoryRecord
 	var rawExplain, rawMetadata []byte
-	var correctedAt *time.Time
+	var correctedAt, observedAt *time.Time
 	err := row.Scan(
 		&record.MemoryID,
 		&record.TenantID,
@@ -104,6 +104,7 @@ func scanMemoryRow(row pgx.Row) (memory.MemoryRecord, error) {
 		&record.Scope,
 		&rawMetadata,
 		&record.LifecycleState,
+		&observedAt,
 	)
 	if err != nil {
 		return memory.MemoryRecord{}, err
@@ -111,6 +112,7 @@ func scanMemoryRow(row pgx.Row) (memory.MemoryRecord, error) {
 	record.Explain = decodeExplain(rawExplain)
 	record.Metadata = decodeMetadata(rawMetadata)
 	record.CorrectedAt = correctedAt
+	record.ObservedAt = observedAt
 	if record.Vertical == "" {
 		record.Vertical = memory.VerticalCore
 	}
@@ -151,15 +153,15 @@ func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (m
 INSERT INTO memory_records (
     memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
     status, confidence, extraction_version, explain, created_at, updated_at,
-    vertical, primitive, label, scope, metadata, lifecycle_state
+    vertical, primitive, label, scope, metadata, lifecycle_state, observed_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19, $20
+    $15, $16, $17, $18, $19, $20, $21
 )
 ON CONFLICT (tenant_id, subject_id, dedupe_key) DO NOTHING
 RETURNING `+memoryRecordSelectCols+`
-`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState)
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState, record.ObservedAt)
 
 	inserted, err := scanMemoryRow(insertRow)
 	if err == nil {
@@ -219,9 +221,10 @@ SET content = $4,
     label = $14,
     scope = $15,
     metadata = $16,
-    lifecycle_state = $17
+    lifecycle_state = $17,
+    observed_at = $18
 WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
-`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.SourceType, record.Status, record.Confidence, record.ExtractionVersion, explain, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState)
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.SourceType, record.Status, record.Confidence, record.ExtractionVersion, explain, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState, record.ObservedAt)
 	if err != nil {
 		return memory.StoreUpsertResult{}, err
 	}
@@ -247,39 +250,9 @@ ORDER BY updated_at DESC, memory_id ASC
 
 	var out []memory.MemoryRecord
 	for rows.Next() {
-		var record memory.MemoryRecord
-		var rawExplain, rawMetadata []byte
-		var correctedAt *time.Time
-		if err := rows.Scan(
-			&record.MemoryID,
-			&record.TenantID,
-			&record.SubjectID,
-			&record.Kind,
-			&record.Content,
-			&record.SourceText,
-			&record.SourceType,
-			&record.DedupeKey,
-			&record.Status,
-			&record.Confidence,
-			&record.ExtractionVersion,
-			&rawExplain,
-			&record.CreatedAt,
-			&record.UpdatedAt,
-			&correctedAt,
-			&record.Vertical,
-			&record.Primitive,
-			&record.Label,
-			&record.Scope,
-			&rawMetadata,
-			&record.LifecycleState,
-		); err != nil {
+		record, err := scanMemoryRow(rows)
+		if err != nil {
 			return nil, err
-		}
-		record.Explain = decodeExplain(rawExplain)
-		record.Metadata = decodeMetadata(rawMetadata)
-		record.CorrectedAt = correctedAt
-		if record.Vertical == "" {
-			record.Vertical = memory.VerticalCore
 		}
 		out = append(out, record)
 	}
@@ -306,39 +279,9 @@ LIMIT $8
 
 	var out []memory.MemoryRecord
 	for rows.Next() {
-		var record memory.MemoryRecord
-		var rawExplain, rawMetadata []byte
-		var correctedAt *time.Time
-		if err := rows.Scan(
-			&record.MemoryID,
-			&record.TenantID,
-			&record.SubjectID,
-			&record.Kind,
-			&record.Content,
-			&record.SourceText,
-			&record.SourceType,
-			&record.DedupeKey,
-			&record.Status,
-			&record.Confidence,
-			&record.ExtractionVersion,
-			&rawExplain,
-			&record.CreatedAt,
-			&record.UpdatedAt,
-			&correctedAt,
-			&record.Vertical,
-			&record.Primitive,
-			&record.Label,
-			&record.Scope,
-			&rawMetadata,
-			&record.LifecycleState,
-		); err != nil {
+		record, err := scanMemoryRow(rows)
+		if err != nil {
 			return nil, err
-		}
-		record.Explain = decodeExplain(rawExplain)
-		record.Metadata = decodeMetadata(rawMetadata)
-		record.CorrectedAt = correctedAt
-		if record.Vertical == "" {
-			record.Vertical = memory.VerticalCore
 		}
 		out = append(out, record)
 	}

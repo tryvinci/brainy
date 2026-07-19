@@ -517,6 +517,13 @@ func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 	if !hasEpisode {
 		t.Fatal("expected conversation_episode primitive on free dialogue")
 	}
+	for _, record := range store.records {
+		if strings.Contains(strings.ToLower(record.Content), "7 may 2023") {
+			if record.ObservedAt == nil {
+				t.Fatal("expected ObservedAt from metadata.observed_at")
+			}
+		}
+	}
 
 	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Caroline go to the LGBTQ support group")
 	if err != nil {
@@ -528,5 +535,49 @@ func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 	top := strings.ToLower(search.Results[0].Content)
 	if !strings.Contains(top, "7 may 2023") && !strings.Contains(top, "support group") {
 		t.Fatalf("expected dated fact to outrank topical preference neighbor, top=%q", search.Results[0].Content)
+	}
+	if search.Results[0].Explain["date_token_boost"] == nil && search.Results[0].Explain["exact_span_boost"] == nil && search.Results[0].Explain["episode_boost"] == nil {
+		t.Fatalf("expected ranking explain boosts, got %#v", search.Results[0].Explain)
+	}
+}
+
+func TestExactSpanOutranksTopicalNeighbor(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+
+	dated := MemoryRecord{
+		MemoryID:  "mem_dated",
+		TenantID:  "t1",
+		SubjectID: "u1",
+		Kind:      KindFact,
+		Primitive: PrimitiveEpisode,
+		Content:   "Caroline went to the LGBTQ support group on 7 May 2023",
+		DedupeKey: "dated",
+		Status:    StatusActive,
+		UpdatedAt: now,
+	}
+	topical := MemoryRecord{
+		MemoryID:  "mem_topical",
+		TenantID:  "t1",
+		SubjectID: "u1",
+		Kind:      KindPreference,
+		Content:   "Prefers LGBTQ community platforms and shows",
+		DedupeKey: "topical",
+		Status:    StatusActive,
+		UpdatedAt: now,
+	}
+	store.records["dated"] = dated
+	store.records["topical"] = topical
+
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Caroline go to the LGBTQ support group")
+	if err != nil {
+		t.Fatalf("search failed: %v", err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected results")
+	}
+	if !strings.Contains(strings.ToLower(search.Results[0].Content), "7 may 2023") {
+		t.Fatalf("expected dated fact first, got %q", search.Results[0].Content)
 	}
 }
