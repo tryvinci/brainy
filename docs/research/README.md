@@ -11,16 +11,17 @@ Benchmark-backed claims for vertical memory. Goal: a public research surface in 
 | OpMem v0 (operational memory) | Live results | [spec](./opmem-spec.md) · [staging vs Mem0](../benchmarks/staging-competitive-report.md) |
 | Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
 | Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
-| Public-bench ladder (LOCOMO …) | Plan | [public-bench-ladder.md](./public-bench-ladder.md) |
+| LOCOMO smoke (L3) | Live mid score | [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [ladder](./public-bench-ladder.md) |
+| Public-bench ladder (LOCOMO …) | L3 remeasured; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
 | Proveable eval framework | Spec + L2/L3 harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
 
 ---
 
 ## Headline (today)
 
-**Brainy 12/12 OpMem vs Mem0 9/12** on staging, after matching Mem0 **4/4** on thin-slice parity.
+**Brainy 12/12 OpMem vs Mem0 9/12** on staging (parity 4/4), plus marketing vertical **16/16**.
 
-That is *not* a LOCOMO / LongMemEval claim. Those require LLM judges, long transcripts, and latency/token measurement — tracked explicitly on the ladder.
+**LOCOMO smoke (same pins, 1 convo / 30 Q):** **7/30 (23.3%)** after async provider-extract path + relative event-time enrichment — honest mid score, **not** a SOTA claim. Temporal **4/16**; multi-hop **0/10**. Full LOCOMO (L4) waits on ≥12/30 smoke gate. Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md).
 
 ---
 
@@ -52,4 +53,4 @@ First posts can ship with **empty / TBD cells** for latency and LOCOMO — prefe
 
 ## Next engineering step
 
-See [public-bench-ladder.md](./public-bench-ladder.md): Brainy adapter for `mem0ai/memory-benchmarks` (or thin clone under `evals/public/`) → run LOCOMO top-50 → publish even if scores are mid.
+See [public-bench-ladder.md](./public-bench-ladder.md): raise LOCOMO smoke past the **12/30** L4 unlock (working dense embeddings + multi-hop synthesis), then full LOCOMO + MarketingMem public track.
