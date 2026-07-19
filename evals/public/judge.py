@@ -146,6 +146,9 @@ def answer_from_memories(
 
 def _prefers_extractive(question: str) -> bool:
     q = (question or "").strip().lower()
+    # Temporal when-questions do better with the normal answerer + event_time hints.
+    if q.startswith("when ") or " when " in q:
+        return False
     starters = ("what ", "where ", "which ", "who ", "how many", "list ")
     return q.startswith(starters) or (" status" in q) or ("identity" in q) or ("activities" in q)
 
