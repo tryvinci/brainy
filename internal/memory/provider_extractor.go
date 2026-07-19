@@ -64,10 +64,7 @@ func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]E
 		// complete as provider success with only the baseline.
 		return nil, err
 	}
-	if len(providerMemories) == 0 {
-		return baseline, nil
-	}
-	return providerMemories, nil
+	return mergeProviderAndBaseline(baseline, providerMemories), nil
 }
 
 func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
@@ -232,6 +229,40 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 		})
 	}
 	return out, nil
+}
+
+// mergeProviderAndBaseline keeps structured provider facts and retains
+// deterministic conversational episodes that are not exact content duplicates.
+// Replacing the baseline wholesale dropped searchable dialogue spans.
+func mergeProviderAndBaseline(baseline, provider []ExtractedMemory) []ExtractedMemory {
+	if len(provider) == 0 {
+		return baseline
+	}
+	out := make([]ExtractedMemory, 0, len(provider)+len(baseline))
+	seen := make(map[string]struct{}, len(provider)+len(baseline))
+	for _, item := range provider {
+		key := NormalizeText(item.Content)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, item)
+	}
+	for _, item := range baseline {
+		key := NormalizeText(item.Content)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func truncate(s string, n int) string {
