@@ -197,11 +197,11 @@ func TestBuildMemoryRecordSetsObservedAt(t *testing.T) {
 func TestEnrichRelativeEventTimeAppendsAbsoluteDate(t *testing.T) {
 	at := mustParseTime(t, "2023-05-08T18:00:00Z")
 	got := EnrichRelativeEventTime("Caroline: I went to the LGBTQ support group yesterday", at)
-	if !strings.Contains(got, "8 May 2023") {
-		t.Fatalf("expected absolute date annotation, got %q", got)
+	if !strings.Contains(got, "7 May 2023") {
+		t.Fatalf("expected yesterday resolved to prior day, got %q", got)
 	}
-	same := EnrichRelativeEventTime("Caroline went on 8 May 2023", at)
-	if same != "Caroline went on 8 May 2023" {
+	same := EnrichRelativeEventTime("Caroline went on 7 May 2023", at)
+	if same != "Caroline went on 7 May 2023" {
 		t.Fatalf("should not double-annotate absolute dates: %q", same)
 	}
 }
@@ -232,8 +232,8 @@ func TestParseFlexibleTimeLocomoSessionStamp(t *testing.T) {
 	if record.ObservedAt == nil || record.ObservedAt.Format("2006-01-02") != "2023-05-08" {
 		t.Fatalf("expected observed_at, got %#v", record.ObservedAt)
 	}
-	if !strings.Contains(record.Content, "8 May 2023") {
-		t.Fatalf("expected relative date enrichment, got %q", record.Content)
+	if !strings.Contains(record.Content, "7 May 2023") {
+		t.Fatalf("expected yesterday resolved against session stamp, got %q", record.Content)
 	}
 }
 
