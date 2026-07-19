@@ -171,7 +171,19 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         print("LLM unset — lexical judge + retrieval-concat (not publishable J-score)", flush=True)
 
     items: list[EvalItem] = []
-    question_budget = args.questions
+    # When evaluating multiple conversations, distribute the question budget
+    # across them. Otherwise a large --questions value is exhausted by conv[0]
+    # and later conversations never run (breaks L4-style multi-convo runs).
+    n_conv = max(1, len(conversations))
+    if args.questions is None or args.questions <= 0:
+        per_conv_budget = None
+        global_budget = None
+    elif n_conv > 1:
+        per_conv_budget = max(1, args.questions // n_conv)
+        global_budget = args.questions
+    else:
+        per_conv_budget = args.questions
+        global_budget = args.questions
 
     for conv_idx, conversation in enumerate(conversations):
         sample_id = str(conversation.get("sample_id") or f"c{conv_idx}")
@@ -182,8 +194,11 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         print(f"[{sample_id}] ingested {n_ingested} turns ({n_turns} total, {len(sessions)} sessions)", flush=True)
 
         questions = iter_questions(conversation)
+        used_this_conv = 0
         for qa in questions:
-            if question_budget is not None and len(items) >= question_budget:
+            if global_budget is not None and len(items) >= global_budget:
+                break
+            if per_conv_budget is not None and used_this_conv >= per_conv_budget:
                 break
             cat_id = qa.get("category")
             try:
@@ -227,7 +242,8 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                     },
                 )
             )
-        if question_budget is not None and len(items) >= question_budget:
+            used_this_conv += 1
+        if global_budget is not None and len(items) >= global_budget:
             break
 
     metrics = compute_metrics(items, CATEGORIES_TO_SCORE)
