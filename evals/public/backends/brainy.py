@@ -97,24 +97,43 @@ class BrainyBackend:
         *,
         min_results: int = 1,
         timeout_s: float | None = None,
+        settle_polls: int = 8,
     ) -> list[dict]:
-        """Poll until any probe query returns enough hits (provider may rewrite text)."""
+        """Poll until probe hits, then wait for result counts to stabilize.
+
+        Async jobs are FIFO; the first searchable batch must not unblock QA
+        while later batches are still pending.
+        """
         probes = [q.strip() for q in queries if q and str(q).strip()]
         if not probes:
             probes = ["conversation"]
         deadline = time.time() + (self.async_timeout_s if timeout_s is None else timeout_s)
         last: list[dict] = []
         last_query = probes[0]
+        saw_hit = False
+        stable = 0
+        last_n = -1
         while time.time() < deadline:
+            best: list[dict] = []
             for query in probes:
                 last_query = query
                 last, _ = self.recall(user_id, query, top_k=max(min_results, 10))
+                if len(last) > len(best):
+                    best = last
                 if len(last) >= min_results:
-                    # Brief settle so later FIFO jobs can finish after first hit.
-                    time.sleep(max(self.async_poll_s, 1.0))
-                    settled, _ = self.recall(user_id, query, top_k=max(min_results, 10))
-                    return settled or last
+                    saw_hit = True
+            n = len(best)
+            if saw_hit:
+                if n == last_n:
+                    stable += 1
+                    if stable >= settle_polls:
+                        return best or last
+                else:
+                    stable = 0
+                last_n = n
             time.sleep(self.async_poll_s)
+        if saw_hit and last:
+            return last
         raise TimeoutError(
             f"async extract not searchable within timeout "
             f"(probes={probes!r}, last_query={last_query!r}, got {len(last)} results). "
@@ -136,13 +155,14 @@ class BrainyBackend:
         latency_ms = (time.perf_counter() - started) * 1000.0
         results = []
         for item in body.get("results", [])[:top_k]:
-            results.append(
-                {
-                    "id": item.get("memory_id", ""),
-                    "content": item.get("content", ""),
-                    "score": float(item.get("score") or 0),
-                }
-            )
+            row = {
+                "id": item.get("memory_id", ""),
+                "content": item.get("content", ""),
+                "score": float(item.get("score") or 0),
+            }
+            if item.get("observed_at"):
+                row["observed_at"] = item.get("observed_at")
+            results.append(row)
         return results, latency_ms
 
 

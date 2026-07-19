@@ -60,7 +60,38 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	}
 
 	record.ObservedAt = ResolveObservedAt(record.Metadata, extracted.When)
+	if record.ObservedAt != nil {
+		record.Content = EnrichRelativeEventTime(record.Content, *record.ObservedAt)
+	}
 	return record, nil
+}
+
+// EnrichRelativeEventTime appends an absolute date when dialogue uses relative
+// time words ("yesterday", "last week") so search/answer can resolve event time.
+func EnrichRelativeEventTime(content string, at time.Time) string {
+	lower := strings.ToLower(content)
+	relative := false
+	for _, marker := range []string{
+		"yesterday", "today", "tomorrow",
+		"last week", "last month", "last year",
+		"next week", "next month", "next year",
+		"this week", "this month",
+		"last saturday", "last sunday", "last monday", "last tuesday", "last wednesday", "last thursday", "last friday",
+		"this saturday", "this sunday",
+	} {
+		if strings.Contains(lower, marker) {
+			relative = true
+			break
+		}
+	}
+	if !relative {
+		return content
+	}
+	stamp := at.Format("2 January 2006")
+	if strings.Contains(lower, strings.ToLower(stamp)) {
+		return content
+	}
+	return content + " (" + stamp + ")"
 }
 
 // ResolveObservedAt prefers metadata.observed_at, then a provider when slot.

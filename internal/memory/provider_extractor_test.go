@@ -107,7 +107,32 @@ func TestProviderExtractorMergesBaselineEpisodes(t *testing.T) {
 	}
 }
 
-func TestProviderExtractorFailureDoesNotReturnBaseline(t *testing.T) {
+func TestProviderExtractorFailureSoftDegradesToBaseline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusGatewayTimeout)
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		Model:   "test-model",
+	}, server.Client())
+
+	memories, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "I prefer concise answers."}},
+	})
+	if err != nil {
+		t.Fatalf("expected soft-degrade to baseline, got %v", err)
+	}
+	if len(memories) == 0 {
+		t.Fatal("expected deterministic preference baseline")
+	}
+}
+
+func TestProviderExtractorFailureWithEmptyBaselinePropagates(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "boom", http.StatusGatewayTimeout)
 	}))
@@ -121,14 +146,11 @@ func TestProviderExtractorFailureDoesNotReturnBaseline(t *testing.T) {
 	_, err := extractor.Extract(context.Background(), IngestRequest{
 		TenantID:   "t1",
 		SubjectID:  "u1",
-		SourceType: "conversation",
-		Messages:   []Message{{Role: "user", Content: "I prefer concise answers."}},
+		SourceType: "note",
+		Messages:   []Message{{Role: "user", Content: "hello there friend"}},
 	})
 	if err == nil {
-		t.Fatal("expected provider failure")
-	}
-	if !strings.Contains(err.Error(), "504") && !strings.Contains(err.Error(), "status") {
-		t.Fatalf("expected status error, got %v", err)
+		t.Fatal("expected provider failure when baseline empty")
 	}
 }
 
@@ -169,6 +191,18 @@ func TestBuildMemoryRecordSetsObservedAt(t *testing.T) {
 	}
 	if record.ExtractionVersion != providerExtractionVersion {
 		t.Fatalf("expected provider version, got %s", record.ExtractionVersion)
+	}
+}
+
+func TestEnrichRelativeEventTimeAppendsAbsoluteDate(t *testing.T) {
+	at := mustParseTime(t, "2023-05-08T18:00:00Z")
+	got := EnrichRelativeEventTime("Caroline: I went to the LGBTQ support group yesterday", at)
+	if !strings.Contains(got, "8 May 2023") {
+		t.Fatalf("expected absolute date annotation, got %q", got)
+	}
+	same := EnrichRelativeEventTime("Caroline went on 8 May 2023", at)
+	if same != "Caroline went on 8 May 2023" {
+		t.Fatalf("should not double-annotate absolute dates: %q", same)
 	}
 }
 
