@@ -180,3 +180,32 @@ func mustParseTime(t *testing.T, raw string) time.Time {
 	}
 	return ts.UTC()
 }
+
+func TestProviderExtractorEmptyCompletionFallsBackToBaseline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{"content": ""}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		Model:   "test-model",
+	}, server.Client())
+
+	memories, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "Caroline: I went to the LGBTQ support group on 7 May 2023"}},
+	})
+	if err != nil {
+		t.Fatalf("empty completion should soft-degrade, got %v", err)
+	}
+	if len(memories) == 0 {
+		t.Fatal("expected baseline episode memories")
+	}
+}

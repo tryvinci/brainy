@@ -81,7 +81,7 @@ def ingest_conversation(
     backend: BrainyBackend,
     user_id: str,
     sessions: list[dict],
-    chunk: int = 32,
+    chunk: int = 8,
 ) -> int:
     """Ingest dialogue as atomic turns (one API message each).
 
