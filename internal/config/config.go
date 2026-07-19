@@ -21,7 +21,7 @@ type Config struct {
 }
 
 func Load() Config {
-	env := getenv("BRAINY_ENV", "development")
+	env := getenv("BRAINY_ENV", "local")
 	requireKey := getenv("BRAINY_REQUIRE_API_KEY", "") == "true"
 	if !requireKey && env == "production" {
 		requireKey = true

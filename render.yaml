@@ -54,3 +54,12 @@ services:
         fromDatabase:
           name: brainy-staging-db
           property: connectionString
+      # OpenAI-compatible provider extract (set in Dashboard; leave empty for deterministic)
+      - key: BRAINY_PROVIDER_BASE_URL
+        sync: false
+      - key: BRAINY_PROVIDER_API_KEY
+        sync: false
+      - key: BRAINY_PROVIDER_MODEL
+        sync: false
+      - key: BRAINY_PROVIDER_TIMEOUT
+        value: 45s
