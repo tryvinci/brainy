@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"brainy/internal/embedding"
 	"brainy/internal/memory"
 	"brainy/internal/observability"
 	"brainy/internal/pack"
@@ -85,5 +86,5 @@ func (p *Processor) persistEmbedding(ctx context.Context, record memory.MemoryRe
 		return
 	}
 	// Local hash embedder — same path as sync Service.
-	_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, nil)
+	_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, embedding.Embed(record.Content))
 }
