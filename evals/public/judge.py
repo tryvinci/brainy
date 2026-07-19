@@ -126,18 +126,58 @@ def answer_from_memories(
     cfg = config or resolve_config(model=model)
     if cfg is not None:
         cfg = _with_model(cfg, model) if model else cfg
-        return _llm_answer(question, memories, cfg), cfg.label
-    joined = " | ".join(m.get("content", "") for m in memories[:5] if m.get("content"))
-    return joined, "retrieval-concat-v0"
+        answer = _llm_answer(question, memories, cfg)
+        if _is_empty_answer(answer):
+            answer = _llm_answer(question, memories, cfg, extractive=True)
+        if _is_empty_answer(answer):
+            joined = _statement_join(memories)
+            if joined:
+                return joined, cfg.label + "+retrieval-concat"
+        return answer, cfg.label
+    return _statement_join(memories) or "", "retrieval-concat-v0"
 
 
-def _llm_answer(question: str, memories: list[dict], config: LLMConfig) -> str:
+def _is_empty_answer(answer: str) -> bool:
+    text = (answer or "").strip().lower()
+    if not text:
+        return True
+    empties = (
+        "none",
+        "n/a",
+        "i do not know",
+        "i don't know",
+        "i dont know",
+        "no information",
+        "don't have information",
+        "do not have information",
+        "not mentioned",
+        "no memories",
+    )
+    return any(text == e or text.startswith(e) for e in empties)
+
+
+def _statement_join(memories: list[dict]) -> str:
+    parts = []
+    for m in memories[:8]:
+        content = (m.get("content") or "").strip()
+        if not content or content.endswith("?"):
+            continue
+        parts.append(content)
+    return " | ".join(parts)
+
+
+def _llm_answer(
+    question: str,
+    memories: list[dict],
+    config: LLMConfig,
+    *,
+    extractive: bool = False,
+) -> str:
     lines = []
     for m in memories[:20]:
         content = (m.get("content") or "").strip()
         if not content:
             continue
-        # Prefer statements over stored questions for QA context.
         if content.endswith("?") and not any(ch.isdigit() for ch in content):
             continue
         observed = (m.get("observed_at") or "").strip()
@@ -146,26 +186,30 @@ def _llm_answer(question: str, memories: list[dict], config: LLMConfig) -> str:
         else:
             lines.append(f"- {content}")
     if not lines:
-        # Fall back to raw memories if everything looked like a question.
         for m in memories[:10]:
             content = (m.get("content") or "").strip()
             if content:
                 lines.append(f"- {content}")
     context = "\n".join(lines)
+    if extractive:
+        system = (
+            "Extract the shortest answer to the question that is directly supported by the memories. "
+            "Copy key phrases from the memories. Do not say None or I do not know if any memory is relevant. "
+            "If multiple items apply, list them as a short comma-separated list."
+        )
+    else:
+        system = (
+            "Answer the question using only the memories below. "
+            "When a memory includes event_time / an absolute date in parentheses, "
+            "use that to resolve relative phrases like yesterday, two days ago, or last week. "
+            "Prefer a concrete short answer (dates, names, places, lists). "
+            "Never answer with only 'None' or 'N/A' if any memory is remotely relevant — "
+            "quote the best supporting memory instead. "
+            "If memories truly lack the answer, say you do not know."
+        )
     return chat_completion(
         [
-            {
-                "role": "system",
-                "content": (
-                    "Answer the question using only the memories below. "
-                    "When a memory includes event_time / an absolute date in parentheses, "
-                    "use that to resolve relative phrases like yesterday, two days ago, or last week. "
-                    "Prefer a concrete short answer (dates, names, places, lists). "
-                    "Never answer with only 'None' or 'N/A' if any memory is remotely relevant — "
-                    "quote the best supporting memory instead. "
-                    "If memories truly lack the answer, say you do not know."
-                ),
-            },
+            {"role": "system", "content": system},
             {"role": "user", "content": f"Memories:\n{context}\n\nQuestion: {question}"},
         ],
         config,

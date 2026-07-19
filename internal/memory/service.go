@@ -272,10 +272,18 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
-	// For multi-hop shaped questions, admit a capped set of same-session neighbors.
+	// For multi-hop shaped questions, admit a capped set of same-session neighbors
+	// and a second-pass of fact-like memories related to first-hit content tokens.
 	if looksMultiHopQuery(queryTokens) {
 		if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
 			expandSessionNeighbors(candidates, memories, allMemories, 12)
+		}
+		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, queryTokens, memories, 8); err == nil {
+			for _, record := range related {
+				if _, ok := candidates[record.MemoryID]; !ok {
+					candidates[record.MemoryID] = record
+				}
+			}
 		}
 	}
 
@@ -403,11 +411,106 @@ func looksMultiHopQuery(tokens []string) bool {
 		switch token {
 		case "what", "which", "who", "where", "how":
 			hasAsk = true
-		case "identity", "relationship", "status", "activities", "activity", "career", "path", "moved", "research", "pursue", "partake":
+		case "identity", "relationship", "status", "activities", "activity", "career", "path", "moved", "research", "pursue", "persue", "partake", "camped", "books", "read", "destress", "de-stress", "kids", "like":
 			hasCue = true
 		}
 	}
 	return hasAsk && hasCue
+}
+
+// relatedFactMemories runs a second lexical pass using distinctive tokens from
+// first-hit statement memories, so multi-hop answers can pull supporting facts
+// that do not share the question's surface words.
+func (s *Service) relatedFactMemories(ctx context.Context, tenantID, subjectID string, queryTokens []string, seeds []MemoryRecord, limit int) ([]MemoryRecord, error) {
+	querySet := map[string]struct{}{}
+	for _, token := range contentBearingTokens(queryTokens) {
+		querySet[token] = struct{}{}
+	}
+	extra := make([]string, 0, 12)
+	seen := map[string]struct{}{}
+	for _, seed := range seeds {
+		content := strings.TrimSpace(seed.Content)
+		if content == "" || strings.HasSuffix(content, "?") {
+			continue
+		}
+		for _, token := range contentBearingTokens(tokenize(content)) {
+			if len(token) < 4 {
+				continue
+			}
+			if _, ok := querySet[token]; ok {
+				continue
+			}
+			if _, ok := seen[token]; ok {
+				continue
+			}
+			seen[token] = struct{}{}
+			extra = append(extra, token)
+			if len(extra) >= 8 {
+				break
+			}
+		}
+		if len(extra) >= 8 {
+			break
+		}
+	}
+	// Intent cues: expand a few generic related stems from the query itself.
+	for _, token := range contentBearingTokens(queryTokens) {
+		for _, related := range relatedIntentTokens(token) {
+			if _, ok := seen[related]; ok {
+				continue
+			}
+			seen[related] = struct{}{}
+			extra = append(extra, related)
+		}
+	}
+	if len(extra) == 0 {
+		return nil, nil
+	}
+	patterns := make([]string, 0, len(extra))
+	for _, token := range extra {
+		patterns = append(patterns, "%"+token+"%")
+	}
+	found, err := s.store.SearchActiveMemories(ctx, tenantID, subjectID, patterns, 50)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]MemoryRecord, 0, limit)
+	for _, record := range found {
+		content := strings.TrimSpace(record.Content)
+		if content == "" || strings.HasSuffix(content, "?") {
+			continue
+		}
+		out = append(out, record)
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func relatedIntentTokens(token string) []string {
+	switch token {
+	case "identity":
+		return []string{"gender", "trans", "transgender"}
+	case "relationship", "status":
+		return []string{"single", "married", "partner", "dating"}
+	case "career", "path", "pursue", "persue":
+		return []string{"counseling", "career", "mental", "job"}
+	case "activities", "activity", "partake":
+		return []string{"hobby", "hobbies", "pottery", "camping", "painting", "swimming", "running"}
+	case "camped", "camping":
+		return []string{"beach", "mountain", "forest", "camped", "camping"}
+	case "books", "read":
+		return []string{"reading", "book", "library", "read"}
+	case "destress", "de-stress":
+		return []string{"running", "pottery", "stress", "destress"}
+	case "moved":
+		return []string{"moved", "from", "years"}
+	case "kids":
+		return []string{"kids", "children"}
+	default:
+		return nil
+	}
 }
 
 func applySessionNeighborBoost(score *float64, explain map[string]any, record MemoryRecord, seeds []MemoryRecord) {
