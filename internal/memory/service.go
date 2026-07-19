@@ -265,10 +265,11 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
-	// Session-neighbor expansion: conversational multi-hop often needs other
-	// turns from the same session as a strong lexical hit.
-	if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
-		expandSessionNeighbors(candidates, memories, allMemories)
+	// For multi-hop shaped questions, admit a capped set of same-session neighbors.
+	if looksMultiHopQuery(queryTokens) {
+		if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
+			expandSessionNeighbors(candidates, memories, allMemories, 12)
+		}
 	}
 
 	var packWeights map[string]int
@@ -359,7 +360,7 @@ func sessionIDOf(record MemoryRecord) string {
 
 // expandSessionNeighbors admits other memories that share a session_id with
 // lexical hits so multi-fact conversational questions can see co-occurring turns.
-func expandSessionNeighbors(candidates map[string]MemoryRecord, seeds []MemoryRecord, all []MemoryRecord) {
+func expandSessionNeighbors(candidates map[string]MemoryRecord, seeds []MemoryRecord, all []MemoryRecord, limit int) {
 	sessions := map[string]struct{}{}
 	for _, seed := range seeds {
 		if sid := sessionIDOf(seed); sid != "" {
@@ -369,7 +370,11 @@ func expandSessionNeighbors(candidates map[string]MemoryRecord, seeds []MemoryRe
 	if len(sessions) == 0 {
 		return
 	}
+	added := 0
 	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
 		sid := sessionIDOf(record)
 		if sid == "" {
 			continue
@@ -379,8 +384,23 @@ func expandSessionNeighbors(candidates map[string]MemoryRecord, seeds []MemoryRe
 		}
 		if _, exists := candidates[record.MemoryID]; !exists {
 			candidates[record.MemoryID] = record
+			added++
 		}
 	}
+}
+
+func looksMultiHopQuery(tokens []string) bool {
+	hasAsk := false
+	hasCue := false
+	for _, token := range tokens {
+		switch token {
+		case "what", "which", "who", "where", "how":
+			hasAsk = true
+		case "identity", "relationship", "status", "activities", "activity", "career", "path", "moved", "research", "pursue", "partake":
+			hasCue = true
+		}
+	}
+	return hasAsk && hasCue
 }
 
 func applySessionNeighborBoost(score *float64, explain map[string]any, record MemoryRecord, seeds []MemoryRecord) {
