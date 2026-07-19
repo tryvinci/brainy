@@ -109,11 +109,12 @@ type IngestResultMemory struct {
 }
 
 type SearchResult struct {
-	MemoryID string         `json:"memory_id"`
-	Kind     string         `json:"kind"`
-	Content  string         `json:"content"`
-	Score    float64        `json:"score"`
-	Explain  map[string]any `json:"explain"`
+	MemoryID   string         `json:"memory_id"`
+	Kind       string         `json:"kind"`
+	Content    string         `json:"content"`
+	Score      float64        `json:"score"`
+	ObservedAt *time.Time     `json:"observed_at,omitempty"`
+	Explain    map[string]any `json:"explain"`
 }
 
 type SearchResponse struct {

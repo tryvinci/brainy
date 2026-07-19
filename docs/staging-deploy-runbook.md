@@ -28,6 +28,13 @@ pgvector is **optional** (migration v9 no-ops if the extension is missing). Stag
      Example (auth later): `*:sk_staging_bench,demo:sk_demo`
 5. Click **Apply**. Wait for DB + API + worker healthy (~5–10 min first deploy).
 6. Copy the API URL (e.g. `https://brainy-api-staging.onrender.com`).
+7. **Provider extract (conversational long-memory):** on `brainy-worker-staging`, set Dashboard secrets:
+   - `BRAINY_PROVIDER_BASE_URL` — OpenAI-compatible base (e.g. CF AI Gateway `/compat`)
+   - `BRAINY_PROVIDER_API_KEY`
+   - `BRAINY_PROVIDER_MODEL`
+   - optional `BRAINY_PROVIDER_TIMEOUT` (Blueprint default `45s`)
+
+   Leave empty to keep deterministic-only worker extract. Sync `/ingest` on the API is always deterministic.
 
 CLI alternative (if already logged into Render):
 

@@ -21,6 +21,14 @@ var synonymGroups = [][]string{
 	{"sms", "text", "message"},
 	{"minimal", "clean", "simple"},
 	{"layout", "design", "format"},
+	// Generic conversational paraphrase helpers (not dataset-specific).
+	{"identity", "gender"},
+	{"relationship", "partner", "dating", "married", "single"},
+	{"career", "job", "profession", "work"},
+	{"hobby", "hobbies", "activity", "activities"},
+	{"conference", "meetup", "event", "gathering"},
+	{"family", "adoption", "parenting"},
+	{"speech", "talk", "presentation"},
 }
 
 func Embed(text string) []float32 {

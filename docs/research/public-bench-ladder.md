@@ -16,7 +16,7 @@ Reference industry surfaces:
 L0  Own CI suites          ← DONE (parity, vertical, OpMem vs Mem0+verbatim)
 L1  Research portal + cites ← DONE (this folder + benchmarks/README)
 L2  Brainy adapter for public harness ← DONE (evals/public/)
-L3  LOCOMO smoke (top-k / subset) — runner ready; publish after OpenAI-judged run
+L3  LOCOMO smoke (top-k / subset) — **remeasured 6/30** post async+event-time (2026-07-19); L4 gate unmet
 L4  Full LOCOMO + latency/tokens + blog
 L5  LongMemEval + BEAM subset
 L6  Vertical “MarketingMem” public track (Brainy’s differentiation)
@@ -108,3 +108,5 @@ Fixtures already exist under `fixtures/vertical/marketing/` (16) + OpMem (12). E
 | 2026-07-14 | Linear Track D: milestone Public Proveable Eval Framework (ENG-162…167) |
 | 2026-07-15 | Anti-benchmax: LOCOMO fails = product bugs; no dataset special-casing; re-measure after product |
 | 2026-07-15 | L3 smoke 2/30 — 28/30 retrieval miss; driver = extract+rank+no event time |
+| 2026-07-19 | Post ENG-172 async path + relative event-time: L3 smoke **6/30 (20%)**; temporal 5/16; multi-hop still 0/10. L4 gate (≥12/30) not met — next: real embeddings + multi-hop synthesis |
+| 2026-07-19 | Phase 3 embedder interface + capped multi-hop neighbors: L3 smoke **7/30 (23.3%)**; provider embeddings blocked (gateway 403); L4 gate unmet |

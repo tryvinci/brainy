@@ -9,9 +9,10 @@ import (
 )
 
 type storeStub struct {
-	records    map[string]memory.MemoryRecord
-	jobs       map[string]memory.ExtractionJob
-	failedJobs map[string]string
+	records     map[string]memory.MemoryRecord
+	jobs        map[string]memory.ExtractionJob
+	failedJobs  map[string]string
+	embeddings  map[string][]float32
 }
 
 func newStoreStub() *storeStub {
@@ -19,7 +20,18 @@ func newStoreStub() *storeStub {
 		records:    map[string]memory.MemoryRecord{},
 		jobs:       map[string]memory.ExtractionJob{},
 		failedJobs: map[string]string{},
+		embeddings: map[string][]float32{},
 	}
+}
+
+func (s *storeStub) UpsertEmbedding(_ context.Context, memoryID, _, _ string, values []float32) error {
+	if len(values) == 0 {
+		return nil
+	}
+	copied := make([]float32, len(values))
+	copy(copied, values)
+	s.embeddings[memoryID] = copied
+	return nil
 }
 
 func (s *storeStub) UpsertMemory(_ context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
@@ -93,6 +105,14 @@ func TestProcessorProcessesQueuedJob(t *testing.T) {
 	}
 	if len(store.records) != 1 {
 		t.Fatalf("expected 1 created memory, got %d", len(store.records))
+	}
+	if len(store.embeddings) != 1 {
+		t.Fatalf("expected 1 embedding upsert, got %d", len(store.embeddings))
+	}
+	for memoryID, values := range store.embeddings {
+		if len(values) == 0 {
+			t.Fatalf("expected non-empty embedding for %s", memoryID)
+		}
 	}
 }
 

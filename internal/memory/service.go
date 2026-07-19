@@ -34,6 +34,7 @@ type StoreUpsertResult struct {
 type Service struct {
 	store     Store
 	extractor Extractor
+	embedder  embedding.Embedder
 	packs     *pack.Registry
 	now       func() time.Time
 	id        func(prefix string) string
@@ -51,6 +52,7 @@ func NewServiceWithPacks(store Store, packs *pack.Registry) *Service {
 	return &Service{
 		store:     store,
 		extractor: NewDeterministicExtractor(),
+		embedder:  embedding.Default(),
 		packs:     packs,
 		now:       time.Now().UTC,
 		id:        defaultID,
@@ -61,6 +63,14 @@ func NewServiceWithPacks(store Store, packs *pack.Registry) *Service {
 func (s *Service) WithExtractor(extractor Extractor) *Service {
 	if extractor != nil {
 		s.extractor = extractor
+	}
+	return s
+}
+
+// WithEmbedder overrides the hybrid retrieval embedder.
+func (s *Service) WithEmbedder(embedder embedding.Embedder) *Service {
+	if embedder != nil {
+		s.embedder = embedder
 	}
 	return s
 }
@@ -235,7 +245,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
-	queryVector := embedding.Embed(query)
+	queryVector, _ := s.embed(ctx, query)
 	embedScores := s.embeddingScores(ctx, tenantID, subjectID, queryVector)
 	candidates := make(map[string]MemoryRecord, len(memories))
 	for _, record := range memories {
@@ -252,6 +262,13 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 					candidates[record.MemoryID] = record
 				}
 			}
+		}
+	}
+
+	// For multi-hop shaped questions, admit a capped set of same-session neighbors.
+	if looksMultiHopQuery(queryTokens) {
+		if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
+			expandSessionNeighbors(candidates, memories, allMemories, 12)
 		}
 	}
 
@@ -279,9 +296,10 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 		embedScore := embedScores[record.MemoryID]
 		if embedScore == 0 {
-			embedScore = embedding.CosineSimilarity(queryVector, recordEmbedding(record))
+			embedScore = embedding.CosineSimilarity(queryVector, s.recordEmbedding(ctx, record))
 		}
 		score = applyHybridScore(score, explain, embedScore)
+		applySessionNeighborBoost(&score, explain, record, memories)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -297,11 +315,12 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 		ranked = append(ranked, rankedSearchResult{
 			result: SearchResult{
-				MemoryID: record.MemoryID,
-				Kind:     record.Kind,
-				Content:  record.Content,
-				Score:    score,
-				Explain:  explain,
+				MemoryID:   record.MemoryID,
+				Kind:       record.Kind,
+				Content:    record.Content,
+				Score:      score,
+				ObservedAt: record.ObservedAt,
+				Explain:    explain,
 			},
 			eventTime: EventTime(record),
 		})
@@ -325,6 +344,80 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	}
 
 	return SearchResponse{Results: results}, nil
+}
+
+func sessionIDOf(record MemoryRecord) string {
+	if record.Metadata == nil {
+		return ""
+	}
+	if raw, ok := record.Metadata["session_id"]; ok {
+		if s, ok := raw.(string); ok {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
+}
+
+// expandSessionNeighbors admits other memories that share a session_id with
+// lexical hits so multi-fact conversational questions can see co-occurring turns.
+func expandSessionNeighbors(candidates map[string]MemoryRecord, seeds []MemoryRecord, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; !exists {
+			candidates[record.MemoryID] = record
+			added++
+		}
+	}
+}
+
+func looksMultiHopQuery(tokens []string) bool {
+	hasAsk := false
+	hasCue := false
+	for _, token := range tokens {
+		switch token {
+		case "what", "which", "who", "where", "how":
+			hasAsk = true
+		case "identity", "relationship", "status", "activities", "activity", "career", "path", "moved", "research", "pursue", "partake":
+			hasCue = true
+		}
+	}
+	return hasAsk && hasCue
+}
+
+func applySessionNeighborBoost(score *float64, explain map[string]any, record MemoryRecord, seeds []MemoryRecord) {
+	sid := sessionIDOf(record)
+	if sid == "" {
+		return
+	}
+	for _, seed := range seeds {
+		if seed.MemoryID == record.MemoryID {
+			continue
+		}
+		if sessionIDOf(seed) == sid {
+			*score += 0.08
+			explain["session_neighbor_boost"] = 0.08
+			return
+		}
+	}
 }
 
 func hasResponseKeyword(tokens []string) bool {
@@ -505,25 +598,35 @@ func dateTokenBoost(queryTokens, contentTokens []string, record MemoryRecord) fl
 	queryDates := filterDateTokens(queryTokens)
 	contentDates := filterDateTokens(contentTokens)
 	if len(contentDates) == 0 {
-		// Also check source text / metadata when slots.
+		// Also check source text / metadata when slots / observed_at.
 		contentDates = filterDateTokens(tokenize(record.SourceText))
 		if when, ok := record.Metadata["when"].(string); ok {
 			contentDates = append(contentDates, filterDateTokens(tokenize(when))...)
 		}
+		if record.ObservedAt != nil {
+			contentDates = append(contentDates, filterDateTokens(tokenize(record.ObservedAt.Format("2 January 2006")))...)
+			contentDates = append(contentDates, record.ObservedAt.Format("2006"))
+		}
 	}
 	if len(contentDates) == 0 {
+		if queryHasWhen && record.ObservedAt != nil {
+			return 0.18
+		}
 		return 0
 	}
 	if len(queryDates) > 0 {
 		for _, qd := range queryDates {
 			for _, cd := range contentDates {
 				if qd == cd {
-					return 0.2
+					return 0.25
 				}
 			}
 		}
 	}
 	if queryHasWhen {
+		if record.ObservedAt != nil {
+			return 0.2
+		}
 		return 0.15
 	}
 	return 0
