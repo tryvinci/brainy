@@ -14,6 +14,7 @@ import (
 type Processor struct {
 	store     memory.Store
 	extractor memory.Extractor
+	embedder  embedding.Embedder
 	packs     *pack.Registry
 	metrics   *observability.Metrics
 	now       func() time.Time
@@ -32,6 +33,7 @@ func NewProcessorWithExtractor(store memory.Store, metrics *observability.Metric
 	return &Processor{
 		store:     store,
 		extractor: extractor,
+		embedder:  embedding.Default(),
 		packs:     reg,
 		metrics:   metrics,
 		now:       time.Now().UTC,
@@ -39,6 +41,13 @@ func NewProcessorWithExtractor(store memory.Store, metrics *observability.Metric
 			return fmt.Sprintf("%s_%d", prefix, time.Now().UTC().UnixNano())
 		},
 	}
+}
+
+func (p *Processor) WithEmbedder(embedder embedding.Embedder) *Processor {
+	if embedder != nil {
+		p.embedder = embedder
+	}
+	return p
 }
 
 func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
@@ -85,6 +94,13 @@ func (p *Processor) persistEmbedding(ctx context.Context, record memory.MemoryRe
 	if !ok {
 		return
 	}
-	// Local hash embedder — same path as sync Service.
-	_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, embedding.Embed(record.Content))
+	embedder := p.embedder
+	if embedder == nil {
+		embedder = embedding.Default()
+	}
+	values, err := embedder.Embed(ctx, record.Content)
+	if err != nil || len(values) == 0 {
+		return
+	}
+	_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, values)
 }

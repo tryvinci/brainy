@@ -16,8 +16,20 @@ type embeddingSearcher interface {
 
 func (s *Service) persistEmbedding(ctx context.Context, record MemoryRecord) {
 	if writer, ok := s.store.(embeddingWriter); ok {
-		_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, embedding.Embed(record.Content))
+		values, err := s.embed(ctx, record.Content)
+		if err != nil || len(values) == 0 {
+			return
+		}
+		_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, values)
 	}
+}
+
+func (s *Service) embed(ctx context.Context, text string) ([]float32, error) {
+	embedder := s.embedder
+	if embedder == nil {
+		embedder = embedding.Default()
+	}
+	return embedder.Embed(ctx, text)
 }
 
 func (s *Service) embeddingScores(ctx context.Context, tenantID, subjectID string, queryVector []float32) map[string]float64 {
@@ -33,16 +45,20 @@ func (s *Service) embeddingScores(ctx context.Context, tenantID, subjectID strin
 	}
 	scores := make(map[string]float64, len(allMemories))
 	for _, record := range allMemories {
-		scores[record.MemoryID] = embedding.CosineSimilarity(queryVector, recordEmbedding(record))
+		scores[record.MemoryID] = embedding.CosineSimilarity(queryVector, s.recordEmbedding(ctx, record))
 	}
 	return scores
 }
 
-func recordEmbedding(record MemoryRecord) []float32 {
+func (s *Service) recordEmbedding(ctx context.Context, record MemoryRecord) []float32 {
 	if len(record.Embedding) > 0 {
 		return record.Embedding
 	}
-	return embedding.Embed(record.Content)
+	values, err := s.embed(ctx, record.Content)
+	if err != nil {
+		return nil
+	}
+	return values
 }
 
 func applyHybridScore(tokenScore float64, explain map[string]any, embeddingSimilarity float64) float64 {

@@ -34,7 +34,7 @@ func main() {
 	}
 
 	metrics := observability.NewMetrics()
-	service := memory.NewService(store)
+	service := memory.NewService(store).WithEmbedder(config.BuildEmbedder(cfg, logger))
 	keyRing := auth.ParseKeyRing(cfg.APIKeys)
 	router := api.NewRouter(service, metrics)
 	router = api.APIKeyMiddleware(keyRing, cfg.RequireAPIKey)(router)
