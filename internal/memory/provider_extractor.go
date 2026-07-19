@@ -116,7 +116,9 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 		return nil, fmt.Errorf("provider extract decode: %w", err)
 	}
 	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
-		return nil, fmt.Errorf("provider extract: empty completion")
+		// Soft-degrade: some gateways return empty on large prompts. Baseline
+		// episodes still land via mergeProviderAndBaseline.
+		return nil, nil
 	}
 
 	return parseProviderMemories(completion.Choices[0].Message.Content)

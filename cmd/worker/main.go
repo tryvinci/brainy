@@ -79,8 +79,16 @@ func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Log
 	for {
 		processed, err := processor.ProcessNext(ctx)
 		if err != nil {
+			// Job already failed/requeued inside ProcessNext. Keep the loop
+			// alive so a single provider flake cannot stall the queue.
 			logger.Error("processing failed", "error", err)
-			os.Exit(1)
+			select {
+			case <-ctx.Done():
+				logger.Info("brainy worker shutting down")
+				return
+			case <-ticker.C:
+			}
+			continue
 		}
 		if processed {
 			continue
