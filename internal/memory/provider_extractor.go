@@ -60,14 +60,15 @@ func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]E
 
 	providerMemories, err := p.extractProvider(ctx, req)
 	if err != nil {
-		// Fail before upserts; caller must FailExtractionJob. Do not silently
-		// complete as provider success with only the baseline.
+		// Soft-degrade: keep deterministic/conversational episodes so a flaky
+		// LLM response cannot leave the subject with zero searchable memory.
+		// Transport retries still happen when baseline itself is empty.
+		if len(baseline) > 0 {
+			return baseline, nil
+		}
 		return nil, err
 	}
-	if len(providerMemories) == 0 {
-		return baseline, nil
-	}
-	return providerMemories, nil
+	return mergeProviderAndBaseline(baseline, providerMemories), nil
 }
 
 func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
@@ -119,7 +120,9 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 		return nil, fmt.Errorf("provider extract decode: %w", err)
 	}
 	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
-		return nil, fmt.Errorf("provider extract: empty completion")
+		// Soft-degrade: some gateways return empty on large prompts. Baseline
+		// episodes still land via mergeProviderAndBaseline.
+		return nil, nil
 	}
 
 	return parseProviderMemories(completion.Choices[0].Message.Content)
@@ -232,6 +235,40 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 		})
 	}
 	return out, nil
+}
+
+// mergeProviderAndBaseline keeps structured provider facts and retains
+// deterministic conversational episodes that are not exact content duplicates.
+// Replacing the baseline wholesale dropped searchable dialogue spans.
+func mergeProviderAndBaseline(baseline, provider []ExtractedMemory) []ExtractedMemory {
+	if len(provider) == 0 {
+		return baseline
+	}
+	out := make([]ExtractedMemory, 0, len(provider)+len(baseline))
+	seen := make(map[string]struct{}, len(provider)+len(baseline))
+	for _, item := range provider {
+		key := NormalizeText(item.Content)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, item)
+	}
+	for _, item := range baseline {
+		key := NormalizeText(item.Content)
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func truncate(s string, n int) string {

@@ -581,3 +581,33 @@ func TestExactSpanOutranksTopicalNeighbor(t *testing.T) {
 		t.Fatalf("expected dated fact first, got %q", search.Results[0].Content)
 	}
 }
+
+func TestSessionNeighborExpansion(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	_, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"session_id": "sess-a", "observed_at": "2023-05-08T12:00:00Z"},
+		Messages: []Message{
+			{Role: "user", Content: "Caroline: I am a transgender woman"},
+			{Role: "user", Content: "Melanie: That takes courage"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What is Caroline identity")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected results")
+	}
+	joined := ""
+	for _, r := range search.Results {
+		joined += " " + r.Content
+	}
+	if !strings.Contains(strings.ToLower(joined), "transgender") {
+		t.Fatalf("expected session content in results, got %q", joined)
+	}
+}

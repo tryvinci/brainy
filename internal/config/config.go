@@ -18,14 +18,21 @@ type Config struct {
 	ProviderAPIKey  string
 	ProviderModel   string
 	ProviderTimeout time.Duration
+	// Provider embeddings (OpenAI-compatible). Empty Model => local hash only.
+	EmbeddingBaseURL string
+	EmbeddingAPIKey  string
+	EmbeddingModel   string
+	EmbeddingTimeout time.Duration
 }
 
 func Load() Config {
-	env := getenv("BRAINY_ENV", "development")
+	env := getenv("BRAINY_ENV", "local")
 	requireKey := getenv("BRAINY_REQUIRE_API_KEY", "") == "true"
 	if !requireKey && env == "production" {
 		requireKey = true
 	}
+	providerBase := getenv("BRAINY_PROVIDER_BASE_URL", os.Getenv("LLM_BASE_URL"))
+	providerKey := getenv("BRAINY_PROVIDER_API_KEY", os.Getenv("LLM_API_KEY"))
 	return Config{
 		Environment:        env,
 		HTTPAddr:           getenv("BRAINY_HTTP_ADDR", ":8080"),
@@ -34,10 +41,14 @@ func Load() Config {
 		WorkerPollInterval: getenvDuration("BRAINY_WORKER_POLL_INTERVAL", 2*time.Second),
 		APIKeys:            os.Getenv("BRAINY_API_KEYS"),
 		RequireAPIKey:      requireKey,
-		ProviderBaseURL:    getenv("BRAINY_PROVIDER_BASE_URL", os.Getenv("LLM_BASE_URL")),
-		ProviderAPIKey:     getenv("BRAINY_PROVIDER_API_KEY", os.Getenv("LLM_API_KEY")),
+		ProviderBaseURL:    providerBase,
+		ProviderAPIKey:     providerKey,
 		ProviderModel:      getenv("BRAINY_PROVIDER_MODEL", os.Getenv("LLM_MODEL")),
 		ProviderTimeout:    getenvDuration("BRAINY_PROVIDER_TIMEOUT", 45*time.Second),
+		EmbeddingBaseURL:   getenv("BRAINY_EMBEDDING_BASE_URL", providerBase),
+		EmbeddingAPIKey:    getenv("BRAINY_EMBEDDING_API_KEY", providerKey),
+		EmbeddingModel:     getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL")),
+		EmbeddingTimeout:   getenvDuration("BRAINY_EMBEDDING_TIMEOUT", 30*time.Second),
 	}
 }
 

@@ -132,14 +132,29 @@ def answer_from_memories(
 
 
 def _llm_answer(question: str, memories: list[dict], config: LLMConfig) -> str:
-    context = "\n".join(f"- {m.get('content', '')}" for m in memories[:20])
+    lines = []
+    for m in memories[:20]:
+        content = (m.get("content") or "").strip()
+        if not content:
+            continue
+        observed = (m.get("observed_at") or "").strip()
+        if observed:
+            lines.append(f"- {content} [event_time={observed}]")
+        else:
+            lines.append(f"- {content}")
+    context = "\n".join(lines)
     return chat_completion(
         [
             {
                 "role": "system",
                 "content": (
                     "Answer the question using only the memories below. "
-                    "Be specific. If memories lack the answer, say what they do contain."
+                    "When a memory includes event_time / an absolute date in parentheses, "
+                    "use that to resolve relative phrases like yesterday, two days ago, or last week. "
+                    "Prefer a concrete short answer (dates, names, places). "
+                    "Never answer with only 'None' or 'N/A' if any memory is remotely relevant — "
+                    "quote the best supporting memory instead. "
+                    "If memories truly lack the answer, say you do not know."
                 ),
             },
             {"role": "user", "content": f"Memories:\n{context}\n\nQuestion: {question}"},

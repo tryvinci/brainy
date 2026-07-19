@@ -67,7 +67,7 @@ Post-launch research track. **OpMem stays the CI merge gate**; LOCOMO is publica
 | --- | --- | --- | --- |
 | L0–L1 | Own suites + research portal | Done | — |
 | L2 | `evals/public/` UnifiedResult + Brainy adapter + pins | **Done** | [ENG-163](https://linear.app/engramhq/issue/ENG-163) |
-| L3 | LOCOMO smoke (subset) + honest report | Todo (runner ready) | [ENG-164](https://linear.app/engramhq/issue/ENG-164) |
+| L3 | LOCOMO smoke (subset) + honest report | **Done** (7/30 remeasure 2026-07-19) | [ENG-164](https://linear.app/engramhq/issue/ENG-164) |
 | L4 | Full LOCOMO + latency/tokens + blog | Backlog | [ENG-165](https://linear.app/engramhq/issue/ENG-165) |
 | L5 | LongMemEval / BEAM subset | Backlog | [ENG-166](https://linear.app/engramhq/issue/ENG-166) |
 | L6 | MarketingMem public track | Backlog | [ENG-167](https://linear.app/engramhq/issue/ENG-167) |
@@ -76,7 +76,7 @@ Epic: [ENG-162](https://linear.app/engramhq/issue/ENG-162) · Milestone: [Public
 
 Docs: [`../research/public-bench-ladder.md`](../research/public-bench-ladder.md) · [`../research/proveable-eval-framework.md`](../research/proveable-eval-framework.md) · [`../../evals/public/`](../../evals/public/)
 
-**Anti-benchmax:** LOCOMO fails drive **product** work ([ENG-168](https://linear.app/engramhq/issue/ENG-168)), not harness games. L3 smoke 2/30 published; L4 waits on extract/rank/event-time lift, then same-pin remeasure.
+**Anti-benchmax:** LOCOMO fails drive **product** work ([ENG-168](https://linear.app/engramhq/issue/ENG-168)), not harness games. L3 smoke remeasured **6/30** (2026-07-19) after async provider path + relative event-time; L4 gate (≥12/30) unmet — next real embeddings + multi-hop synthesis.
 
 Reproduce:
 

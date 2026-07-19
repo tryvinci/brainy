@@ -30,7 +30,7 @@ python3 evals/run_opmem.py --base-url http://127.0.0.1:8080
 
 **Disclaimer:** Developer preview (`v0.1.0`) — not production-ready. Local Docker runs without auth; hosted beta uses per-tenant API keys — see [commercial-beta-checklist.md](docs/commercial-beta-checklist.md) and [GitHub #11](https://github.com/tryvinci/brainy/issues/11).
 
-Docs: [verticalization model](docs/vertical/verticalization-model.md) · [conversation ingest](docs/conversation-ingest.md) · [OpMem 12/12 report](docs/benchmarks/opmem-baseline-report.md) · [staging vs Mem0](docs/benchmarks/staging-competitive-report.md) · [research portal](docs/research/README.md) · [GTM roadmap](docs/vertical/go-to-market-roadmap.md)
+Docs: [verticalization model](docs/vertical/verticalization-model.md) · [conversation ingest](docs/conversation-ingest.md) · [OpMem 12/12 report](docs/benchmarks/opmem-baseline-report.md) · [staging vs Mem0](docs/benchmarks/staging-competitive-report.md) · [LOCOMO smoke 7/30](docs/benchmarks/locomo-smoke.md) · [research portal](docs/research/README.md) · [GTM roadmap](docs/vertical/go-to-market-roadmap.md)
 
 ## Current Status
 
@@ -44,15 +44,15 @@ The active rebuild target is the thin-slice contract in:
 
 This first execution slice is intentionally narrow:
 
-- `POST /ingest`
-- `POST /ingest/async`
+- `POST /ingest` (deterministic sync — **no API keys / LLM required**)
+- `POST /ingest/async` (optional worker provider extract when `BRAINY_PROVIDER_*` set)
 - `GET /memories/search`
-- deterministic local extraction
-- Postgres persistence
+- Postgres persistence + local hash embeddings (optional provider embeddings)
 - duplicate-ingest idempotency
 - correction and suppression paths
 - async worker pipeline (retries, DLQ)
-- no external model, embedding, or reranker dependency (yet)
+
+Local Docker quickstart above uses sync `/ingest` only — works offline without provider keys.
 
 **Vertical strategy (approved):** Cognitive primitives + YAML vertical packs — not per-vertical DB kinds. See [docs/vertical/verticalization-model.md](docs/vertical/verticalization-model.md). First wedge: marketing (`packs/marketing/v1/pack.yaml`).
 
