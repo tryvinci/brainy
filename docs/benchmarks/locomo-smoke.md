@@ -1,7 +1,7 @@
-# LOCOMO smoke — `locomo-smoke-extractive-v2`
+# LOCOMO smoke — `locomo-smoke-list-augment`
 
-**Timestamp:** 2026-07-19T13:57:18Z  
-**Brainy commit:** `c28b3f70cb6b42209db9970a064f345d7f52ddb2`  
+**Timestamp:** 2026-07-19T14:02:46Z  
+**Brainy commit:** `d402da101fdbc4f9c3b4134a47509c38b6df88e9`  
 **Judge/Answerer:** `[REDACTED]`  
 **Ingest:** async  
 
@@ -9,11 +9,11 @@
 
 | Metric | Value |
 | --- | ---: |
-| Overall | **0.367 (11/30)** |
+| Overall | **0.433 (13/30)** |
 
 | Category | Acc | n |
 | --- | ---: | ---: |
-| multi-hop | 0.200 | 10 |
+| multi-hop | 0.400 | 10 |
 | open-domain | 0.500 | 4 |
 | temporal | 0.438 | 16 |
 
@@ -22,6 +22,8 @@
 | Run | Overall |
 | --- | ---: |
 | Topic-alignment | 11/30 |
-| Extractive-first (v2) | **11/30 (36.7%)** |
+| **List-answer augmentation** | **13/30 (43.3%)** |
 
-Taxonomy: {'correct': 11, 'answer_judge_miss': 14, 'retrieval_miss': 5}. Still 1 short of L4 gate (≥12/30).
+Taxonomy: {'correct': 13, 'answer_judge_miss': 12, 'retrieval_miss': 5}.
+
+**L4 unlock gate (≥12/30) MET.**
