@@ -13,6 +13,10 @@ import (
 
 const providerExtractionVersion = "provider-v1"
 
+// providerMaxTokens bounds the completion so reasoning models (e.g.
+// gpt-oss-120b) don't exhaust a small gateway default and truncate the JSON.
+const providerMaxTokens = 2048
+
 // ProviderConfig configures an OpenAI-compatible chat completions client.
 type ProviderConfig struct {
 	BaseURL string
@@ -74,6 +78,7 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 	body, err := json.Marshal(map[string]any{
 		"model": p.cfg.Model,
 		"temperature": 0,
+		"max_tokens": providerMaxTokens,
 		"response_format": map[string]string{"type": "json_object"},
 		"messages": []map[string]string{
 			{"role": "system", "content": providerSystemPrompt},
