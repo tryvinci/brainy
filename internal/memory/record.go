@@ -136,11 +136,25 @@ func parseFlexibleTime(raw any) *time.Time {
 			"2 May 2006",
 			"7 May 2003",
 			"2006/01/02",
+			// LOCOMO session timestamps: "1:56 pm on 8 May, 2023"
+			"3:04 pm on 2 January, 2006",
+			"3:04 am on 2 January, 2006",
+			"15:04 on 2 January, 2006",
+			"3:04pm on 2 January, 2006",
+			"3:04am on 2 January, 2006",
+			"2 January, 2006",
+			"2 Jan, 2006",
 		}
 		for _, layout := range layouts {
 			if ts, err := time.Parse(layout, s); err == nil {
 				t := ts.UTC()
 				return &t
+			}
+		}
+		// Fallback: strip leading clock time ("... on 8 May, 2023").
+		if idx := strings.LastIndex(strings.ToLower(s), " on "); idx >= 0 {
+			if ts := parseFlexibleTime(strings.TrimSpace(s[idx+4:])); ts != nil {
+				return ts
 			}
 		}
 		// Common dialogue form: "7 May 2023"

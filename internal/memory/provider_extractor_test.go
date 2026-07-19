@@ -206,6 +206,37 @@ func TestEnrichRelativeEventTimeAppendsAbsoluteDate(t *testing.T) {
 	}
 }
 
+func TestParseFlexibleTimeLocomoSessionStamp(t *testing.T) {
+	ts := parseFlexibleTime("1:56 pm on 8 May, 2023")
+	if ts == nil {
+		t.Fatal("expected LOCOMO session stamp to parse")
+	}
+	if ts.Format("2006-01-02") != "2023-05-08" {
+		t.Fatalf("got %s", ts.Format("2006-01-02"))
+	}
+	record, err := BuildMemoryRecord("mem_locomo", mustParseTime(t, "2026-07-19T00:00:00Z"), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Metadata:   map[string]any{"observed_at": "1:56 pm on 8 May, 2023"},
+	}, ExtractedMemory{
+		Kind:       KindFact,
+		Content:    "Caroline: I went to a LGBTQ support group yesterday",
+		SourceText: "Caroline: I went to a LGBTQ support group yesterday",
+		Confidence: 0.7,
+		Explain:    map[string]any{"rule": "conversation_episode", "primitive": PrimitiveEpisode},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if record.ObservedAt == nil || record.ObservedAt.Format("2006-01-02") != "2023-05-08" {
+		t.Fatalf("expected observed_at, got %#v", record.ObservedAt)
+	}
+	if !strings.Contains(record.Content, "8 May 2023") {
+		t.Fatalf("expected relative date enrichment, got %q", record.Content)
+	}
+}
+
 func mustParseTime(t *testing.T, raw string) time.Time {
 	t.Helper()
 	ts, err := time.Parse(time.RFC3339, raw)
