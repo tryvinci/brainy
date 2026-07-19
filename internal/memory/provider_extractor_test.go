@@ -42,14 +42,68 @@ func TestProviderExtractorParsesStructuredMemories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("extract failed: %v", err)
 	}
-	if len(memories) != 1 {
-		t.Fatalf("expected 1 memory, got %d", len(memories))
+	if len(memories) < 1 {
+		t.Fatalf("expected at least provider memory, got %d", len(memories))
 	}
-	if memories[0].When != "2023-05-07" {
-		t.Fatalf("expected when slot, got %#v", memories[0])
+	var providerFact *ExtractedMemory
+	for i := range memories {
+		if memories[i].Explain["rule"] == "provider_extract" {
+			providerFact = &memories[i]
+			break
+		}
 	}
-	if memories[0].Explain["primitive"] != PrimitiveEpisode {
+	if providerFact == nil {
+		t.Fatalf("expected provider_extract memory, got %#v", memories)
+	}
+	if providerFact.When != "2023-05-07" {
+		t.Fatalf("expected when slot, got %#v", providerFact)
+	}
+	if providerFact.Explain["primitive"] != PrimitiveEpisode {
 		t.Fatalf("expected episode primitive for dated fact")
+	}
+}
+
+func TestProviderExtractorMergesBaselineEpisodes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"memories":[{"kind":"fact","content":"Caroline attended LGBTQ support group","source_text":"LGBTQ support group","confidence":0.9,"when":"2023-05-07"}]}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		Model:   "test-model",
+	}, server.Client())
+
+	utterance := "Caroline: I went to the LGBTQ support group on 7 May 2023"
+	memories, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: utterance}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(memories) < 2 {
+		t.Fatalf("expected provider fact + baseline episode, got %d (%#v)", len(memories), memories)
+	}
+	var sawProvider, sawEpisode bool
+	for _, m := range memories {
+		if m.Explain["rule"] == "provider_extract" {
+			sawProvider = true
+		}
+		if m.Explain["rule"] == "conversation_episode" {
+			sawEpisode = true
+		}
+	}
+	if !sawProvider || !sawEpisode {
+		t.Fatalf("expected merge of provider+episode, got %#v", memories)
 	}
 }
 
