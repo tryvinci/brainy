@@ -611,3 +611,35 @@ func TestSessionNeighborExpansion(t *testing.T) {
 		t.Fatalf("expected session content in results, got %q", joined)
 	}
 }
+
+
+func TestQuestionMemoriesDownrankedForFactQueries(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	_, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"session_id": "s1", "observed_at": "2023-05-08T12:00:00Z"},
+		Messages: []Message{
+			{Role: "user", Content: "What did Caroline research last week?"},
+			{Role: "user", Content: "Caroline: I researched adoption agencies this week"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What did Caroline research?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected results")
+	}
+	top := search.Results[0].Content
+	if strings.Contains(top, "?") && !strings.Contains(strings.ToLower(top), "adoption") {
+		t.Fatalf("expected factual adoption memory on top, got %q", top)
+	}
+	if !strings.Contains(strings.ToLower(top), "adoption") {
+		t.Fatalf("expected adoption fact ranked first, got %q explain=%v", top, search.Results[0].Explain)
+	}
+}
+
