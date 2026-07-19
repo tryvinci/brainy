@@ -120,91 +120,25 @@ def answer_from_memories(
     model: str = "",
     config: LLMConfig | None = None,
 ) -> tuple[str, str]:
-    """Generate an answer. Uses configured LLM if available; else joins top memories."""
+    """Generate an answer from retrieved memories.
+
+    This is a *generic* memory-QA client for proveable evals — not a place to
+    special-case public benchmark questions or pad answers from known GTs.
+    """
     if not memories:
         return "", "empty-context"
     cfg = config or resolve_config(model=model)
     if cfg is not None:
         cfg = _with_model(cfg, model) if model else cfg
-        # Fact/list questions: extractive first (fewer empty/partial answers).
-        extractive_first = _prefers_extractive(question)
-        if extractive_first:
+        answer = _llm_answer(question, memories, cfg, extractive=False)
+        if _is_empty_answer(answer):
             answer = _llm_answer(question, memories, cfg, extractive=True)
-            if _is_empty_answer(answer):
-                answer = _llm_answer(question, memories, cfg, extractive=False)
-        else:
-            answer = _llm_answer(question, memories, cfg, extractive=False)
-            if _is_empty_answer(answer):
-                answer = _llm_answer(question, memories, cfg, extractive=True)
         if _is_empty_answer(answer):
             joined = _statement_join(memories)
             if joined:
                 return joined, cfg.label + "+retrieval-concat"
-        answer = _augment_list_answer(question, answer, memories)
         return answer, cfg.label
     return _statement_join(memories) or "", "retrieval-concat-v0"
-
-
-def _augment_list_answer(question: str, answer: str, memories: list[dict]) -> str:
-    """Fill gaps in list/identity answers using phrases already present in memories."""
-    import re
-
-    q = (question or "").strip().lower()
-    blob = " ".join((m.get("content") or "") for m in memories)
-    blob_l = blob.lower()
-    ans_l = (answer or "").lower()
-    extras: list[str] = []
-
-    if "book" in q or ("read" in q and "when" not in q):
-        for title in re.findall(r'"([^"]{3,80})"', blob):
-            if title.lower() not in ans_l and title not in extras:
-                extras.append(title)
-
-    if "identity" in q:
-        for phrase in ("transgender woman", "trans woman", "transgender man", "non-binary"):
-            if phrase in blob_l and phrase not in ans_l:
-                extras.append(phrase)
-                break
-
-    if "activit" in q or "partake" in q:
-        for phrase in ("pottery", "camping", "painting", "swimming", "running"):
-            if phrase in blob_l and phrase not in ans_l:
-                extras.append(phrase)
-
-    if re.search(r"\bcamp", q):
-        for phrase in ("beach", "mountains", "mountain", "forest", "forests"):
-            if phrase in blob_l and phrase not in ans_l:
-                extras.append(phrase)
-
-    if "destress" in q or "de-stress" in q or ("stress" in q and q.startswith("what")):
-        for phrase in ("running", "pottery"):
-            if phrase in blob_l and phrase not in ans_l:
-                extras.append(phrase)
-
-    if "kids" in q and "like" in q:
-        for phrase in ("dinosaurs", "nature"):
-            if phrase in blob_l and phrase not in ans_l:
-                extras.append(phrase)
-
-    if not extras:
-        if "identity" in q and "transgender woman" in blob_l and "transgender woman" not in ans_l:
-            return "transgender woman"
-        return answer
-
-    if not (answer or "").strip() or _is_empty_answer(answer):
-        return ", ".join(extras)
-    if "identity" in q and extras:
-        return extras[0]
-    return (answer or "").rstrip() + ", " + ", ".join(extras)
-
-
-def _prefers_extractive(question: str) -> bool:
-    q = (question or "").strip().lower()
-    # Temporal when-questions do better with the normal answerer + event_time hints.
-    if q.startswith("when ") or " when " in q:
-        return False
-    starters = ("what ", "where ", "which ", "who ", "how many", "list ")
-    return q.startswith(starters) or (" status" in q) or ("identity" in q) or ("activities" in q)
 
 
 def _is_empty_answer(answer: str) -> bool:
@@ -248,6 +182,7 @@ def _llm_answer(
         content = (m.get("content") or "").strip()
         if not content:
             continue
+        # Prefer statements over stored questions for QA context.
         if content.endswith("?") and not any(ch.isdigit() for ch in content):
             continue
         observed = (m.get("observed_at") or "").strip()
@@ -264,18 +199,17 @@ def _llm_answer(
     if extractive:
         system = (
             "Extract the shortest answer to the question that is directly supported by the memories. "
-            "Copy key phrases from the memories (names, places, titles, identity labels, activities). "
-            "Do not say None or I do not know if any memory is relevant. "
-            "If multiple items apply, list ALL of them as a short comma-separated list. "
-            "For identity questions, prefer explicit labels like transgender woman when present."
+            "Copy key phrases from the memories. Do not say None or I do not know if any memory is relevant. "
+            "If multiple items apply, list them as a short comma-separated list."
         )
     else:
         system = (
             "Answer the question using only the memories below. "
             "When a memory includes event_time / an absolute date in parentheses, "
-            "use that to resolve relative phrases like yesterday, two days ago, or last week. "
+            "use that to resolve relative phrases like yesterday, two days ago, last week, "
+            "last Saturday, or N years ago. "
             "Prefer a concrete short answer (dates, names, places, lists). "
-            "Never answer with only 'None' or 'N/A' if any memory is remotely relevant — "
+            "Never answer with only None or N/A if any memory is remotely relevant — "
             "quote the best supporting memory instead. "
             "If memories truly lack the answer, say you do not know."
         )
