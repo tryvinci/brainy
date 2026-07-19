@@ -74,26 +74,34 @@ func EnrichRelativeEventTime(content string, at time.Time) string {
 	switch {
 	case strings.Contains(lower, "day before yesterday"):
 		event = at.AddDate(0, 0, -2)
+	case strings.Contains(lower, "two days ago"), strings.Contains(lower, "2 days ago"):
+		event = at.AddDate(0, 0, -2)
+	case strings.Contains(lower, "three days ago"), strings.Contains(lower, "3 days ago"):
+		event = at.AddDate(0, 0, -3)
+	case strings.Contains(lower, "a few days ago"), strings.Contains(lower, "couple days ago"), strings.Contains(lower, "couple of days ago"):
+		event = at.AddDate(0, 0, -3)
 	case strings.Contains(lower, "yesterday"):
 		event = at.AddDate(0, 0, -1)
 	case strings.Contains(lower, "tomorrow"):
 		event = at.AddDate(0, 0, 1)
-	case strings.Contains(lower, "last week"):
+	case strings.Contains(lower, "last week"), strings.Contains(lower, "a week ago"), strings.Contains(lower, "1 week ago"):
 		event = at.AddDate(0, 0, -7)
+	case strings.Contains(lower, "two weeks ago"), strings.Contains(lower, "2 weeks ago"):
+		event = at.AddDate(0, 0, -14)
 	case strings.Contains(lower, "next week"):
 		event = at.AddDate(0, 0, 7)
-	case strings.Contains(lower, "last month"):
+	case strings.Contains(lower, "last month"), strings.Contains(lower, "a month ago"):
 		event = at.AddDate(0, -1, 0)
 	case strings.Contains(lower, "next month"):
 		event = at.AddDate(0, 1, 0)
-	case strings.Contains(lower, "last year"):
+	case strings.Contains(lower, "last year"), strings.Contains(lower, "a year ago"):
 		event = at.AddDate(-1, 0, 0)
 	case strings.Contains(lower, "next year"):
 		event = at.AddDate(1, 0, 0)
 	case strings.Contains(lower, "today"), strings.Contains(lower, "this week"), strings.Contains(lower, "this month"):
 		event = at
 	default:
-		// Weekday relatives: last Saturday etc. — fall back to session day.
+		// Weekday relatives: last Saturday etc. — approximate with session day.
 		for _, marker := range []string{
 			"last saturday", "last sunday", "last monday", "last tuesday", "last wednesday", "last thursday", "last friday",
 			"this saturday", "this sunday",
