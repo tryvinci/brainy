@@ -50,15 +50,19 @@ func NewServiceWithPacks(store Store, packs *pack.Registry) *Service {
 	}
 	return &Service{
 		store:     store,
-		extractor: NewExtractor(),
+		extractor: NewDeterministicExtractor(),
 		packs:     packs,
 		now:       time.Now().UTC,
 		id:        defaultID,
 	}
 }
 
-func (s *Service) applyPackFields(record *MemoryRecord, req IngestRequest, kind, content string) error {
-	return ApplyVerticalPack(record, req, kind, content, s.packs)
+// WithExtractor overrides the sync ingest extractor (tests / advanced wiring).
+func (s *Service) WithExtractor(extractor Extractor) *Service {
+	if extractor != nil {
+		s.extractor = extractor
+	}
+	return s
 }
 
 func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, error) {
@@ -83,32 +87,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 	}
 
 	for _, extracted := range memories {
-		now := s.now()
-		record := MemoryRecord{
-			MemoryID:          s.id("mem"),
-			TenantID:          req.TenantID,
-			SubjectID:         req.SubjectID,
-			Kind:              extracted.Kind,
-			Content:           extracted.Content,
-			SourceText:        extracted.SourceText,
-			SourceType:        req.SourceType,
-			DedupeKey:         DedupeKey(req.TenantID, req.SubjectID, extracted.Kind, extracted.Content),
-			Status:            StatusActive,
-			Confidence:        extracted.Confidence,
-			ExtractionVersion: "deterministic-v1",
-			Explain:           extracted.Explain,
-			CreatedAt:         now,
-			UpdatedAt:         now,
-		}
-		if err := s.applyPackFields(&record, req, extracted.Kind, extracted.Content); err != nil {
+		record, err := BuildMemoryRecord(s.id("mem"), s.now(), req, extracted, s.packs)
+		if err != nil {
 			return IngestResult{}, err
-		}
-		if rule, _ := extracted.Explain["rule"].(string); rule == "conversation_episode" {
-			record.Primitive = PrimitiveEpisode
-			record.ExtractionVersion = "conversational-v1"
-			if p, ok := extracted.Explain["primitive"].(string); ok && p != "" {
-				record.Primitive = p
-			}
 		}
 
 		upserted, err := s.store.UpsertMemory(ctx, record)
@@ -216,7 +197,7 @@ func (s *Service) idempotencyKey(req IngestRequest) string {
 
 type rankedSearchResult struct {
 	result    SearchResult
-	updatedAt time.Time
+	eventTime time.Time
 }
 
 func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, scope, query string) (SearchResponse, error) {
@@ -322,7 +303,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 				Score:    score,
 				Explain:  explain,
 			},
-			updatedAt: record.UpdatedAt,
+			eventTime: EventTime(record),
 		})
 	}
 
@@ -330,10 +311,10 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 
 	sort.SliceStable(ranked, func(i, j int) bool {
 		if ranked[i].result.Score == ranked[j].result.Score {
-			if ranked[i].updatedAt.Equal(ranked[j].updatedAt) {
+			if ranked[i].eventTime.Equal(ranked[j].eventTime) {
 				return ranked[i].result.MemoryID > ranked[j].result.MemoryID
 			}
-			return ranked[i].updatedAt.After(ranked[j].updatedAt)
+			return ranked[i].eventTime.After(ranked[j].eventTime)
 		}
 		return ranked[i].result.Score > ranked[j].result.Score
 	})
@@ -437,6 +418,14 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 	}
 
 	score := float64(len(matched)) / float64(len(queryTokens))
+	explain := map[string]any{
+		"matched_terms": matched,
+		"ranking_basis": "deterministic_baseline",
+	}
+	if record.Primitive != "" {
+		explain["primitive"] = record.Primitive
+	}
+
 	if record.Primitive != PrimitivePrinciple && record.Primitive != PrimitiveIdentityPrior {
 		switch record.Kind {
 		case KindPreference:
@@ -450,22 +439,25 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 			score += 0.15
 		case KindFact:
 			score += 0.05
-			// Exact-span / dense lexical overlap: reward episodic facts over topical prefs.
-			if float64(len(matched))/float64(len(queryTokens)) >= 0.5 {
+			overlap := float64(len(matched)) / float64(len(queryTokens))
+			if overlap >= 0.5 {
 				score += 0.2
+				explain["dense_overlap_boost"] = 0.2
 			}
 			if record.Primitive == PrimitiveEpisode {
 				score += 0.1
+				explain["episode_boost"] = 0.1
 			}
 		}
 	}
 
-	explain := map[string]any{
-		"matched_terms": matched,
-		"ranking_basis": "deterministic_baseline",
+	if bonus := exactSpanBoost(queryTokens, record.Content); bonus > 0 {
+		score += bonus
+		explain["exact_span_boost"] = bonus
 	}
-	if record.Primitive != "" {
-		explain["primitive"] = record.Primitive
+	if bonus := dateTokenBoost(queryTokens, contentTokens, record); bonus > 0 {
+		score += bonus
+		explain["date_token_boost"] = bonus
 	}
 
 	applyPrimitiveBonus(&score, explain, record, primitiveWeights)
@@ -479,24 +471,140 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 	return score, explain
 }
 
+func exactSpanBoost(queryTokens []string, content string) float64 {
+	if len(queryTokens) < 2 {
+		return 0
+	}
+	contentNorm := " " + strings.Join(tokenize(content), " ") + " "
+	// Longest contiguous query token run present in content.
+	best := 0
+	for i := 0; i < len(queryTokens); i++ {
+		run := 0
+		for j := i; j < len(queryTokens); j++ {
+			phrase := " " + strings.Join(queryTokens[i:j+1], " ") + " "
+			if !strings.Contains(contentNorm, phrase) {
+				break
+			}
+			run = j - i + 1
+		}
+		if run > best {
+			best = run
+		}
+	}
+	if best >= 3 {
+		return 0.25
+	}
+	if best >= 2 {
+		return 0.12
+	}
+	return 0
+}
+
+func dateTokenBoost(queryTokens, contentTokens []string, record MemoryRecord) float64 {
+	queryHasWhen := whenQuery(queryTokens)
+	queryDates := filterDateTokens(queryTokens)
+	contentDates := filterDateTokens(contentTokens)
+	if len(contentDates) == 0 {
+		// Also check source text / metadata when slots.
+		contentDates = filterDateTokens(tokenize(record.SourceText))
+		if when, ok := record.Metadata["when"].(string); ok {
+			contentDates = append(contentDates, filterDateTokens(tokenize(when))...)
+		}
+	}
+	if len(contentDates) == 0 {
+		return 0
+	}
+	if len(queryDates) > 0 {
+		for _, qd := range queryDates {
+			for _, cd := range contentDates {
+				if qd == cd {
+					return 0.2
+				}
+			}
+		}
+	}
+	if queryHasWhen {
+		return 0.15
+	}
+	return 0
+}
+
+func whenQuery(tokens []string) bool {
+	for _, token := range tokens {
+		switch token {
+		case "when", "before", "after", "during", "date", "dated", "yesterday", "today", "ago":
+			return true
+		}
+	}
+	return false
+}
+
+func filterDateTokens(tokens []string) []string {
+	out := make([]string, 0)
+	for _, token := range tokens {
+		if looksLikeDateToken(token) {
+			out = append(out, token)
+		}
+	}
+	return out
+}
+
+func looksLikeDateToken(token string) bool {
+	if token == "" {
+		return false
+	}
+	switch token {
+	case "january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december",
+		"jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec":
+		return true
+	}
+	// year
+	if len(token) == 4 {
+		allDigits := true
+		for _, r := range token {
+			if r < '0' || r > '9' {
+				allDigits = false
+				break
+			}
+		}
+		if allDigits && (token[0] == '1' || token[0] == '2') {
+			return true
+		}
+	}
+	// day number 1-31
+	if len(token) <= 2 {
+		allDigits := true
+		for _, r := range token {
+			if r < '0' || r > '9' {
+				allDigits = false
+				break
+			}
+		}
+		if allDigits {
+			return true
+		}
+	}
+	return false
+}
+
 const relativeRecencyBoostMax = 0.05
 
 func applyRelativeRecencyBoost(ranked []rankedSearchResult) {
 	if len(ranked) == 0 {
 		return
 	}
-	minUpdated := ranked[0].updatedAt
-	maxUpdated := ranked[0].updatedAt
+	minEvent := ranked[0].eventTime
+	maxEvent := ranked[0].eventTime
 	for _, item := range ranked[1:] {
-		if item.updatedAt.Before(minUpdated) {
-			minUpdated = item.updatedAt
+		if item.eventTime.Before(minEvent) {
+			minEvent = item.eventTime
 		}
-		if item.updatedAt.After(maxUpdated) {
-			maxUpdated = item.updatedAt
+		if item.eventTime.After(maxEvent) {
+			maxEvent = item.eventTime
 		}
 	}
 
-	span := maxUpdated.Sub(minUpdated)
+	span := maxEvent.Sub(minEvent)
 	if span == 0 {
 		ids := make([]string, len(ranked))
 		for i, item := range ranked {
@@ -525,13 +633,7 @@ func applyRelativeRecencyBoost(ranked []rankedSearchResult) {
 	}
 
 	for i := range ranked {
-		var bonus float64
-		switch {
-		case span == 0:
-			bonus = relativeRecencyBoostMax / 2
-		default:
-			bonus = relativeRecencyBoostMax * float64(ranked[i].updatedAt.Sub(minUpdated)) / float64(span)
-		}
+		bonus := relativeRecencyBoostMax * float64(ranked[i].eventTime.Sub(minEvent)) / float64(span)
 		ranked[i].result.Score += bonus
 		if ranked[i].result.Explain == nil {
 			ranked[i].result.Explain = map[string]any{}
@@ -579,7 +681,12 @@ func preferenceResponseQuery(record MemoryRecord, queryTokens []string) bool {
 }
 
 func (s *Service) extractOrLabel(req IngestRequest) []ExtractedMemory {
-	memories := s.extractor.Extract(req)
+	memories, err := s.extractor.Extract(context.Background(), req)
+	if err != nil || len(memories) == 0 {
+		if err != nil {
+			memories = nil
+		}
+	}
 	if len(memories) > 0 {
 		return memories
 	}

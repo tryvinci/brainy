@@ -1,0 +1,242 @@
+package memory
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+	"time"
+)
+
+const providerExtractionVersion = "provider-v1"
+
+// ProviderConfig configures an OpenAI-compatible chat completions client.
+type ProviderConfig struct {
+	BaseURL string
+	APIKey  string
+	Model   string
+	Timeout time.Duration
+}
+
+func (c ProviderConfig) Configured() bool {
+	return strings.TrimSpace(c.BaseURL) != "" && strings.TrimSpace(c.Model) != ""
+}
+
+// ProviderExtractor calls an OpenAI-compatible /v1/chat/completions endpoint
+// and validates structured JSON memories. It never mutates raw ingest state.
+type ProviderExtractor struct {
+	client *http.Client
+	cfg    ProviderConfig
+	fallback DeterministicExtractor
+}
+
+func NewProviderExtractor(cfg ProviderConfig, client *http.Client) *ProviderExtractor {
+	if client == nil {
+		timeout := cfg.Timeout
+		if timeout <= 0 {
+			timeout = 45 * time.Second
+		}
+		client = &http.Client{Timeout: timeout}
+	}
+	return &ProviderExtractor{
+		client:   client,
+		cfg:      cfg,
+		fallback: NewDeterministicExtractor(),
+	}
+}
+
+func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
+	// Deterministic baseline always runs first (ENG-92).
+	baseline, err := p.fallback.Extract(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if !p.cfg.Configured() {
+		return baseline, nil
+	}
+
+	providerMemories, err := p.extractProvider(ctx, req)
+	if err != nil {
+		// Fail before upserts; caller must FailExtractionJob. Do not silently
+		// complete as provider success with only the baseline.
+		return nil, err
+	}
+	if len(providerMemories) == 0 {
+		return baseline, nil
+	}
+	return providerMemories, nil
+}
+
+func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
+	body, err := json.Marshal(map[string]any{
+		"model": p.cfg.Model,
+		"temperature": 0,
+		"response_format": map[string]string{"type": "json_object"},
+		"messages": []map[string]string{
+			{"role": "system", "content": providerSystemPrompt},
+			{"role": "user", "content": buildProviderUserPrompt(req)},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint := strings.TrimRight(p.cfg.BaseURL, "/") + "/chat/completions"
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	if key := strings.TrimSpace(p.cfg.APIKey); key != "" {
+		httpReq.Header.Set("Authorization", "Bearer "+key)
+	}
+
+	resp, err := p.client.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("provider extract request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if err != nil {
+		return nil, fmt.Errorf("provider extract read: %w", err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("provider extract status %d: %s", resp.StatusCode, truncate(string(respBody), 240))
+	}
+
+	var completion struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(respBody, &completion); err != nil {
+		return nil, fmt.Errorf("provider extract decode: %w", err)
+	}
+	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
+		return nil, fmt.Errorf("provider extract: empty completion")
+	}
+
+	return parseProviderMemories(completion.Choices[0].Message.Content)
+}
+
+const providerSystemPrompt = `Extract durable memories from a conversation transcript.
+Return JSON only with shape:
+{"memories":[{"kind":"fact|preference|profile","content":"...","source_text":"...","confidence":0.0,"when":"optional ISO-8601 or natural date","duration":"optional duration"}]}
+Rules:
+- kind must be fact, preference, or profile
+- content must be a concise standalone memory
+- source_text must quote or closely paraphrase the supporting utterance
+- include when/duration when the dialogue states temporal information
+- omit chit-chat with no lasting value
+- return {"memories":[]} if nothing durable`
+
+func buildProviderUserPrompt(req IngestRequest) string {
+	var b strings.Builder
+	b.WriteString("source_type: ")
+	b.WriteString(req.SourceType)
+	b.WriteString("\n")
+	if v := strings.TrimSpace(req.Vertical); v != "" {
+		b.WriteString("vertical: ")
+		b.WriteString(v)
+		b.WriteString("\n")
+	}
+	b.WriteString("messages:\n")
+	for _, msg := range req.Messages {
+		role := msg.Role
+		if role == "" {
+			role = "user"
+		}
+		b.WriteString("- ")
+		b.WriteString(role)
+		b.WriteString(": ")
+		b.WriteString(msg.Content)
+		b.WriteString("\n")
+	}
+	return b.String()
+}
+
+type providerMemoryPayload struct {
+	Memories []providerMemoryItem `json:"memories"`
+}
+
+type providerMemoryItem struct {
+	Kind       string  `json:"kind"`
+	Content    string  `json:"content"`
+	SourceText string  `json:"source_text"`
+	Confidence float64 `json:"confidence"`
+	When       string  `json:"when"`
+	Duration   string  `json:"duration"`
+}
+
+func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
+	raw = strings.TrimSpace(raw)
+	// Some models wrap JSON in markdown fences.
+	if strings.HasPrefix(raw, "```") {
+		raw = strings.TrimPrefix(raw, "```json")
+		raw = strings.TrimPrefix(raw, "```")
+		raw = strings.TrimSuffix(raw, "```")
+		raw = strings.TrimSpace(raw)
+	}
+
+	var payload providerMemoryPayload
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		return nil, fmt.Errorf("provider extract json: %w", err)
+	}
+
+	out := make([]ExtractedMemory, 0, len(payload.Memories))
+	for _, item := range payload.Memories {
+		kind := strings.ToLower(strings.TrimSpace(item.Kind))
+		switch kind {
+		case KindFact, KindPreference, KindProfile:
+		default:
+			return nil, fmt.Errorf("provider extract: invalid kind %q", item.Kind)
+		}
+		content := NormalizeText(item.Content)
+		if content == "" {
+			return nil, fmt.Errorf("provider extract: empty content")
+		}
+		source := NormalizeText(item.SourceText)
+		if source == "" {
+			source = content
+		}
+		confidence := item.Confidence
+		if confidence <= 0 || confidence > 1 {
+			confidence = 0.8
+		}
+		explain := map[string]any{
+			"rule": "provider_extract",
+		}
+		if when := strings.TrimSpace(item.When); when != "" {
+			explain["when"] = when
+			if kind == KindFact {
+				explain["primitive"] = PrimitiveEpisode
+			}
+		}
+		if duration := strings.TrimSpace(item.Duration); duration != "" {
+			explain["duration"] = duration
+		}
+		out = append(out, ExtractedMemory{
+			Kind:       kind,
+			Content:    content,
+			SourceText: source,
+			Confidence: confidence,
+			Explain:    explain,
+			When:       strings.TrimSpace(item.When),
+			Duration:   strings.TrimSpace(item.Duration),
+		})
+	}
+	return out, nil
+}
+
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "..."
+}

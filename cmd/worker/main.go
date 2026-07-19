@@ -10,6 +10,7 @@ import (
 
 	"brainy/internal/config"
 	"brainy/internal/jobs"
+	"brainy/internal/memory"
 	"brainy/internal/observability"
 	"brainy/internal/store/postgres"
 )
@@ -33,7 +34,8 @@ func main() {
 	}
 
 	metrics := observability.NewMetrics()
-	processor := jobs.NewProcessor(store, metrics)
+	extractor := buildWorkerExtractor(cfg, logger)
+	processor := jobs.NewProcessorWithExtractor(store, metrics, extractor)
 	switch cfg.WorkerMode {
 	case "loop":
 		runLoop(processor, cfg.WorkerPollInterval, logger)
@@ -49,6 +51,21 @@ func main() {
 		}
 		logger.Info("brainy worker processed one pending extraction job")
 	}
+}
+
+func buildWorkerExtractor(cfg config.Config, logger *slog.Logger) memory.Extractor {
+	providerCfg := memory.ProviderConfig{
+		BaseURL: cfg.ProviderBaseURL,
+		APIKey:  cfg.ProviderAPIKey,
+		Model:   cfg.ProviderModel,
+		Timeout: cfg.ProviderTimeout,
+	}
+	if !providerCfg.Configured() {
+		logger.Info("worker using deterministic extractor")
+		return memory.NewDeterministicExtractor()
+	}
+	logger.Info("worker using provider extractor", "base_url", providerCfg.BaseURL, "model", providerCfg.Model)
+	return memory.NewProviderExtractor(providerCfg, nil)
 }
 
 func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Logger) {

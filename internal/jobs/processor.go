@@ -20,10 +20,17 @@ type Processor struct {
 }
 
 func NewProcessor(store memory.Store, metrics *observability.Metrics) *Processor {
+	return NewProcessorWithExtractor(store, metrics, memory.NewDeterministicExtractor())
+}
+
+func NewProcessorWithExtractor(store memory.Store, metrics *observability.Metrics, extractor memory.Extractor) *Processor {
 	reg, _ := pack.LoadRegistryFromDir("packs")
+	if extractor == nil {
+		extractor = memory.NewDeterministicExtractor()
+	}
 	return &Processor{
 		store:     store,
-		extractor: memory.NewExtractor(),
+		extractor: extractor,
 		packs:     reg,
 		metrics:   metrics,
 		now:       time.Now().UTC,
@@ -39,34 +46,44 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		return ok, err
 	}
 
-	for _, extracted := range p.extractor.Extract(job.Request) {
+	extracted, err := p.extractor.Extract(ctx, job.Request)
+	if err != nil {
+		// Fail before any upserts so a provider error cannot leave partial
+		// enrichment or mutate the immutable raw_ingests payload.
+		_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
+		return true, err
+	}
+
+	for _, item := range extracted {
 		p.metrics.RecordExtraction()
-		now := p.now()
-		record := memory.MemoryRecord{
-			MemoryID:          p.id("mem"),
-			TenantID:          job.Request.TenantID,
-			SubjectID:         job.Request.SubjectID,
-			Kind:              extracted.Kind,
-			Content:           extracted.Content,
-			SourceText:        extracted.SourceText,
-			SourceType:        job.Request.SourceType,
-			DedupeKey:         memory.DedupeKey(job.Request.TenantID, job.Request.SubjectID, extracted.Kind, extracted.Content),
-			Status:            memory.StatusActive,
-			Confidence:        extracted.Confidence,
-			ExtractionVersion: "deterministic-v1",
-			Explain:           extracted.Explain,
-			CreatedAt:         now,
-			UpdatedAt:         now,
-		}
-		memory.ApplyVerticalPack(&record, job.Request, extracted.Kind, extracted.Content, p.packs)
-		if _, err := p.store.UpsertMemory(ctx, record); err != nil {
+		record, err := memory.BuildMemoryRecord(p.id("mem"), p.now(), job.Request, item, p.packs)
+		if err != nil {
 			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
 			return true, err
 		}
+		upserted, err := p.store.UpsertMemory(ctx, record)
+		if err != nil {
+			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
+			return true, err
+		}
+		p.persistEmbedding(ctx, upserted.Record)
 	}
 
 	if err := p.store.CompleteExtractionJob(ctx, job.JobID, job.IngestID); err != nil {
 		return true, err
 	}
 	return true, nil
+}
+
+type embeddingWriter interface {
+	UpsertEmbedding(ctx context.Context, memoryID, tenantID, subjectID string, values []float32) error
+}
+
+func (p *Processor) persistEmbedding(ctx context.Context, record memory.MemoryRecord) {
+	writer, ok := p.store.(embeddingWriter)
+	if !ok {
+		return
+	}
+	// Local hash embedder — same path as sync Service.
+	_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, nil)
 }
