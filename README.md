@@ -16,7 +16,7 @@ Ingest and search:
 ```bash
 curl -s -X POST http://127.0.0.1:8080/ingest \
   -H 'Content-Type: application/json' \
-  -d '{"tenant_id":"demo","subject_id":"user-1","text":"We never use exclamation marks in brand copy."}'
+  -d '{"tenant_id":"demo","subject_id":"user-1","source_type":"conversation","messages":[{"role":"user","content":"We never use exclamation marks in brand copy."}]}'
 
 curl -s 'http://127.0.0.1:8080/memories/search?tenant_id=demo&subject_id=user-1&q=brand+voice+rules'
 ```
