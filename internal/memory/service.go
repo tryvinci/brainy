@@ -489,25 +489,26 @@ func (s *Service) relatedFactMemories(ctx context.Context, tenantID, subjectID s
 }
 
 func relatedIntentTokens(token string) []string {
+	// Generic conversational synonyms only — never benchmark answer keys.
 	switch token {
 	case "identity":
-		return []string{"gender", "trans", "transgender"}
+		return []string{"gender", "identity"}
 	case "relationship", "status":
-		return []string{"single", "married", "partner", "dating"}
+		return []string{"single", "married", "partner", "dating", "relationship"}
 	case "career", "path", "pursue", "persue":
-		return []string{"counseling", "career", "mental", "job"}
-	case "activities", "activity", "partake":
-		return []string{"hobby", "hobbies", "pottery", "camping", "painting", "swimming", "running"}
-	case "camped", "camping":
-		return []string{"beach", "mountain", "forest", "camped", "camping"}
-	case "books", "read":
-		return []string{"reading", "book", "library", "read"}
-	case "destress", "de-stress":
-		return []string{"running", "pottery", "stress", "destress"}
+		return []string{"career", "job", "profession", "work"}
+	case "activities", "activity", "partake", "hobby", "hobbies":
+		return []string{"hobby", "hobbies", "activity", "activities"}
+	case "camped", "camping", "camp":
+		return []string{"camp", "camping", "camped"}
+	case "books", "read", "reading":
+		return []string{"reading", "book", "books", "library"}
+	case "destress", "de-stress", "stress":
+		return []string{"stress", "relax", "unwind"}
 	case "moved":
-		return []string{"moved", "from", "years"}
-	case "kids":
-		return []string{"kids", "children"}
+		return []string{"moved", "move", "relocated"}
+	case "kids", "children":
+		return []string{"kids", "children", "child"}
 	default:
 		return nil
 	}
