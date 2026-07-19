@@ -21,7 +21,7 @@ Benchmark-backed claims for vertical memory. Goal: a public research surface in 
 
 **Brainy 12/12 OpMem vs Mem0 9/12** on staging (parity 4/4), plus marketing vertical **16/16**.
 
-**LOCOMO smoke (same pins, 1 convo / 30 Q):** **11/30 (36.7%)** after async provider-extract path + relative event-time enrichment — honest mid score, **not** a SOTA claim. See [locomo-smoke.md](../benchmarks/locomo-smoke.md) for category breakdown; multi-hop **0/10**. Full LOCOMO (L4) waits on ≥12/30 smoke gate. Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md).
+**LOCOMO smoke (same pins, 1 convo / 30 Q):** **13/30 (43.3%)** after async provider-extract path + relative event-time enrichment — honest mid score, **not** a SOTA claim. See [locomo-smoke.md](../benchmarks/locomo-smoke.md) for category breakdown; multi-hop **0/10**. L4 unlock gate (≥12/30) cleared — full LOCOMO next. Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md).
 
 ---
 
