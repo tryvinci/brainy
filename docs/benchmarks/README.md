@@ -16,7 +16,7 @@ Honest rule: we do **not** invent scores. Suites without a run are marked **not 
 | Parity | 4/4 | 4/4 | — | [staging competitive](./staging-competitive-report.md) |
 | OpMem v0 | **12/12** | 9/12 | 9/12 | [staging competitive](./staging-competitive-report.md) |
 | Marketing vertical | 16/16 | N/A (moat) | — | [moat report](./marketing-moat-report.md) |
-| LOCOMO | **not run** (smoke harness ready) | — | — | [ladder](../research/public-bench-ladder.md) · [`evals/public/`](../../evals/public/) |
+| LOCOMO | **7/30 smoke** (1 convo / 30 Q) | — | — | [locomo-smoke.md](./locomo-smoke.md) · [ladder](../research/public-bench-ladder.md) |
 | LongMemEval | **not run** | — | — | [ladder](../research/public-bench-ladder.md) |
 | BEAM | **not run** | — | — | [ladder](../research/public-bench-ladder.md) |
 
