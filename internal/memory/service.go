@@ -297,11 +297,12 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 		ranked = append(ranked, rankedSearchResult{
 			result: SearchResult{
-				MemoryID: record.MemoryID,
-				Kind:     record.Kind,
-				Content:  record.Content,
-				Score:    score,
-				Explain:  explain,
+				MemoryID:   record.MemoryID,
+				Kind:       record.Kind,
+				Content:    record.Content,
+				Score:      score,
+				ObservedAt: record.ObservedAt,
+				Explain:    explain,
 			},
 			eventTime: EventTime(record),
 		})
@@ -505,25 +506,35 @@ func dateTokenBoost(queryTokens, contentTokens []string, record MemoryRecord) fl
 	queryDates := filterDateTokens(queryTokens)
 	contentDates := filterDateTokens(contentTokens)
 	if len(contentDates) == 0 {
-		// Also check source text / metadata when slots.
+		// Also check source text / metadata when slots / observed_at.
 		contentDates = filterDateTokens(tokenize(record.SourceText))
 		if when, ok := record.Metadata["when"].(string); ok {
 			contentDates = append(contentDates, filterDateTokens(tokenize(when))...)
 		}
+		if record.ObservedAt != nil {
+			contentDates = append(contentDates, filterDateTokens(tokenize(record.ObservedAt.Format("2 January 2006")))...)
+			contentDates = append(contentDates, record.ObservedAt.Format("2006"))
+		}
 	}
 	if len(contentDates) == 0 {
+		if queryHasWhen && record.ObservedAt != nil {
+			return 0.18
+		}
 		return 0
 	}
 	if len(queryDates) > 0 {
 		for _, qd := range queryDates {
 			for _, cd := range contentDates {
 				if qd == cd {
-					return 0.2
+					return 0.25
 				}
 			}
 		}
 	}
 	if queryHasWhen {
+		if record.ObservedAt != nil {
+			return 0.2
+		}
 		return 0.15
 	}
 	return 0

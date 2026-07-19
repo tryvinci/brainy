@@ -60,8 +60,12 @@ func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]E
 
 	providerMemories, err := p.extractProvider(ctx, req)
 	if err != nil {
-		// Fail before upserts; caller must FailExtractionJob. Do not silently
-		// complete as provider success with only the baseline.
+		// Soft-degrade: keep deterministic/conversational episodes so a flaky
+		// LLM response cannot leave the subject with zero searchable memory.
+		// Transport retries still happen when baseline itself is empty.
+		if len(baseline) > 0 {
+			return baseline, nil
+		}
 		return nil, err
 	}
 	return mergeProviderAndBaseline(baseline, providerMemories), nil
