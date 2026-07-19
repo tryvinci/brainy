@@ -144,6 +144,12 @@ def answer_from_memories(
     return _statement_join(memories) or "", "retrieval-concat-v0"
 
 
+def _prefers_extractive(question: str) -> bool:
+    q = (question or "").strip().lower()
+    starters = ("what ", "where ", "which ", "who ", "how many", "list ")
+    return q.startswith(starters) or (" status" in q) or ("identity" in q) or ("activities" in q)
+
+
 def _is_empty_answer(answer: str) -> bool:
     text = (answer or "").strip().lower()
     if not text:
