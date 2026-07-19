@@ -41,6 +41,16 @@ You may batch many messages in one request for throughput. Prefer **not** gluing
 
 When configured, the worker runs deterministic baseline extract first, then provider extract, and **merges** both (provider structured facts + conversational episodes that are not exact duplicates). Provider failures fail the extraction job **before** upserts; the raw ingest payload is never rewritten.
 
+## Embeddings
+
+Hybrid search uses an `Embedder`:
+
+- Default / CI: deterministic local hash embedder
+- Optional: OpenAI-compatible `BRAINY_EMBEDDING_MODEL` (+ base URL/key, defaulting to provider/LLM settings)
+
+Provider embedding failures soft-degrade to the local embedder. pgvector `embedding_vec` is only populated for 128-d local vectors; provider dims use the float[] path.
+
+
 Local Docker Compose passes provider vars through from the host environment. Staging Blueprint (`render.yaml`) declares the same keys as Dashboard secrets on `brainy-worker-staging`.
 
 ```bash

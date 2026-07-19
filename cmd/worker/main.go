@@ -35,7 +35,7 @@ func main() {
 
 	metrics := observability.NewMetrics()
 	extractor := buildWorkerExtractor(cfg, logger)
-	processor := jobs.NewProcessorWithExtractor(store, metrics, extractor)
+	processor := jobs.NewProcessorWithExtractor(store, metrics, extractor).WithEmbedder(config.BuildEmbedder(cfg, logger))
 	switch cfg.WorkerMode {
 	case "loop":
 		runLoop(processor, cfg.WorkerPollInterval, logger)

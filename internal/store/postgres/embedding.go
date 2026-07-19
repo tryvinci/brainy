@@ -39,6 +39,11 @@ UPDATE memory_records SET embedding = $2 WHERE memory_id = $1
 		return err
 	}
 
+	// pgvector column is vector(128) for the local hash path only.
+	if len(floats) != 128 {
+		return nil
+	}
+
 	var hasVector bool
 	if err := s.pool.QueryRow(ctx, `
 SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')

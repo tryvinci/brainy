@@ -34,6 +34,12 @@ services:
       # Format: tenant:secret,...  Use *:sk_bench for benchmark tenants.
       - key: BRAINY_API_KEYS
         sync: false
+      - key: BRAINY_EMBEDDING_BASE_URL
+        sync: false
+      - key: BRAINY_EMBEDDING_API_KEY
+        sync: false
+      - key: BRAINY_EMBEDDING_MODEL
+        sync: false
 
   - type: worker
     name: brainy-worker-staging
@@ -63,3 +69,11 @@ services:
         sync: false
       - key: BRAINY_PROVIDER_TIMEOUT
         value: 45s
+      - key: BRAINY_EMBEDDING_BASE_URL
+        sync: false
+      - key: BRAINY_EMBEDDING_API_KEY
+        sync: false
+      - key: BRAINY_EMBEDDING_MODEL
+        sync: false
+      - key: BRAINY_EMBEDDING_TIMEOUT
+        value: 30s
