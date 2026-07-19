@@ -47,6 +47,15 @@ span, unchanged from the ENG-171 run.
 > The lower search latency (p50 18 ms vs 422 ms in the prior run) reflects a **local** brainy
 > backend on this run rather than the staging network round-trip — it is not a product change.
 
+## Staging confirmation (provider extraction)
+
+After the staging worker was configured with `BRAINY_PROVIDER_*` (Render dashboard) and
+redeployed, async provider extraction was confirmed live on `brainy-api-staging.onrender.com`:
+`/healthz` → `ok`; an async ingest with dates produced provider memories — a dated fact stored
+as an `episode` (`On 2021-06-01 I joined Globex as VP of Growth`, migration v10 `observed_at`
+behavior) and a preference rephrased to third person (`Prefers async standups over live
+meetings`, the provider tell vs the deterministic raw turn).
+
 ## Environment note (provider extractor fix)
 
 Running provider extraction against `gpt-oss-120b` on the Cloudflare AI Gateway surfaced a
