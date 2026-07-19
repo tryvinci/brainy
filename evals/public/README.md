@@ -22,10 +22,10 @@ evals/public/
   schema.py          # UnifiedResult / Metrics
   proveability.py    # RunManifest + sha256 + require_pins
   judge.py           # lexical + OpenAI binary judge
-  backends/brainy.py # /ingest + /memories/search
+  backends/brainy.py # /ingest (+ async) + /memories/search
   locomo/
     dataset.py       # download locomo10.json
-    run_smoke.py     # L3 smoke runner
+    run_smoke.py     # L3 smoke runner (default: async ingest)
 ```
 
 ## Quickstart (LOCOMO smoke)
@@ -42,10 +42,14 @@ export LLM_MODEL="workers-ai/@cf/openai/gpt-oss-120b"
 # Alternate: workers-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast
 
 cd evals
+# Default: POST /ingest/async so provider extract on the worker is measured.
 python -m public.locomo.run_smoke \
   --conversations 1 \
   --questions 30 \
   --out-dir ../docs/benchmarks/runs
+
+# Escape hatch: deterministic sync path only
+# python -m public.locomo.run_smoke --sync-ingest --conversations 1 --questions 30
 ```
 
 | Choice | Model ID | When |

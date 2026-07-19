@@ -140,5 +140,21 @@ class DatasetParserTests(unittest.TestCase):
         self.assertEqual(qs[0]["category"], 2)
 
 
+class BackendHelperTests(unittest.TestCase):
+    def test_probe_token_prefers_year(self) -> None:
+        from public.backends.brainy import _probe_token
+
+        token = _probe_token(
+            [{"role": "user", "content": "Caroline: I went to the LGBTQ support group on 7 May 2023"}]
+        )
+        self.assertEqual(token, "2023")
+
+    def test_probe_token_skips_stopwords(self) -> None:
+        from public.backends.brainy import _probe_token
+
+        token = _probe_token([{"content": "the and or preference"}])
+        self.assertEqual(token, "preference")
+
+
 if __name__ == "__main__":
     unittest.main()
