@@ -1,7 +1,7 @@
-# LOCOMO smoke — `locomo-smoke-list-augment`
+# LOCOMO smoke — `locomo-smoke-anti-benchmax`
 
-**Timestamp:** 2026-07-19T14:02:46Z  
-**Brainy commit:** `d402da101fdbc4f9c3b4134a47509c38b6df88e9`  
+**Timestamp:** 2026-07-19T14:44:07Z  
+**Brainy commit:** `6366725dde4a48da9f9d26a0ae90bdc08e21f375`  
 **Judge/Answerer:** `[REDACTED]`  
 **Ingest:** async  
 
@@ -9,21 +9,16 @@
 
 | Metric | Value |
 | --- | ---: |
-| Overall | **0.433 (13/30)** |
+| Overall | **0.400 (12/30)** |
 
 | Category | Acc | n |
 | --- | ---: | ---: |
-| multi-hop | 0.400 | 10 |
+| multi-hop | 0.200 | 10 |
 | open-domain | 0.500 | 4 |
-| temporal | 0.438 | 16 |
+| temporal | 0.500 | 16 |
 
-## Ladder
+## Notes
 
-| Run | Overall |
-| --- | ---: |
-| Topic-alignment | 11/30 |
-| **List-answer augmentation** | **13/30 (43.3%)** |
+Anti-benchmax remeasure after removing harness answer-padding. Score reflects **product** recall/ranking/event-time only.
 
-Taxonomy: {'correct': 13, 'answer_judge_miss': 12, 'retrieval_miss': 5}.
-
-**L4 unlock gate (≥12/30) MET.**
+Taxonomy: {'correct': 12, 'answer_judge_miss': 11, 'retrieval_miss': 7}.
