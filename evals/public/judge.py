@@ -150,8 +150,11 @@ def _llm_answer(question: str, memories: list[dict], config: LLMConfig) -> str:
                 "content": (
                     "Answer the question using only the memories below. "
                     "When a memory includes event_time / an absolute date in parentheses, "
-                    "use that to resolve relative phrases like yesterday or last week. "
-                    "Be specific. If memories lack the answer, say what they do contain."
+                    "use that to resolve relative phrases like yesterday, two days ago, or last week. "
+                    "Prefer a concrete short answer (dates, names, places). "
+                    "Never answer with only 'None' or 'N/A' if any memory is remotely relevant — "
+                    "quote the best supporting memory instead. "
+                    "If memories truly lack the answer, say you do not know."
                 ),
             },
             {"role": "user", "content": f"Memories:\n{context}\n\nQuestion: {question}"},
