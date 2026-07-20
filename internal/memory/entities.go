@@ -159,6 +159,68 @@ func isDistinctiveEntity(entity string, df map[string]int, total int) bool {
 	return float64(count)/float64(total) <= 0.4
 }
 
+// propagateEntityGraph performs one HippoRAG-style personalized propagation over
+// the entity→memory graph, restricted to the already-ranked candidate set (a
+// rerank, never a recall expander). A candidate gains a small bonus when it
+// shares distinctive entities with other high-scoring candidates, weighted by
+// entity rarity (IDF). This surfaces supporting facts for multi-hop questions
+// without flooding recall with weak entity-only matches.
+func propagateEntityGraph(ranked []rankedSearchResult, entitiesByID map[string][]string, df map[string]int, total int) {
+	if len(ranked) < 2 || total <= 0 {
+		return
+	}
+	// Base mass from current scores.
+	base := make([]float64, len(ranked))
+	for i := range ranked {
+		base[i] = ranked[i].result.Score
+	}
+	const damping = 0.15
+	for i := range ranked {
+		ei := entitiesByID[ranked[i].result.MemoryID]
+		if len(ei) == 0 {
+			continue
+		}
+		eset := make(map[string]struct{}, len(ei))
+		for _, e := range ei {
+			eset[e] = struct{}{}
+		}
+		var gain float64
+		for j := range ranked {
+			if i == j {
+				continue
+			}
+			shared := 0.0
+			for _, e := range entitiesByID[ranked[j].result.MemoryID] {
+				if _, ok := eset[e]; !ok {
+					continue
+				}
+				dfc := df[e]
+				if dfc <= 0 || total <= 0 {
+					continue
+				}
+				frac := float64(dfc) / float64(total)
+				if frac > 0.4 {
+					continue // ubiquitous entity (e.g. speakers) — no signal
+				}
+				// Rarer shared entity → stronger link.
+				gain += base[j] * (1.0 - frac)
+			}
+			_ = shared
+		}
+		if gain > 0 {
+			add := damping * gain
+			if add > 0.5 {
+				add = 0.5
+			}
+			ranked[i].result.Score += add
+			if ranked[i].result.Explain == nil {
+				ranked[i].result.Explain = map[string]any{}
+			}
+			ranked[i].result.Explain["entity_graph_boost"] = add
+		}
+	}
+}
+
 // recordEntities returns entities persisted on a record (from ingest), falling
 // back to on-the-fly extraction from content for older records.
 func recordEntities(record MemoryRecord) []string {
