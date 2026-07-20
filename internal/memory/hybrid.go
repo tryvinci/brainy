@@ -55,34 +55,39 @@ func (s *Service) embeddingScores(ctx context.Context, tenantID, subjectID strin
 // calibrateSimilarities rescales raw cosine similarities to a per-query relative
 // scale. Modern embedding models have a high, model-specific baseline similarity
 // for arbitrary text (e.g. bge-small ~0.5 for unrelated English), so absolute
-// thresholds are meaningless. We map the candidate distribution so only
-// above-baseline matches carry positive signal: rescaled = (v - floor)/(1-floor)
-// with floor = mean similarity, clamped to [0,1]. Model-agnostic, self-calibrating.
+// thresholds are meaningless. We min-max normalize the candidate distribution so
+// the strongest matches keep high signal while the baseline noise floor is
+// suppressed toward zero. Model-agnostic; preserves top-match recall.
+//
+// Small or flat candidate sets are returned unchanged: with few candidates the
+// distribution is uninformative and normalizing could erase a lone true match
+// (e.g. a single paraphrase in a tiny corpus).
 func calibrateSimilarities(raw map[string]float64) map[string]float64 {
-	if len(raw) == 0 {
+	if len(raw) < 6 {
 		return raw
 	}
-	var sum, max float64
+	var min, max float64
+	first := true
 	for _, v := range raw {
-		sum += v
+		if first {
+			min, max, first = v, v, false
+			continue
+		}
+		if v < min {
+			min = v
+		}
 		if v > max {
 			max = v
 		}
 	}
-	mean := sum / float64(len(raw))
-	// If the spread is tiny, similarities are uninformative — zero them out.
-	floor := mean
-	denom := 1.0 - floor
-	if denom < 1e-6 || max-mean < 0.02 {
-		out := make(map[string]float64, len(raw))
-		for k := range raw {
-			out[k] = 0
-		}
-		return out
+	spread := max - min
+	if spread < 0.05 {
+		// Nearly flat: similarities carry no discriminative signal.
+		return raw
 	}
 	out := make(map[string]float64, len(raw))
 	for k, v := range raw {
-		r := (v - floor) / denom
+		r := (v - min) / spread
 		if r < 0 {
 			r = 0
 		}
