@@ -302,19 +302,27 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 
 	// Entity-linked recall: admit memories sharing a *distinctive* query entity
 	// even when lexical/embedding recall missed them (generic SOTA technique).
-	if len(distinctiveQueryEntities) > 0 {
+	// Only admit when the memory ALSO has some lexical/embedding overlap signal,
+	// so a shared distinctive entity refines recall rather than flooding it.
+	if len(distinctiveQueryEntities) > 0 && len(candidates) < 40 {
 		if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
 			admitted := 0
 			for _, record := range allMemories {
 				if _, ok := candidates[record.MemoryID]; ok {
 					continue
 				}
-				if entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)) > 0 {
-					candidates[record.MemoryID] = record
-					admitted++
-					if admitted >= 25 {
-						break
-					}
+				if entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)) <= 0 {
+					continue
+				}
+				// Require a secondary signal (token or embedding) to admit.
+				tokenScore, _ := scoreMemory(record, queryTokens, nil)
+				if tokenScore <= 0 && embedScores[record.MemoryID] < 0.2 {
+					continue
+				}
+				candidates[record.MemoryID] = record
+				admitted++
+				if admitted >= 10 {
+					break
 				}
 			}
 		}
