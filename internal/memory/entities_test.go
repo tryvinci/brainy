@@ -52,3 +52,20 @@ func TestEntityRankingToggleCovered(t *testing.T) {
 		t.Fatal("expected results with entity ranking enabled")
 	}
 }
+
+func TestCalibrateSimilarities(t *testing.T) {
+	raw := map[string]float64{"a": 0.9, "b": 0.5, "c": 0.5, "d": 0.5} // mean 0.6
+	out := calibrateSimilarities(raw)
+	if out["a"] <= 0 {
+		t.Fatalf("top match should stay positive, got %v", out["a"])
+	}
+	for _, k := range []string{"b", "c", "d"} {
+		if out[k] != 0 {
+			t.Fatalf("below-mean %s should calibrate to 0, got %v", k, out[k])
+		}
+	}
+	flat := calibrateSimilarities(map[string]float64{"x": 0.5, "y": 0.5})
+	if flat["x"] != 0 || flat["y"] != 0 {
+		t.Fatalf("flat distribution should zero out, got %v", flat)
+	}
+}

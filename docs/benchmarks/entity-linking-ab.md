@@ -33,3 +33,32 @@ dense embedding endpoint is available.
 
 Entities are not tuned to any benchmark — extraction is generic (proper nouns,
 quoted spans, years).
+
+## Update: real dense embeddings (local bge-small, 2026-07-20)
+
+Unblocked dense embeddings by running a local open-source model
+(`BAAI/bge-small-en-v1.5`, 384-d, CPU) behind an OpenAI-compatible endpoint,
+since the hosted gateway blocks `/embeddings`.
+
+**Critical finding:** modern embedding models have a high baseline cosine
+(bge-small ≈ 0.49 for *unrelated* English). The prior absolute thresholds
+(`>=0.15`) flooded candidates and compressed ranking. Fix: per-query similarity
+**calibration** (rescale relative to the candidate mean) — now model-agnostic.
+
+Same-pin LOCOMO smoke (1 convo / 30 Q):
+
+| Config | Overall | multi-hop |
+| --- | ---: | ---: |
+| hash embedder (baseline) | 13/30 | 2/10 |
+| real emb, uncalibrated | 11/30 | — |
+| real emb, calibrated, entity OFF | 12/30 | 2/10 |
+| real emb, calibrated, entity ON | 11/30 | 3/10 |
+
+Takeaways:
+- **Calibration is a required correctness fix** for any real embedding provider.
+- A small CPU embedding model (bge-small) is ~on par with the tuned lexical+hash
+  stack on this smoke; entity ranking helps multi-hop (+1) but is net-neutral.
+- SOTA numbers (Mem0 92) use larger hosted embedding models + larger retrieval
+  budgets; the path is a stronger embedding endpoint on staging, then re-measure.
+- Repro: run an OpenAI-compatible embeddings server and set
+  `BRAINY_EMBEDDING_BASE_URL` / `BRAINY_EMBEDDING_MODEL` (entity ranking auto-on).
