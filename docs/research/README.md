@@ -53,4 +53,7 @@ First posts can ship with **empty / TBD cells** for latency and LOCOMO — prefe
 
 ## Next engineering step
 
-See [public-bench-ladder.md](./public-bench-ladder.md): raise LOCOMO smoke past the **12/30** L4 unlock (working dense embeddings + multi-hop synthesis), then full LOCOMO + MarketingMem public track.
+See [path-to-sota.md](./path-to-sota.md) for the consolidated, leader-informed
+plan (strong hosted embeddings on staging → BM25/IDF → temporal supersession →
+entity graph/PageRank → full LOCOMO under a comparable judge). Also
+[public-bench-ladder.md](./public-bench-ladder.md).
