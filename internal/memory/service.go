@@ -38,6 +38,16 @@ type Service struct {
 	packs     *pack.Registry
 	now       func() time.Time
 	id        func(prefix string) string
+	// entityRankingEnabled gates entity-overlap retrieval boosting. Extraction/
+	// persistence always runs; ranking integration is opt-in until proven
+	// non-regressing on same-pin conversational measurement.
+	entityRankingEnabled bool
+}
+
+// WithEntityRanking toggles entity-overlap retrieval boosting (default off).
+func (s *Service) WithEntityRanking(enabled bool) *Service {
+	s.entityRankingEnabled = enabled
+	return s
 }
 
 func NewService(store Store) *Service {
@@ -287,6 +297,23 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
+	// Entity linking: entities are extracted and persisted on ingest (used for
+	// provenance and the planned graph layer). Applying entity overlap as a
+	// retrieval boost/recall-expander regressed conversational ranking in
+	// same-pin smoke measurement (distinctive-entity mentions are not answers),
+	// so the ranking integration is gated off by default until a version proves
+	// non-regressing. See entityRankingEnabled.
+	var distinctiveQueryEntities []string
+	if s.entityRankingEnabled {
+		queryEntities := ExtractEntities(query)
+		entityDF, totalMemories := s.entityDocFrequencies(ctx, tenantID, subjectID)
+		for _, e := range queryEntities {
+			if isDistinctiveEntity(e, entityDF, totalMemories) {
+				distinctiveQueryEntities = append(distinctiveQueryEntities, e)
+			}
+		}
+	}
+
 	var packWeights map[string]int
 	if p, ok := s.packs.Get(vertical); ok {
 		packWeights = p.RankPolicy.PrimitiveWeights
@@ -314,6 +341,12 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 			embedScore = embedding.CosineSimilarity(queryVector, s.recordEmbedding(ctx, record))
 		}
 		score = applyHybridScore(score, explain, embedScore)
+		if s.entityRankingEnabled {
+			if bonus := entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)); bonus > 0 {
+				score += bonus
+				explain["entity_overlap_boost"] = bonus
+			}
+		}
 		applySessionNeighborBoost(&score, explain, record, memories)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)

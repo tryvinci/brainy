@@ -1,7 +1,7 @@
-# LOCOMO smoke — `locomo-smoke-anti-benchmax`
+# LOCOMO smoke — `locomo-smoke-entity-gated`
 
-**Timestamp:** 2026-07-19T14:44:07Z  
-**Brainy commit:** `6366725dde4a48da9f9d26a0ae90bdc08e21f375`  
+**Timestamp:** 2026-07-20T02:15:13Z  
+**Brainy commit:** `6e0d5d4ab25e4b8e71bf384b27e1942126c13620`  
 **Judge/Answerer:** `[REDACTED]`  
 **Ingest:** async  
 
@@ -9,16 +9,19 @@
 
 | Metric | Value |
 | --- | ---: |
-| Overall | **0.400 (12/30)** |
+| Overall | **0.433 (13/30)** |
 
 | Category | Acc | n |
 | --- | ---: | ---: |
 | multi-hop | 0.200 | 10 |
-| open-domain | 0.500 | 4 |
+| open-domain | 0.750 | 4 |
 | temporal | 0.500 | 16 |
 
 ## Notes
 
-Anti-benchmax remeasure after removing harness answer-padding. Score reflects **product** recall/ranking/event-time only.
+SOTA-inspired **entity linking** (Mem0/Zep/A-MEM) added: entities are extracted and
+persisted on every memory for provenance and the planned graph layer. The entity-overlap
+**ranking boost** regressed same-pin smoke (distinctive-entity mentions are not answers),
+so it is gated off by default (`WithEntityRanking`) — product-first, not benchmax.
 
-Taxonomy: {'correct': 12, 'answer_judge_miss': 11, 'retrieval_miss': 7}.
+Score matches the pre-entity product baseline (**13/30, 43.3%**); entity infra adds no regression.

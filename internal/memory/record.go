@@ -60,6 +60,13 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 		record.Metadata["duration"] = extracted.Duration
 	}
 
+	if entities := ExtractEntities(extracted.Content + " " + extracted.SourceText); len(entities) > 0 {
+		if record.Metadata == nil {
+			record.Metadata = map[string]any{}
+		}
+		record.Metadata["entities"] = entities
+	}
+
 	record.ObservedAt = ResolveObservedAt(record.Metadata, extracted.When)
 	if record.ObservedAt != nil {
 		record.Content = EnrichRelativeEventTime(record.Content, *record.ObservedAt)
