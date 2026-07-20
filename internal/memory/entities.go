@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"regexp"
 	"strings"
 )
@@ -121,6 +122,41 @@ func entityOverlapBoost(queryEntities []string, recordEntities []string) float64
 		return 0.6
 	}
 	return boost
+}
+
+// entityDocFrequencies counts, over the subject's active memories, how many
+// memories mention each entity. Used to down-weight ubiquitous entities.
+func (s *Service) entityDocFrequencies(ctx context.Context, tenantID, subjectID string) (map[string]int, int) {
+	df := map[string]int{}
+	all, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
+	if err != nil {
+		return df, 0
+	}
+	for _, record := range all {
+		seen := map[string]struct{}{}
+		for _, e := range recordEntities(record) {
+			if _, ok := seen[e]; ok {
+				continue
+			}
+			seen[e] = struct{}{}
+			df[e]++
+		}
+	}
+	return df, len(all)
+}
+
+// isDistinctiveEntity keeps entities that are not ubiquitous across the subject's
+// memories. An entity present in >40% of memories (e.g. a dialogue's speakers) is
+// treated as non-distinctive and excluded from entity boosting/admission.
+func isDistinctiveEntity(entity string, df map[string]int, total int) bool {
+	if total <= 3 {
+		return true
+	}
+	count := df[entity]
+	if count == 0 {
+		return true
+	}
+	return float64(count)/float64(total) <= 0.4
 }
 
 // recordEntities returns entities persisted on a record (from ingest), falling
