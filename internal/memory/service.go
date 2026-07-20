@@ -289,16 +289,27 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 
 	queryEntities := ExtractEntities(query)
 
-	// Entity-linked recall: admit memories sharing a query entity even when
-	// lexical/embedding recall missed them (generic SOTA technique).
-	if len(queryEntities) > 0 {
+	// Entity document frequency over the subject's memories: ubiquitous entities
+	// (e.g. the two speakers in a dialogue) carry little signal, so we weight by
+	// rarity (IDF-style) and only admit/boost on *distinctive* shared entities.
+	entityDF, totalMemories := s.entityDocFrequencies(ctx, tenantID, subjectID)
+	distinctiveQueryEntities := make([]string, 0, len(queryEntities))
+	for _, e := range queryEntities {
+		if isDistinctiveEntity(e, entityDF, totalMemories) {
+			distinctiveQueryEntities = append(distinctiveQueryEntities, e)
+		}
+	}
+
+	// Entity-linked recall: admit memories sharing a *distinctive* query entity
+	// even when lexical/embedding recall missed them (generic SOTA technique).
+	if len(distinctiveQueryEntities) > 0 {
 		if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
 			admitted := 0
 			for _, record := range allMemories {
 				if _, ok := candidates[record.MemoryID]; ok {
 					continue
 				}
-				if entityOverlapBoost(queryEntities, recordEntities(record)) > 0 {
+				if entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)) > 0 {
 					candidates[record.MemoryID] = record
 					admitted++
 					if admitted >= 25 {
@@ -336,7 +347,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 			embedScore = embedding.CosineSimilarity(queryVector, s.recordEmbedding(ctx, record))
 		}
 		score = applyHybridScore(score, explain, embedScore)
-		if bonus := entityOverlapBoost(queryEntities, recordEntities(record)); bonus > 0 {
+		if bonus := entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)); bonus > 0 {
 			score += bonus
 			explain["entity_overlap_boost"] = bonus
 		}
