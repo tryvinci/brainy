@@ -339,10 +339,8 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		if explain == nil {
 			explain = map[string]any{}
 		}
+		// Calibrated (per-query relative) embedding similarity; absent => 0.
 		embedScore := embedScores[record.MemoryID]
-		if embedScore == 0 {
-			embedScore = embedding.CosineSimilarity(queryVector, s.recordEmbedding(ctx, record))
-		}
 		score = applyHybridScore(score, explain, embedScore)
 		if s.entityRankingEnabled {
 			if bonus := entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)); bonus > 0 {
