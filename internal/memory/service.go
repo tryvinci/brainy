@@ -287,6 +287,28 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
+	queryEntities := ExtractEntities(query)
+
+	// Entity-linked recall: admit memories sharing a query entity even when
+	// lexical/embedding recall missed them (generic SOTA technique).
+	if len(queryEntities) > 0 {
+		if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
+			admitted := 0
+			for _, record := range allMemories {
+				if _, ok := candidates[record.MemoryID]; ok {
+					continue
+				}
+				if entityOverlapBoost(queryEntities, recordEntities(record)) > 0 {
+					candidates[record.MemoryID] = record
+					admitted++
+					if admitted >= 25 {
+						break
+					}
+				}
+			}
+		}
+	}
+
 	var packWeights map[string]int
 	if p, ok := s.packs.Get(vertical); ok {
 		packWeights = p.RankPolicy.PrimitiveWeights
@@ -314,6 +336,10 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 			embedScore = embedding.CosineSimilarity(queryVector, s.recordEmbedding(ctx, record))
 		}
 		score = applyHybridScore(score, explain, embedScore)
+		if bonus := entityOverlapBoost(queryEntities, recordEntities(record)); bonus > 0 {
+			score += bonus
+			explain["entity_overlap_boost"] = bonus
+		}
 		applySessionNeighborBoost(&score, explain, record, memories)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
