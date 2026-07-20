@@ -38,6 +38,16 @@ type Service struct {
 	packs     *pack.Registry
 	now       func() time.Time
 	id        func(prefix string) string
+	// entityRankingEnabled gates entity-overlap retrieval boosting. Extraction/
+	// persistence always runs; ranking integration is opt-in until proven
+	// non-regressing on same-pin conversational measurement.
+	entityRankingEnabled bool
+}
+
+// WithEntityRanking toggles entity-overlap retrieval boosting (default off).
+func (s *Service) WithEntityRanking(enabled bool) *Service {
+	s.entityRankingEnabled = enabled
+	return s
 }
 
 func NewService(store Store) *Service {
@@ -287,43 +297,19 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
-	queryEntities := ExtractEntities(query)
-
-	// Entity document frequency over the subject's memories: ubiquitous entities
-	// (e.g. the two speakers in a dialogue) carry little signal, so we weight by
-	// rarity (IDF-style) and only admit/boost on *distinctive* shared entities.
-	entityDF, totalMemories := s.entityDocFrequencies(ctx, tenantID, subjectID)
-	distinctiveQueryEntities := make([]string, 0, len(queryEntities))
-	for _, e := range queryEntities {
-		if isDistinctiveEntity(e, entityDF, totalMemories) {
-			distinctiveQueryEntities = append(distinctiveQueryEntities, e)
-		}
-	}
-
-	// Entity-linked recall: admit memories sharing a *distinctive* query entity
-	// even when lexical/embedding recall missed them (generic SOTA technique).
-	// Only admit when the memory ALSO has some lexical/embedding overlap signal,
-	// so a shared distinctive entity refines recall rather than flooding it.
-	if len(distinctiveQueryEntities) > 0 && len(candidates) < 40 {
-		if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
-			admitted := 0
-			for _, record := range allMemories {
-				if _, ok := candidates[record.MemoryID]; ok {
-					continue
-				}
-				if entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)) <= 0 {
-					continue
-				}
-				// Require a secondary signal (token or embedding) to admit.
-				tokenScore, _ := scoreMemory(record, queryTokens, nil)
-				if tokenScore <= 0 && embedScores[record.MemoryID] < 0.2 {
-					continue
-				}
-				candidates[record.MemoryID] = record
-				admitted++
-				if admitted >= 10 {
-					break
-				}
+	// Entity linking: entities are extracted and persisted on ingest (used for
+	// provenance and the planned graph layer). Applying entity overlap as a
+	// retrieval boost/recall-expander regressed conversational ranking in
+	// same-pin smoke measurement (distinctive-entity mentions are not answers),
+	// so the ranking integration is gated off by default until a version proves
+	// non-regressing. See entityRankingEnabled.
+	var distinctiveQueryEntities []string
+	if s.entityRankingEnabled {
+		queryEntities := ExtractEntities(query)
+		entityDF, totalMemories := s.entityDocFrequencies(ctx, tenantID, subjectID)
+		for _, e := range queryEntities {
+			if isDistinctiveEntity(e, entityDF, totalMemories) {
+				distinctiveQueryEntities = append(distinctiveQueryEntities, e)
 			}
 		}
 	}
@@ -355,9 +341,11 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 			embedScore = embedding.CosineSimilarity(queryVector, s.recordEmbedding(ctx, record))
 		}
 		score = applyHybridScore(score, explain, embedScore)
-		if bonus := entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)); bonus > 0 {
-			score += bonus
-			explain["entity_overlap_boost"] = bonus
+		if s.entityRankingEnabled {
+			if bonus := entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)); bonus > 0 {
+				score += bonus
+				explain["entity_overlap_boost"] = bonus
+			}
 		}
 		applySessionNeighborBoost(&score, explain, record, memories)
 		applyConvictionBoost(&score, explain, record)
