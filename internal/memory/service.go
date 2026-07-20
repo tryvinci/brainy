@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -321,6 +322,13 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		packWeights = p.RankPolicy.PrimitiveWeights
 	}
 
+	// IDF weights over the subject's corpus so distinctive query terms dominate
+	// lexical scoring (BM25 intuition). Computed once per query.
+	var idf map[string]float64
+	if allForIDF, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
+		idf = computeQueryIDF(allForIDF, contentBearingTokens(queryTokens))
+	}
+
 	ranked := make([]rankedSearchResult, 0, len(candidates))
 	entitiesByID := make(map[string][]string, len(candidates))
 	for _, record := range candidates {
@@ -335,7 +343,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 				continue
 			}
 		}
-		score, explain := scoreMemory(record, queryTokens, packWeights)
+		score, explain := scoreMemoryIDF(record, queryTokens, packWeights, idf)
 		if explain == nil {
 			explain = map[string]any{}
 		}
@@ -663,6 +671,78 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 }
 
 func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map[string]int) (float64, map[string]any) {
+	return scoreMemoryIDF(record, queryTokens, primitiveWeights, nil)
+}
+
+// coverageScore returns matched/total query coverage, IDF-weighted when idf is
+// available so distinctive terms dominate over common ones (BM25 intuition).
+// Result is normalized to [0,1] to preserve downstream boost calibration.
+func coverageScore(matched, bearingQuery []string, idf map[string]float64) float64 {
+	if len(bearingQuery) == 0 {
+		return 0
+	}
+	if len(idf) == 0 {
+		return float64(len(matched)) / float64(len(bearingQuery))
+	}
+	var total, hit float64
+	for _, t := range bearingQuery {
+		w := idf[t]
+		if w <= 0 {
+			w = 1.0 // unseen term: neutral weight
+		}
+		total += w
+	}
+	for _, t := range matched {
+		w := idf[t]
+		if w <= 0 {
+			w = 1.0
+		}
+		hit += w
+	}
+	if total <= 0 {
+		return float64(len(matched)) / float64(len(bearingQuery))
+	}
+	return hit / total
+}
+
+// computeQueryIDF returns inverse document frequency for each content-bearing
+// query term over the subject's active memories. idf = log(1 + N/(1+df)).
+func computeQueryIDF(all []MemoryRecord, bearingQuery []string) map[string]float64 {
+	if len(all) == 0 || len(bearingQuery) == 0 {
+		return nil
+	}
+	n := float64(len(all))
+	df := make(map[string]int, len(bearingQuery))
+	for _, record := range all {
+		contentTokens := tokenize(record.Content)
+		seen := map[string]struct{}{}
+		for _, ct := range contentTokens {
+			seen[ct] = struct{}{}
+		}
+		for _, q := range bearingQuery {
+			if _, done := df[q]; false {
+				_ = done
+			}
+			for ct := range seen {
+				if tokensMatch(q, ct) {
+					df[q]++
+					break
+				}
+			}
+		}
+	}
+	idf := make(map[string]float64, len(bearingQuery))
+	for _, q := range bearingQuery {
+		idf[q] = math.Log(1.0 + n/(1.0+float64(df[q])))
+	}
+	return idf
+}
+
+// scoreMemoryIDF scores a memory against the query. When idf is provided, the
+// base lexical coverage is IDF-weighted (BM25-style): matching rare/distinctive
+// query terms counts more than common ones. idf==nil falls back to plain
+// match-count coverage (used by direct unit tests / no-corpus paths).
+func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights map[string]int, idf map[string]float64) (float64, map[string]any) {
 	contentTokens := tokenize(record.Content)
 	bearingQuery := contentBearingTokens(queryTokens)
 	if len(bearingQuery) == 0 {
@@ -699,10 +779,13 @@ func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map
 		return score, explain
 	}
 
-	score := float64(len(matched)) / float64(len(bearingQuery))
+	score := coverageScore(matched, bearingQuery, idf)
 	explain := map[string]any{
 		"matched_terms": matched,
 		"ranking_basis": "deterministic_baseline",
+	}
+	if len(idf) > 0 {
+		explain["ranking_basis"] = "idf_weighted"
 	}
 	if record.Primitive != "" {
 		explain["primitive"] = record.Primitive
