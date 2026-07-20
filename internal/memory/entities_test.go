@@ -54,18 +54,20 @@ func TestEntityRankingToggleCovered(t *testing.T) {
 }
 
 func TestCalibrateSimilarities(t *testing.T) {
-	raw := map[string]float64{"a": 0.9, "b": 0.5, "c": 0.5, "d": 0.5} // mean 0.6
+	// >=6 candidates with a clear top match: min-max normalizes, top stays 1.0,
+	// baseline noise floor suppressed toward 0.
+	raw := map[string]float64{"a": 0.9, "b": 0.5, "c": 0.5, "d": 0.5, "e": 0.5, "f": 0.48}
 	out := calibrateSimilarities(raw)
-	if out["a"] <= 0 {
-		t.Fatalf("top match should stay positive, got %v", out["a"])
+	if out["a"] <= 0.9 {
+		t.Fatalf("top match should stay near 1.0, got %v", out["a"])
 	}
-	for _, k := range []string{"b", "c", "d"} {
-		if out[k] != 0 {
-			t.Fatalf("below-mean %s should calibrate to 0, got %v", k, out[k])
-		}
+	if out["f"] > 0.2 {
+		t.Fatalf("noise floor should be suppressed, got %v", out["f"])
 	}
-	flat := calibrateSimilarities(map[string]float64{"x": 0.5, "y": 0.5})
-	if flat["x"] != 0 || flat["y"] != 0 {
-		t.Fatalf("flat distribution should zero out, got %v", flat)
+	// Small sets are returned unchanged (avoid erasing a lone true match).
+	small := map[string]float64{"x": 0.75, "y": 0.5, "z": 0.48}
+	got := calibrateSimilarities(small)
+	if got["x"] != 0.75 {
+		t.Fatalf("small set should be unchanged, got %v", got)
 	}
 }
