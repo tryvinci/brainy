@@ -23,6 +23,8 @@ type Config struct {
 	EmbeddingAPIKey  string
 	EmbeddingModel   string
 	EmbeddingTimeout time.Duration
+	// EntityRanking enables experimental entity-graph retrieval reranking.
+	EntityRanking bool
 }
 
 func Load() Config {
@@ -49,6 +51,7 @@ func Load() Config {
 		EmbeddingAPIKey:    getenv("BRAINY_EMBEDDING_API_KEY", providerKey),
 		EmbeddingModel:     getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL")),
 		EmbeddingTimeout:   getenvDuration("BRAINY_EMBEDDING_TIMEOUT", 30*time.Second),
+		EntityRanking:      getenv("BRAINY_ENTITY_RANKING", "") == "true",
 	}
 }
 

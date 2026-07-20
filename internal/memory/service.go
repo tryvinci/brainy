@@ -304,9 +304,11 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	// so the ranking integration is gated off by default until a version proves
 	// non-regressing. See entityRankingEnabled.
 	var distinctiveQueryEntities []string
+	var entityDF map[string]int
+	var totalMemories int
 	if s.entityRankingEnabled {
 		queryEntities := ExtractEntities(query)
-		entityDF, totalMemories := s.entityDocFrequencies(ctx, tenantID, subjectID)
+		entityDF, totalMemories = s.entityDocFrequencies(ctx, tenantID, subjectID)
 		for _, e := range queryEntities {
 			if isDistinctiveEntity(e, entityDF, totalMemories) {
 				distinctiveQueryEntities = append(distinctiveQueryEntities, e)
@@ -320,6 +322,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	}
 
 	ranked := make([]rankedSearchResult, 0, len(candidates))
+	entitiesByID := make(map[string][]string, len(candidates))
 	for _, record := range candidates {
 		if !IsLifecycleSearchVisible(record.LifecycleState) {
 			continue
@@ -361,6 +364,9 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		if score <= 0 {
 			continue
 		}
+		if s.entityRankingEnabled {
+			entitiesByID[record.MemoryID] = recordEntities(record)
+		}
 		ranked = append(ranked, rankedSearchResult{
 			result: SearchResult{
 				MemoryID:   record.MemoryID,
@@ -372,6 +378,10 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 			},
 			eventTime: EventTime(record),
 		})
+	}
+
+	if s.entityRankingEnabled {
+		propagateEntityGraph(ranked, entitiesByID, entityDF, totalMemories)
 	}
 
 	applyRelativeRecencyBoost(ranked)
