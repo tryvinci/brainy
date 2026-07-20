@@ -26,6 +26,8 @@ type Config struct {
 	EmbeddingTimeout time.Duration
 	// EntityRanking enables experimental entity-graph retrieval reranking.
 	EntityRanking bool
+	// IDFRanking enables experimental IDF-weighted lexical coverage.
+	IDFRanking bool
 }
 
 func Load() Config {
@@ -53,6 +55,7 @@ func Load() Config {
 		EmbeddingModel:     getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL")),
 		EmbeddingTimeout:   getenvDuration("BRAINY_EMBEDDING_TIMEOUT", 30*time.Second),
 		EntityRanking:      entityRankingDefault(),
+		IDFRanking:         getenv("BRAINY_IDF_RANKING", "") == "true",
 	}
 }
 

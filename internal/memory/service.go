@@ -43,6 +43,16 @@ type Service struct {
 	// persistence always runs; ranking integration is opt-in until proven
 	// non-regressing on same-pin conversational measurement.
 	entityRankingEnabled bool
+	// idfRankingEnabled gates IDF-weighted lexical coverage (BM25 intuition).
+	// Off by default: it regressed same-pin smoke without re-tuning the additive
+	// boost stack. Opt-in for staging experiments.
+	idfRankingEnabled bool
+}
+
+// WithIDFRanking toggles IDF-weighted lexical coverage (default off).
+func (s *Service) WithIDFRanking(enabled bool) *Service {
+	s.idfRankingEnabled = enabled
+	return s
 }
 
 // WithEntityRanking toggles entity-overlap retrieval boosting (default off).
@@ -323,10 +333,14 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	}
 
 	// IDF weights over the subject's corpus so distinctive query terms dominate
-	// lexical scoring (BM25 intuition). Computed once per query.
+	// lexical scoring (BM25 intuition). Gated: same-pin smoke showed it regresses
+	// without re-tuning the additive-boost stack, so it is opt-in
+	// (BRAINY_IDF_RANKING) pending a staging re-tune. Computed once per query.
 	var idf map[string]float64
-	if allForIDF, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
-		idf = computeQueryIDF(allForIDF, contentBearingTokens(queryTokens))
+	if s.idfRankingEnabled {
+		if allForIDF, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
+			idf = computeQueryIDF(allForIDF, contentBearingTokens(queryTokens))
+		}
 	}
 
 	ranked := make([]rankedSearchResult, 0, len(candidates))
