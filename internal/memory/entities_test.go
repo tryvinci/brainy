@@ -71,3 +71,30 @@ func TestCalibrateSimilarities(t *testing.T) {
 		t.Fatalf("small set should be unchanged, got %v", got)
 	}
 }
+
+func TestCoverageScoreIDFWeighting(t *testing.T) {
+	// "adoption" is rare, "the" common. Matching the rare term should score higher.
+	idf := map[string]float64{"adoption": 3.0, "the": 0.1}
+	rare := coverageScore([]string{"adoption"}, []string{"adoption", "the"}, idf)
+	common := coverageScore([]string{"the"}, []string{"adoption", "the"}, idf)
+	if rare <= common {
+		t.Fatalf("rare-term match should outscore common-term match: rare=%v common=%v", rare, common)
+	}
+	// nil idf falls back to plain coverage.
+	if coverageScore([]string{"a"}, []string{"a", "b"}, nil) != 0.5 {
+		t.Fatal("nil idf should be plain coverage 0.5")
+	}
+}
+
+func TestComputeQueryIDF(t *testing.T) {
+	all := []MemoryRecord{
+		{Content: "I love adoption agencies"},
+		{Content: "the weather is nice"},
+		{Content: "the dog runs"},
+		{Content: "the cat sleeps"},
+	}
+	idf := computeQueryIDF(all, []string{"adoption", "the"})
+	if idf["adoption"] <= idf["the"] {
+		t.Fatalf("rare term should have higher idf: %v", idf)
+	}
+}
