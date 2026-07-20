@@ -35,6 +35,15 @@ pgvector is **optional** (migration v9 no-ops if the extension is missing). Stag
    - optional `BRAINY_PROVIDER_TIMEOUT` (Blueprint default `45s`)
 
    Leave empty to keep deterministic-only worker extract. Sync `/ingest` on the API is always deterministic.
+8. **Dense embeddings + reranking (SOTA path):** on both `brainy-api-staging` and
+   `brainy-worker-staging`, set a strong hosted embeddings endpoint:
+   - `BRAINY_EMBEDDING_BASE_URL`, `BRAINY_EMBEDDING_API_KEY`, `BRAINY_EMBEDDING_MODEL`
+
+   Setting `BRAINY_EMBEDDING_MODEL` auto-enables entity ranking. Optionally A/B
+   `BRAINY_IDF_RANKING=true`. Then re-measure LOCOMO with a **comparable
+   answerer/judge** and re-tune the boost stack *there* — never against the
+   30-question smoke (see `docs/research/path-to-sota.md`,
+   `docs/benchmarks/entity-linking-ab.md`).
 
 CLI alternative (if already logged into Render):
 
