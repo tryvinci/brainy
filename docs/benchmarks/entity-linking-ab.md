@@ -62,3 +62,21 @@ Takeaways:
   budgets; the path is a stronger embedding endpoint on staging, then re-measure.
 - Repro: run an OpenAI-compatible embeddings server and set
   `BRAINY_EMBEDDING_BASE_URL` / `BRAINY_EMBEDDING_MODEL` (entity ranking auto-on).
+
+## Update: embedding model size (bge-base 768-d, 2026-07-20)
+
+| Config | Overall |
+| --- | ---: |
+| real emb bge-small (384-d), entity OFF | 12/30 |
+| real emb bge-base (768-d), entity OFF | 12/30 |
+
+A larger local embedding model does **not** move this smoke: retrieval already
+surfaces the ground-truth spans (retrieval-miss is low); the remaining failures
+are answer/synthesis and temporal precision under the pinned `gpt-oss-120b`
+answerer/judge — not embedding recall. Scores are **not** comparable to Mem0's
+published 92 (different judge/answerer, retrieval budget, managed platform).
+
+Guidance: on staging, point `BRAINY_EMBEDDING_*` at a strong hosted embeddings
+endpoint and re-measure with a comparable answerer/judge before drawing SOTA
+conclusions. Reproduce embedding-backed runs locally via
+`evals/tools/local_embeddings_server.py`.
