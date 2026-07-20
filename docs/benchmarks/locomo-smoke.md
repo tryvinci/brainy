@@ -1,34 +1,27 @@
-# LOCOMO smoke — `locomo-smoke-entity-linking`
+# LOCOMO smoke — `locomo-smoke-entity-gated`
 
-**Timestamp:** 2026-07-20T02:03:20Z  
-**Brainy:** `http://127.0.0.1:8080` (commit `a8cdec8821313bf7098670e30fe8a8f4d1ea0248`)  
-**Dataset:** [https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json](https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json)  
-**SHA256:** `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`  
-**Answerer:** `[REDACTED]@https://gateway.ai.cloudflare.com/v1/9c8c17cfa5b8c29c830e072acce42a3d/brainy-staging/compat`  
-**Judge:** `[REDACTED]@https://gateway.ai.cloudflare.com/v1/9c8c17cfa5b8c29c830e072acce42a3d/brainy-staging/compat` (temp=0.0)  
-**Schema:** mem0ai/memory-benchmarks@UnifiedResult-1.0
+**Timestamp:** 2026-07-20T02:15:13Z  
+**Brainy commit:** `6e0d5d4ab25e4b8e71bf384b27e1942126c13620`  
+**Judge/Answerer:** `[REDACTED]`  
+**Ingest:** async  
 
-## Scores (categories 1–4; adversarial excluded)
+## Scores
 
 | Metric | Value |
 | --- | ---: |
-| Overall | 0.300 (9/30) |
-| Search p50 ms | 31.9 |
-| Search p95 ms | 44.0 |
+| Overall | **0.433 (13/30)** |
 
 | Category | Acc | n |
 | --- | ---: | ---: |
 | multi-hop | 0.200 | 10 |
-| open-domain | 0.500 | 4 |
-| temporal | 0.312 | 16 |
+| open-domain | 0.750 | 4 |
+| temporal | 0.500 | 16 |
 
-## Proveability
+## Notes
 
-Pins present (dataset SHA, judge model, brainy URL/commit).
+SOTA-inspired **entity linking** (Mem0/Zep/A-MEM) added: entities are extracted and
+persisted on every memory for provenance and the planned graph layer. The entity-overlap
+**ranking boost** regressed same-pin smoke (distinctive-entity mentions are not answers),
+so it is gated off by default (`WithEntityRanking`) — product-first, not benchmax.
 
-## Outlinks
-
-- Dataset upstream: https://github.com/snap-research/locomo
-- Paper: https://aclanthology.org/2024.acl-long.747/
-- Harness peer: https://github.com/mem0ai/memory-benchmarks
-
+Score matches the pre-entity product baseline (**13/30, 43.3%**); entity infra adds no regression.
