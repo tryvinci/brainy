@@ -20,8 +20,16 @@ embeddings** feeding the graph — which is currently blocked in this environmen
 (provider `/embeddings` returns 403).
 
 Decision (product-first, anti-benchmax): keep entity **extraction + persistence**
-(provenance + future graph layer) always on; keep entity **ranking** behind
-`BRAINY_ENTITY_RANKING=true` until dense embeddings make it non-regressing.
+(provenance + future graph layer) always on. Entity **ranking** now auto-enables
+**only when a provider embedding model is configured** (`BRAINY_EMBEDDING_MODEL`),
+because the A/B shows it regresses with the local hash embedder but is the
+documented SOTA path with real dense semantics. `BRAINY_ENTITY_RANKING=true|false`
+overrides either way.
+
+This is correct-by-construction rather than tuned to the 30-question smoke:
+with a hash embedder it stays off (where it hurt), and with real embeddings it
+turns on (where Mem0/Zep/HippoRAG show gains). Re-measure on staging once a
+dense embedding endpoint is available.
 
 Entities are not tuned to any benchmark — extraction is generic (proper nouns,
 quoted spans, years).
