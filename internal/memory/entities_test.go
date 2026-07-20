@@ -1,6 +1,9 @@
 package memory
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestExtractEntities(t *testing.T) {
 	ents := ExtractEntities(`Caroline: I loved reading "Charlotte's Web" in 2013 with Melanie`)
@@ -27,5 +30,25 @@ func TestEntityOverlapBoost(t *testing.T) {
 	}
 	if entityOverlapBoost(q, ExtractEntities("Caroline went hiking")) != 0 {
 		t.Fatal("expected no boost when no shared entity")
+	}
+}
+
+func TestEntityRankingToggleCovered(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithEntityRanking(true)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"session_id": "s1"},
+		Messages: []Message{{Role: "user", Content: `Melanie: I loved "Charlotte's Web"`}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, err := svc.Search(context.Background(), "t1", "u1", "", "", `What book did Melanie love?`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Results) == 0 {
+		t.Fatal("expected results with entity ranking enabled")
 	}
 }
