@@ -117,9 +117,9 @@ func entityOverlapBoost(queryEntities []string, recordEntities []string) float64
 	if hits == 0 {
 		return 0
 	}
-	boost := 0.2 * float64(hits)
-	if boost > 0.6 {
-		return 0.6
+	boost := 0.12 * float64(hits)
+	if boost > 0.36 {
+		return 0.36
 	}
 	return boost
 }
