@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"time"
 )
 
@@ -51,8 +52,23 @@ func Load() Config {
 		EmbeddingAPIKey:    getenv("BRAINY_EMBEDDING_API_KEY", providerKey),
 		EmbeddingModel:     getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL")),
 		EmbeddingTimeout:   getenvDuration("BRAINY_EMBEDDING_TIMEOUT", 30*time.Second),
-		EntityRanking:      getenv("BRAINY_ENTITY_RANKING", "") == "true",
+		EntityRanking:      entityRankingDefault(),
 	}
+}
+
+// entityRankingDefault: entity/graph reranking only helps with dense semantic
+// embeddings (proven by same-pin A/B — see docs/benchmarks/entity-linking-ab.md).
+// So default it ON only when a provider embedding model is configured; allow an
+// explicit BRAINY_ENTITY_RANKING override either way.
+func entityRankingDefault() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("BRAINY_ENTITY_RANKING"))) {
+	case "true", "1", "yes":
+		return true
+	case "false", "0", "no":
+		return false
+	}
+	embModel := getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL"))
+	return strings.TrimSpace(embModel) != ""
 }
 
 func getenv(key, fallback string) string {
