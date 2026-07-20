@@ -80,3 +80,12 @@ Guidance: on staging, point `BRAINY_EMBEDDING_*` at a strong hosted embeddings
 endpoint and re-measure with a comparable answerer/judge before drawing SOTA
 conclusions. Reproduce embedding-backed runs locally via
 `evals/tools/local_embeddings_server.py`.
+
+## Update: IDF-weighted lexical coverage (2026-07-20)
+
+Implemented BM25-style IDF weighting (distinctive query terms dominate). Same-pin
+smoke (hash embedder, entity off): **10/30** vs plain-coverage **13/30**; OpMem 12/12.
+The additive boost stack (exact-span, date, kind) was tuned to count-ratio, so
+IDF over-rewards lone rare-term matches without a full re-tune. Gated off
+(`BRAINY_IDF_RANKING`) pending a staging re-tune. Not shipped as default — no
+regression, no benchmax re-tuning to the 30-Q smoke.

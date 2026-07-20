@@ -36,7 +36,8 @@ func main() {
 	metrics := observability.NewMetrics()
 	service := memory.NewService(store).
 		WithEmbedder(config.BuildEmbedder(cfg, logger)).
-		WithEntityRanking(cfg.EntityRanking)
+		WithEntityRanking(cfg.EntityRanking).
+		WithIDFRanking(cfg.IDFRanking)
 	keyRing := auth.ParseKeyRing(cfg.APIKeys)
 	router := api.NewRouter(service, metrics)
 	router = api.APIKeyMiddleware(keyRing, cfg.RequireAPIKey)(router)
