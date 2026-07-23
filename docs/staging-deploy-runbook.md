@@ -39,6 +39,24 @@ pgvector is **optional** (migration v9 no-ops if the extension is missing). Stag
    `brainy-worker-staging`, set a strong hosted embeddings endpoint:
    - `BRAINY_EMBEDDING_BASE_URL`, `BRAINY_EMBEDDING_API_KEY`, `BRAINY_EMBEDDING_MODEL`
 
+   **Cloudflare AI Gateway (Workers AI) — verified 2026-07-23:** `/compat/embeddings`
+   works when the model uses the `workers-ai/` provider prefix (bare `@cf/...`
+   returns `Invalid provider`; OpenAI embeddings need wholesale credits):
+
+   ```bash
+   # smoke the gateway first
+   curl -s "$LLM_BASE_URL/embeddings" \
+     -H "Authorization: Bearer $LLM_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"model":"workers-ai/@cf/baai/bge-base-en-v1.5","input":"hello"}'
+   # expect HTTP 200 + 768-d vector
+
+   # then set on BOTH Render services (API + worker):
+   # BRAINY_EMBEDDING_BASE_URL=<same as LLM_BASE_URL / gateway …/compat>
+   # BRAINY_EMBEDDING_API_KEY=<same gateway key>
+   # BRAINY_EMBEDDING_MODEL=workers-ai/@cf/baai/bge-base-en-v1.5
+   ```
+
    Setting `BRAINY_EMBEDDING_MODEL` auto-enables entity ranking. Optionally A/B
    `BRAINY_IDF_RANKING=true`. Then re-measure LOCOMO with a **comparable
    answerer/judge** and re-tune the boost stack *there* — never against the
