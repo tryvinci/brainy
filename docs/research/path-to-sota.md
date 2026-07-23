@@ -34,14 +34,12 @@ benchmark.** LOCOMO/OpMem are diagnostics, not targets.
 
 ## Ordered path (highest leverage first)
 
-1. **Strong hosted embeddings on staging.** Set `BRAINY_EMBEDDING_*` to a managed
-   endpoint; entity ranking auto-enables. Preferred unlock (no OpenAI credits):
-   CF AI Gateway Workers AI with
-   `workers-ai/@cf/baai/bge-base-en-v1.5` (see runbook step 8). Re-measure LOCOMO
-   with a **comparable answerer/judge** (GPT-class) so numbers are meaningfully
-   comparable to Mem0. *Local finding: embedding model size (bge-small vs
-   bge-base) does not move the smoke because retrieval already surfaces GT —
-   the answerer/judge is the gate.*
+1. **Strong hosted embeddings on staging.** Set `BRAINY_EMBEDDING_*` to CF AI
+   Gateway Workers AI (`workers-ai/@cf/baai/bge-base-en-v1.5` — runbook step 8).
+   Same-pin local remeasure (`gpt-oss-120b`): dense emb alone **13/30**
+   (net-neutral vs hash); entity ranking still regresses (**11/30**) so it stays
+   opt-in. Re-measure on staging with a **GPT-class judge** for a Mem0-comparable
+   claim — the answerer/judge remains the gate.
 2. **BM25/IDF lexical signal.** Replace match-count ratio with IDF-weighted term
    scoring (Mem0's keyword signal). Generic; A/B before default-on.
 3. **Temporal supersession (ENG-86).** Mark contradicted facts superseded so
