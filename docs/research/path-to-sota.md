@@ -16,7 +16,10 @@ benchmark.** LOCOMO/OpMem are diagnostics, not targets.
   `BRAINY_EMBEDDING_MODEL=workers-ai/@cf/baai/bge-base-en-v1.5` (768-d).
   Bare `@cf/...` models fail with `Invalid provider`; see staging runbook step 8.
 - Own suites: OpMem 12/12, marketing vertical 16/16.
-- LOCOMO smoke (1 conv / 30 Q, `gpt-oss-120b` judge): ~12–13/30 on hash/local.
+- LOCOMO smoke (1 conv / 30 Q, staging CF dense emb, entity OFF):
+  judge/answerer matrix — gpt-oss-120b **14/30**, mistral-small-24b **13/30**,
+  llama-3.3-70b **11/30**. Multi-hop ~2–3/10 across all three (judge ≠ bottleneck).
+  See `docs/benchmarks/locomo-smoke.md`.
   Re-measure with gateway dense embeddings + entity auto-on is in progress;
   a GPT-class judge is still required for a Mem0-comparable claim.
 
