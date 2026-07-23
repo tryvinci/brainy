@@ -94,18 +94,25 @@ def chat_completion(
         "model": config.model,
         "temperature": temperature,
         "messages": messages,
+        # Reasoning models (e.g. gpt-oss) spend tokens on `reasoning` before
+        # `content`; a low default leaves content null.
+        "max_tokens": 2048,
     }
     use_json = force_json and config.json_mode
     if use_json:
         payload["response_format"] = {"type": "json_object"}
 
     body = _post(url, payload, config)
-    content = body["choices"][0]["message"]["content"]
+    message = (body.get("choices") or [{}])[0].get("message") or {}
+    content = message.get("content")
     if isinstance(content, list):
         # Some providers return content parts.
         content = "".join(
             part.get("text", "") if isinstance(part, dict) else str(part) for part in content
         )
+    if content is None or str(content).strip() == "" or str(content).strip().lower() == "none":
+        # Last-resort: some gateways put usable text only in reasoning fields.
+        content = message.get("reasoning_content") or message.get("reasoning") or ""
     return str(content).strip()
 
 
@@ -121,7 +128,9 @@ def _post(
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {config.api_key}",
-        "User-Agent": "brainy-evals/0.1",
+        # CF AI Gateway WAF (error 1010) blocks non-browser/curl UAs from some
+        # egress IPs; curl UA keeps chat/completions reachable for evals.
+        "User-Agent": "curl/8.5.0",
     }
     req = urllib.request.Request(url, data=data, headers=headers, method="POST")
     try:
