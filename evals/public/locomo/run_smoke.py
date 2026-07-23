@@ -120,7 +120,14 @@ def ingest_conversation(
                 probes.append(probe)
             remembered += len(batch)
     if backend.async_ingest and remembered:
-        backend.wait_until_any_searchable(user_id, probes or ["conversation"])
+        # Cap probes — long unique lists hammer staging search under embed load.
+        uniq: list[str] = []
+        for p in probes:
+            if p and p not in uniq:
+                uniq.append(p)
+            if len(uniq) >= 3:
+                break
+        backend.wait_until_any_searchable(user_id, uniq or ["conversation"])
     return remembered
 
 
