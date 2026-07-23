@@ -1,27 +1,25 @@
-# LOCOMO smoke — `locomo-smoke-entity-gated`
+# LOCOMO smoke — CF dense embeddings A/B (2026-07-23)
 
-**Timestamp:** 2026-07-20T02:15:13Z  
-**Brainy commit:** `6e0d5d4ab25e4b8e71bf384b27e1942126c13620`  
-**Judge/Answerer:** `[REDACTED]`  
-**Ingest:** async  
+**Pins:** dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`,
+async ingest, answerer/judge `gpt-oss-120b` via CF AI Gateway, top_k=15.
+**Embedder:** `workers-ai/@cf/baai/bge-base-en-v1.5` (768-d) unless noted.
 
-## Scores
+## Scores (1 conv / 30 Q)
 
-| Metric | Value |
-| --- | ---: |
-| Overall | **0.433 (13/30)** |
+| Config | Overall | Artifact |
+| --- | ---: | --- |
+| hash baseline (prior pin) | **13/30** | `locomo-smoke-entity-gated` |
+| dense + entity ON (drained queue) | 11/30 | `locomo-smoke-cf-bge-base-drained` |
+| dense + entity OFF | **13/30** | `locomo-smoke-cf-bge-base-entity-off` |
 
-| Category | Acc | n |
-| --- | ---: | ---: |
-| multi-hop | 0.200 | 10 |
-| open-domain | 0.750 | 4 |
-| temporal | 0.500 | 16 |
+Do **not** cite the premature 14/30 (`locomo-smoke-cf-bge-base`) — QA started
+before the async extract queue drained.
 
 ## Notes
 
-SOTA-inspired **entity linking** (Mem0/Zep/A-MEM) added: entities are extracted and
-persisted on every memory for provenance and the planned graph layer. The entity-overlap
-**ranking boost** regressed same-pin smoke (distinctive-entity mentions are not answers),
-so it is gated off by default (`WithEntityRanking`) — product-first, not benchmax.
-
-Score matches the pre-entity product baseline (**13/30, 43.3%**); entity infra adds no regression.
+- CF AI Gateway `/compat/embeddings` works with the `workers-ai/` model prefix.
+- Dense embeddings alone are net-neutral under this judge; entity ranking still
+  regresses. Default: entity ranking OFF (opt-in `BRAINY_ENTITY_RANKING=true`).
+- Next for a Mem0-comparable claim: wire the same embed model on Render staging,
+  then remeasure with a GPT-class judge (OpenAI wholesale credits currently 402
+  on this gateway).

@@ -57,11 +57,12 @@ pgvector is **optional** (migration v9 no-ops if the extension is missing). Stag
    # BRAINY_EMBEDDING_MODEL=workers-ai/@cf/baai/bge-base-en-v1.5
    ```
 
-   Setting `BRAINY_EMBEDDING_MODEL` auto-enables entity ranking. Optionally A/B
-   `BRAINY_IDF_RANKING=true`. Then re-measure LOCOMO with a **comparable
-   answerer/judge** and re-tune the boost stack *there* — never against the
-   30-question smoke (see `docs/research/path-to-sota.md`,
-   `docs/benchmarks/entity-linking-ab.md`).
+   Entity ranking stays **off** by default even with embeddings set (same-pin
+   A/B still regresses — see `entity-linking-ab.md`). Optionally A/B
+   `BRAINY_ENTITY_RANKING=true` / `BRAINY_IDF_RANKING=true` on staging, then
+   re-measure LOCOMO with a **comparable answerer/judge** and re-tune the boost
+   stack *there* — never against the 30-question smoke (see
+   `docs/research/path-to-sota.md`).
 
 CLI alternative (if already logged into Render):
 
