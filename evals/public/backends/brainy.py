@@ -97,12 +97,13 @@ class BrainyBackend:
         *,
         min_results: int = 1,
         timeout_s: float | None = None,
-        settle_polls: int = 8,
+        settle_polls: int = 45,
     ) -> list[dict]:
         """Poll until probe hits, then wait for result counts to stabilize.
 
         Async jobs are FIFO; the first searchable batch must not unblock QA
-        while later batches are still pending.
+        while later batches are still pending. Default settle window is long
+        enough for slow provider-extract queues (LOCOMO-sized ingests).
         """
         probes = [q.strip() for q in queries if q and str(q).strip()]
         if not probes:
