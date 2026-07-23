@@ -97,14 +97,24 @@ class BrainyBackend:
         *,
         min_results: int = 1,
         timeout_s: float | None = None,
-        settle_polls: int = 8,
+        settle_polls: int = 12,
     ) -> list[dict]:
         """Poll until probe hits, then wait for result counts to stabilize.
 
         Async jobs are FIFO; the first searchable batch must not unblock QA
-        while later batches are still pending.
+        while later batches are still pending. Caps probes and tolerates
+        transient search timeouts under staging load.
         """
-        probes = [q.strip() for q in queries if q and str(q).strip()]
+        seen: set[str] = set()
+        probes: list[str] = []
+        for q in queries:
+            q = (q or "").strip()
+            if not q or q in seen:
+                continue
+            seen.add(q)
+            probes.append(q)
+            if len(probes) >= 3:
+                break
         if not probes:
             probes = ["conversation"]
         deadline = time.time() + (self.async_timeout_s if timeout_s is None else timeout_s)
@@ -117,21 +127,26 @@ class BrainyBackend:
             best: list[dict] = []
             for query in probes:
                 last_query = query
-                last, _ = self.recall(user_id, query, top_k=max(min_results, 10))
+                try:
+                    last, _ = self.recall(user_id, query, top_k=max(min_results, 10), timeout=60)
+                except Exception:
+                    # Staging can time out under embed load; keep polling.
+                    time.sleep(self.async_poll_s)
+                    continue
                 if len(last) > len(best):
                     best = last
                 if len(last) >= min_results:
                     saw_hit = True
             n = len(best)
             if saw_hit:
-                if n == last_n:
+                if n == last_n and n > 0:
                     stable += 1
                     if stable >= settle_polls:
                         return best or last
                 else:
                     stable = 0
                 last_n = n
-            time.sleep(self.async_poll_s)
+            time.sleep(max(self.async_poll_s, 2.0))
         if saw_hit and last:
             return last
         raise TimeoutError(
@@ -140,7 +155,9 @@ class BrainyBackend:
             "Is the worker running with provider/deterministic extract?"
         )
 
-    def recall(self, user_id: str, query: str, top_k: int = 10) -> tuple[list[dict], float]:
+    def recall(
+        self, user_id: str, query: str, top_k: int = 10, timeout: float = 60
+    ) -> tuple[list[dict], float]:
         tenant = self._tenant(user_id)
         started = time.perf_counter()
         body = get_json(
@@ -151,6 +168,7 @@ class BrainyBackend:
                 "subject_id": user_id,
                 "q": query,
             },
+            timeout=timeout,
         )
         latency_ms = (time.perf_counter() - started) * 1000.0
         results = []
