@@ -1,8 +1,10 @@
-# LOCOMO smoke — `locomo-smoke-entity-gated`
+# LOCOMO smoke — staging dense embeddings (entity OFF)
 
-**Timestamp:** 2026-07-20T02:15:13Z  
-**Brainy commit:** `6e0d5d4ab25e4b8e71bf384b27e1942126c13620`  
-**Judge/Answerer:** `[REDACTED]`  
+**Timestamp:** 2026-07-23T21:29:07Z  
+**Brainy:** staging (`b8bd3f00b098`)  
+**Judge/Answerer:** `[REDACTED]` (gpt-oss-120b via CF AI Gateway)  
+**Embeddings:** `workers-ai/@cf/baai/bge-base-en-v1.5` (768-d) on staging API+worker  
+**Entity ranking:** OFF (`BRAINY_ENTITY_RANKING=false`)  
 **Ingest:** async  
 
 ## Scores
@@ -14,14 +16,19 @@
 | Category | Acc | n |
 | --- | ---: | ---: |
 | multi-hop | 0.200 | 10 |
-| open-domain | 0.750 | 4 |
-| temporal | 0.500 | 16 |
+| open-domain | 0.500 | 4 |
+| temporal | 0.562 | 16 |
 
-## Notes
+## Comparison
 
-SOTA-inspired **entity linking** (Mem0/Zep/A-MEM) added: entities are extracted and
-persisted on every memory for provenance and the planned graph layer. The entity-overlap
-**ranking boost** regressed same-pin smoke (distinctive-entity mentions are not answers),
-so it is gated off by default (`WithEntityRanking`) — product-first, not benchmax.
+| Config | Overall |
+| --- | ---: |
+| Local hash baseline | 13/30 |
+| Local dense (bge-base) entity OFF | 12–13/30 |
+| **Staging CF dense entity OFF** | **13/30** |
 
-Score matches the pre-entity product baseline (**13/30, 43.3%**); entity infra adds no regression.
+Taxonomy: {'correct': 13, 'answer_judge_miss': 11, 'retrieval_miss': 6}.
+
+OpMem on staging after dense wiring: **12/12**.
+
+Dense embeddings on staging are live and non-regressing with entity ranking off.

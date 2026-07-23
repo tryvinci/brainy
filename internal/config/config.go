@@ -59,19 +59,18 @@ func Load() Config {
 	}
 }
 
-// entityRankingDefault: entity/graph reranking only helps with dense semantic
-// embeddings (proven by same-pin A/B — see docs/benchmarks/entity-linking-ab.md).
-// So default it ON only when a provider embedding model is configured; allow an
-// explicit BRAINY_ENTITY_RANKING override either way.
+// entityRankingDefault: entity/graph reranking stays OFF unless explicitly
+// enabled. Same-pin A/B with real dense embeddings (CF Workers AI bge-base,
+// 2026-07-23) still regresses LOCOMO smoke (11/30 vs 13/30 entity-off) — see
+// docs/benchmarks/entity-linking-ab.md. Extraction/persistence remain always on;
+// flip BRAINY_ENTITY_RANKING=true only after a staging re-tune shows lift.
 func entityRankingDefault() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("BRAINY_ENTITY_RANKING"))) {
 	case "true", "1", "yes":
 		return true
-	case "false", "0", "no":
+	default:
 		return false
 	}
-	embModel := getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL"))
-	return strings.TrimSpace(embModel) != ""
 }
 
 func getenv(key, fallback string) string {

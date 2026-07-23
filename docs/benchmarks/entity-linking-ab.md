@@ -16,20 +16,16 @@ LOCOMO smoke (1 conversation / 30 Q, async ingest, identical judge/answerer).
 Naive/graph entity reranking **regresses** conversational recall in our stack:
 distinctive-entity mentions are frequently not the answer, and reshuffling displaces
 strong lexical/temporal hits. HippoRAG/Mem0 gains depend on **dense semantic
-embeddings** feeding the graph — which is currently blocked in this environment
-(provider `/embeddings` returns 403).
+embeddings** feeding the graph. Hosted gateway embeddings are unblocked as of
+2026-07-23 via `workers-ai/@cf/baai/bge-base-en-v1.5` on CF AI Gateway
+(`/compat/embeddings`); earlier 403/`Invalid provider` failures were model-id
+format, not a Brainy bug.
 
 Decision (product-first, anti-benchmax): keep entity **extraction + persistence**
-(provenance + future graph layer) always on. Entity **ranking** now auto-enables
-**only when a provider embedding model is configured** (`BRAINY_EMBEDDING_MODEL`),
-because the A/B shows it regresses with the local hash embedder but is the
-documented SOTA path with real dense semantics. `BRAINY_ENTITY_RANKING=true|false`
-overrides either way.
-
-This is correct-by-construction rather than tuned to the 30-question smoke:
-with a hash embedder it stays off (where it hurt), and with real embeddings it
-turns on (where Mem0/Zep/HippoRAG show gains). Re-measure on staging once a
-dense embedding endpoint is available.
+(provenance + future graph layer) always on. Entity **ranking** stays **OFF by
+default** — including when a provider embedding model is configured — until a
+staging re-tune shows lift under a comparable judge. Opt in with
+`BRAINY_ENTITY_RANKING=true`.
 
 Entities are not tuned to any benchmark — extraction is generic (proper nouns,
 quoted spans, years).
@@ -81,6 +77,32 @@ endpoint and re-measure with a comparable answerer/judge before drawing SOTA
 conclusions. Reproduce embedding-backed runs locally via
 `evals/tools/local_embeddings_server.py`.
 
+## Update: CF Workers AI dense embeddings (2026-07-23)
+
+Gateway unlock: `BRAINY_EMBEDDING_MODEL=workers-ai/@cf/baai/bge-base-en-v1.5`
+(768-d) on CF AI Gateway `/compat`. Same pins as prior smokes (`gpt-oss-120b`
+answerer/judge, async ingest, 1 conv / 30 Q). Eval harness now waits for the
+async extract queue to settle before QA.
+
+| Config | Overall | multi-hop | temporal | open-domain |
+| --- | ---: | ---: | ---: | ---: |
+| hash baseline (entity gated off) | **13/30** | 2/10 | 8/16 | 3/4 |
+| dense emb + entity auto-ON (drained) | 11/30 | 2/10 | 8/16 | 1/4 |
+| dense emb + entity forced OFF | **13/30** | 2/10 | 9/16 | 2/4 |
+
+Takeaways:
+- Hosted embeddings are unblocked; Render staging still needs the three
+  `BRAINY_EMBEDDING_*` secrets (runbook step 8).
+- Under the **same** `gpt-oss-120b` judge, dense emb alone is **net-neutral**
+  (13/30); entity ranking still **regresses** (11/30). Premature 14/30 (QA
+  before queue drain) is not a pin.
+- Product default: entity ranking OFF even with `BRAINY_EMBEDDING_MODEL` set.
+  Re-enable only after staging re-tune + GPT-class judge shows lift.
+- Anti-benchmax: no boost re-tuning against this 30-Q smoke.
+
+Artifacts: `docs/benchmarks/runs/locomo-smoke-cf-bge-base-drained.*`,
+`docs/benchmarks/runs/locomo-smoke-cf-bge-base-entity-off.*`
+
 ## Update: IDF-weighted lexical coverage (2026-07-20)
 
 Implemented BM25-style IDF weighting (distinctive query terms dominate). Same-pin
@@ -89,3 +111,14 @@ The additive boost stack (exact-span, date, kind) was tuned to count-ratio, so
 IDF over-rewards lone rare-term matches without a full re-tune. Gated off
 (`BRAINY_IDF_RANKING`) pending a staging re-tune. Not shipped as default — no
 regression, no benchmax re-tuning to the 30-Q smoke.
+
+## Update: staging CF dense embeddings (2026-07-23)
+
+Wired on Render (`brainy-api-staging` + `brainy-worker-staging`):
+
+- `BRAINY_EMBEDDING_BASE_URL` = CF AI Gateway `/compat`
+- `BRAINY_EMBEDDING_MODEL` = `workers-ai/@cf/baai/bge-base-en-v1.5` (768-d)
+- `BRAINY_ENTITY_RANKING=false`
+
+Same-pin LOCOMO smoke on staging: **13/30** (matches hash baseline). OpMem **12/12**.
+Search explain showed `embedding_similarity` / `ranking_basis=hybrid` — dense path live.
