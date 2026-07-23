@@ -16,8 +16,10 @@ LOCOMO smoke (1 conversation / 30 Q, async ingest, identical judge/answerer).
 Naive/graph entity reranking **regresses** conversational recall in our stack:
 distinctive-entity mentions are frequently not the answer, and reshuffling displaces
 strong lexical/temporal hits. HippoRAG/Mem0 gains depend on **dense semantic
-embeddings** feeding the graph — which is currently blocked in this environment
-(provider `/embeddings` returns 403).
+embeddings** feeding the graph. Hosted gateway embeddings are unblocked as of
+2026-07-23 via `workers-ai/@cf/baai/bge-base-en-v1.5` on CF AI Gateway
+(`/compat/embeddings`); earlier 403/`Invalid provider` failures were model-id
+format, not a Brainy bug.
 
 Decision (product-first, anti-benchmax): keep entity **extraction + persistence**
 (provenance + future graph layer) always on. Entity **ranking** now auto-enables
