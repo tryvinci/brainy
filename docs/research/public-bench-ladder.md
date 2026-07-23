@@ -110,3 +110,4 @@ Fixtures already exist under `fixtures/vertical/marketing/` (16) + OpMem (12). E
 | 2026-07-15 | L3 smoke 2/30 — 28/30 retrieval miss; driver = extract+rank+no event time |
 | 2026-07-19 | Post ENG-172 async path + relative event-time: L3 smoke **6/30 (20%)**; temporal 5/16; multi-hop still 0/10. L4 gate (≥12/30) not met — next: real embeddings + multi-hop synthesis |
 | 2026-07-19 | Phase 3 embedder interface + capped multi-hop neighbors: L3 smoke **7/30 (23.3%)**; provider embeddings blocked (gateway 403); L4 gate unmet |
+| 2026-07-23 | CF AI Gateway `/compat/embeddings` unblocked with `workers-ai/@cf/baai/bge-base-en-v1.5` (768-d). Bare `@cf/...` → `Invalid provider`. Wire same on Render staging + remeasure (ENG-175). |
