@@ -406,8 +406,8 @@ def main() -> None:
     parser.add_argument(
         "--async-timeout",
         type=float,
-        default=180.0,
-        help="Seconds to wait for async extract to become searchable",
+        default=900.0,
+        help="Seconds to wait for async extract to become searchable (LOCOMO-sized queues need ~10m)",
     )
     parser.add_argument("--run-id", default="")
     parser.add_argument(
