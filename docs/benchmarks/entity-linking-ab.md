@@ -111,3 +111,14 @@ The additive boost stack (exact-span, date, kind) was tuned to count-ratio, so
 IDF over-rewards lone rare-term matches without a full re-tune. Gated off
 (`BRAINY_IDF_RANKING`) pending a staging re-tune. Not shipped as default — no
 regression, no benchmax re-tuning to the 30-Q smoke.
+
+## Update: staging CF dense embeddings (2026-07-23)
+
+Wired on Render (`brainy-api-staging` + `brainy-worker-staging`):
+
+- `BRAINY_EMBEDDING_BASE_URL` = CF AI Gateway `/compat`
+- `BRAINY_EMBEDDING_MODEL` = `workers-ai/@cf/baai/bge-base-en-v1.5` (768-d)
+- `BRAINY_ENTITY_RANKING=false`
+
+Same-pin LOCOMO smoke on staging: **13/30** (matches hash baseline). OpMem **12/12**.
+Search explain showed `embedding_similarity` / `ranking_basis=hybrid` — dense path live.
