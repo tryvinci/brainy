@@ -17,9 +17,9 @@ benchmark.** LOCOMO/OpMem are diagnostics, not targets.
   Bare `@cf/...` models fail with `Invalid provider`; see staging runbook step 8.
 - Own suites: OpMem 12/12, marketing vertical 16/16.
 - LOCOMO smoke (1 conv / 30 Q, staging CF dense emb, entity OFF):
-  judge/answerer matrix — gpt-oss-120b **14/30**, mistral-small-24b **13/30**,
-  llama-3.3-70b **11/30**. Multi-hop ~2–3/10 across all three (judge ≠ bottleneck).
-  See `docs/benchmarks/locomo-smoke.md`.
+  judge/answerer matrix peak gpt-oss **14/30**; after content-dense ranking +
+  subject bridge (PR #45): **16/30** (temporal 11/16, multi-hop still 2/10),
+  search p50 ~730ms (−29%). OpMem 12/12. See `docs/benchmarks/locomo-smoke.md`.
   Re-measure with gateway dense embeddings + entity auto-on is in progress;
   a GPT-class judge is still required for a Mem0-comparable claim.
 
