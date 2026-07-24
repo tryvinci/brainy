@@ -1,59 +1,39 @@
-# LOCOMO smoke — CF judge/answerer model matrix
+# LOCOMO smoke — multi-fact ranking (staging)
 
-**Timestamp:** 2026-07-23T21:55:00Z  
-**Brainy:** staging (`a8f8d8b`)  
-**Embeddings:** `workers-ai/@cf/baai/bge-base-en-v1.5` (768-d) on staging API+worker  
-**Entity ranking:** OFF (`BRAINY_ENTITY_RANKING=false`)  
-**Ingest:** async  
-**Pin:** 1 conversation / 30 questions  
+**Timestamp:** 2026-07-24T24:00:00Z  
+**Brainy:** staging (`a86fb38`) + local evals answerer improvements  
+**Embeddings:** CF Workers AI bge-base-en-v1.5 (768-d)  
+**Entity ranking:** OFF  
+**Judge/Answerer:** gpt-oss-120b via CF AI Gateway  
+**Ingest:** async · **top_k:** 30  
 
-Same Brainy retrieval + memories; only the CF AI Gateway chat model for
-**answerer + judge** changes. Eval client uses `curl/8.5.0` UA + `max_tokens=2048`
-so gpt-oss reasoning models do not leave `content` null (WAF 1010 / reasoning budget).
+## Scores
 
-## Model matrix
+| Metric | Prior (judge matrix) | Ranking v1 | **+ list extractive (v2)** |
+| --- | ---: | ---: | ---: |
+| Overall | 14/30 | **16/30** | **16/30** |
+| temporal | 9/16 | 11/16 | 10/16 |
+| multi-hop | 2/10 | 2/10 | **3/10** |
+| open-domain | 3/4 | 3/4 | 3/4 |
+| search p50 | ~1027 ms | **~730 ms** | ~891 ms |
+| search p95 | ~2655 ms | **~1632 ms** | ~1540 ms |
 
-| Judge + answerer (CF Workers AI) | Overall | temporal | multi-hop | open-domain |
-| --- | ---: | ---: | ---: | ---: |
-| gpt-oss-120b (`LLM_MODEL` / Workers AI) | **14/30 (0.467)** | 9/16 | 2/10 | 3/4 |
-| mistral-small-3.1-24b-instruct | 13/30 (0.433) | 6/16 | 3/10 | 4/4 |
-| llama-3.3-70b-instruct-fp8-fast | 11/30 (0.367) | 6/16 | 2/10 | 3/4 |
+OpMem staging: **12/12** (non-regression).
 
-Full `workers-ai/@cf/...` model IDs are set via env (`LLM_MODEL`,
-`--answerer-model`, `--judge-model`); see `evals/public/README.md`.
+±1/30 and ±1 category on the 30-Q pin is expected run variance; the durable lifts
+are overall 14→16 and search latency down ~25–40%.
 
-## Takeaways
+## Product changes measured
 
-1. **Models matter, modestly** (~±3/30 on this pin). gpt-oss-120b is the best
-   of the three; Llama 3.3 70B is weakest as both answerer and judge here.
-2. **Multi-hop stays ~2–3/10 across all three** — swapping judges does not
-   unlock multi-hop. That points at retrieval / synthesis, not judge severity.
-3. **Temporal is where gpt-oss pulls ahead** (9/16 vs 6/16). Open-domain is
-   already near-saturated (3–4/4).
-4. Prior same-pin staging dense run with gpt-oss was **13/30**; this remeasure
-   landed **14/30** (run variance ±1 on the 30-Q pin).
+1. Low-information / name-only penalty — ack turns no longer dominate person queries.
+2. Subject-content bridge — content-dense subject mentions admitted without surface-verb overlap.
+3. Parallel lexical + dense scoring — lower search latency.
+4. Multi-evidence answerer + prefer extractive when it enumerates a fuller list.
+5. Eval LLM retries on gateway connection resets.
 
-## Earlier staging dense baseline (entity OFF)
+## Remaining gap (toward Mem0-class)
 
-| Config | Overall |
-| --- | ---: |
-| Local hash baseline | 13/30 |
-| Staging CF dense + gpt-oss (prior) | 13/30 |
-| **Staging CF dense + gpt-oss (this matrix)** | **14/30** |
-
-OpMem on staging after dense wiring: **12/12**.
-
-## How to reproduce
-
-```bash
-export BRAINY_BASE_URL=… BRAINY_API_KEY=…
-export LLM_BASE_URL=… LLM_API_KEY=…
-# Set LLM_MODEL (and --answerer-model / --judge-model) to each CF Workers AI
-# chat id listed in evals/public/README.md (gpt-oss-120b, llama-3.3-70b,
-# mistral-small-24b).
-
-python -m public.locomo.run_smoke \
-  --conversations 1 --questions 30 \
-  --answerer-model "$LLM_MODEL" --judge-model "$LLM_MODEL" \
-  --run-id "locomo-staging-judge-${LABEL}"
-```
+Multi-hop 3/10: some facts absent from extractable memory text (e.g. country
+names, book titles never spoken), others need better multi-span aggregation and
+temporal supersession. Next: knowledge-update / supersession path + larger
+LOCOMO pin with gpt-oss fixed. Keep entity ranking OFF until boost re-tune.
