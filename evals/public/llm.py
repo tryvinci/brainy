@@ -171,6 +171,18 @@ def _post(
                 _attempt=_attempt + 1,
             )
         raise RuntimeError(f"LLM timeout at {url}") from exc
+    except (urllib.error.URLError, ConnectionResetError, BrokenPipeError, OSError) as exc:
+        # Transient TLS / peer resets from AI Gateway — retry with backoff.
+        if _attempt < 5:
+            time.sleep(1.5 * (2**_attempt))
+            return _post(
+                url,
+                payload,
+                config,
+                _dropped_json_mode=_dropped_json_mode,
+                _attempt=_attempt + 1,
+            )
+        raise RuntimeError(f"LLM connection error at {url}: {exc}") from exc
 
 
 def parse_judgment_json(content: str) -> dict:
