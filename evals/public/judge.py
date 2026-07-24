@@ -131,14 +131,52 @@ def answer_from_memories(
     if cfg is not None:
         cfg = _with_model(cfg, model) if model else cfg
         answer = _llm_answer(question, memories, cfg, extractive=False)
-        if _is_empty_answer(answer):
-            answer = _llm_answer(question, memories, cfg, extractive=True)
+        # List-shaped questions often need a second extractive pass: generative
+        # models stop after the first supporting memory. Prefer the extractive
+        # answer when it enumerates more distinct items (generic QA, not GT pads).
+        if _is_empty_answer(answer) or _looks_list_question(question):
+            extractive = _llm_answer(question, memories, cfg, extractive=True)
+            if not _is_empty_answer(extractive):
+                if _is_empty_answer(answer) or _item_count(extractive) > _item_count(answer):
+                    answer = extractive
+                    return answer, cfg.label + "+extractive-list"
         if _is_empty_answer(answer):
             joined = _statement_join(memories)
             if joined:
                 return joined, cfg.label + "+retrieval-concat"
         return answer, cfg.label
     return _statement_join(memories) or "", "retrieval-concat-v0"
+
+
+def _looks_list_question(question: str) -> bool:
+    q = (question or "").lower()
+    cues = (
+        "activities",
+        "hobbies",
+        "books",
+        "places",
+        "where has",
+        "what do ",
+        "what does ",
+        "what activities",
+        "what books",
+        "kids like",
+        "children like",
+        "partake",
+        "destress",
+        "de-stress",
+    )
+    return any(c in q for c in cues)
+
+
+def _item_count(answer: str) -> int:
+    text = (answer or "").strip()
+    if not text:
+        return 0
+    # Count comma/semicolon/newline / bullet separations as distinct items.
+    parts = re.split(r"[\n;,•]|\\band\\b|\\+| - ", text, flags=re.IGNORECASE)
+    items = [p.strip(" .") for p in parts if len(p.strip(" .")) >= 2]
+    return max(1, len(items))
 
 
 def _is_empty_answer(answer: str) -> bool:
