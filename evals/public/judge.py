@@ -178,7 +178,7 @@ def _llm_answer(
     extractive: bool = False,
 ) -> str:
     lines = []
-    for m in memories[:20]:
+    for m in memories[:40]:
         content = (m.get("content") or "").strip()
         if not content:
             continue
@@ -191,7 +191,7 @@ def _llm_answer(
         else:
             lines.append(f"- {content}")
     if not lines:
-        for m in memories[:10]:
+        for m in memories[:12]:
             content = (m.get("content") or "").strip()
             if content:
                 lines.append(f"- {content}")
@@ -200,7 +200,9 @@ def _llm_answer(
         system = (
             "Extract the shortest answer to the question that is directly supported by the memories. "
             "Copy key phrases from the memories. Do not say None or I do not know if any memory is relevant. "
-            "If multiple items apply, list them as a short comma-separated list."
+            "If multiple items apply, list them as a short comma-separated list. "
+            "Scan every memory — do not stop after the first match when the question asks for "
+            "activities, books, places, likes, or other multi-item sets."
         )
     else:
         system = (
@@ -209,6 +211,9 @@ def _llm_answer(
             "use that to resolve relative phrases like yesterday, two days ago, last week, "
             "last Saturday, or N years ago. "
             "Prefer a concrete short answer (dates, names, places, lists). "
+            "When several memories support different parts of the answer (lists of activities, "
+            "books, places, preferences, identity attributes), combine every distinct supported "
+            "item into one answer — do not stop at the first memory. "
             "Never answer with only None or N/A if any memory is remotely relevant — "
             "quote the best supporting memory instead. "
             "If memories truly lack the answer, say you do not know."

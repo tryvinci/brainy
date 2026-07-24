@@ -387,7 +387,9 @@ def main() -> None:
     parser.add_argument("--base-url", default="")
     parser.add_argument("--conversations", type=int, default=1)
     parser.add_argument("--questions", type=int, default=30, help="Max questions across all convos")
-    parser.add_argument("--top-k", type=int, default=15)
+    # Mem0 reports top_200; we keep a moderate default that balances recall vs
+    # answerer context. Override with --top-k for ablations.
+    parser.add_argument("--top-k", type=int, default=30)
     parser.add_argument(
         "--answerer-model",
         default="",
