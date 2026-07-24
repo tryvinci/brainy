@@ -9,10 +9,11 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
-	"brainy/internal/pack"
 	"brainy/internal/embedding"
+	"brainy/internal/pack"
 )
 
 type Store interface {
@@ -250,16 +251,43 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
-	memories, err := s.store.SearchActiveMemories(ctx, tenantID, subjectID, patterns, 100)
-	if err != nil {
-		return SearchResponse{}, err
+	// Lexical search and dense scoring run in parallel — same signals, lower p95.
+	var (
+		memories    []MemoryRecord
+		lexErr      error
+		embedScores map[string]float64
+		wg          sync.WaitGroup
+	)
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		memories, lexErr = s.store.SearchActiveMemories(ctx, tenantID, subjectID, patterns, 100)
+	}()
+	go func() {
+		defer wg.Done()
+		queryVector, _ := s.embed(ctx, query)
+		embedScores = s.embeddingScores(ctx, tenantID, subjectID, queryVector)
+	}()
+	wg.Wait()
+	if lexErr != nil {
+		return SearchResponse{}, lexErr
 	}
 
-	if len(memories) < 10 && hasResponseKeyword(queryTokens) {
-		allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
+	// One subject corpus listing reused for preference fill, dense admit,
+	// session expansion, and subject-content bridging.
+	var allMemories []MemoryRecord
+	needAll := len(embedScores) > 0 || looksMultiHopQuery(queryTokens) ||
+		(len(memories) < 10 && hasResponseKeyword(queryTokens)) ||
+		len(nameLikeTokens(contentQueryTokens)) > 0
+	if needAll {
+		listed, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
 		if err != nil {
 			return SearchResponse{}, err
 		}
+		allMemories = listed
+	}
+
+	if len(memories) < 10 && hasResponseKeyword(queryTokens) {
 		preferenceIDs := make(map[string]struct{})
 		for _, m := range memories {
 			preferenceIDs[m.MemoryID] = struct{}{}
@@ -273,17 +301,11 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
-	queryVector, _ := s.embed(ctx, query)
-	embedScores := s.embeddingScores(ctx, tenantID, subjectID, queryVector)
-	candidates := make(map[string]MemoryRecord, len(memories))
+	candidates := make(map[string]MemoryRecord, len(memories)+32)
 	for _, record := range memories {
 		candidates[record.MemoryID] = record
 	}
 	if len(embedScores) > 0 {
-		allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
-		if err != nil {
-			return SearchResponse{}, err
-		}
 		for _, record := range allMemories {
 			if score := embedScores[record.MemoryID]; score >= 0.15 {
 				if _, ok := candidates[record.MemoryID]; !ok {
@@ -293,13 +315,20 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
+	// Subject-content bridge: admit content-dense memories that mention a
+	// queried person/topic even when they lack the question's surface verbs.
+	// Generic conversational need (profile/activity recall), not dataset-specific.
+	if len(allMemories) > 0 {
+		expandSubjectContentMemories(candidates, contentQueryTokens, allMemories, 20)
+	}
+
 	// For multi-hop shaped questions, admit a capped set of same-session neighbors
 	// and a second-pass of fact-like memories related to first-hit content tokens.
 	if looksMultiHopQuery(queryTokens) {
-		if allMemories, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
-			expandSessionNeighbors(candidates, memories, allMemories, 12)
+		if len(allMemories) > 0 {
+			expandSessionNeighbors(candidates, memories, allMemories, 16)
 		}
-		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, queryTokens, memories, 8); err == nil {
+		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, queryTokens, memories, 12); err == nil {
 			for _, record := range related {
 				if _, ok := candidates[record.MemoryID]; !ok {
 					candidates[record.MemoryID] = record
@@ -338,8 +367,14 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	// (BRAINY_IDF_RANKING) pending a staging re-tune. Computed once per query.
 	var idf map[string]float64
 	if s.idfRankingEnabled {
-		if allForIDF, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
-			idf = computeQueryIDF(allForIDF, contentBearingTokens(queryTokens))
+		corpus := allMemories
+		if len(corpus) == 0 {
+			if listed, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
+				corpus = listed
+			}
+		}
+		if len(corpus) > 0 {
+			idf = computeQueryIDF(corpus, contentBearingTokens(queryTokens))
 		}
 	}
 
@@ -467,18 +502,92 @@ func expandSessionNeighbors(candidates map[string]MemoryRecord, seeds []MemoryRe
 	}
 }
 
+// looksMultiHopQuery detects questions that typically need multiple supporting
+// memories: an ask word plus either a named subject or several content tokens.
+// Kept generic — no dataset-specific cue lists.
 func looksMultiHopQuery(tokens []string) bool {
 	hasAsk := false
-	hasCue := false
 	for _, token := range tokens {
 		switch token {
-		case "what", "which", "who", "where", "how":
+		case "what", "which", "who", "where", "how", "when", "why":
 			hasAsk = true
-		case "identity", "relationship", "status", "activities", "activity", "career", "path", "moved", "research", "pursue", "persue", "partake", "camped", "books", "read", "destress", "de-stress", "kids", "like":
-			hasCue = true
 		}
 	}
-	return hasAsk && hasCue
+	if !hasAsk {
+		return false
+	}
+	bearing := contentBearingTokens(tokens)
+	if len(nameLikeTokens(bearing)) > 0 {
+		return true
+	}
+	return len(bearing) >= 2
+}
+
+// nameLikeTokens returns longer non-stop content tokens that often name people
+// or topics in conversational queries (heuristic, language-agnostic-ish).
+func nameLikeTokens(tokens []string) []string {
+	out := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if len(token) >= 4 && !isQueryStopword(token) {
+			out = append(out, token)
+		}
+	}
+	return out
+}
+
+// expandSubjectContentMemories admits content-dense memories that mention a
+// queried name/topic so profile and multi-fact questions are not drowned out by
+// short acknowledgment turns that only share the name token.
+func expandSubjectContentMemories(candidates map[string]MemoryRecord, queryTokens []string, all []MemoryRecord, limit int) {
+	subjects := nameLikeTokens(queryTokens)
+	if len(subjects) == 0 || limit <= 0 {
+		return
+	}
+	subjectSet := map[string]struct{}{}
+	for _, s := range subjects {
+		subjectSet[s] = struct{}{}
+	}
+	type ranked struct {
+		record MemoryRecord
+		dens   int
+	}
+	pool := make([]ranked, 0, limit*2)
+	for _, record := range all {
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		content := strings.TrimSpace(record.Content)
+		if content == "" || strings.HasSuffix(content, "?") {
+			continue
+		}
+		bearing := contentBearingTokens(tokenize(content))
+		if len(bearing) < 5 {
+			continue
+		}
+		hit := false
+		for _, tok := range bearing {
+			if _, ok := subjectSet[tok]; ok {
+				hit = true
+				break
+			}
+		}
+		if !hit {
+			continue
+		}
+		pool = append(pool, ranked{record: record, dens: len(bearing)})
+	}
+	sort.SliceStable(pool, func(i, j int) bool {
+		if pool[i].dens == pool[j].dens {
+			return pool[i].record.MemoryID > pool[j].record.MemoryID
+		}
+		return pool[i].dens > pool[j].dens
+	})
+	for i, item := range pool {
+		if i >= limit {
+			break
+		}
+		candidates[item.record.MemoryID] = item.record
+	}
 }
 
 // relatedFactMemories runs a second lexical pass using distinctive tokens from
@@ -842,6 +951,10 @@ func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights 
 		score += bonus
 		explain["subject_mention_boost"] = bonus
 	}
+	if penalty := lowInformationPenalty(record.Content, matched, bearingQuery); penalty != 0 {
+		score += penalty
+		explain["low_information_penalty"] = penalty
+	}
 	if penalty := questionMemoryPenalty(queryTokens, record.Content); penalty != 0 {
 		score += penalty
 		explain["question_memory_penalty"] = penalty
@@ -899,21 +1012,20 @@ func tokensMatch(queryToken, contentToken string) bool {
 	return false
 }
 
-// subjectMentionBoost rewards memories that mention a named subject from the query
-// (e.g. caroline / melanie) so multi-hop person questions don't drown in generic "what" hits.
+// subjectMentionBoost rewards content-dense memories that mention a named
+// subject from the query. Short acknowledgments ("Yeah, Alice") do not qualify —
+// they previously flooded person-centric recall.
 func subjectMentionBoost(queryTokens, contentTokens []string) float64 {
-	nameLike := make([]string, 0)
-	for _, token := range queryTokens {
-		if len(token) >= 4 && !isQueryStopword(token) {
-			// Heuristic: longer non-stop tokens often include person/topic nouns.
-			nameLike = append(nameLike, token)
-		}
-	}
+	nameLike := nameLikeTokens(queryTokens)
 	if len(nameLike) == 0 {
 		return 0
 	}
+	bearingContent := contentBearingTokens(contentTokens)
+	if len(bearingContent) < 5 {
+		return 0
+	}
 	contentSet := map[string]struct{}{}
-	for _, token := range contentTokens {
+	for _, token := range bearingContent {
 		contentSet[token] = struct{}{}
 	}
 	hits := 0
@@ -926,6 +1038,42 @@ func subjectMentionBoost(queryTokens, contentTokens []string) float64 {
 		return 0
 	}
 	return 0.12 * float64(hits)
+}
+
+// lowInformationPenalty downranks greeting/ack turns and name-only matches so
+// fact-bearing memories surface for person and multi-fact questions.
+func lowInformationPenalty(content string, matched, bearingQuery []string) float64 {
+	bearing := contentBearingTokens(tokenize(content))
+	if len(bearing) == 0 {
+		return -0.8
+	}
+	if len(bearing) <= 2 {
+		return -0.75
+	}
+	if len(bearing) <= 4 {
+		return -0.4
+	}
+	if len(matched) == 0 {
+		return 0
+	}
+	nameSet := map[string]struct{}{}
+	for _, token := range nameLikeTokens(bearingQuery) {
+		nameSet[token] = struct{}{}
+	}
+	if len(nameSet) == 0 {
+		return 0
+	}
+	onlyNames := true
+	for _, m := range matched {
+		if _, ok := nameSet[m]; !ok {
+			onlyNames = false
+			break
+		}
+	}
+	if onlyNames && len(bearing) < 8 {
+		return -0.45
+	}
+	return 0
 }
 
 // questionMemoryPenalty downranks stored questions when the user query is itself a question

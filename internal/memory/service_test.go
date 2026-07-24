@@ -643,3 +643,59 @@ func TestQuestionMemoriesDownrankedForFactQueries(t *testing.T) {
 	}
 }
 
+func TestLowInfoNameOnlyDownranked(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	_, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"session_id": "s1", "observed_at": "2023-05-08T12:00:00Z"},
+		Messages: []Message{
+			{Role: "user", Content: "Yeah, Alice"},
+			{Role: "user", Content: "Thanks, Alice"},
+			{Role: "user", Content: "Alice: I am training for a marathon and run every morning before work"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What activities does Alice enjoy?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected results")
+	}
+	top := strings.ToLower(search.Results[0].Content)
+	if !strings.Contains(top, "marathon") && !strings.Contains(top, "run") {
+		t.Fatalf("expected content-dense activity memory first, got %q explain=%v", search.Results[0].Content, search.Results[0].Explain)
+	}
+}
+
+func TestSubjectContentExpansionSurfacesProfile(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	_, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"session_id": "s-profile", "observed_at": "2023-05-08T12:00:00Z"},
+		Messages: []Message{
+			{Role: "user", Content: "Hey Bob"},
+			{Role: "user", Content: "Bob: pottery keeps me grounded after long weeks at the studio"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Query verbs do not appear in the pottery memory; subject bridge must admit it.
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What hobbies does Bob partake in?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, r := range search.Results {
+		joined += " " + strings.ToLower(r.Content)
+	}
+	if !strings.Contains(joined, "pottery") {
+		t.Fatalf("expected subject-content expansion to surface pottery, got %q", joined)
+	}
+}
+
