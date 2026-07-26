@@ -214,6 +214,22 @@ CREATE INDEX IF NOT EXISTS memory_records_observed_at_lookup
 ON memory_records (tenant_id, subject_id, observed_at DESC NULLS LAST);
 `,
 	},
+	{
+		version: 11,
+		name:    "add_supersession_lineage",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS supersedes_id TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS memory_records_supersedes_lookup
+ON memory_records (tenant_id, subject_id, supersedes_id)
+WHERE supersedes_id <> '';
+
+CREATE INDEX IF NOT EXISTS memory_records_superseded_at_lookup
+ON memory_records (tenant_id, subject_id, superseded_at DESC NULLS LAST);
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

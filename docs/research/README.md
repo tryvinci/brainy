@@ -1,59 +1,68 @@
 # Brainy Research
 
-Benchmark-backed claims for vertical memory. Goal: a public research surface in the spirit of [SuperMemory Research](https://supermemory.ai/research/) and Mem0’s LOCOMO writeups — **reproducible, cited, honest about gaps**.
+**Strategy:** Surpass Mem0 and peers on **multiple axes** — operational correctness,
+vertical governance, latency/cost, and (fairly measured) conversational recall — then
+publish that evidence. Not LOCOMO parity alone. Not benchmax.
 
----
+Master plan: [path-to-sota.md](./path-to-sota.md) · Papers: [paper-topics.md](./paper-topics.md) · Ladder: [public-bench-ladder.md](./public-bench-ladder.md)
 
-## Published
-
-| Piece | Status | Link |
-| --- | --- | --- |
-| OpMem v0 (operational memory) | Live results | [spec](./opmem-spec.md) · [staging vs Mem0](../benchmarks/staging-competitive-report.md) |
-| Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
-| Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
-| LOCOMO smoke (L3) | Live mid score | [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [ladder](./public-bench-ladder.md) |
-| Public-bench ladder (LOCOMO …) | L3 remeasured; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
-| Proveable eval framework | Spec + L2/L3 harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
+Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0’s LOCOMO writeups — **reproducible, cited, honest about gaps**.
 
 ---
 
 ## Headline (today)
 
-**Brainy 12/12 OpMem vs Mem0 9/12** on staging (parity 4/4), plus marketing vertical **16/16**.
+| Axis | Result |
+| --- | --- |
+| **OpMem** (operational) | Brainy **12/12** vs Mem0 **9/12** on staging |
+| **Marketing vertical** | **16/16** (Mem0: no equivalent track) |
+| **LOCOMO smoke** (1×30, gpt-oss, dense emb) | **16/30** — mid score, multi-hop **3/10**; not a SOTA claim |
+| **Search latency** | p50 ~730–890 ms after content-dense ranking (↓ vs ~1.0s) |
 
-**LOCOMO smoke (same pins, 1 convo / 30 Q):** **12/30 (40%)** after async provider-extract path + relative event-time enrichment — honest mid score, **not** a SOTA claim. See [locomo-smoke.md](../benchmarks/locomo-smoke.md) for category breakdown; multi-hop **0/10**. L4 unlock gate (≥12/30) cleared — full LOCOMO next. Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md).
+Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [staging competitive](../benchmarks/staging-competitive-report.md) · [moat](../benchmarks/marketing-moat-report.md)
+
+---
+
+## Published / live artifacts
+
+| Piece | Status | Link |
+| --- | --- | --- |
+| OpMem v0 | Live results | [spec](./opmem-spec.md) · [staging vs Mem0](../benchmarks/staging-competitive-report.md) |
+| Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
+| Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
+| LOCOMO smoke (L3) | Live mid score | [locomo-smoke.md](../benchmarks/locomo-smoke.md) |
+| Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
+| Proveable eval framework | Spec + harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
+| Surpass plan | Active | [path-to-sota.md](./path-to-sota.md) |
+| Paper roadmap | Active | [paper-topics.md](./paper-topics.md) |
 
 ---
 
 ## External datasets we cite
 
-Always outlink upstream when discussing public suites:
-
-- **LOCOMO** — [snap-research/locomo](https://github.com/snap-research/locomo) · [ACL 2024](https://aclanthology.org/2024.acl-long.747/) · [project site](https://snap-research.github.io/locomo/)
-- **Memory harness (runners)** — [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks) (LOCOMO / LongMemEval / BEAM runners + Mem0 adapters)
-- **Industry research pages** — [SuperMemory research](https://supermemory.ai/research/) · [LongMemBench](https://supermemory.ai/research/longmembench/)
+- **LOCOMO** — [snap-research/locomo](https://github.com/snap-research/locomo) · [ACL 2024](https://aclanthology.org/2024.acl-long.747/)
+- **Memory harness** — [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)
+- **Industry research pages** — [SuperMemory research](https://supermemory.ai/research/)
 
 ---
 
-## Content format we are targeting
+## Content format for public posts
 
-Posts should eventually look like Mem0’s LOCOMO-style note and SuperMemory’s research pages:
+1. One-line headline with primary metric  
+2. Systems + version pins  
+3. Table: accuracy · p50/p95 · tokens/query  
+4. Category breakdown  
+5. Methodology (dataset, judge, temperature, retrieval policy)  
+6. Reproduce CLI  
+7. Limitations — what we did *not* claim  
 
-1. **One-line headline** with the primary metric (accuracy / pass rate)
-2. **Systems compared** (Brainy, Mem0, …) + version pins
-3. **Table**: accuracy · p50/p95 latency · tokens/query (when measured)
-4. **Category breakdown** (temporal, multi-hop, suppression, …)
-5. **Methodology** — dataset link, judge model, temperature, retrieval policy
-6. **Reproduce** — exact CLI against staging or tagged release
-7. **Limitations** — what we did *not* claim
-
-First posts can ship with **empty / TBD cells** for latency and LOCOMO — preferable to inventing numbers.
+Empty / TBD cells beat invented numbers.
 
 ---
 
 ## Next engineering step
 
-See [path-to-sota.md](./path-to-sota.md) for the consolidated, leader-informed
-plan (strong hosted embeddings on staging → BM25/IDF → temporal supersession →
-entity graph/PageRank → full LOCOMO under a comparable judge). Also
-[public-bench-ladder.md](./public-bench-ladder.md).
+1. ~~ENG-86 temporal supersession v1~~ — [supersession-v1.md](./supersession-v1.md)  
+2. Multi-hop product path (graph re-tune off 30-Q smoke)  
+3. Paper 1 (OpMem) multi-system matrix + public post  
+4. Fair full LOCOMO under identical pins before any “beat Mem0 on LOCOMO” claim  
