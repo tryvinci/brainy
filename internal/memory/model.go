@@ -59,6 +59,29 @@ type CorrectionRequest struct {
 	SourceText string `json:"source_text,omitempty"`
 }
 
+// SupersedeRequest replaces a memory with a new active record and marks the
+// prior record lifecycle=superseded (ENG-86). Prefer this over in-place Correct
+// when the product needs ADD-style lineage (supersedes_id).
+type SupersedeRequest struct {
+	Content    string `json:"content"`
+	SourceText string `json:"source_text,omitempty"`
+}
+
+// DomainEventRequest batch-invalidates memories (campaign end, fact revision).
+// v1: explicit memory IDs only; pack-triggered rules come later.
+type DomainEventRequest struct {
+	TenantID           string         `json:"tenant_id"`
+	SubjectID          string         `json:"subject_id"`
+	EventType          string         `json:"event_type"`
+	SupersedeMemoryIDs []string       `json:"supersede_memory_ids,omitempty"`
+	Metadata           map[string]any `json:"metadata,omitempty"`
+}
+
+type DomainEventResult struct {
+	EventType  string   `json:"event_type"`
+	Superseded []string `json:"superseded"`
+}
+
 type MemoryRecord struct {
 	MemoryID          string
 	TenantID          string
@@ -84,6 +107,10 @@ type MemoryRecord struct {
 	CorrectedAt       *time.Time
 	// ObservedAt is conversational event time (client metadata.observed_at or provider when).
 	ObservedAt *time.Time
+	// SupersedesID is the memory this record replaces (new → old). Empty if none.
+	SupersedesID string
+	// SupersededAt is when this record was marked lifecycle=superseded.
+	SupersededAt *time.Time
 }
 
 type IngestResult struct {
@@ -115,6 +142,12 @@ type SearchResult struct {
 	Score      float64        `json:"score"`
 	ObservedAt *time.Time     `json:"observed_at,omitempty"`
 	Explain    map[string]any `json:"explain"`
+}
+
+// SearchOptions controls retrieval visibility. Default excludes superseded /
+// archived / suppressed lifecycle states (production default).
+type SearchOptions struct {
+	IncludeHistorical bool // when true, include lifecycle=superseded rows
 }
 
 type SearchResponse struct {

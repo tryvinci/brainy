@@ -76,12 +76,13 @@ func metadataEqual(left, right map[string]any) bool {
 const memoryRecordSelectCols = `
 memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
 status, confidence, extraction_version, explain, created_at, updated_at, corrected_at,
-vertical, primitive, label, scope, metadata, lifecycle_state, observed_at`
+vertical, primitive, label, scope, metadata, lifecycle_state, observed_at,
+supersedes_id, superseded_at`
 
 func scanMemoryRow(row pgx.Row) (memory.MemoryRecord, error) {
 	var record memory.MemoryRecord
 	var rawExplain, rawMetadata []byte
-	var correctedAt, observedAt *time.Time
+	var correctedAt, observedAt, supersededAt *time.Time
 	err := row.Scan(
 		&record.MemoryID,
 		&record.TenantID,
@@ -105,6 +106,8 @@ func scanMemoryRow(row pgx.Row) (memory.MemoryRecord, error) {
 		&rawMetadata,
 		&record.LifecycleState,
 		&observedAt,
+		&record.SupersedesID,
+		&supersededAt,
 	)
 	if err != nil {
 		return memory.MemoryRecord{}, err
@@ -113,6 +116,7 @@ func scanMemoryRow(row pgx.Row) (memory.MemoryRecord, error) {
 	record.Metadata = decodeMetadata(rawMetadata)
 	record.CorrectedAt = correctedAt
 	record.ObservedAt = observedAt
+	record.SupersededAt = supersededAt
 	if record.Vertical == "" {
 		record.Vertical = memory.VerticalCore
 	}
@@ -153,15 +157,17 @@ func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (m
 INSERT INTO memory_records (
     memory_id, tenant_id, subject_id, kind, content, source_text, source_type, dedupe_key,
     status, confidence, extraction_version, explain, created_at, updated_at,
-    vertical, primitive, label, scope, metadata, lifecycle_state, observed_at
+    vertical, primitive, label, scope, metadata, lifecycle_state, observed_at,
+    supersedes_id, superseded_at
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8,
     $9, $10, $11, $12, $13, $14,
-    $15, $16, $17, $18, $19, $20, $21
+    $15, $16, $17, $18, $19, $20, $21,
+    $22, $23
 )
 ON CONFLICT (tenant_id, subject_id, dedupe_key) DO NOTHING
 RETURNING `+memoryRecordSelectCols+`
-`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState, record.ObservedAt)
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Kind, record.Content, record.SourceText, record.SourceType, record.DedupeKey, record.Status, record.Confidence, record.ExtractionVersion, explain, record.CreatedAt, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState, record.ObservedAt, record.SupersedesID, record.SupersededAt)
 
 	inserted, err := scanMemoryRow(insertRow)
 	if err == nil {
@@ -222,9 +228,11 @@ SET content = $4,
     scope = $15,
     metadata = $16,
     lifecycle_state = $17,
-    observed_at = $18
+    observed_at = $18,
+    supersedes_id = $19,
+    superseded_at = $20
 WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
-`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.SourceType, record.Status, record.Confidence, record.ExtractionVersion, explain, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState, record.ObservedAt)
+`, record.MemoryID, record.TenantID, record.SubjectID, record.Content, record.SourceText, record.SourceType, record.Status, record.Confidence, record.ExtractionVersion, explain, record.UpdatedAt, record.Vertical, record.Primitive, record.Label, record.Scope, metadata, record.LifecycleState, record.ObservedAt, record.SupersedesID, record.SupersededAt)
 	if err != nil {
 		return memory.StoreUpsertResult{}, err
 	}
@@ -236,13 +244,31 @@ WHERE memory_id = $1 AND tenant_id = $2 AND subject_id = $3
 }
 
 func (s *Store) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
-	rows, err := s.pool.Query(ctx, `
+	return s.ListMemories(ctx, tenantID, subjectID, false)
+}
+
+func (s *Store) ListMemories(ctx context.Context, tenantID, subjectID string, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	if includeSuperseded {
+		rows, err = s.pool.Query(ctx, `
+SELECT `+memoryRecordSelectCols+`
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND lifecycle_state NOT IN ($4, $5)
+ORDER BY updated_at DESC, memory_id ASC
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuppressed)
+	} else {
+		rows, err = s.pool.Query(ctx, `
 SELECT `+memoryRecordSelectCols+`
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
   AND lifecycle_state NOT IN ($4, $5, $6)
 ORDER BY updated_at DESC, memory_id ASC
 `, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -260,10 +286,29 @@ ORDER BY updated_at DESC, memory_id ASC
 }
 
 func (s *Store) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
+	return s.SearchMemories(ctx, tenantID, subjectID, patterns, limit, false)
+}
+
+func (s *Store) SearchMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	rows, err := s.pool.Query(ctx, `
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	if includeSuperseded {
+		rows, err = s.pool.Query(ctx, `
+SELECT `+memoryRecordSelectCols+`
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND lifecycle_state NOT IN ($4, $5)
+  AND content ILIKE ANY($6)
+ORDER BY updated_at DESC
+LIMIT $7
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuppressed, patterns, limit)
+	} else {
+		rows, err = s.pool.Query(ctx, `
 SELECT `+memoryRecordSelectCols+`
 FROM memory_records
 WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
@@ -272,6 +317,7 @@ WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
 ORDER BY updated_at DESC
 LIMIT $8
 `, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed, patterns, limit)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -286,6 +332,40 @@ LIMIT $8
 		out = append(out, record)
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) GetMemory(ctx context.Context, tenantID, subjectID, memoryID string) (memory.MemoryRecord, error) {
+	row := s.pool.QueryRow(ctx, `
+SELECT `+memoryRecordSelectCols+`
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND memory_id = $3
+`, tenantID, subjectID, memoryID)
+	record, err := scanMemoryRow(row)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return memory.MemoryRecord{}, memory.ErrMemoryNotFound
+		}
+		return memory.MemoryRecord{}, err
+	}
+	return record, nil
+}
+
+func (s *Store) MarkSuperseded(ctx context.Context, tenantID, subjectID, memoryID string) error {
+	now := time.Now().UTC()
+	commandTag, err := s.pool.Exec(ctx, `
+UPDATE memory_records
+SET lifecycle_state = $4,
+    superseded_at = $5,
+    updated_at = $5
+WHERE tenant_id = $1 AND subject_id = $2 AND memory_id = $3
+`, tenantID, subjectID, memoryID, memory.LifecycleSuperseded, now)
+	if err != nil {
+		return err
+	}
+	if commandTag.RowsAffected() == 0 {
+		return memory.ErrMemoryNotFound
+	}
+	return nil
 }
 
 func (s *Store) SuppressMemory(ctx context.Context, tenantID, subjectID, memoryID string) error {

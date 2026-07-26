@@ -1,7 +1,40 @@
 # Paper Topics: Publishing Research from Brainy
 
-**Status:** Research notes (exploratory, no implementation commitment)
-**Date:** 2026-07-02
+**Status:** Active publication roadmap (aligned with [path-to-sota.md](./path-to-sota.md))
+**Updated:** 2026-07-24 · originally 2026-07-02
+
+## Publication roadmap (sequenced)
+
+Goal: **surpass Mem0 on multiple axes**, with papers that expand the scoreboard beyond
+LOCOMO J-score. Anti-benchmax: papers measure product behavior; they do not justify
+dataset special-casing.
+
+| Order | Paper | Axis | Engineering gates | Target shape |
+| --- | --- | --- | --- | --- |
+| **1** | OpMem operational correctness | A | Multi-system adapters (≥4); supersession fixtures (ENG-86) | Workshop / arXiv benchmark |
+| **2** | Vertical packs over primitives | B | Finance pack (ENG-76) on unchanged runtime; ablation | Systems paper |
+| **3** | Outcome-grounded conviction / stop-loss | E | Longitudinal outcome loop data | Algorithm paper |
+
+Supporting shorts: TasteSignal; reproducible local-vs-provider eval methodology;
+declarative lifecycle as temporal invalidation (section of Paper 2).
+
+**Paper 1 ship checklist**
+
+- [ ] OpMem v0/v1 harness documented + runnable CLI
+- [ ] Brainy + Mem0 + ≥2 other systems in one table
+- [ ] Pins + reproduce block; public post under `docs/research/posts/`
+- [ ] No LOCOMO answer-key coupling
+
+**Paper 2 ship checklist**
+
+- [ ] Marketing + finance packs pass domain evals on same binary
+- [ ] Ablation: generic pack vs domain pack
+- [ ] Moat table vs Mem0/Zep (capabilities, not LOCOMO)
+
+**Paper 3 ship checklist**
+
+- [ ] Simulated campaigns/trading with outcome→conviction updates
+- [ ] Compare observation-only belief baseline (BeliefMem-class)
 
 ## Can we write a paper of this nature?
 
