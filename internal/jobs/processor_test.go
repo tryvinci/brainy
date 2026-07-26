@@ -39,7 +39,12 @@ func (s *storeStub) UpsertMemory(_ context.Context, record memory.MemoryRecord) 
 	return memory.StoreUpsertResult{Record: record, State: "created"}, nil
 }
 
-func (s *storeStub) ListActiveMemories(_ context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
+func (s *storeStub) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
+	return s.ListMemories(ctx, tenantID, subjectID, false)
+}
+
+func (s *storeStub) ListMemories(_ context.Context, tenantID, subjectID string, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	_ = includeSuperseded
 	var out []memory.MemoryRecord
 	for _, record := range s.records {
 		if record.TenantID == tenantID && record.SubjectID == subjectID && record.Status == memory.StatusActive {
@@ -49,10 +54,21 @@ func (s *storeStub) ListActiveMemories(_ context.Context, tenantID, subjectID st
 	return out, nil
 }
 
-func (s *storeStub) SearchActiveMemories(_ context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
-	_ = patterns
-	return s.ListActiveMemories(context.Background(), tenantID, subjectID)
+func (s *storeStub) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
+	return s.SearchMemories(ctx, tenantID, subjectID, patterns, limit, false)
 }
+
+func (s *storeStub) SearchMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	_ = patterns
+	_ = limit
+	return s.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+}
+
+func (s *storeStub) GetMemory(_ context.Context, _, _, _ string) (memory.MemoryRecord, error) {
+	return memory.MemoryRecord{}, memory.ErrMemoryNotFound
+}
+
+func (s *storeStub) MarkSuperseded(_ context.Context, _, _, _ string) error { return nil }
 
 func (s *storeStub) SuppressMemory(_ context.Context, _, _, _ string) error { return nil }
 

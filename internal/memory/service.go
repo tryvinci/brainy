@@ -18,9 +18,15 @@ import (
 
 type Store interface {
 	UpsertMemory(ctx context.Context, record MemoryRecord) (StoreUpsertResult, error)
+	GetMemory(ctx context.Context, tenantID, subjectID, memoryID string) (MemoryRecord, error)
 	ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]MemoryRecord, error)
 	SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]MemoryRecord, error)
+	// List/Search with includeSuperseded=true return lifecycle=superseded rows
+	// (historical query). Default list/search pass false.
+	ListMemories(ctx context.Context, tenantID, subjectID string, includeSuperseded bool) ([]MemoryRecord, error)
+	SearchMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]MemoryRecord, error)
 	SuppressMemory(ctx context.Context, tenantID, subjectID, memoryID string) error
+	MarkSuperseded(ctx context.Context, tenantID, subjectID, memoryID string) error
 	CorrectMemory(ctx context.Context, tenantID, subjectID, memoryID, content, sourceText string) (MemoryRecord, error)
 	EnqueueIngestJob(ctx context.Context, ingestID, jobID, idempotencyKey string, req IngestRequest) (EnqueueResult, error)
 	ClaimNextExtractionJob(ctx context.Context) (ExtractionJob, bool, error)
@@ -129,6 +135,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 			return IngestResult{}, err
 		}
 		s.persistEmbedding(ctx, upserted.Record)
+		if err := s.applyIngestSupersession(ctx, upserted.Record); err != nil {
+			return IngestResult{}, err
+		}
 
 		switch upserted.State {
 		case "created":
@@ -233,6 +242,10 @@ type rankedSearchResult struct {
 }
 
 func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, scope, query string) (SearchResponse, error) {
+	return s.SearchOpt(ctx, tenantID, subjectID, vertical, scope, query, SearchOptions{})
+}
+
+func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, scope, query string, opts SearchOptions) (SearchResponse, error) {
 	if tenantID == "" || subjectID == "" || query == "" {
 		return SearchResponse{}, errors.New("tenant_id, subject_id, and q are required")
 	}
@@ -251,6 +264,8 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		}
 	}
 
+	includeSuperseded := opts.IncludeHistorical
+
 	// Lexical search and dense scoring run in parallel — same signals, lower p95.
 	var (
 		memories    []MemoryRecord
@@ -261,7 +276,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		memories, lexErr = s.store.SearchActiveMemories(ctx, tenantID, subjectID, patterns, 100)
+		memories, lexErr = s.store.SearchMemories(ctx, tenantID, subjectID, patterns, 100, includeSuperseded)
 	}()
 	go func() {
 		defer wg.Done()
@@ -280,7 +295,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 		(len(memories) < 10 && hasResponseKeyword(queryTokens)) ||
 		len(nameLikeTokens(contentQueryTokens)) > 0
 	if needAll {
-		listed, err := s.store.ListActiveMemories(ctx, tenantID, subjectID)
+		listed, err := s.store.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
 		if err != nil {
 			return SearchResponse{}, err
 		}
@@ -369,7 +384,7 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	if s.idfRankingEnabled {
 		corpus := allMemories
 		if len(corpus) == 0 {
-			if listed, err := s.store.ListActiveMemories(ctx, tenantID, subjectID); err == nil {
+			if listed, err := s.store.ListMemories(ctx, tenantID, subjectID, includeSuperseded); err == nil {
 				corpus = listed
 			}
 		}
@@ -381,7 +396,11 @@ func (s *Service) Search(ctx context.Context, tenantID, subjectID, vertical, sco
 	ranked := make([]rankedSearchResult, 0, len(candidates))
 	entitiesByID := make(map[string][]string, len(candidates))
 	for _, record := range candidates {
-		if !IsLifecycleSearchVisible(record.LifecycleState) {
+		if includeSuperseded {
+			if record.LifecycleState == LifecycleArchived || record.LifecycleState == LifecycleSuppressed {
+				continue
+			}
+		} else if !IsLifecycleSearchVisible(record.LifecycleState) {
 			continue
 		}
 		if vertical != "" && vertical != VerticalCore && record.Vertical != vertical && record.Vertical != VerticalCore {
@@ -642,7 +661,7 @@ func (s *Service) relatedFactMemories(ctx context.Context, tenantID, subjectID s
 	for _, token := range extra {
 		patterns = append(patterns, "%"+token+"%")
 	}
-	found, err := s.store.SearchActiveMemories(ctx, tenantID, subjectID, patterns, 50)
+	found, err := s.store.SearchMemories(ctx, tenantID, subjectID, patterns, 50, false)
 	if err != nil {
 		return nil, err
 	}
@@ -791,6 +810,122 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 		Content:  record.Content,
 		Status:   record.Status,
 	}, nil
+}
+
+// Supersede creates a new active memory that replaces priorID, then marks the
+// prior record lifecycle=superseded. Search excludes the old record by default.
+func (s *Service) Supersede(ctx context.Context, tenantID, subjectID, priorID string, req SupersedeRequest) (MutationResult, error) {
+	if tenantID == "" || subjectID == "" || priorID == "" {
+		return MutationResult{}, errors.New("tenant_id, subject_id, and memory_id are required")
+	}
+	content := NormalizeText(req.Content)
+	if content == "" {
+		return MutationResult{}, errors.New("content is required")
+	}
+	sourceText := NormalizeText(req.SourceText)
+	if sourceText == "" {
+		sourceText = content
+	}
+
+	prior, err := s.store.GetMemory(ctx, tenantID, subjectID, priorID)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	if !IsLifecycleSearchVisible(prior.LifecycleState) && prior.LifecycleState != LifecycleActive {
+		// Allow superseding deprioritized; reject already-terminal states.
+		if prior.LifecycleState == LifecycleSuperseded || prior.LifecycleState == LifecycleArchived || prior.LifecycleState == LifecycleSuppressed || prior.Status == StatusSuppressed {
+			return MutationResult{}, fmt.Errorf("memory %s is not active (lifecycle=%s status=%s)", priorID, prior.LifecycleState, prior.Status)
+		}
+	}
+
+	now := s.now()
+	replacement := prior
+	replacement.MemoryID = s.id("mem")
+	replacement.Content = content
+	replacement.SourceText = sourceText
+	replacement.DedupeKey = DedupeKey(tenantID, subjectID, prior.Kind, content)
+	replacement.Status = StatusActive
+	replacement.LifecycleState = LifecycleActive
+	replacement.SupersedesID = priorID
+	replacement.SupersededAt = nil
+	replacement.CorrectedAt = &now
+	replacement.CreatedAt = now
+	replacement.UpdatedAt = now
+	if replacement.Explain == nil {
+		replacement.Explain = map[string]any{}
+	}
+	replacement.Explain["supersedes"] = priorID
+
+	upserted, err := s.store.UpsertMemory(ctx, replacement)
+	if err != nil {
+		return MutationResult{}, err
+	}
+	s.persistEmbedding(ctx, upserted.Record)
+
+	if err := s.store.MarkSuperseded(ctx, tenantID, subjectID, priorID); err != nil {
+		return MutationResult{}, err
+	}
+
+	return MutationResult{
+		MemoryID: upserted.Record.MemoryID,
+		Kind:     upserted.Record.Kind,
+		Content:  upserted.Record.Content,
+		Status:   upserted.Record.Status,
+	}, nil
+}
+
+// ApplyDomainEvent marks listed memories superseded (batch invalidation).
+func (s *Service) ApplyDomainEvent(ctx context.Context, req DomainEventRequest) (DomainEventResult, error) {
+	if strings.TrimSpace(req.TenantID) == "" || strings.TrimSpace(req.SubjectID) == "" {
+		return DomainEventResult{}, errors.New("tenant_id and subject_id are required")
+	}
+	if strings.TrimSpace(req.EventType) == "" {
+		return DomainEventResult{}, errors.New("event_type is required")
+	}
+	out := DomainEventResult{EventType: req.EventType, Superseded: make([]string, 0, len(req.SupersedeMemoryIDs))}
+	for _, id := range req.SupersedeMemoryIDs {
+		id = strings.TrimSpace(id)
+		if id == "" {
+			continue
+		}
+		if err := s.store.MarkSuperseded(ctx, req.TenantID, req.SubjectID, id); err != nil {
+			if errors.Is(err, ErrMemoryNotFound) {
+				continue
+			}
+			return DomainEventResult{}, err
+		}
+		out.Superseded = append(out.Superseded, id)
+	}
+	return out, nil
+}
+
+// applyIngestSupersession honors metadata.supersedes_memory_id on a newly
+// written record: mark the prior memory superseded and ensure lineage is set.
+func (s *Service) applyIngestSupersession(ctx context.Context, record MemoryRecord) error {
+	priorID := supersedesMemoryIDFromMetadata(record.Metadata)
+	if priorID == "" {
+		priorID = strings.TrimSpace(record.SupersedesID)
+	}
+	if priorID == "" || priorID == record.MemoryID {
+		return nil
+	}
+	return s.store.MarkSuperseded(ctx, record.TenantID, record.SubjectID, priorID)
+}
+
+func supersedesMemoryIDFromMetadata(metadata map[string]any) string {
+	if metadata == nil {
+		return ""
+	}
+	raw, ok := metadata["supersedes_memory_id"]
+	if !ok {
+		return ""
+	}
+	switch v := raw.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	default:
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
 }
 
 func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map[string]int) (float64, map[string]any) {

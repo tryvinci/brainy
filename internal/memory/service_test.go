@@ -61,20 +61,59 @@ func metadataEqual(left, right map[string]any) bool {
 	return true
 }
 
-func (s *memoryStoreStub) ListActiveMemories(_ context.Context, tenantID, subjectID string) ([]MemoryRecord, error) {
+func (s *memoryStoreStub) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]MemoryRecord, error) {
+	return s.ListMemories(ctx, tenantID, subjectID, false)
+}
+
+func (s *memoryStoreStub) ListMemories(_ context.Context, tenantID, subjectID string, includeSuperseded bool) ([]MemoryRecord, error) {
 	var out []MemoryRecord
 	for _, record := range s.records {
-		if record.TenantID == tenantID && record.SubjectID == subjectID && record.Status == StatusActive &&
-			IsLifecycleSearchVisible(record.LifecycleState) {
-			out = append(out, record)
+		if record.TenantID != tenantID || record.SubjectID != subjectID || record.Status != StatusActive {
+			continue
 		}
+		if includeSuperseded {
+			if record.LifecycleState == LifecycleArchived || record.LifecycleState == LifecycleSuppressed {
+				continue
+			}
+		} else if !IsLifecycleSearchVisible(record.LifecycleState) {
+			continue
+		}
+		out = append(out, record)
 	}
 	return out, nil
 }
 
-func (s *memoryStoreStub) SearchActiveMemories(_ context.Context, tenantID, subjectID string, patterns []string, limit int) ([]MemoryRecord, error) {
+func (s *memoryStoreStub) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]MemoryRecord, error) {
+	return s.SearchMemories(ctx, tenantID, subjectID, patterns, limit, false)
+}
+
+func (s *memoryStoreStub) SearchMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]MemoryRecord, error) {
 	_ = patterns
-	return s.ListActiveMemories(context.Background(), tenantID, subjectID)
+	_ = limit
+	return s.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+}
+
+func (s *memoryStoreStub) GetMemory(_ context.Context, tenantID, subjectID, memoryID string) (MemoryRecord, error) {
+	for _, record := range s.records {
+		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {
+			return record, nil
+		}
+	}
+	return MemoryRecord{}, ErrMemoryNotFound
+}
+
+func (s *memoryStoreStub) MarkSuperseded(_ context.Context, tenantID, subjectID, memoryID string) error {
+	for key, record := range s.records {
+		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {
+			now := time.Now().UTC()
+			record.LifecycleState = LifecycleSuperseded
+			record.SupersededAt = &now
+			record.UpdatedAt = now
+			s.records[key] = record
+			return nil
+		}
+	}
+	return ErrMemoryNotFound
 }
 
 func (s *memoryStoreStub) SuppressMemory(_ context.Context, tenantID, subjectID, memoryID string) error {
@@ -696,6 +735,101 @@ func TestSubjectContentExpansionSurfacesProfile(t *testing.T) {
 	}
 	if !strings.Contains(joined, "pottery") {
 		t.Fatalf("expected subject-content expansion to surface pottery, got %q", joined)
+	}
+}
+
+func TestSupersedeHidesPriorFromDefaultSearch(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	ingested, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "note",
+		Messages: []Message{{Role: "user", Content: "Door code is 1111"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ingested.Memories) == 0 {
+		t.Fatal("expected memory")
+	}
+	priorID := ingested.Memories[0].MemoryID
+	replaced, err := service.Supersede(context.Background(), "t1", "u1", priorID, SupersedeRequest{
+		Content: "Door code is 2222",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaced.MemoryID == priorID {
+		t.Fatal("expected a new memory id for superseding record")
+	}
+
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "door code")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range search.Results {
+		if strings.Contains(r.Content, "1111") {
+			t.Fatalf("superseded prior leaked into default search: %q", r.Content)
+		}
+		if r.MemoryID == priorID {
+			t.Fatalf("superseded id %s visible in default search", priorID)
+		}
+	}
+	joined := ""
+	for _, r := range search.Results {
+		joined += " " + r.Content
+	}
+	if !strings.Contains(joined, "2222") {
+		t.Fatalf("expected replacement in search, got %q", joined)
+	}
+
+	hist, err := service.SearchOpt(context.Background(), "t1", "u1", "", "", "door code", SearchOptions{IncludeHistorical: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundPrior := false
+	for _, r := range hist.Results {
+		if r.MemoryID == priorID || strings.Contains(r.Content, "1111") {
+			foundPrior = true
+		}
+	}
+	if !foundPrior {
+		t.Fatal("expected include_historical to surface superseded prior")
+	}
+}
+
+func TestDomainEventBatchSupersede(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	ingested, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "note",
+		Messages: []Message{
+			{Role: "user", Content: "Campaign splash is live"},
+			{Role: "user", Content: "Campaign splash headline is Ready"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, 0, len(ingested.Memories))
+	for _, m := range ingested.Memories {
+		ids = append(ids, m.MemoryID)
+	}
+	res, err := service.ApplyDomainEvent(context.Background(), DomainEventRequest{
+		TenantID: "t1", SubjectID: "u1", EventType: "campaign_ended",
+		SupersedeMemoryIDs: ids,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Superseded) == 0 {
+		t.Fatal("expected superseded ids")
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "Campaign splash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) != 0 {
+		t.Fatalf("expected empty search after batch supersede, got %#v", search.Results)
 	}
 }
 

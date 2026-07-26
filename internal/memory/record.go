@@ -71,6 +71,17 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	if record.ObservedAt != nil {
 		record.Content = EnrichRelativeEventTime(record.Content, *record.ObservedAt)
 	}
+	// Lineage: ingest metadata.supersedes_memory_id → new.supersedes_id; prior
+	// is marked superseded after upsert (Service.applyIngestSupersession).
+	if sid := supersedesMemoryIDFromMetadata(record.Metadata); sid != "" {
+		record.SupersedesID = sid
+	} else if sid := supersedesMemoryIDFromMetadata(req.Metadata); sid != "" {
+		if record.Metadata == nil {
+			record.Metadata = map[string]any{}
+		}
+		record.Metadata["supersedes_memory_id"] = sid
+		record.SupersedesID = sid
+	}
 	return record, nil
 }
 

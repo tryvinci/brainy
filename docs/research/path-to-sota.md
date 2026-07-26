@@ -48,7 +48,7 @@ Never a LOCOMO-only victory lap from a 30-Q smoke.
 | Entity linking + entity-boosted retrieval | Mem0, Zep, A-MEM | Infra done; ranking gated |
 | Multi-signal fusion (semantic + BM25 + entity) | Mem0 | Partial; IDF gated pending re-tune |
 | Temporal metadata + query temporal-intent | Mem0 | Partial: `observed_at` + when-query boosts |
-| Bi-temporal fact invalidation / supersession | Zep/Graphiti | **ENG-86 in progress** (`supersedes_id` / exclude superseded) |
+| Bi-temporal fact invalidation / supersession | Zep/Graphiti | **ENG-86 v1 shipped** — see [supersession-v1.md](./supersession-v1.md); pack auto-rules later |
 | Entity graph + Personalized PageRank multi-hop | HippoRAG | Prototype (rerank-only, gated) |
 | Note construction + memory evolution | A-MEM | Not started |
 | Declarative vertical packs | (gap in literature) | **Differentiator** — Paper 2 thesis |
