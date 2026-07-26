@@ -62,7 +62,7 @@ Empty / TBD cells beat invented numbers.
 
 ## Next engineering step
 
-1. **ENG-86 temporal supersession** — `supersedes_id` / exclude superseded / event invalidation  
+1. ~~ENG-86 temporal supersession v1~~ — [supersession-v1.md](./supersession-v1.md)  
 2. Multi-hop product path (graph re-tune off 30-Q smoke)  
 3. Paper 1 (OpMem) multi-system matrix + public post  
 4. Fair full LOCOMO under identical pins before any “beat Mem0 on LOCOMO” claim  

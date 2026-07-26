@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"brainy/internal/memory"
 	"brainy/internal/observability"
@@ -43,7 +44,12 @@ func (s *memoryStoreAdapter) UpsertMemory(_ context.Context, record memory.Memor
 	return memory.StoreUpsertResult{Record: record, State: "created"}, nil
 }
 
-func (s *memoryStoreAdapter) ListActiveMemories(_ context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
+func (s *memoryStoreAdapter) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
+	return s.ListMemories(ctx, tenantID, subjectID, false)
+}
+
+func (s *memoryStoreAdapter) ListMemories(_ context.Context, tenantID, subjectID string, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	_ = includeSuperseded
 	var out []memory.MemoryRecord
 	for _, record := range s.records {
 		if record.TenantID == tenantID && record.SubjectID == subjectID && record.Status == memory.StatusActive {
@@ -53,9 +59,36 @@ func (s *memoryStoreAdapter) ListActiveMemories(_ context.Context, tenantID, sub
 	return out, nil
 }
 
-func (s *memoryStoreAdapter) SearchActiveMemories(_ context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
+func (s *memoryStoreAdapter) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
+	return s.SearchMemories(ctx, tenantID, subjectID, patterns, limit, false)
+}
+
+func (s *memoryStoreAdapter) SearchMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
 	_ = patterns
-	return s.ListActiveMemories(context.Background(), tenantID, subjectID)
+	_ = limit
+	return s.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+}
+
+func (s *memoryStoreAdapter) GetMemory(_ context.Context, tenantID, subjectID, memoryID string) (memory.MemoryRecord, error) {
+	for _, record := range s.records {
+		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {
+			return record, nil
+		}
+	}
+	return memory.MemoryRecord{}, memory.ErrMemoryNotFound
+}
+
+func (s *memoryStoreAdapter) MarkSuperseded(_ context.Context, tenantID, subjectID, memoryID string) error {
+	for key, record := range s.records {
+		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {
+			now := time.Now().UTC()
+			record.LifecycleState = memory.LifecycleSuperseded
+			record.SupersededAt = &now
+			s.records[key] = record
+			return nil
+		}
+	}
+	return memory.ErrMemoryNotFound
 }
 
 func (s *memoryStoreAdapter) SuppressMemory(_ context.Context, tenantID, subjectID, memoryID string) error {
