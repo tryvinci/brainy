@@ -332,9 +332,15 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 
 	// Subject-content bridge: admit content-dense memories that mention a
 	// queried person/topic even when they lack the question's surface verbs.
-	// Generic conversational need (profile/activity recall), not dataset-specific.
+	// List-shaped queries get a larger, diversity-aware admit set so multi-fact
+	// answers are not starved by one dense theme.
+	listQuery := looksListQuery(queryTokens)
 	if len(allMemories) > 0 {
-		expandSubjectContentMemories(candidates, contentQueryTokens, allMemories, 20)
+		subLimit := 20
+		if listQuery {
+			subLimit = 48
+		}
+		expandSubjectContentMemories(candidates, contentQueryTokens, allMemories, subLimit, listQuery)
 	}
 
 	// For multi-hop shaped questions, admit a capped set of same-session neighbors
@@ -343,7 +349,28 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if len(allMemories) > 0 {
 			expandSessionNeighbors(candidates, memories, allMemories, 16)
 		}
-		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, queryTokens, memories, 12); err == nil {
+		// Seed the related-fact pass from lexical hits AND subject-bridge admits
+		// so supporting facts without the question verbs still expand.
+		relatedSeeds := make([]MemoryRecord, 0, len(memories)+16)
+		relatedSeeds = append(relatedSeeds, memories...)
+		for _, record := range candidates {
+			content := strings.TrimSpace(record.Content)
+			if content == "" || strings.HasSuffix(content, "?") {
+				continue
+			}
+			if len(contentBearingTokens(tokenize(content))) < 5 {
+				continue
+			}
+			relatedSeeds = append(relatedSeeds, record)
+			if len(relatedSeeds) >= 40 {
+				break
+			}
+		}
+		relLimit := 12
+		if listQuery {
+			relLimit = 24
+		}
+		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, queryTokens, relatedSeeds, relLimit); err == nil {
 			for _, record := range related {
 				if _, ok := candidates[record.MemoryID]; !ok {
 					candidates[record.MemoryID] = record
@@ -470,6 +497,12 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		return ranked[i].result.Score > ranked[j].result.Score
 	})
 
+	// Multi-fact / list questions: reorder so top results cover distinct content
+	// tokens (MMR-style). Score order alone collapses onto one theme.
+	if listQuery || looksMultiHopQuery(queryTokens) {
+		ranked = diversifyByContentTokens(ranked, 32)
+	}
+
 	results := make([]SearchResult, len(ranked))
 	for i, item := range ranked {
 		results[i] = item.result
@@ -554,10 +587,31 @@ func nameLikeTokens(tokens []string) []string {
 	return out
 }
 
+// looksListQuery detects questions that ask for multiple supporting items
+// (activities, books, places, likes). Generic conversational cues only.
+func looksListQuery(tokens []string) bool {
+	for _, token := range tokens {
+		switch token {
+		case "activities", "activity", "hobbies", "hobby", "books", "book",
+			"places", "place", "likes", "like", "partake", "destress", "stress",
+			"kids", "children", "where", "which":
+			return true
+		}
+	}
+	// Light plural heuristic: longer content tokens ending in "s".
+	for _, token := range contentBearingTokens(tokens) {
+		if len(token) >= 5 && strings.HasSuffix(token, "s") && token != "does" && token != "this" && token != "those" {
+			return true
+		}
+	}
+	return false
+}
+
 // expandSubjectContentMemories admits content-dense memories that mention a
 // queried name/topic so profile and multi-fact questions are not drowned out by
 // short acknowledgment turns that only share the name token.
-func expandSubjectContentMemories(candidates map[string]MemoryRecord, queryTokens []string, all []MemoryRecord, limit int) {
+// When diversify is true, admits by novel content tokens (MMR) instead of density alone.
+func expandSubjectContentMemories(candidates map[string]MemoryRecord, queryTokens []string, all []MemoryRecord, limit int, diversify bool) {
 	subjects := nameLikeTokens(queryTokens)
 	if len(subjects) == 0 || limit <= 0 {
 		return
@@ -569,6 +623,7 @@ func expandSubjectContentMemories(candidates map[string]MemoryRecord, queryToken
 	type ranked struct {
 		record MemoryRecord
 		dens   int
+		toks   []string
 	}
 	pool := make([]ranked, 0, limit*2)
 	for _, record := range all {
@@ -593,7 +648,7 @@ func expandSubjectContentMemories(candidates map[string]MemoryRecord, queryToken
 		if !hit {
 			continue
 		}
-		pool = append(pool, ranked{record: record, dens: len(bearing)})
+		pool = append(pool, ranked{record: record, dens: len(bearing), toks: bearing})
 	}
 	sort.SliceStable(pool, func(i, j int) bool {
 		if pool[i].dens == pool[j].dens {
@@ -601,12 +656,111 @@ func expandSubjectContentMemories(candidates map[string]MemoryRecord, queryToken
 		}
 		return pool[i].dens > pool[j].dens
 	})
-	for i, item := range pool {
-		if i >= limit {
+	if !diversify {
+		for i, item := range pool {
+			if i >= limit {
+				break
+			}
+			candidates[item.record.MemoryID] = item.record
+		}
+		return
+	}
+	covered := map[string]struct{}{}
+	added := 0
+	used := map[string]struct{}{}
+	for added < limit && len(used) < len(pool) {
+		best := -1
+		bestGain := -1
+		for i, item := range pool {
+			if _, ok := used[item.record.MemoryID]; ok {
+				continue
+			}
+			novel := 0
+			for _, tok := range item.toks {
+				if len(tok) < 4 {
+					continue
+				}
+				if _, ok := covered[tok]; !ok {
+					novel++
+				}
+			}
+			gain := novel*10 + item.dens
+			if best < 0 || gain > bestGain {
+				best = i
+				bestGain = gain
+			}
+		}
+		if best < 0 {
 			break
 		}
+		item := pool[best]
+		used[item.record.MemoryID] = struct{}{}
 		candidates[item.record.MemoryID] = item.record
+		added++
+		for _, tok := range item.toks {
+			if len(tok) >= 4 {
+				covered[tok] = struct{}{}
+			}
+		}
 	}
+}
+
+// diversifyByContentTokens reorders ranked results so the head of the list covers
+// distinct content-bearing tokens (MMR-style). Remaining items keep score order.
+func diversifyByContentTokens(ranked []rankedSearchResult, keep int) []rankedSearchResult {
+	if len(ranked) <= 1 {
+		return ranked
+	}
+	if keep <= 0 || keep > len(ranked) {
+		keep = len(ranked)
+	}
+	selected := make([]rankedSearchResult, 0, len(ranked))
+	used := make(map[string]struct{}, keep)
+	covered := map[string]struct{}{}
+	for len(selected) < keep {
+		best := -1
+		bestGain := -1.0
+		for i, item := range ranked {
+			if _, ok := used[item.result.MemoryID]; ok {
+				continue
+			}
+			novel := 0
+			for _, tok := range contentBearingTokens(tokenize(item.result.Content)) {
+				if len(tok) < 4 {
+					continue
+				}
+				if _, ok := covered[tok]; !ok {
+					novel++
+				}
+			}
+			gain := float64(novel) + 0.02*item.result.Score
+			if best < 0 || gain > bestGain {
+				best = i
+				bestGain = gain
+			}
+		}
+		if best < 0 {
+			break
+		}
+		item := ranked[best]
+		used[item.result.MemoryID] = struct{}{}
+		selected = append(selected, item)
+		if explain := item.result.Explain; explain != nil {
+			explain["content_diversity"] = true
+		}
+		for _, tok := range contentBearingTokens(tokenize(item.result.Content)) {
+			if len(tok) >= 4 {
+				covered[tok] = struct{}{}
+			}
+		}
+	}
+	for _, item := range ranked {
+		if _, ok := used[item.result.MemoryID]; ok {
+			continue
+		}
+		selected = append(selected, item)
+	}
+	return selected
 }
 
 // relatedFactMemories runs a second lexical pass using distinctive tokens from
