@@ -174,7 +174,7 @@ def _item_count(answer: str) -> int:
     if not text:
         return 0
     # Count comma/semicolon/newline / bullet separations as distinct items.
-    parts = re.split(r"[\n;,•]|\\band\\b|\\+| - ", text, flags=re.IGNORECASE)
+    parts = re.split(r"[\n;,•]|\band\b|\+| - ", text, flags=re.IGNORECASE)
     items = [p.strip(" .") for p in parts if len(p.strip(" .")) >= 2]
     return max(1, len(items))
 

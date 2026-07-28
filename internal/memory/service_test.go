@@ -797,6 +797,44 @@ func TestSupersedeHidesPriorFromDefaultSearch(t *testing.T) {
 	}
 }
 
+func TestListQueryDiversifiesThemes(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	_, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"session_id": "s-div", "observed_at": "2023-05-08T12:00:00Z"},
+		Messages: []Message{
+			{Role: "user", Content: "Yeah, Dana"},
+			{Role: "user", Content: "Dana: I love pottery and spend weekends at the studio shaping bowls"},
+			{Role: "user", Content: "Dana: Camping in the mountains clears my head after long weeks"},
+			{Role: "user", Content: "Dana: Swimming at the community pool is my tuesday habit"},
+			{Role: "user", Content: "Dana: Wow that sounds great"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What activities does Dana partake in?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) < 3 {
+		t.Fatalf("expected diversified candidates, got %d", len(search.Results))
+	}
+	head := ""
+	for i, r := range search.Results {
+		if i >= 6 {
+			break
+		}
+		head += " " + strings.ToLower(r.Content)
+	}
+	for _, need := range []string{"pottery", "camping", "swimming"} {
+		if !strings.Contains(head, need) {
+			t.Fatalf("expected %q in diversified head results, got %q", need, head)
+		}
+	}
+}
+
 func TestDomainEventBatchSupersede(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)
