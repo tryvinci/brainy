@@ -497,9 +497,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		return ranked[i].result.Score > ranked[j].result.Score
 	})
 
-	// Multi-fact / list questions: reorder so top results cover distinct content
-	// tokens (MMR-style). Score order alone collapses onto one theme.
-	if listQuery || looksMultiHopQuery(queryTokens) {
+	// List questions only: reorder so top results cover distinct content tokens
+	// (MMR-style). Do not diversify all multi-hop — that fights recency/preference.
+	if listQuery {
 		ranked = diversifyByContentTokens(ranked, 32)
 	}
 
@@ -588,19 +588,14 @@ func nameLikeTokens(tokens []string) []string {
 }
 
 // looksListQuery detects questions that ask for multiple supporting items
-// (activities, books, places, likes). Generic conversational cues only.
+// (activities, books, places, likes). Generic conversational cues only —
+// keep this narrow so recency/preference ranking is not disturbed.
 func looksListQuery(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "books", "book",
-			"places", "place", "likes", "like", "partake", "destress", "stress",
-			"kids", "children", "where", "which":
-			return true
-		}
-	}
-	// Light plural heuristic: longer content tokens ending in "s".
-	for _, token := range contentBearingTokens(tokens) {
-		if len(token) >= 5 && strings.HasSuffix(token, "s") && token != "does" && token != "this" && token != "those" {
+			"places", "place", "partake", "destress", "stress",
+			"kids", "children":
 			return true
 		}
 	}
