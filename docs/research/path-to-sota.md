@@ -15,7 +15,7 @@ See also: [paper-topics.md](./paper-topics.md) · [public-bench-ladder.md](./pub
 | --- | --- | --- | --- |
 | **A. Operational correctness** | Production / regulated | OpMem **12/12** vs Mem0 **9/12** | Hold lead; publish multi-system OpMem matrix |
 | **B. Vertical / governed memory** | Domain agents | Marketing **16/16**; Mem0 N/A | Second pack (finance) on unchanged runtime; systems paper |
-| **C. Conversational recall** | Industry headline | LOCOMO smoke **16/30** (gpt-oss, 1×30); multi-hop **3/10** | Fair full LOCOMO under same pins ≥ Mem0; then beat multi-hop + temporal |
+| **C. Conversational recall** | Industry headline | LOCOMO smoke **19/30** (gpt-oss, 1×30); multi-hop **2/10** | Fair full LOCOMO under same pins ≥ Mem0; then beat multi-hop + temporal |
 | **D. Latency / cost** | Deployability | Search p50 **~730–890 ms** | Beat Mem0 p50/p95 and tokens/query on same pin |
 | **E. Outcome-grounded belief** | Research novelty | Spec + `ob05` | Mechanism paper vs observation-only belief systems |
 
@@ -35,8 +35,9 @@ Never a LOCOMO-only victory lap from a 30-Q smoke.
 - Embeddings: CF AI Gateway Workers AI `bge-base-en-v1.5` on staging (768-d);
   local hash fallback for CI.
 - Own suites: OpMem 12/12, marketing vertical 16/16.
-- LOCOMO smoke (1 conv / 30 Q, staging dense, entity OFF, gpt-oss): **16/30**;
-  multi-hop **3/10**; search p50 ~730–890 ms. See [locomo-smoke.md](../benchmarks/locomo-smoke.md).
+- LOCOMO smoke (1 conv / 30 Q, staging dense, entity OFF, gpt-oss): **19/30** after
+  list-query diversification (PR #48); multi-hop still **2/10**; search p50 ~1.3s
+  (larger candidate sets). See [locomo-smoke.md](../benchmarks/locomo-smoke.md).
 
 ---
 
