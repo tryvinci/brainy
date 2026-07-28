@@ -1,7 +1,7 @@
-# LOCOMO smoke — multi-fact ranking (staging)
+# LOCOMO smoke — multi-fact diversification (staging)
 
-**Timestamp:** 2026-07-24T24:00:00Z  
-**Brainy:** staging (`a86fb38`) + local evals answerer improvements  
+**Timestamp:** 2026-07-25  
+**Brainy:** staging (`71f0709`)  
 **Embeddings:** CF Workers AI bge-base-en-v1.5 (768-d)  
 **Entity ranking:** OFF  
 **Judge/Answerer:** gpt-oss-120b via CF AI Gateway  
@@ -9,31 +9,34 @@
 
 ## Scores
 
-| Metric | Prior (judge matrix) | Ranking v1 | **+ list extractive (v2)** |
-| --- | ---: | ---: | ---: |
-| Overall | 14/30 | **16/30** | **16/30** |
-| temporal | 9/16 | 11/16 | 10/16 |
-| multi-hop | 2/10 | 2/10 | **3/10** |
-| open-domain | 3/4 | 3/4 | 3/4 |
-| search p50 | ~1027 ms | **~730 ms** | ~891 ms |
-| search p95 | ~2655 ms | **~1632 ms** | ~1540 ms |
+| Metric | Prior (16/30 pin) | **Diversify list retrieval** |
+| --- | ---: | ---: |
+| Overall | 16/30 (0.533) | **19/30 (0.633)** |
+| temporal | 10–11/16 | **13/16** |
+| multi-hop | 2–3/10 | 2/10 |
+| open-domain | 3/4 | **4/4** |
+| search p50 | ~730–890 ms | ~1270 ms |
+| search p95 | ~1540–1630 ms | ~1749 ms |
 
 OpMem staging: **12/12** (non-regression).
 
-±1/30 and ±1 category on the 30-Q pin is expected run variance; the durable lifts
-are overall 14→16 and search latency down ~25–40%.
+## Product change
 
-## Product changes measured
+List-shaped queries get a larger MMR-selected subject-content admit set, richer
+related-fact seeds, and MMR reorder of ranked results by novel content tokens.
+Gated to `looksListQuery` only (not all multi-hop) so preference/recency ranking
+stays intact.
 
-1. Low-information / name-only penalty — ack turns no longer dominate person queries.
-2. Subject-content bridge — content-dense subject mentions admitted without surface-verb overlap.
-3. Parallel lexical + dense scoring — lower search latency.
-4. Multi-evidence answerer + prefer extractive when it enumerates a fuller list.
-5. Eval LLM retries on gateway connection resets.
+## Takeaways
 
-## Remaining gap (toward Mem0-class)
+1. **Overall +3/30** vs prior same-pin — mainly temporal + open-domain.
+2. **Multi-hop still 2/10** — several GT spans are incomplete or absent as
+   extractable text (relationship status, country name, full book titles); list
+   questions still under-aggregate even with diversified retrieval.
+3. **Latency tradeoff** — larger candidate sets raise p50 (~+300–500 ms). Acceptable
+   for accuracy; can cap expansion later if needed.
 
-Multi-hop 3/10: some facts absent from extractable memory text (e.g. country
-names, book titles never spoken), others need better multi-span aggregation and
-temporal supersession. Next: knowledge-update / supersession path + larger
-LOCOMO pin with gpt-oss fixed. Keep entity ranking OFF until boost re-tune.
+## Remaining gap
+
+Multi-hop needs better fact extraction at ingest (named entities / attributes) and
+stronger multi-span answer synthesis — not more LOCOMO cue lists.
