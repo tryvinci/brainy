@@ -12,7 +12,7 @@ Living plan — no Linear required. Issues: GitHub #50–#57 · Detail: [mem0-pa
 | #55 C5 | Budget + latency SLO | Open | |
 | #56 A1 | Supersession v2 | Open | ENG-86 remainder |
 | #57 P1 | OpMem Paper 1 | Open | |
-| MKT | Marketing Mem0 counter-run | **Harness shipping** | `--systems brainy,mem0` |
+| MKT | Marketing Mem0 counter-run | **Done (empirical)** | Brainy 15/16 vert; Mem0 4/16; parity both 4/4 |
 
 ## How to true-compare marketing
 
