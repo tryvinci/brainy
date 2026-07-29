@@ -26,11 +26,13 @@ POST /events
 {
   "tenant_id":"t1","subject_id":"u1",
   "event_type":"campaign_ended",
-  "supersede_memory_ids":["mem_…","mem_…"]
+  "supersede_memory_ids":["mem_…","mem_…"],
+  "match": {"label":"promo","metadata":{"season":"summer"}}
 }
 ```
 
-Batch invalidation (v1: explicit IDs; pack rules later).
+Batch invalidation: explicit IDs and/or **match** by label/kind/metadata (v2).
+Pack YAML lifecycle rules still set archived/suppressed at ingest time.
 
 ```http
 GET /memories/search?...&q=...&include_historical=1

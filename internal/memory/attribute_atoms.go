@@ -18,8 +18,10 @@ var (
 	movedToRE     = regexp.MustCompile(`(?i)\b(?:moved|relocated)\s+to\s+([A-Za-z][A-Za-z\s-]{1,40})`)
 	iAmRE         = regexp.MustCompile(`(?i)\b(?:i am|i'm)\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	iAmBareRE     = regexp.MustCompile(`(?i)\b(?:i am|i'm)\s+(single|married|divorced|engaged|transgender(?:\s+\w+)?)`)
-	activityRE    = regexp.MustCompile(`(?i)\b(?:i|i've|i have)\s+(?:been\s+)?(camping|hiking|swimming|running|painting|pottery|reading|cooking)\b`)
+	activityRE     = regexp.MustCompile(`(?i)\b(?:i|i've|i have)\s+(?:been\s+)?(camping|hiking|swimming|running|painting|pottery|reading|cooking)\b`)
 	loveActivityRE = regexp.MustCompile(`(?i)\b(?:i love|i like|i enjoy|i'm a (?:big )?fan of)\s+([a-z][a-z\s-]{2,40})`)
+	placeWithActRE = regexp.MustCompile(`(?i)\b(camping|hik(?:e|ing)|swimming)\s+(?:in|at|on)\s+(?:the\s+)?(beach|mountains?|forest|woods|lake|river|park)\b`)
+	kidsLikeRE     = regexp.MustCompile(`(?i)\b(?:kids?|children)\s+(?:love|like|enjoy|are into)\s+([a-z][a-z\s-]{2,40})`)
 )
 
 func extractAttributeAtoms(utterances []string) []ExtractedMemory {
@@ -121,6 +123,23 @@ func attributeAtomsFromUtterance(speaker, body, source string) []ExtractedMemory
 			out = append(out, atomFact(
 				fmt.Sprintf("%s enjoys %s", who, act),
 				source, 0.82, "attribute_activity",
+			))
+		}
+	}
+	if m := placeWithActRE.FindStringSubmatch(body); m != nil {
+		act := strings.ToLower(NormalizeText(m[1]))
+		place := strings.ToLower(NormalizeText(m[2]))
+		out = append(out, atomFact(
+			fmt.Sprintf("%s has done %s at %s", who, act, place),
+			source, 0.86, "attribute_place_activity",
+		))
+	}
+	if m := kidsLikeRE.FindStringSubmatch(body); m != nil {
+		like := NormalizeText(m[1])
+		if utf8.RuneCountInString(like) <= 40 {
+			out = append(out, atomFact(
+				fmt.Sprintf("%s's kids like %s", who, like),
+				source, 0.84, "attribute_preference",
 			))
 		}
 	}

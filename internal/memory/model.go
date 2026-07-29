@@ -68,13 +68,21 @@ type SupersedeRequest struct {
 }
 
 // DomainEventRequest batch-invalidates memories (campaign end, fact revision).
-// v1: explicit memory IDs only; pack-triggered rules come later.
+// Prefer explicit IDs when known; or Match to select by label/metadata (v2).
 type DomainEventRequest struct {
-	TenantID           string         `json:"tenant_id"`
-	SubjectID          string         `json:"subject_id"`
-	EventType          string         `json:"event_type"`
-	SupersedeMemoryIDs []string       `json:"supersede_memory_ids,omitempty"`
-	Metadata           map[string]any `json:"metadata,omitempty"`
+	TenantID           string             `json:"tenant_id"`
+	SubjectID          string             `json:"subject_id"`
+	EventType          string             `json:"event_type"`
+	SupersedeMemoryIDs []string           `json:"supersede_memory_ids,omitempty"`
+	Match              *DomainEventMatch  `json:"match,omitempty"`
+	Metadata           map[string]any     `json:"metadata,omitempty"`
+}
+
+// DomainEventMatch selects memories to supersede without listing IDs.
+type DomainEventMatch struct {
+	Label    string            `json:"label,omitempty"`
+	Kind     string            `json:"kind,omitempty"`
+	Metadata map[string]string `json:"metadata,omitempty"`
 }
 
 type DomainEventResult struct {
@@ -148,6 +156,8 @@ type SearchResult struct {
 // archived / suppressed lifecycle states (production default).
 type SearchOptions struct {
 	IncludeHistorical bool // when true, include lifecycle=superseded rows
+	// Limit caps returned results (0 = unlimited / caller truncates).
+	Limit int
 }
 
 type SearchResponse struct {

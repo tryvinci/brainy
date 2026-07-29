@@ -118,9 +118,23 @@ func EnrichRelativeEventTime(content string, at time.Time) string {
 		event = at.AddDate(-1, 0, 0)
 	case strings.Contains(lower, "next year"):
 		event = at.AddDate(1, 0, 0)
+	case strings.Contains(lower, "this weekend"), strings.Contains(lower, "coming weekend"), strings.Contains(lower, "next weekend"):
+		event = nextWeekend(at)
+	case strings.Contains(lower, "last weekend"):
+		event = previousWeekend(at)
+	case strings.Contains(lower, "the week before"), strings.Contains(lower, "a week before"):
+		event = at.AddDate(0, 0, -7)
 	case strings.Contains(lower, "today"), strings.Contains(lower, "this week"), strings.Contains(lower, "this month"):
 		event = at
 	default:
+		if days := parseDaysOffset(lower); days != 0 {
+			event = at.AddDate(0, 0, days)
+			break
+		}
+		if monthEvent, ok := parseMonthAgainstObserved(lower, at); ok {
+			event = monthEvent
+			break
+		}
 		if years := parseYearsAgo(lower); years > 0 {
 			event = at.AddDate(-years, 0, 0)
 			break
@@ -212,6 +226,82 @@ func parseThisWeekday(lower string) (time.Weekday, bool) {
 		}
 	}
 	return 0, false
+}
+
+func nextWeekend(at time.Time) time.Time {
+	d := at
+	for i := 0; i < 8; i++ {
+		if d.Weekday() == time.Saturday {
+			return d
+		}
+		d = d.AddDate(0, 0, 1)
+	}
+	return at.AddDate(0, 0, 6)
+}
+
+func previousWeekend(at time.Time) time.Time {
+	d := at
+	for i := 0; i < 8; i++ {
+		d = d.AddDate(0, 0, -1)
+		if d.Weekday() == time.Saturday {
+			return d
+		}
+	}
+	return at.AddDate(0, 0, -7)
+}
+
+func parseDaysOffset(lower string) int {
+	// "in 3 days", "in two weeks", "3 days from now"
+	words := map[string]int{"one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7}
+	for word, n := range words {
+		if strings.Contains(lower, "in "+word+" days") || strings.Contains(lower, word+" days from now") {
+			return n
+		}
+		if strings.Contains(lower, "in "+word+" weeks") || strings.Contains(lower, word+" weeks from now") {
+			return n * 7
+		}
+	}
+	for n := 1; n <= 14; n++ {
+		if strings.Contains(lower, "in "+strconv.Itoa(n)+" days") || strings.Contains(lower, strconv.Itoa(n)+" days from now") {
+			return n
+		}
+		if strings.Contains(lower, "in "+strconv.Itoa(n)+" weeks") {
+			return n * 7
+		}
+	}
+	return 0
+}
+
+func parseMonthAgainstObserved(lower string, at time.Time) (time.Time, bool) {
+	months := []struct {
+		name  string
+		month time.Month
+	}{
+		{"january", time.January}, {"february", time.February}, {"march", time.March},
+		{"april", time.April}, {"may", time.May}, {"june", time.June},
+		{"july", time.July}, {"august", time.August}, {"september", time.September},
+		{"october", time.October}, {"november", time.November}, {"december", time.December},
+	}
+	for _, m := range months {
+		// Require planning/when context so bare month names in titles don't fire.
+		if !strings.Contains(lower, m.name) {
+			continue
+		}
+		if !(strings.Contains(lower, "in "+m.name) || strings.Contains(lower, "next "+m.name) ||
+			strings.Contains(lower, "early "+m.name) || strings.Contains(lower, "late "+m.name) ||
+			strings.Contains(lower, "planning") || strings.Contains(lower, "going")) {
+			continue
+		}
+		year := at.Year()
+		candidate := time.Date(year, m.month, 15, 0, 0, 0, 0, time.UTC)
+		if strings.Contains(lower, "next "+m.name) && candidate.Before(at) {
+			candidate = candidate.AddDate(1, 0, 0)
+		} else if candidate.Before(at.AddDate(0, -6, 0)) {
+			candidate = candidate.AddDate(1, 0, 0)
+		}
+		return candidate, true
+	}
+	return time.Time{}, false
 }
 
 func parseYearsAgo(lower string) int {
