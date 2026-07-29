@@ -503,6 +503,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		ranked = diversifyByContentTokens(ranked, 32)
 	}
 
+	if opts.Limit > 0 && len(ranked) > opts.Limit {
+		ranked = ranked[:opts.Limit]
+	}
+
 	results := make([]SearchResult, len(ranked))
 	for i, item := range ranked {
 		results[i] = item.result
@@ -1024,6 +1028,8 @@ func (s *Service) Supersede(ctx context.Context, tenantID, subjectID, priorID st
 }
 
 // ApplyDomainEvent marks listed memories superseded (batch invalidation).
+// With Match set, selects active memories by label/kind/metadata (pack-style
+// triggers without requiring callers to know memory IDs).
 func (s *Service) ApplyDomainEvent(ctx context.Context, req DomainEventRequest) (DomainEventResult, error) {
 	if strings.TrimSpace(req.TenantID) == "" || strings.TrimSpace(req.SubjectID) == "" {
 		return DomainEventResult{}, errors.New("tenant_id and subject_id are required")
@@ -1031,12 +1037,25 @@ func (s *Service) ApplyDomainEvent(ctx context.Context, req DomainEventRequest) 
 	if strings.TrimSpace(req.EventType) == "" {
 		return DomainEventResult{}, errors.New("event_type is required")
 	}
-	out := DomainEventResult{EventType: req.EventType, Superseded: make([]string, 0, len(req.SupersedeMemoryIDs))}
-	for _, id := range req.SupersedeMemoryIDs {
+	ids := append([]string{}, req.SupersedeMemoryIDs...)
+	if req.Match != nil {
+		matched, err := s.matchMemoriesForEvent(ctx, req.TenantID, req.SubjectID, req.Match)
+		if err != nil {
+			return DomainEventResult{}, err
+		}
+		ids = append(ids, matched...)
+	}
+	out := DomainEventResult{EventType: req.EventType, Superseded: make([]string, 0, len(ids))}
+	seen := map[string]struct{}{}
+	for _, id := range ids {
 		id = strings.TrimSpace(id)
 		if id == "" {
 			continue
 		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
 		if err := s.store.MarkSuperseded(ctx, req.TenantID, req.SubjectID, id); err != nil {
 			if errors.Is(err, ErrMemoryNotFound) {
 				continue
@@ -1044,6 +1063,44 @@ func (s *Service) ApplyDomainEvent(ctx context.Context, req DomainEventRequest) 
 			return DomainEventResult{}, err
 		}
 		out.Superseded = append(out.Superseded, id)
+	}
+	return out, nil
+}
+
+func (s *Service) matchMemoriesForEvent(ctx context.Context, tenantID, subjectID string, match *DomainEventMatch) ([]string, error) {
+	if match == nil {
+		return nil, nil
+	}
+	all, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
+	if err != nil {
+		return nil, err
+	}
+	wantLabel := strings.TrimSpace(match.Label)
+	wantKind := strings.TrimSpace(match.Kind)
+	out := make([]string, 0)
+	for _, record := range all {
+		if wantLabel != "" && record.Label != wantLabel {
+			continue
+		}
+		if wantKind != "" && record.Kind != wantKind {
+			continue
+		}
+		ok := true
+		for key, want := range match.Metadata {
+			got := ""
+			if record.Metadata != nil {
+				if raw, exists := record.Metadata[key]; exists && raw != nil {
+					got = strings.TrimSpace(fmt.Sprint(raw))
+				}
+			}
+			if got != want {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			out = append(out, record.MemoryID)
+		}
 	}
 	return out, nil
 }
@@ -1239,6 +1296,10 @@ func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights 
 		score += penalty
 		explain["low_information_penalty"] = penalty
 	}
+	if bonus := attributeAtomBoost(record); bonus > 0 {
+		score += bonus
+		explain["attribute_atom_boost"] = bonus
+	}
 	if penalty := questionMemoryPenalty(queryTokens, record.Content); penalty != 0 {
 		score += penalty
 		explain["question_memory_penalty"] = penalty
@@ -1322,6 +1383,19 @@ func subjectMentionBoost(queryTokens, contentTokens []string) float64 {
 		return 0
 	}
 	return 0.12 * float64(hits)
+}
+
+// attributeAtomBoost mildly prefers deterministic/provider atomic facts so
+// multi-hop attribute questions (identity, activities, titles) surface.
+func attributeAtomBoost(record MemoryRecord) float64 {
+	if record.Explain == nil {
+		return 0
+	}
+	rule, _ := record.Explain["rule"].(string)
+	if strings.HasPrefix(rule, "attribute_") {
+		return 0.22
+	}
+	return 0
 }
 
 // lowInformationPenalty downranks greeting/ack turns and name-only matches so

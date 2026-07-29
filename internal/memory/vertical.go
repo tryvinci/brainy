@@ -24,6 +24,10 @@ func ApplyVerticalPack(record *MemoryRecord, req IngestRequest, kind, content st
 	if scope := strings.TrimSpace(req.Scope); scope != "" {
 		record.Scope = scope
 	}
+	// Always honor explicit request label (event match / supersede v2).
+	if label := strings.TrimSpace(req.Label); label != "" {
+		record.Label = label
+	}
 
 	if reg == nil {
 		return nil

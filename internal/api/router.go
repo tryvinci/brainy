@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,6 +89,12 @@ func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 
 	start := time.Now()
 	includeHistorical := queryTruthy(req.URL.Query().Get("include_historical"))
+	limit := 0
+	if raw := strings.TrimSpace(req.URL.Query().Get("limit")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			limit = n
+		}
+	}
 	result, err := r.service.SearchOpt(
 		req.Context(),
 		req.URL.Query().Get("tenant_id"),
@@ -95,7 +102,7 @@ func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 		req.URL.Query().Get("vertical"),
 		req.URL.Query().Get("scope"),
 		req.URL.Query().Get("q"),
-		memory.SearchOptions{IncludeHistorical: includeHistorical},
+		memory.SearchOptions{IncludeHistorical: includeHistorical, Limit: limit},
 	)
 	r.metrics.RecordSearch(time.Since(start), err != nil)
 	if err != nil {
