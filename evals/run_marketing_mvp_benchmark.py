@@ -211,8 +211,10 @@ def main() -> int:
             print("MEM0_API_KEY required for --systems mem0", file=sys.stderr)
             return 2
         mem0_mode = "empirical"
-        m_parity_ok, m_parity = run_mem0_suite(adapter, parity_dir)
-        m_vert_ok, m_vert = run_mem0_suite(adapter, vertical_dir)
+        # Parity: content-level compare (ignore Brainy-only kind/primitive schema).
+        # Vertical: strict_schema so missing pack primitives count as Mem0 fails (moat).
+        m_parity_ok, m_parity = run_mem0_suite(adapter, parity_dir, strict_schema=False)
+        m_vert_ok, m_vert = run_mem0_suite(adapter, vertical_dir, strict_schema=True)
         mem0_fixtures = {r["fixture"]: r for r in m_parity + m_vert if r.get("fixture")}
         mem0_block = {
             "parity": {

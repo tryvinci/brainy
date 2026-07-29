@@ -26,7 +26,13 @@ def _namespace(obj, nonce: str):
     return obj
 
 
-def _check(results: list[dict], expectations: dict, errors: list[str]) -> bool:
+def _check(
+    results: list[dict],
+    expectations: dict,
+    errors: list[str],
+    *,
+    strict_schema: bool = False,
+) -> bool:
     passed = True
     if len(results) < expectations.get("min_results", 0):
         if expectations.get("min_results", 0) > 0:
@@ -40,22 +46,28 @@ def _check(results: list[dict], expectations: dict, errors: list[str]) -> bool:
         if needle not in results[0].get("content", "").lower():
             passed = False
             errors.append("first search result content mismatch")
-    # Brainy-only signals — Mem0 cannot satisfy these; count as fail when required.
-    if expectations.get("first_explain_primitive") and results:
-        # Mem0 normalize_results has no explain.primitive → fail closed for parity honesty
-        if not results[0].get("explain", {}).get("primitive"):
-            passed = False
-            errors.append("first search result explain.primitive mismatch (unsupported on Mem0)")
-    if expectations.get("first_kind") and results:
-        kind = results[0].get("kind") or ""
-        if kind != expectations["first_kind"]:
-            # Mem0 often returns generic "fact"; treat mismatch as fail when fixture requires kind
-            passed = False
-            errors.append("first search result kind mismatch")
+    # Schema fields Brainy exposes (kind / explain.primitive) are optional for
+    # Mem0 unless strict_schema=True (used for vertical moat fixtures).
+    if strict_schema:
+        if expectations.get("first_explain_primitive") and results:
+            if not results[0].get("explain", {}).get("primitive"):
+                passed = False
+                errors.append("first search result explain.primitive mismatch (unsupported on Mem0)")
+        if expectations.get("first_kind") and results:
+            kind = results[0].get("kind") or ""
+            if kind != expectations["first_kind"]:
+                passed = False
+                errors.append("first search result kind mismatch")
     return passed
 
 
-def run_fixture(adapter: Mem0Adapter, fixture_path: pathlib.Path, nonce: str) -> dict:
+def run_fixture(
+    adapter: Mem0Adapter,
+    fixture_path: pathlib.Path,
+    nonce: str,
+    *,
+    strict_schema: bool = False,
+) -> dict:
     fixture = _namespace(json.loads(fixture_path.read_text(encoding="utf-8")), nonce)
     name = fixture.get("name") or fixture_path.stem
     if fixture.get("skip"):
@@ -101,7 +113,7 @@ def run_fixture(adapter: Mem0Adapter, fixture_path: pathlib.Path, nonce: str) ->
     results = adapter.normalize_results(raw)
 
     expect = fixture.get("expect", {})
-    if not _check(results, expect, errors):
+    if not _check(results, expect, errors, strict_schema=strict_schema):
         passed = False
 
     # created_at_least: Mem0 does not return created counts; approximate via list size.
@@ -147,7 +159,12 @@ def run_fixture(adapter: Mem0Adapter, fixture_path: pathlib.Path, nonce: str) ->
             adapter.wait_until_ready(after_user, min_count=1, timeout_s=30)
             after_raw = adapter.search(after_user, after_search["q"], top_k=10)
             after_results = adapter.normalize_results(after_raw)
-            if not _check(after_results, fixture.get("expect_after_correct", {}), errors):
+            if not _check(
+                after_results,
+                fixture.get("expect_after_correct", {}),
+                errors,
+                strict_schema=strict_schema,
+            ):
                 passed = False
 
     if fixture.get("suppress_after_search"):
@@ -179,7 +196,12 @@ def run_fixture(adapter: Mem0Adapter, fixture_path: pathlib.Path, nonce: str) ->
     }
 
 
-def run_suite(adapter: Mem0Adapter, fixture_dir: pathlib.Path) -> tuple[bool, list[dict]]:
+def run_suite(
+    adapter: Mem0Adapter,
+    fixture_dir: pathlib.Path,
+    *,
+    strict_schema: bool = False,
+) -> tuple[bool, list[dict]]:
     fixtures = sorted(fixture_dir.glob("*.json"))
     if not fixtures:
         return False, [{"fixture": "_suite", "passed": False, "errors": ["no fixtures found"]}]
@@ -188,7 +210,7 @@ def run_suite(adapter: Mem0Adapter, fixture_dir: pathlib.Path) -> tuple[bool, li
     overall = True
     for path in fixtures:
         try:
-            result = run_fixture(adapter, path, nonce)
+            result = run_fixture(adapter, path, nonce, strict_schema=strict_schema)
         except Exception as exc:  # noqa: BLE001
             result = {
                 "fixture": path.stem,
