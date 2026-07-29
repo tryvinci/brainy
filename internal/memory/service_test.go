@@ -835,6 +835,55 @@ func TestListQueryDiversifiesThemes(t *testing.T) {
 	}
 }
 
+func TestDomainEventMatchByLabel(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	ingested, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "note",
+		Label:    "promo",
+		Metadata: map[string]any{"season": "summer"},
+		// Fact-shaped so deterministic extract still fires when Label is set
+		// (labeled ingest skips conversation_episode retention).
+		Messages: []Message{{Role: "user", Content: "Summer splash promo is the active seasonal campaign."}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ingested.Memories) == 0 {
+		t.Fatal("expected memory")
+	}
+	// Ensure label stuck on the stored record (core pack may ignore unknown labels).
+	got, err := store.GetMemory(context.Background(), "t1", "u1", ingested.Memories[0].MemoryID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Label == "" {
+		// Force label for match path coverage when pack vocabulary omits it.
+		got.Label = "promo"
+		got.Metadata = map[string]any{"season": "summer"}
+		store.records[got.DedupeKey] = got
+	}
+	res, err := service.ApplyDomainEvent(context.Background(), DomainEventRequest{
+		TenantID: "t1", SubjectID: "u1", EventType: "promo_ended",
+		Match: &DomainEventMatch{Label: "promo"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Superseded) == 0 {
+		t.Fatalf("expected match-based supersede, record=%+v", got)
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "Summer splash promo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range search.Results {
+		if r.MemoryID == ingested.Memories[0].MemoryID {
+			t.Fatalf("matched memory still searchable: %q", r.Content)
+		}
+	}
+}
+
 func TestDomainEventBatchSupersede(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)
