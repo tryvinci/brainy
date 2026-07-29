@@ -62,19 +62,26 @@ class Mem0Backend:
         min_results: int = 1,
         timeout_s: float | None = None,
         settle_polls: int = 2,
+        min_indexed: int = 40,
     ) -> bool:
+        """Wait until search hits *and* a minimum indexed memory count.
+
+        Mem0 add is async; returning on the first search hit under-indexes long
+        LOCOMO conversations and collapses recall onto early turns.
+        """
         uid = self._user(user_id)
         deadline = time.time() + (timeout_s or self.async_timeout_s)
         probes = [p for p in probes if p][:8] or ["the"]
         while time.time() < deadline:
-            for probe in probes:
-                hits = self._client.search(uid, probe, top_k=max(min_results, 5))
-                if len(hits) >= min_results:
-                    # brief settle
-                    for _ in range(max(1, settle_polls)):
-                        time.sleep(1.0)
-                    return True
-            time.sleep(2.0)
+            indexed = self._client.list_memories(uid)
+            if len(indexed) >= min_indexed:
+                for probe in probes:
+                    hits = self._client.search(uid, probe, top_k=max(min_results, 5))
+                    if len(hits) >= min_results:
+                        for _ in range(max(1, settle_polls)):
+                            time.sleep(1.5)
+                        return True
+            time.sleep(3.0)
         return False
 
     def recall(self, user_id: str, query: str, top_k: int = 10, timeout: float = 60) -> tuple[list[dict], float]:
