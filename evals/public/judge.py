@@ -131,15 +131,19 @@ def answer_from_memories(
     if cfg is not None:
         cfg = _with_model(cfg, model) if model else cfg
         answer = _llm_answer(question, memories, cfg, extractive=False)
-        # List-shaped questions often need a second extractive pass: generative
-        # models stop after the first supporting memory. Prefer the extractive
-        # answer when it enumerates more distinct items (generic QA, not GT pads).
-        if _is_empty_answer(answer) or _looks_list_question(question):
+        # List-shaped / multi-evidence: run extractive and union distinct items so
+        # generative single-hit answers are completed from other memories.
+        if _is_empty_answer(answer) or _looks_list_question(question) or _looks_multi_evidence(question):
             extractive = _llm_answer(question, memories, cfg, extractive=True)
             if not _is_empty_answer(extractive):
-                if _is_empty_answer(answer) or _item_count(extractive) > _item_count(answer):
+                if _is_empty_answer(answer):
                     answer = extractive
                     return answer, cfg.label + "+extractive-list"
+                merged = _merge_answer_items(answer, extractive)
+                if _item_count(merged) > _item_count(answer):
+                    return merged, cfg.label + "+merged-list"
+                if _item_count(extractive) > _item_count(answer):
+                    return extractive, cfg.label + "+extractive-list"
         if _is_empty_answer(answer):
             joined = _statement_join(memories)
             if joined:
@@ -169,14 +173,48 @@ def _looks_list_question(question: str) -> bool:
     return any(c in q for c in cues)
 
 
-def _item_count(answer: str) -> int:
+def _looks_multi_evidence(question: str) -> bool:
+    """Questions that usually need more than one supporting memory."""
+    q = (question or "").lower()
+    return _looks_list_question(question) or any(
+        c in q for c in ("identity", "relationship", "career", "moved", "research")
+    )
+
+
+def _split_items(answer: str) -> list[str]:
     text = (answer or "").strip()
     if not text:
-        return 0
-    # Count comma/semicolon/newline / bullet separations as distinct items.
+        return []
     parts = re.split(r"[\n;,•]|\band\b|\+| - ", text, flags=re.IGNORECASE)
-    items = [p.strip(" .") for p in parts if len(p.strip(" .")) >= 2]
-    return max(1, len(items))
+    items = []
+    for part in parts:
+        cleaned = part.strip(" .-*")
+        # Drop markdown bold noise for dedupe.
+        cleaned = re.sub(r"[*_`]", "", cleaned).strip()
+        if len(cleaned) >= 2:
+            items.append(cleaned)
+    return items
+
+
+def _item_count(answer: str) -> int:
+    items = _split_items(answer)
+    return max(1, len(items)) if items else 0
+
+
+def _merge_answer_items(primary: str, secondary: str) -> str:
+    """Union distinct answer items (order: primary first, then new from secondary)."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in _split_items(primary) + _split_items(secondary):
+        key = item.lower()
+        if key in seen:
+            continue
+        # Skip near-duplicates (prefix containment).
+        if any(key in s or s in key for s in seen if min(len(key), len(s)) >= 4):
+            continue
+        seen.add(key)
+        ordered.append(item)
+    return ", ".join(ordered)
 
 
 def _is_empty_answer(answer: str) -> bool:
