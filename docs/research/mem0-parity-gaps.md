@@ -89,6 +89,16 @@ Fail taxonomy on `locomo-staging-diversify-v1` (11 misses):
 
 Do **not** cite Mem0 1/30 as a capability claim. Cite Brainy OpMem 12/12 vs Mem0 9/12 for operational lead.
 
+### Marketing true compare
+
+Static `mem0_has` is not enough. Run:
+
+```bash
+python3 evals/run_marketing_mvp_benchmark.py --base-url "$BRAINY_BASE_URL" --systems brainy,mem0
+```
+
+See [gap-crush-checklist.md](./gap-crush-checklist.md).
+
 ## Crush order (this cycle)
 
 1. **GAP-C1** attribute extraction (code)  
