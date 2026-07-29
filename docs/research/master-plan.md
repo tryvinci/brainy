@@ -6,6 +6,13 @@ Owner: CTO plan (agent-authored, evidence-cited)
 Supersedes as guidance: `path-to-sota.md`, `gap-crush-checklist.md`, `public-bench-ladder.md`
 (those remain useful history; this doc governs going forward)
 
+**Execution progress (same day):**
+- [x] §9.1 P0 de-overfit + CI denylist (`overfit_denylist_test.go`)
+- [x] §9.2 publish stack scaffold (`run_full.py`, `publish-stack-pins.md`)
+- [x] §9.3 typed atom substrate (`predicates.go`, `memory_atoms` v13, list predicate admit)
+- [ ] Re-baseline LOCOMO smoke after de-overfit (expected drop)
+- [ ] §9.4–9.6 provider golden suite, embedding flip, memory-benchmarks fork
+
 ---
 
 ## 0. TL;DR — the ten decisions this plan makes
