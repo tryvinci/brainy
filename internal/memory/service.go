@@ -135,6 +135,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 			return IngestResult{}, err
 		}
 		s.persistEmbedding(ctx, upserted.Record)
+		s.persistEntityLinks(ctx, upserted.Record)
 		if err := s.applyIngestSupersession(ctx, upserted.Record); err != nil {
 			return IngestResult{}, err
 		}
@@ -183,6 +184,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 			return IngestResult{}, err
 		}
 		s.persistEmbedding(ctx, upserted.Record)
+		s.persistEntityLinks(ctx, upserted.Record)
 		switch upserted.State {
 		case "created":
 			result.Created++
@@ -330,6 +332,29 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// Mem0-style entity hub: admit memories linked to query entities even when
+	// they lack surface-verb overlap (multi-hop attribute recall).
+	hubBoosts := s.entityHubBoostMap(ctx, tenantID, subjectID, query)
+	if len(hubBoosts) > 0 && len(allMemories) > 0 {
+		byID := make(map[string]MemoryRecord, len(allMemories))
+		for _, record := range allMemories {
+			byID[record.MemoryID] = record
+		}
+		admitted := 0
+		for memID := range hubBoosts {
+			if _, ok := candidates[memID]; ok {
+				continue
+			}
+			if record, ok := byID[memID]; ok {
+				candidates[memID] = record
+				admitted++
+				if admitted >= 24 {
+					break
+				}
+			}
+		}
+	}
+
 	// Subject-content bridge: admit content-dense memories that mention a
 	// queried person/topic even when they lack the question's surface verbs.
 	// List-shaped queries get a larger, diversity-aware admit set so multi-fact
@@ -442,9 +467,29 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if explain == nil {
 			explain = map[string]any{}
 		}
-		// Calibrated (per-query relative) embedding similarity; absent => 0.
+		// Calibrated semantic + Mem0-style entity-hub boost, fused additively.
 		embedScore := embedScores[record.MemoryID]
-		score = applyHybridScore(score, explain, embedScore)
+		hub := 0.0
+		if hubBoosts != nil {
+			hub = hubBoosts[record.MemoryID]
+		}
+		if score > 0 || embedScore >= 0.15 || hub > 0 {
+			if score <= 0 && embedScore >= 0.15 {
+				score = embedScore * 0.9
+				explain["ranking_basis"] = "hybrid_embedding"
+			}
+			combined, parts := combineRetrievalSignals(score, embedScore, hub)
+			score = combined
+			for k, v := range parts {
+				explain["signal_"+k] = v
+			}
+			if hub > 0 {
+				explain["entity_hub_boost"] = hub
+			}
+			if embedScore > 0 {
+				explain["embedding_similarity"] = embedScore
+			}
+		}
 		if s.entityRankingEnabled {
 			if bonus := entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)); bonus > 0 {
 				score += bonus
@@ -956,6 +1001,7 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 		return MutationResult{}, err
 	}
 	s.persistEmbedding(ctx, record)
+	s.persistEntityLinks(ctx, record)
 
 	return MutationResult{
 		MemoryID: record.MemoryID,

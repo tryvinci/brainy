@@ -77,6 +77,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 			return true, err
 		}
 		p.persistEmbedding(ctx, upserted.Record)
+		p.persistEntityLinks(ctx, upserted.Record)
 	}
 
 	if err := p.store.CompleteExtractionJob(ctx, job.JobID, job.IngestID); err != nil {
@@ -103,4 +104,23 @@ func (p *Processor) persistEmbedding(ctx context.Context, record memory.MemoryRe
 		return
 	}
 	_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, values)
+}
+
+func (p *Processor) persistEntityLinks(ctx context.Context, record memory.MemoryRecord) {
+	linker, ok := p.store.(memory.EntityLinker)
+	if !ok {
+		return
+	}
+	ents := memory.ExtractEntities(record.Content + " " + record.SourceText)
+	if record.Metadata != nil {
+		if raw, ok := record.Metadata["entities"]; ok {
+			if list, ok := raw.([]string); ok && len(list) > 0 {
+				ents = list
+			}
+		}
+	}
+	if len(ents) == 0 {
+		return
+	}
+	_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
 }
