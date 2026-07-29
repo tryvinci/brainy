@@ -571,8 +571,8 @@ func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 			"observed_at": "2023-05-07T18:00:00Z",
 		},
 		Messages: []Message{
-			{Role: "user", Content: "Caroline: I went to the LGBTQ support group on 7 May 2023"},
-			{Role: "user", Content: "Melanie: Can't wait to see your show - the LGBTQ community needs more platforms like this"},
+			{Role: "user", Content: "Alex: I went to the community support group on 7 May 2023"},
+			{Role: "user", Content: "Sam: Can't wait to see your show - the community needs more platforms like this"},
 		},
 	})
 	if err != nil {
@@ -606,7 +606,7 @@ func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 		}
 	}
 
-	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Caroline go to the LGBTQ support group")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Alex go to the community support group")
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -633,7 +633,7 @@ func TestExactSpanOutranksTopicalNeighbor(t *testing.T) {
 		SubjectID: "u1",
 		Kind:      KindFact,
 		Primitive: PrimitiveEpisode,
-		Content:   "Caroline went to the LGBTQ support group on 7 May 2023",
+		Content:   "Alex went to the community support group on 7 May 2023",
 		DedupeKey: "dated",
 		Status:    StatusActive,
 		UpdatedAt: now,
@@ -651,7 +651,7 @@ func TestExactSpanOutranksTopicalNeighbor(t *testing.T) {
 	store.records["dated"] = dated
 	store.records["topical"] = topical
 
-	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Caroline go to the LGBTQ support group")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Alex go to the community support group")
 	if err != nil {
 		t.Fatalf("search failed: %v", err)
 	}
@@ -670,14 +670,14 @@ func TestSessionNeighborExpansion(t *testing.T) {
 		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
 		Metadata: map[string]any{"session_id": "sess-a", "observed_at": "2023-05-08T12:00:00Z"},
 		Messages: []Message{
-			{Role: "user", Content: "Caroline: I am a transgender woman"},
-			{Role: "user", Content: "Melanie: That takes courage"},
+			{Role: "user", Content: "Alex: I am a community organizer"},
+			{Role: "user", Content: "Sam: That takes courage"},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What is Caroline identity")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What is Alex identity")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -688,7 +688,7 @@ func TestSessionNeighborExpansion(t *testing.T) {
 	for _, r := range search.Results {
 		joined += " " + r.Content
 	}
-	if !strings.Contains(strings.ToLower(joined), "transgender") {
+	if !strings.Contains(strings.ToLower(joined), "community organizer") {
 		t.Fatalf("expected session content in results, got %q", joined)
 	}
 }
@@ -701,14 +701,14 @@ func TestQuestionMemoriesDownrankedForFactQueries(t *testing.T) {
 		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
 		Metadata: map[string]any{"session_id": "s1", "observed_at": "2023-05-08T12:00:00Z"},
 		Messages: []Message{
-			{Role: "user", Content: "What did Caroline research last week?"},
-			{Role: "user", Content: "Caroline: I researched adoption agencies this week"},
+			{Role: "user", Content: "What did Alex research last week?"},
+			{Role: "user", Content: "Alex: I researched adoption agencies this week"},
 		},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What did Caroline research?")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What did Alex research?")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -767,7 +767,7 @@ func TestSubjectContentExpansionSurfacesProfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Query verbs do not appear in the pottery memory; subject bridge must admit it.
-	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What hobbies does Bob partake in?")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What hobbies does Bob enjoy?")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -856,7 +856,7 @@ func TestListQueryDiversifiesThemes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What activities does Dana partake in?")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What activities does Dana enjoy?")
 	if err != nil {
 		t.Fatal(err)
 	}

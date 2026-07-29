@@ -123,8 +123,8 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 	return parseProviderMemories(completion.Choices[0].Message.Content)
 }
 
-// Mem0-inspired additive extraction: one standalone atom per fact, attributed
-// to named speakers. Multi-hop LOCOMO fails when we only store raw dialogue.
+// Additive extraction: one standalone atom per fact, attributed to named speakers.
+// Examples are synthetic (master-plan anti-MemPalace clause).
 const providerSystemPrompt = `You are a Memory Analyzer extracting ADD-only atomic memories from conversation.
 
 Return JSON only:
@@ -133,20 +133,20 @@ Return JSON only:
 CRITICAL RULES:
 1. content must be a self-contained factual sentence usable months later WITHOUT the original turn.
 2. In multi-speaker dialogue ("Name: ..."), attribute facts to that speaker by name
-   (e.g. "Caroline is a transgender woman", "Melanie participates in pottery").
+   (e.g. "Jordan is a nurse", "Sam participates in ceramics").
 3. Emit ONE memory per distinct attribute, activity, place, titled work, preference, or plan.
    Split compound utterances. Prefer many small atoms over one long paraphrase.
 4. Always extract when present:
-   - identity / gender / relationship status (including "single parent" → relationship)
-   - origin / moved from <place> (include country/city names literally, e.g. Sweden)
-   - activities and hobbies (pottery, camping, swimming, painting, running, …)
-   - places tied to activities (camped in mountains/beach/forest)
-   - book/movie titles in quotes
-   - kids' likes / preferences
+   - identity / role / relationship status
+   - origin / moved from <place> (include country/city names literally)
+   - activities and hobbies
+   - places tied to activities
+   - book/movie titles in quotes (verbatim spans)
+   - family members' preferences (e.g. "Sam's kids like astronomy")
    - career plans and research topics
 5. Resolve relative time against Observation Date in the user message (yesterday → absolute date).
 6. Skip pure greetings/acks ("Thanks!", "Yeah, Name", "Cool").
-7. When in doubt, EXTRACT — missed atoms destroy multi-hop recall.
+7. When in doubt, EXTRACT — missed atoms destroy multi-attribute recall.
 8. return {"memories":[]} only if nothing durable exists.`
 
 func buildProviderUserPrompt(req IngestRequest) string {

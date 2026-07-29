@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"math"
+	"time"
 )
 
 // EntityLinker persists Mem0-style hub-and-spoke entity → memory links.
@@ -61,6 +62,28 @@ func (s *Service) persistEntityLinks(ctx context.Context, record MemoryRecord) {
 		return
 	}
 	_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
+
+	if indexer, ok := s.store.(AtomIndexer); ok {
+		pred, _ := record.Explain["predicate"].(string)
+		val, _ := record.Explain["value_norm"].(string)
+		if pred == "" && record.Metadata != nil {
+			if p, ok := record.Metadata["predicate"].(string); ok {
+				pred = p
+			}
+			if v, ok := record.Metadata["value_norm"].(string); ok {
+				val = v
+			}
+		}
+		if pred != "" && val != "" {
+			_ = indexer.UpsertMemoryAtom(ctx, record.TenantID, record.SubjectID, pred, val, record.MemoryID, record.ObservedAt)
+		}
+	}
+}
+
+// AtomIndexer persists typed atoms for predicate enumeration (W2/W3).
+type AtomIndexer interface {
+	UpsertMemoryAtom(ctx context.Context, tenantID, subjectID, predicate, value, memoryID string, observedAt *time.Time) error
+	ListAtomMemoryIDs(ctx context.Context, tenantID, subjectID, predicate, valueNorm string, limit int) ([]string, error)
 }
 
 func (s *Service) entityHubBoostMap(ctx context.Context, tenantID, subjectID, query string) map[string]float64 {

@@ -246,6 +246,27 @@ CREATE INDEX IF NOT EXISTS memory_entity_links_subject_lookup
 ON memory_entity_links (tenant_id, subject_id);
 `,
 	},
+	{
+		version: 13,
+		name:    "add_memory_atoms_index",
+		sql: `
+CREATE TABLE IF NOT EXISTS memory_atoms (
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    predicate TEXT NOT NULL,
+    value_norm TEXT NOT NULL,
+    memory_id TEXT NOT NULL,
+    observed_at TIMESTAMPTZ,
+    valid_to TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, subject_id, predicate, value_norm, memory_id)
+);
+CREATE INDEX IF NOT EXISTS memory_atoms_predicate_scan
+ON memory_atoms (tenant_id, subject_id, predicate, value_norm);
+CREATE INDEX IF NOT EXISTS memory_atoms_memory_lookup
+ON memory_atoms (memory_id);
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {
