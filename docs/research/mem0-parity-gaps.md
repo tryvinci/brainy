@@ -79,6 +79,16 @@ Fail taxonomy on `locomo-staging-diversify-v1` (11 misses):
 
 ---
 
+## Empirical marketing counter-run (2026-07-29)
+
+| Suite | Brainy | Mem0 (measured) |
+| --- | ---: | ---: |
+| Parity | **4/4** | **4/4** |
+| Vertical marketing | **15/16** | **4/16** |
+
+Differentiation (Brainy pass ∧ Mem0 fail): **6** capabilities (principle>preference, voice_profile, brand_rule, archived campaign, etc.).
+Artifacts: `docs/vertical/marketing-mvp-vs-mem0.md`.
+
 ## Measured same-pin attempt (2026-07-29)
 
 | System | LOCOMO 1×30 (gpt-oss, top_k=30) |
@@ -88,6 +98,16 @@ Fail taxonomy on `locomo-staging-diversify-v1` (11 misses):
 | Mem0 Platform (first attempt) | 1/30 (under-indexed — waiter fixed; re-run pending) |
 
 Do **not** cite Mem0 1/30 as a capability claim. Cite Brainy OpMem 12/12 vs Mem0 9/12 for operational lead.
+
+### Marketing true compare
+
+Static `mem0_has` is not enough. Run:
+
+```bash
+python3 evals/run_marketing_mvp_benchmark.py --base-url "$BRAINY_BASE_URL" --systems brainy,mem0
+```
+
+See [gap-crush-checklist.md](./gap-crush-checklist.md).
 
 ## Crush order (this cycle)
 
