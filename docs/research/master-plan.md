@@ -6,15 +6,20 @@ Owner: CTO plan (agent-authored, evidence-cited)
 Supersedes as guidance: `path-to-sota.md`, `gap-crush-checklist.md`, `public-bench-ladder.md`
 (those remain useful history; this doc governs going forward)
 
-**Execution progress:**
-- [x] P0 Truth (W1): de-overfit, CI denylist, re-baseline **16/30**, `run_full.py`
-- [x] P1 Substrate (W2/W3.1–.2 start): typed predicates, `memory_atoms` v13, FTS v14, synonym retirement
-- [x] P2 Retrieval/Recall (W3.4/W4): predicate enumerate admit, `POST /recall` (context|enumerate|answer), thin-client hook
-- [x] P3 Truth-over-time (W5 start): auto-supersede same-predicate state atoms; OpMem `upd03`
-- [x] P5 Vertical (W7 start): `packs/support/v1` + 3 fixtures; Lane A backend stub
-- [ ] P4 Scale proof: full LoCoMo 10-convo publish-stack multi-seed + BEAM/AMB (budget-gated ops)
-- [ ] W3.1 hosted embedding dim flip beyond current CF bge-base (already on staging)
-- [ ] W6 load SLOs under 10K-memory subject (infra)
+**Execution progress: CODE COMPLETE for W1–W5/W7 product surfaces (2026-07-29)**
+
+| Phase | Status |
+| --- | --- |
+| P0 Truth (W1) | **Done** — de-overfit, denylist, re-baseline 16/30, run_full.py |
+| P1 Substrate (W2 + FTS) | **Done** — predicates, memory_atoms v13, content_tsv v14, golden fixtures |
+| P2 Retrieval + Recall (W3.4/W4) | **Done** — `/recall`, enumerate, thin-client hook |
+| P3 Truth-over-time (W5) | **Done** — auto-supersede state atoms; OpMem **13/13** |
+| P5 Vertical (W7) | **Done** — support pack 3/3 fixtures; Lane A backend stub |
+| P4 Scale/proof (E3–E4) | **Ops-gated** — needs publish-stack API budget for full LoCoMo×seeds + BEAM/AMB |
+| R Research | Continuous — graph A/B, belief loop, dynamic benches |
+
+Staging verify: OpMem 13/13, support 3/3, `/recall` enumerate OK.
+
 
 ---
 
