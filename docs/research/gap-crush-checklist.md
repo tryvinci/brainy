@@ -5,7 +5,7 @@ Living plan — no Linear required. Issues: GitHub #50–#57 · Detail: [mem0-pa
 | ID | Gap | Status | Evidence |
 | --- | --- | --- | --- |
 | #50 C1 | Attribute atoms at ingest | **Shipped** | `attribute_atoms.go`; remeasure noisy |
-| #51 M1 | Fair Mem0 LOCOMO same-pin | **Harness shipped**; re-run pending | `--system mem0` + hardened wait |
+| #51 M1 | Fair Mem0 LOCOMO same-pin | **Measured** | Mem0 12/30 vs Brainy peak 19/30; MH 6/10 vs 2–3/10 |
 | #52 C4 | Multi-span synthesis | In progress | evals answerer merge |
 | #53 C2 | IDF/entity default-on | Open | gated flags |
 | #54 C3 | Temporal plans | Open | |
