@@ -4,7 +4,8 @@
 vertical governance, latency/cost, and (fairly measured) conversational recall — then
 publish that evidence. Not LOCOMO parity alone. Not benchmax.
 
-Master plan: [path-to-sota.md](./path-to-sota.md) · Papers: [paper-topics.md](./paper-topics.md) · Ladder: [public-bench-ladder.md](./public-bench-ladder.md)
+**Master plan (program of record): [master-plan.md](./master-plan.md)** — supersedes path-to-sota / gap-crush-checklist / public-bench-ladder as guidance.
+History: [path-to-sota.md](./path-to-sota.md) · Papers: [paper-topics.md](./paper-topics.md) · Ladder: [public-bench-ladder.md](./public-bench-ladder.md)
 
 Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0’s LOCOMO writeups — **reproducible, cited, honest about gaps**.
 
