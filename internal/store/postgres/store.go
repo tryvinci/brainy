@@ -355,7 +355,7 @@ func ftsQueryFromPatterns(patterns []string) string {
 	if len(terms) == 0 {
 		return ""
 	}
-	return strings.Join(terms, " | ")
+	return strings.Join(terms, " ")
 }
 
 func (s *Store) searchMemoriesFTS(ctx context.Context, tenantID, subjectID, query string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
