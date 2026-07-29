@@ -79,6 +79,16 @@ Fail taxonomy on `locomo-staging-diversify-v1` (11 misses):
 
 ---
 
+## Measured same-pin attempt (2026-07-29)
+
+| System | LOCOMO 1×30 (gpt-oss, top_k=30) |
+| --- | ---: |
+| Brainy (diversify peak) | **19/30** |
+| Brainy (attribute atoms, solo) | 15/30 |
+| Mem0 Platform (first attempt) | 1/30 (under-indexed — waiter fixed; re-run pending) |
+
+Do **not** cite Mem0 1/30 as a capability claim. Cite Brainy OpMem 12/12 vs Mem0 9/12 for operational lead.
+
 ## Crush order (this cycle)
 
 1. **GAP-C1** attribute extraction (code)  
