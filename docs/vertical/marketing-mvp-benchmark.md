@@ -1,7 +1,7 @@
 # Marketing MVP Benchmark Report
 
 - **Benchmark:** `marketing-mvp-v1`
-- **Generated:** 2026-07-29T22:03:10Z
+- **Generated:** 2026-07-29T22:42:06Z
 - **Mem0 mode:** `declared` (static matrix only)
 - **Mem0 reference commit:** `a670333d67be1207b5be2fc73af60c3439444f48`
 

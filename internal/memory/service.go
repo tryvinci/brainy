@@ -136,6 +136,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		}
 		s.persistEmbedding(ctx, upserted.Record)
 		s.persistEntityLinks(ctx, upserted.Record)
+		_ = s.autoSupersedePriorState(ctx, upserted.Record)
 		if err := s.applyIngestSupersession(ctx, upserted.Record); err != nil {
 			return IngestResult{}, err
 		}
@@ -1199,6 +1200,52 @@ func (s *Service) applyIngestSupersession(ctx context.Context, record MemoryReco
 		return nil
 	}
 	return s.store.MarkSuperseded(ctx, record.TenantID, record.SubjectID, priorID)
+}
+
+// autoSupersedePriorState marks older same-(subject,predicate) state atoms
+// superseded when a newer atom arrives (master-plan W5).
+func (s *Service) autoSupersedePriorState(ctx context.Context, record MemoryRecord) error {
+	if record.Metadata == nil {
+		return nil
+	}
+	pred, _ := record.Metadata["predicate"].(string)
+	val, _ := record.Metadata["value_norm"].(string)
+	if pred == "" || val == "" {
+		return nil
+	}
+	// Only auto-supersede stateful predicates (not events/media lists).
+	switch pred {
+	case PredicateRelationshipStatus, PredicateResidence, PredicateOccupation, PredicateIdentity:
+	default:
+		return nil
+	}
+	indexer, ok := s.store.(AtomIndexer)
+	if !ok {
+		return nil
+	}
+	ids, err := indexer.ListAtomMemoryIDs(ctx, record.TenantID, record.SubjectID, pred, "", 20)
+	if err != nil {
+		return nil
+	}
+	for _, id := range ids {
+		if id == record.MemoryID {
+			continue
+		}
+		prior, err := s.store.GetMemory(ctx, record.TenantID, record.SubjectID, id)
+		if err != nil {
+			continue
+		}
+		// Same predicate, different value → supersede older.
+		pval, _ := prior.Metadata["value_norm"].(string)
+		if pval == "" || pval == val {
+			continue
+		}
+		if prior.ObservedAt != nil && record.ObservedAt != nil && !record.ObservedAt.After(*prior.ObservedAt) {
+			continue
+		}
+		_ = s.store.MarkSuperseded(ctx, record.TenantID, record.SubjectID, id)
+	}
+	return nil
 }
 
 func supersedesMemoryIDFromMetadata(metadata map[string]any) string {

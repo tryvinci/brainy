@@ -1,0 +1,32 @@
+{
+  "name": "sp01_escalation_over_style",
+  "ingests": [
+    {
+      "tenant_id": "fixture-sup-01",
+      "subject_id": "cust-a",
+      "vertical": "support",
+      "label": "agent_preference",
+      "source_type": "conversation",
+      "messages": [{"role": "user", "content": "Prefer a warm casual tone with customers."}]
+    },
+    {
+      "tenant_id": "fixture-sup-01",
+      "subject_id": "cust-a",
+      "vertical": "support",
+      "label": "escalation_rule",
+      "source_type": "policy",
+      "messages": [{"role": "user", "content": "Never promise a refund without manager approval."}]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-sup-01",
+    "subject_id": "cust-a",
+    "vertical": "support",
+    "q": "refund promise"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_content_contains": "Never"
+  }
+}

@@ -25,6 +25,7 @@ func NewRouter(service *memory.Service, metrics *observability.Metrics) http.Han
 	mux.HandleFunc("/ingest", router.handleIngest)
 	mux.HandleFunc("/ingest/async", router.handleIngestAsync)
 	mux.HandleFunc("/events", router.handleDomainEvent)
+	mux.HandleFunc("/recall", router.handleRecall)
 	mux.HandleFunc("/memories/search", router.handleSearch)
 	mux.HandleFunc("/memories/", router.handleMemoryAction)
 	return mux
@@ -231,6 +232,24 @@ func (r *Router) handleDomainEvent(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	result, err := r.service.ApplyDomainEvent(req.Context(), payload)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleRecall(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		return
+	}
+	var payload memory.RecallRequest
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+		return
+	}
+	result, err := r.service.Recall(req.Context(), payload)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
 		return

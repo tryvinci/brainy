@@ -1,0 +1,32 @@
+{
+  "name": "sp03_customer_isolation",
+  "ingests": [
+    {
+      "tenant_id": "fixture-sup-03a",
+      "subject_id": "cust-x",
+      "vertical": "support",
+      "label": "customer_fact",
+      "source_type": "conversation",
+      "messages": [{"role": "user", "content": "Customer X prefers email follow-ups."}]
+    },
+    {
+      "tenant_id": "fixture-sup-03b",
+      "subject_id": "cust-y",
+      "vertical": "support",
+      "label": "customer_fact",
+      "source_type": "conversation",
+      "messages": [{"role": "user", "content": "Customer Y prefers SMS follow-ups."}]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-sup-03a",
+    "subject_id": "cust-x",
+    "vertical": "support",
+    "q": "follow-ups"
+  },
+  "expect": {
+    "min_results": 1,
+    "first_content_contains": "email",
+    "max_results": 5
+  }
+}
