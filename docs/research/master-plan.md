@@ -10,7 +10,7 @@ Supersedes as guidance: `path-to-sota.md`, `gap-crush-checklist.md`, `public-ben
 - [x] §9.1 P0 de-overfit + CI denylist (`overfit_denylist_test.go`)
 - [x] §9.2 publish stack scaffold (`run_full.py`, `publish-stack-pins.md`)
 - [x] §9.3 typed atom substrate (`predicates.go`, `memory_atoms` v13, list predicate admit)
-- [ ] Re-baseline LOCOMO smoke after de-overfit (expected drop)
+- [x] Re-baseline LOCOMO smoke after de-overfit: **16/30** (was 19/30 peak-with-hacks); OpMem 12/12
 - [ ] §9.4–9.6 provider golden suite, embedding flip, memory-benchmarks fork
 
 ---

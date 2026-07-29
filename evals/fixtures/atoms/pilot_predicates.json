@@ -1,0 +1,35 @@
+{
+  "description": "Synthetic dialogues for pilot predicates (no benchmark text)",
+  "cases": [
+    {
+      "id": "origin_01",
+      "messages": [{"role": "user", "content": "Riley: I moved from Portugal last year"}],
+      "expect_predicates": ["origin"],
+      "expect_substrings": ["riley moved from portugal"]
+    },
+    {
+      "id": "activity_01",
+      "messages": [{"role": "user", "content": "Riley: I've been cycling every morning"}],
+      "expect_predicates": ["activity"],
+      "expect_substrings": ["cycling"]
+    },
+    {
+      "id": "media_01",
+      "messages": [{"role": "user", "content": "Riley: I loved reading \"The Martian\" last month"}],
+      "expect_predicates": ["media_consumed"],
+      "expect_substrings": ["martian"]
+    },
+    {
+      "id": "family_01",
+      "messages": [{"role": "user", "content": "Riley: My kids like astronomy clubs"}],
+      "expect_predicates": ["family_member"],
+      "expect_substrings": ["kids like astronomy"]
+    },
+    {
+      "id": "event_01",
+      "messages": [{"role": "user", "content": "Riley: We went camping at the lake in June"}],
+      "expect_predicates": ["activity", "event"],
+      "expect_substrings": ["camping", "lake"]
+    }
+  ]
+}
