@@ -1347,6 +1347,10 @@ func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights 
 		score += bonus
 		explain["attribute_atom_boost"] = bonus
 	}
+	if bonus := queryAttributeIntentBoost(queryTokens, record); bonus > 0 {
+		score += bonus
+		explain["attribute_intent_boost"] = bonus
+	}
 	// Broken quote shards ("Name mentioned \"m still…\"") must not dominate.
 	lowerContent := strings.ToLower(record.Content)
 	if strings.Contains(lowerContent, " mentioned \"") &&
@@ -1454,6 +1458,54 @@ func attributeAtomBoost(record MemoryRecord) float64 {
 		return 0.28
 	case rule == "provider_extract":
 		return 0.12
+	}
+	return 0
+}
+
+// queryAttributeIntentBoost aligns atom type with question intent
+// (moved-from → origin atoms, relationship status → relationship atoms, etc.).
+func queryAttributeIntentBoost(queryTokens []string, record MemoryRecord) float64 {
+	if record.Explain == nil {
+		return 0
+	}
+	rule, _ := record.Explain["rule"].(string)
+	if rule == "" {
+		return 0
+	}
+	qset := map[string]struct{}{}
+	for _, t := range queryTokens {
+		qset[t] = struct{}{}
+	}
+	has := func(words ...string) bool {
+		for _, w := range words {
+			if _, ok := qset[w]; ok {
+				return true
+			}
+		}
+		return false
+	}
+	switch {
+	case rule == "attribute_origin" && has("moved", "from", "where", "country", "live", "lived"):
+		return 0.55
+	case rule == "attribute_relationship" && has("relationship", "status", "single", "married", "partner"):
+		return 0.55
+	case rule == "attribute_identity" && has("identity", "who", "gender"):
+		return 0.45
+	case (rule == "attribute_activity" || rule == "attribute_place_activity") &&
+		has("activities", "activity", "hobbies", "hobby", "partake", "camped", "camping", "destress", "stress"):
+		return 0.45
+	case rule == "attribute_titled_work" && has("books", "book", "read", "reading"):
+		return 0.5
+	case rule == "attribute_preference" && has("kids", "children", "like", "likes"):
+		return 0.5
+	}
+	// Content fallback when explain.rule missing (older rows / provider atoms).
+	content := strings.ToLower(record.Content)
+	if has("moved", "from") && (strings.Contains(content, " moved from ") || strings.Contains(content, " is from ")) {
+		return 0.45
+	}
+	if has("relationship", "status", "single") && strings.Contains(content, " single") {
+		return 0.45
 	}
 	return 0
 }

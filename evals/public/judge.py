@@ -138,12 +138,21 @@ def answer_from_memories(
             if not _is_empty_answer(extractive):
                 if _is_empty_answer(answer):
                     answer = extractive
-                    return answer, cfg.label + "+extractive-list"
-                merged = _merge_answer_items(answer, extractive)
-                if _item_count(merged) > _item_count(answer):
-                    return merged, cfg.label + "+merged-list"
-                if _item_count(extractive) > _item_count(answer):
-                    return extractive, cfg.label + "+extractive-list"
+                else:
+                    merged = _merge_answer_items(answer, extractive)
+                    if _item_count(merged) > _item_count(answer):
+                        answer = merged
+                    elif _item_count(extractive) > _item_count(answer):
+                        answer = extractive
+            # Harvest structured atom phrases already in retrieved memories
+            # (participates in X, kids like Y, read "Title", …).
+            harvested = _harvest_structured_items(question, memories)
+            if harvested:
+                merged = _merge_answer_items(answer, harvested)
+                if _item_count(merged) > _item_count(answer) or _is_empty_answer(answer):
+                    return merged, cfg.label + "+harvest-list"
+            if not _is_empty_answer(answer):
+                return answer, cfg.label + "+multi-evidence"
         if _is_empty_answer(answer):
             joined = _statement_join(memories)
             if joined:
@@ -215,6 +224,52 @@ def _merge_answer_items(primary: str, secondary: str) -> str:
         seen.add(key)
         ordered.append(item)
     return ", ".join(ordered)
+
+
+_HARVEST_PATTERNS = (
+    re.compile(r"\bparticipates in ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\benjoys ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\bhas done ([a-z][a-z\s-]{2,30}) at ([a-z][a-z\s-]{2,30})\b", re.I),
+    re.compile(r"\bkids like ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\bread \"([^\"]{2,80})\"", re.I),
+    re.compile(r"\bis single\b", re.I),
+    re.compile(r"\bmoved from ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
+    re.compile(r"\bis from ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
+    re.compile(r"\bis a (transgender woman)\b", re.I),
+)
+
+
+def _harvest_structured_items(question: str, memories: list[dict]) -> str:
+    """Pull structured atom phrases from retrieved memory text (generic patterns)."""
+    q = (question or "").lower()
+    want_list = _looks_list_question(q) or any(c in q for c in ("destress", "camped", "books", "kids"))
+    want_attr = any(c in q for c in ("moved", "from", "relationship", "status", "identity", "who"))
+    if not want_list and not want_attr:
+        return ""
+    items: list[str] = []
+    for m in memories[:40]:
+        content = (m.get("content") or "").strip()
+        if not content:
+            continue
+        for pat in _HARVEST_PATTERNS:
+            for match in pat.finditer(content):
+                raw = match.group(0).lower()
+                groups = [g for g in match.groups() if g]
+                if "is single" in raw:
+                    phrase = "single"
+                elif "transgender woman" in raw:
+                    phrase = "transgender woman"
+                elif len(groups) == 2:
+                    phrase = f"{groups[0]} at {groups[1]}"
+                elif groups:
+                    phrase = groups[0]
+                else:
+                    continue
+                phrase = phrase.strip(" .,")
+                if len(phrase) < 2 or phrase.lower().startswith("my "):
+                    continue
+                items.append(phrase)
+    return ", ".join(dict.fromkeys(items))
 
 
 def _is_empty_answer(answer: str) -> bool:

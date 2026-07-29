@@ -59,6 +59,31 @@ func TestAttributeAtomsTitlesAndActivities(t *testing.T) {
 	}
 }
 
+func TestSpeakerCarryForwardForOriginAtoms(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Caroline: Thanks, Melanie!"},
+			// Continuation without speaker prefix — must inherit Caroline.
+			{Role: "user", Content: "This necklace is from my grandma in my home country, Sweden."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + m.Content
+	}
+	if !strings.Contains(strings.ToLower(joined), "caroline") || !strings.Contains(strings.ToLower(joined), "sweden") {
+		t.Fatalf("expected Caroline+Sweden atom with carry-forward, got %q", joined)
+	}
+	if strings.Contains(joined, "User moved") || strings.Contains(joined, "Someone moved") {
+		t.Fatalf("must not invent User/Someone speaker, got %q", joined)
+	}
+}
+
 func TestAttributeAtomsBuriedDialogueFacts(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{

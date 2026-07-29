@@ -31,12 +31,27 @@ var (
 func extractAttributeAtoms(utterances []string) []ExtractedMemory {
 	out := make([]ExtractedMemory, 0, 8)
 	seen := map[string]struct{}{}
+	lastSpeaker := ""
 	for _, utt := range utterances {
 		speaker, body := splitSpeaker(utt)
+		if speaker != "" {
+			lastSpeaker = speaker
+		} else if lastSpeaker != "" {
+			// Carry forward dialogue speaker across continuation lines.
+			speaker = lastSpeaker
+		}
 		if body == "" {
 			continue
 		}
-		for _, atom := range attributeAtomsFromUtterance(speaker, body, utt) {
+		// First-person atoms need a named speaker; never invent "User".
+		if speaker == "" && isFirstPersonBody(body) {
+			continue
+		}
+		who := speaker
+		if who == "" {
+			who = "Someone"
+		}
+		for _, atom := range attributeAtomsFromUtterance(who, body, utt) {
 			key := strings.ToLower(NormalizeText(atom.Content))
 			if _, ok := seen[key]; ok {
 				continue
@@ -48,6 +63,14 @@ func extractAttributeAtoms(utterances []string) []ExtractedMemory {
 	return out
 }
 
+func isFirstPersonBody(body string) bool {
+	lower := strings.ToLower(strings.TrimSpace(body))
+	return strings.HasPrefix(lower, "i ") || strings.HasPrefix(lower, "i'm ") ||
+		strings.HasPrefix(lower, "i’ve") || strings.HasPrefix(lower, "i've") ||
+		strings.Contains(lower, " my ") || strings.Contains(lower, "i'm ") ||
+		strings.Contains(lower, "i am ")
+}
+
 func splitSpeaker(utterance string) (speaker, body string) {
 	m := speakerLineRE.FindStringSubmatch(strings.TrimSpace(utterance))
 	if m == nil {
@@ -56,11 +79,13 @@ func splitSpeaker(utterance string) (speaker, body string) {
 	return strings.TrimSpace(m[1]), NormalizeText(m[2])
 }
 
-func attributeAtomsFromUtterance(speaker, body, source string) []ExtractedMemory {
+func attributeAtomsFromUtterance(who, body, source string) []ExtractedMemory {
 	var out []ExtractedMemory
-	who := speaker
-	if who == "" {
-		who = "User"
+	if who == "" || strings.EqualFold(who, "user") || strings.EqualFold(who, "someone") {
+		// Still allow third-person patterns with explicit names later; skip I-centric.
+		if isFirstPersonBody(body) {
+			return nil
+		}
 	}
 
 	if m := transWomanRE.FindStringSubmatch(body); m != nil {
@@ -118,17 +143,21 @@ func attributeAtomsFromUtterance(speaker, body, source string) []ExtractedMemory
 
 	if m := movedFromRE.FindStringSubmatch(body); m != nil {
 		place := NormalizeText(m[1])
-		out = append(out, atomFact(
-			fmt.Sprintf("%s moved from %s", who, place),
-			source, 0.9, "attribute_origin",
-		))
+		if isConcretePlace(place) {
+			out = append(out, atomFact(
+				fmt.Sprintf("%s moved from %s", who, place),
+				source, 0.9, "attribute_origin",
+			))
+		}
 	}
 	if m := movedToRE.FindStringSubmatch(body); m != nil {
 		place := NormalizeText(m[1])
-		out = append(out, atomFact(
-			fmt.Sprintf("%s moved to %s", who, place),
-			source, 0.9, "attribute_origin",
-		))
+		if isConcretePlace(place) {
+			out = append(out, atomFact(
+				fmt.Sprintf("%s moved to %s", who, place),
+				source, 0.9, "attribute_origin",
+			))
+		}
 	}
 
 	lowerBody := strings.ToLower(body)
@@ -224,6 +253,22 @@ func looksBrokenQuotedTitle(title string) bool {
 		return true // long prose quote, not a title
 	}
 	return false
+}
+
+func isConcretePlace(place string) bool {
+	p := strings.ToLower(strings.TrimSpace(place))
+	if p == "" || len(p) < 2 {
+		return false
+	}
+	// Reject pronouns / vague phrases from "moved from my home country".
+	if strings.HasPrefix(p, "my ") || strings.HasPrefix(p, "our ") || strings.HasPrefix(p, "the ") {
+		return false
+	}
+	switch p {
+	case "home", "home country", "there", "here", "abroad", "overseas":
+		return false
+	}
+	return true
 }
 
 func looksLikeWorkTitle(title string) bool {
