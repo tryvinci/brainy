@@ -175,9 +175,6 @@ def _looks_list_question(question: str) -> bool:
         "what books",
         "kids like",
         "children like",
-        "partake",
-        "destress",
-        "de-stress",
     )
     return any(c in q for c in cues)
 
@@ -235,14 +232,14 @@ _HARVEST_PATTERNS = (
     re.compile(r"\bis single\b", re.I),
     re.compile(r"\bmoved from ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
     re.compile(r"\bis from ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
-    re.compile(r"\bis a (transgender woman)\b", re.I),
+    re.compile(r"\bis a ([a-z][a-z\s-]{2,40})\b", re.I),
 )
 
 
 def _harvest_structured_items(question: str, memories: list[dict]) -> str:
     """Pull structured atom phrases from retrieved memory text (generic patterns)."""
     q = (question or "").lower()
-    want_list = _looks_list_question(q) or any(c in q for c in ("destress", "camped", "books", "kids"))
+    want_list = _looks_list_question(q) or any(c in q for c in ("camped", "books", "kids", "hobbies"))
     want_attr = any(c in q for c in ("moved", "from", "relationship", "status", "identity", "who"))
     if not want_list and not want_attr:
         return ""
@@ -257,8 +254,6 @@ def _harvest_structured_items(question: str, memories: list[dict]) -> str:
                 groups = [g for g in match.groups() if g]
                 if "is single" in raw:
                     phrase = "single"
-                elif "transgender woman" in raw:
-                    phrase = "transgender woman"
                 elif len(groups) == 2:
                     phrase = f"{groups[0]} at {groups[1]}"
                 elif groups:
