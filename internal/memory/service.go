@@ -367,6 +367,28 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 		expandSubjectContentMemories(candidates, contentQueryTokens, allMemories, subLimit, listQuery)
 	}
+	// Predicate enumeration (W2/W3): admit all atoms for the list intent.
+	if listQuery {
+		if indexer, ok := s.store.(AtomIndexer); ok {
+			if pred := predicateFromListQuery(queryTokens); pred != "" {
+				ids, err := indexer.ListAtomMemoryIDs(ctx, tenantID, subjectID, pred, "", 40)
+				if err == nil && len(ids) > 0 {
+					byID := make(map[string]MemoryRecord, len(allMemories))
+					for _, record := range allMemories {
+						byID[record.MemoryID] = record
+					}
+					for _, id := range ids {
+						if _, ok := candidates[id]; ok {
+							continue
+						}
+						if record, ok := byID[id]; ok {
+							candidates[id] = record
+						}
+					}
+				}
+			}
+		}
+	}
 
 	// For multi-hop shaped questions, admit a capped set of same-session neighbors
 	// and a second-pass of fact-like memories related to first-hit content tokens.
@@ -643,12 +665,27 @@ func looksListQuery(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "books", "book",
-			"places", "place", "partake", "destress", "stress",
-			"kids", "children":
+			"places", "place", "stress", "camping", "camped":
 			return true
 		}
 	}
 	return false
+}
+
+func predicateFromListQuery(tokens []string) string {
+	for _, token := range tokens {
+		switch token {
+		case "activities", "activity", "hobbies", "hobby", "stress":
+			return PredicateActivity
+		case "books", "book", "read", "reading":
+			return PredicateMediaConsumed
+		case "camped", "camping", "places", "place":
+			return PredicateEvent
+		case "kids", "children":
+			return PredicateFamilyMember
+		}
+	}
+	return ""
 }
 
 // expandSubjectContentMemories admits content-dense memories that mention a
@@ -886,21 +923,21 @@ func relatedIntentTokens(token string) []string {
 		return []string{"single", "married", "partner", "dating", "relationship"}
 	case "career", "path", "pursue", "persue":
 		return []string{"career", "job", "profession", "work"}
-	case "activities", "activity", "partake", "hobby", "hobbies":
-		return []string{"hobby", "hobbies", "activity", "activities"}
-	case "camped", "camping", "camp":
-		return []string{"camp", "camping", "camped"}
-	case "books", "read", "reading":
-		return []string{"reading", "book", "books", "library"}
-	case "destress", "de-stress", "stress":
-		return []string{"stress", "relax", "unwind"}
-	case "moved":
-		return []string{"moved", "move", "relocated"}
-	case "kids", "children":
-		return []string{"kids", "children", "child"}
-	default:
-		return nil
-	}
+		case "activities", "activity", "hobby", "hobbies":
+			return []string{"hobby", "hobbies", "activity", "activities"}
+		case "camping", "camp":
+			return []string{"camp", "camping", "camped"}
+		case "books", "read", "reading":
+			return []string{"reading", "book", "books", "library"}
+		case "stress", "relax":
+			return []string{"stress", "relax", "unwind"}
+		case "moved":
+			return []string{"moved", "move", "relocated"}
+		case "kids", "children":
+			return []string{"kids", "children", "child"}
+		default:
+			return nil
+		}
 }
 
 // topicAlignmentBoost rewards memories whose content matches the topical intent
@@ -921,7 +958,6 @@ func topicAlignmentBoost(queryTokens, contentTokens []string) float64 {
 				bonus += 0.18
 				break
 			}
-			// prefix match for transgender/trans etc.
 			for c := range cset {
 				if tokensMatch(related, c) {
 					bonus += 0.18
@@ -1492,7 +1528,7 @@ func queryAttributeIntentBoost(queryTokens []string, record MemoryRecord) float6
 	case rule == "attribute_identity" && has("identity", "who", "gender"):
 		return 0.45
 	case (rule == "attribute_activity" || rule == "attribute_place_activity") &&
-		has("activities", "activity", "hobbies", "hobby", "partake", "camped", "camping", "destress", "stress"):
+		has("activities", "activity", "hobbies", "hobby", "camping", "camped", "stress"):
 		return 0.45
 	case rule == "attribute_titled_work" && has("books", "book", "read", "reading"):
 		return 0.5
