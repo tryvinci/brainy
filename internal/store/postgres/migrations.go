@@ -267,6 +267,33 @@ CREATE INDEX IF NOT EXISTS memory_atoms_memory_lookup
 ON memory_atoms (memory_id);
 `,
 	},
+	{
+		version: 14,
+		name:    "add_content_fts",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS content_tsv tsvector;
+
+UPDATE memory_records
+SET content_tsv = to_tsvector('english', coalesce(content, ''))
+WHERE content_tsv IS NULL;
+
+CREATE INDEX IF NOT EXISTS memory_records_content_tsv_gin
+ON memory_records USING GIN (content_tsv);
+
+CREATE OR REPLACE FUNCTION memory_records_content_tsv_trigger() RETURNS trigger AS $$
+BEGIN
+  NEW.content_tsv := to_tsvector('english', coalesce(NEW.content, ''));
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS memory_records_content_tsv_update ON memory_records;
+CREATE TRIGGER memory_records_content_tsv_update
+BEFORE INSERT OR UPDATE OF content ON memory_records
+FOR EACH ROW EXECUTE FUNCTION memory_records_content_tsv_trigger();
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

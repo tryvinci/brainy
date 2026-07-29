@@ -1,0 +1,10 @@
+{
+  "name": "upd03_state_supersession",
+  "category": "staleness",
+  "description": "When a durable state fact is restated, recall prefers the newer value.",
+  "steps": [
+    { "op": "remember", "id": "m1", "actor": "a1", "content": "The door code is 1111." },
+    { "op": "remember", "id": "m2", "actor": "a1", "content": "The door code is 2222." },
+    { "op": "recall", "actor": "a1", "query": "door code", "expect": { "min_results": 1, "top_contains": "2222" } }
+  ]
+}

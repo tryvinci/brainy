@@ -1,0 +1,47 @@
+id: support
+version: "1"
+description: Customer-support / CRM vertical pack (master-plan W7)
+
+vocabulary:
+  ticket_state:
+    primitive: episode
+    description: Current or historical ticket status
+  customer_fact:
+    primitive: belief
+    description: Durable customer attribute
+  resolution_note:
+    primitive: episode
+    description: How a ticket was resolved
+  escalation_rule:
+    primitive: principle
+    description: Hard rule for escalation / PII / refunds
+  agent_preference:
+    primitive: identity_prior
+    description: Soft agent style preference
+
+lifecycle_rules:
+  - match:
+      label: ticket_state
+      metadata.status: resolved
+    set:
+      lifecycle_state: deprioritized
+      rank_multiplier: 0.4
+  - match:
+      label: ticket_state
+      metadata.status: closed
+    set:
+      lifecycle_state: archived
+      exclude_from_search: true
+  - match:
+      label: customer_fact
+      metadata.status: superseded
+    set:
+      lifecycle_state: superseded
+      exclude_from_search: true
+
+rank_policy:
+  primitive_weights:
+    principle: 100
+    identity_prior: 70
+    belief: 60
+    episode: 40
