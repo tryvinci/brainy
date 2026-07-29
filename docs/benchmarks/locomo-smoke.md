@@ -1,22 +1,14 @@
-# LOCOMO smoke — multi-hop fix (speaker + intent + harvest)
+# LOCOMO smoke — P0 de-overfit re-baseline
 
-**Staging:** `b3264b0` · gpt-oss · top_k=30 · async  
+**Commit:** `ece8d52` · gpt-oss · top_k=30 · async · **no LOCOMO surface-forms in product**
 
-| Run | Overall | **multi-hop** | temporal | open | Notes |
-| --- | ---: | ---: | ---: | ---: | --- |
-| Diversify peak | 19/30 | 2/10 | 13/16 | 4/4 | |
-| Entity hub v2 | 16/30 | 3/10 | 10/16 | 3/4 | identity pass |
-| **Speaker+intent+harvest** | **19/30** | **5/10** | 11/16 | 3/4 | **single + Sweden pass** |
-| Mem0 same-pin | 12/30 | **6/10** | 2/16 | 4/4 | |
+| Line | Overall | multi-hop | temporal | open |
+| --- | ---: | ---: | ---: | ---: |
+| Pre-W1 peak (with hacks) | 19/30 | 5/10 | 11–13/16 | 3–4/4 |
+| **P0 honest baseline** | **16/30** | **4/10** | 9/16 | 3/4 |
+| Mem0 same-pin (prior) | 12/30 | 6/10 | 2/16 | 4/4 |
 
-OpMem: **12/12**.
+OpMem: **12/12** (non-regress).
 
-## Multi-hop now passing
-
-- research, identity, **relationship (single)**, **origin (Sweden)**, career
-
-## Still failing (lists)
-
-- activities / camped locations / kids likes / books / destress — partial retrieval or incomplete list vs GT
-
-Gap to Mem0 MH: **1 question** (5/10 vs 6/10).
+This drop vs 19/30 is the expected honest starting line after W1 (master-plan §1.2 / §9.1).
+Wins back via W2–W4 typed atoms + enumeration + `/recall`, not by restoring regex answer keys.
