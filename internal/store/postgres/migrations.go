@@ -274,10 +274,6 @@ ON memory_atoms (memory_id);
 ALTER TABLE memory_records
 ADD COLUMN IF NOT EXISTS content_tsv tsvector;
 
-UPDATE memory_records
-SET content_tsv = to_tsvector('english', coalesce(content, ''))
-WHERE content_tsv IS NULL;
-
 CREATE INDEX IF NOT EXISTS memory_records_content_tsv_gin
 ON memory_records USING GIN (content_tsv);
 
