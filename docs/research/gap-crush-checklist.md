@@ -1,6 +1,6 @@
 # Mem0 gap crush checklist (git-tracked plan)
 
-**Status: 100% complete (2026-07-29)**  
+**Status: 100% complete (2026-07-29)** · Staging verify: OpMem 12/12, LOCOMO 14/30 (peak 19/30)  
 Detail: [mem0-parity-gaps.md](./mem0-parity-gaps.md) · Issues: GitHub #50–#57
 
 | ID | Gap | Status | Evidence |
