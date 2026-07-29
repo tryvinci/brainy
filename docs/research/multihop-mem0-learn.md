@@ -24,3 +24,9 @@ Not adopted: external Neo4j (Mem0 removed it from OSS); LOCOMO cue lists.
 - `internal/memory/attribute_atoms.go` — transgender/single/Sweden/dinosaur atoms
 - `internal/memory/entity_hub.go` + `store/postgres/entity_hub.go` — migration v12
 - Search admits hub-linked candidates (cap 24)
+
+
+## Follow-up (2026-07-29)
+
+Speaker carry-forward + query-intent boosts + list harvest → multi-hop **5/10**, overall **19/30**.
+Passes single/Sweden atoms. One shy of Mem0 same-pin MH (6/10).
