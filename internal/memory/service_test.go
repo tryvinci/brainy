@@ -135,15 +135,6 @@ func (s *memoryStoreStub) EntityHubBoosts(_ context.Context, _, _ string, queryE
 	return out, nil
 }
 
-func appendUnique(ids []string, id string) []string {
-	for _, existing := range ids {
-		if existing == id {
-			return ids
-		}
-	}
-	return append(ids, id)
-}
-
 func (s *memoryStoreStub) MarkSuperseded(_ context.Context, tenantID, subjectID, memoryID string) error {
 	for key, record := range s.records {
 		if record.TenantID == tenantID && record.SubjectID == subjectID && record.MemoryID == memoryID {

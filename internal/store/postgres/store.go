@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"brainy/internal/memory"
@@ -293,6 +294,13 @@ func (s *Store) SearchMemories(ctx context.Context, tenantID, subjectID string, 
 	if limit <= 0 {
 		limit = 100
 	}
+	// Prefer FTS when a plain query string can be derived from patterns.
+	query := ftsQueryFromPatterns(patterns)
+	if query != "" {
+		if results, err := s.searchMemoriesFTS(ctx, tenantID, subjectID, query, limit, includeSuperseded); err == nil && len(results) > 0 {
+			return results, nil
+		}
+	}
 	var (
 		rows pgx.Rows
 		err  error
@@ -323,6 +331,61 @@ LIMIT $8
 	}
 	defer rows.Close()
 
+	var out []memory.MemoryRecord
+	for rows.Next() {
+		record, err := scanMemoryRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, record)
+	}
+	return out, rows.Err()
+}
+
+func ftsQueryFromPatterns(patterns []string) string {
+	terms := make([]string, 0, len(patterns))
+	for _, p := range patterns {
+		t := strings.Trim(p, "% ")
+		t = strings.ReplaceAll(t, "'", "")
+		if len(t) < 2 {
+			continue
+		}
+		terms = append(terms, t)
+	}
+	if len(terms) == 0 {
+		return ""
+	}
+	return strings.Join(terms, " | ")
+}
+
+func (s *Store) searchMemoriesFTS(ctx context.Context, tenantID, subjectID, query string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	var rows pgx.Rows
+	var err error
+	if includeSuperseded {
+		rows, err = s.pool.Query(ctx, `
+SELECT `+memoryRecordSelectCols+`
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND lifecycle_state NOT IN ($4, $5)
+  AND content_tsv @@ plainto_tsquery('english', $6)
+ORDER BY ts_rank_cd(content_tsv, plainto_tsquery('english', $6)) DESC, updated_at DESC
+LIMIT $7
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuppressed, query, limit)
+	} else {
+		rows, err = s.pool.Query(ctx, `
+SELECT `+memoryRecordSelectCols+`
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND lifecycle_state NOT IN ($4, $5, $6)
+  AND content_tsv @@ plainto_tsquery('english', $7)
+ORDER BY ts_rank_cd(content_tsv, plainto_tsquery('english', $7)) DESC, updated_at DESC
+LIMIT $8
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed, query, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 	var out []memory.MemoryRecord
 	for rows.Next() {
 		record, err := scanMemoryRow(rows)
