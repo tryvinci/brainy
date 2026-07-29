@@ -133,10 +133,14 @@ Return JSON only with shape:
 {"memories":[{"kind":"fact|preference|profile","content":"...","source_text":"...","confidence":0.0,"when":"optional ISO-8601 or natural date","duration":"optional duration"}]}
 Rules:
 - kind must be fact, preference, or profile
-- content must be a concise standalone memory
+- content must be a concise standalone memory that is searchable without the original turn
+- Prefer atomic attribute facts with the subject's name when known, e.g.
+  "Alex is a teacher", "Alex moved from Spain", "Alex read \"Title\"",
+  "Alex participates in pottery", "Alex is single"
+- Emit one memory per distinct attribute, activity, titled work, place, or preference
 - source_text must quote or closely paraphrase the supporting utterance
 - include when/duration when the dialogue states temporal information
-- omit chit-chat with no lasting value
+- omit chit-chat with no lasting value (greetings, thanks, acknowledgments)
 - return {"memories":[]} if nothing durable`
 
 func buildProviderUserPrompt(req IngestRequest) string {
