@@ -95,7 +95,8 @@ Artifacts: `docs/vertical/marketing-mvp-vs-mem0.md`.
 | --- | ---: |
 | Brainy (diversify peak) | **19/30** |
 | Brainy (attribute atoms, solo) | 15/30 |
-| Mem0 Platform (first attempt) | 1/30 (under-indexed — waiter fixed; re-run pending) |
+| Mem0 Platform (hardened wait v2) | **12/30** (MH 6/10, temporal 2/16) |
+| Brainy diversify peak | **19/30** (MH 2/10, temporal 13/16) |
 
 Do **not** cite Mem0 1/30 as a capability claim. Cite Brainy OpMem 12/12 vs Mem0 9/12 for operational lead.
 
