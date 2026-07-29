@@ -124,7 +124,11 @@ def answer_from_memories(
 
     This is a *generic* memory-QA client for proveable evals — not a place to
     special-case public benchmark questions or pad answers from known GTs.
+    Prefer product POST /recall when BRAINY_USE_RECALL=1 (master-plan W4).
     """
+    product = _product_recall_answer(question)
+    if product is not None:
+        return product
     if not memories:
         return "", "empty-context"
     cfg = config or resolve_config(model=model)
@@ -159,6 +163,40 @@ def answer_from_memories(
                 return joined, cfg.label + "+retrieval-concat"
         return answer, cfg.label
     return _statement_join(memories) or "", "retrieval-concat-v0"
+
+
+def _product_recall_answer(question: str) -> tuple[str, str] | None:
+    import os
+
+    if os.environ.get("BRAINY_USE_RECALL", "").lower() not in {"1", "true", "yes"}:
+        return None
+    base = (os.environ.get("BRAINY_BASE_URL") or "").rstrip("/")
+    tenant = os.environ.get("BRAINY_RECALL_TENANT", "")
+    subject = os.environ.get("BRAINY_RECALL_SUBJECT", "")
+    if not base or not tenant or not subject:
+        return None
+    try:
+        from httputil import post_json
+
+        mode = "enumerate" if _looks_list_question(question) or _looks_multi_evidence(question) else "answer"
+        body = post_json(
+            base,
+            "/recall",
+            {"tenant_id": tenant, "subject_id": subject, "q": question, "mode": mode, "top_k": 30},
+            timeout=120,
+        )
+        if body.get("abstained"):
+            return "not in memory", "brainy-recall+abstain"
+        if mode == "enumerate" and body.get("items"):
+            vals = [it.get("value") for it in body["items"] if it.get("value")]
+            if vals:
+                return ", ".join(vals), "brainy-recall+enumerate"
+        ans = (body.get("answer") or body.get("context_block") or "").strip()
+        if ans:
+            return ans, "brainy-recall+" + mode
+    except Exception:
+        return None
+    return None
 
 
 def _looks_list_question(question: str) -> bool:

@@ -6,12 +6,15 @@ Owner: CTO plan (agent-authored, evidence-cited)
 Supersedes as guidance: `path-to-sota.md`, `gap-crush-checklist.md`, `public-bench-ladder.md`
 (those remain useful history; this doc governs going forward)
 
-**Execution progress (same day):**
-- [x] §9.1 P0 de-overfit + CI denylist (`overfit_denylist_test.go`)
-- [x] §9.2 publish stack scaffold (`run_full.py`, `publish-stack-pins.md`)
-- [x] §9.3 typed atom substrate (`predicates.go`, `memory_atoms` v13, list predicate admit)
-- [x] Re-baseline LOCOMO smoke after de-overfit: **16/30** (was 19/30 peak-with-hacks); OpMem 12/12
-- [ ] §9.4–9.6 provider golden suite, embedding flip, memory-benchmarks fork
+**Execution progress:**
+- [x] P0 Truth (W1): de-overfit, CI denylist, re-baseline **16/30**, `run_full.py`
+- [x] P1 Substrate (W2/W3.1–.2 start): typed predicates, `memory_atoms` v13, FTS v14, synonym retirement
+- [x] P2 Retrieval/Recall (W3.4/W4): predicate enumerate admit, `POST /recall` (context|enumerate|answer), thin-client hook
+- [x] P3 Truth-over-time (W5 start): auto-supersede same-predicate state atoms; OpMem `upd03`
+- [x] P5 Vertical (W7 start): `packs/support/v1` + 3 fixtures; Lane A backend stub
+- [ ] P4 Scale proof: full LoCoMo 10-convo publish-stack multi-seed + BEAM/AMB (budget-gated ops)
+- [ ] W3.1 hosted embedding dim flip beyond current CF bge-base (already on staging)
+- [ ] W6 load SLOs under 10K-memory subject (infra)
 
 ---
 

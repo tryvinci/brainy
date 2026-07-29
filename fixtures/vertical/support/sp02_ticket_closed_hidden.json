@@ -1,0 +1,23 @@
+{
+  "name": "sp02_ticket_closed_hidden",
+  "ingests": [
+    {
+      "tenant_id": "fixture-sup-02",
+      "subject_id": "cust-b",
+      "vertical": "support",
+      "label": "ticket_state",
+      "metadata": {"status": "closed", "ticket_id": "T-100"},
+      "source_type": "ticket",
+      "messages": [{"role": "user", "content": "Ticket T-100 billing dispute is closed."}]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-sup-02",
+    "subject_id": "cust-b",
+    "vertical": "support",
+    "q": "billing dispute T-100"
+  },
+  "expect": {
+    "max_results": 0
+  }
+}
