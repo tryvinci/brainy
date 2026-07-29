@@ -1060,6 +1060,7 @@ func (s *Service) Supersede(ctx context.Context, tenantID, subjectID, priorID st
 		return MutationResult{}, err
 	}
 	s.persistEmbedding(ctx, upserted.Record)
+	s.persistEntityLinks(ctx, upserted.Record)
 
 	if err := s.store.MarkSuperseded(ctx, tenantID, subjectID, priorID); err != nil {
 		return MutationResult{}, err
@@ -1346,6 +1347,14 @@ func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights 
 		score += bonus
 		explain["attribute_atom_boost"] = bonus
 	}
+	// Broken quote shards ("Name mentioned \"m still…\"") must not dominate.
+	lowerContent := strings.ToLower(record.Content)
+	if strings.Contains(lowerContent, " mentioned \"") &&
+		(strings.Contains(lowerContent, " but i") || strings.Contains(lowerContent, "mentioned \"m ") ||
+			strings.Contains(lowerContent, "mentioned \"i ")) {
+		score -= 0.7
+		explain["broken_quote_penalty"] = -0.7
+	}
 	if penalty := questionMemoryPenalty(queryTokens, record.Content); penalty != 0 {
 		score += penalty
 		explain["question_memory_penalty"] = penalty
@@ -1431,15 +1440,20 @@ func subjectMentionBoost(queryTokens, contentTokens []string) float64 {
 	return 0.12 * float64(hits)
 }
 
-// attributeAtomBoost mildly prefers deterministic/provider atomic facts so
+// attributeAtomBoost prefers deterministic/provider atomic facts so
 // multi-hop attribute questions (identity, activities, titles) surface.
 func attributeAtomBoost(record MemoryRecord) float64 {
 	if record.Explain == nil {
 		return 0
 	}
 	rule, _ := record.Explain["rule"].(string)
-	if strings.HasPrefix(rule, "attribute_") {
-		return 0.22
+	switch {
+	case rule == "attribute_identity" || rule == "attribute_relationship" || rule == "attribute_origin":
+		return 0.4
+	case strings.HasPrefix(rule, "attribute_"):
+		return 0.28
+	case rule == "provider_extract":
+		return 0.12
 	}
 	return 0
 }
