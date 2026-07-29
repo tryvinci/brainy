@@ -291,7 +291,7 @@ $$ LANGUAGE plpgsql;
 DROP TRIGGER IF EXISTS memory_records_content_tsv_update ON memory_records;
 CREATE TRIGGER memory_records_content_tsv_update
 BEFORE INSERT OR UPDATE OF content ON memory_records
-FOR EACH ROW EXECUTE FUNCTION memory_records_content_tsv_trigger();
+FOR EACH ROW EXECUTE PROCEDURE memory_records_content_tsv_trigger();
 `,
 	},
 }
