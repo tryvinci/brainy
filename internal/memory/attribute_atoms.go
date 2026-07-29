@@ -24,7 +24,7 @@ var (
 	kidsLikeRE       = regexp.MustCompile(`(?i)\b(?:kids?|children)\s+(?:love|like|enjoy|are into|were\s+(?:especially\s+)?(?:excited|stoked)\s+about)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
 	transWomanRE     = regexp.MustCompile(`(?i)\bas a (transgender woman)\b`)
 	singleParentRE   = regexp.MustCompile(`(?i)\bas a (single parent)\b|\b(single parent)\b`)
-	homeCountryRE    = regexp.MustCompile(`(?i)\bhome country[, ]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b|\bfrom (?:my )?home country[, ]+([A-Z][a-z]+)\b`)
+	homeCountryRE    = regexp.MustCompile(`(?i)\bhome country[,:]?\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b`)
 	dinosaurLikeRE   = regexp.MustCompile(`(?i)\b(dinosaur\s+exhibit|dinosaurs?)\b`)
 )
 
@@ -131,19 +131,24 @@ func attributeAtomsFromUtterance(speaker, body, source string) []ExtractedMemory
 		))
 	}
 
+	lowerBody := strings.ToLower(body)
 	for _, m := range quotedTitleRE.FindAllStringSubmatch(body, 4) {
 		title := m[1]
 		if title == "" {
 			title = m[2]
 		}
 		title = NormalizeText(title)
-		if utf8.RuneCountInString(title) < 3 {
+		if utf8.RuneCountInString(title) < 4 || looksBrokenQuotedTitle(title) {
 			continue
 		}
-		// Prefer book/read framing when the utterance mentions reading.
-		lower := strings.ToLower(body)
+		// Only mint titled-work atoms for explicit read/book context or
+		// title-shaped quotes — never truncated dialogue fragments.
+		if !(strings.Contains(lowerBody, "read") || strings.Contains(lowerBody, "reading") ||
+			strings.Contains(lowerBody, "book") || looksLikeWorkTitle(title)) {
+			continue
+		}
 		verb := "mentioned"
-		if strings.Contains(lower, "read") || strings.Contains(lower, "reading") || strings.Contains(lower, "book") {
+		if strings.Contains(lowerBody, "read") || strings.Contains(lowerBody, "reading") || strings.Contains(lowerBody, "book") {
 			verb = "read"
 		}
 		out = append(out, atomFact(
@@ -201,4 +206,36 @@ func atomFact(content, source string, confidence float64, rule string) Extracted
 			"primitive": PrimitiveEpisode,
 		},
 	}
+}
+
+func looksBrokenQuotedTitle(title string) bool {
+	t := strings.TrimSpace(title)
+	if t == "" {
+		return true
+	}
+	// Truncated dialogue shards: "m still figuring...", "Becoming Nicole" ok.
+	if matched, _ := regexp.MatchString(`^[a-z]\s`, t); matched {
+		return true
+	}
+	if strings.HasSuffix(strings.ToLower(t), " but i") || strings.HasSuffix(t, " but I") {
+		return true
+	}
+	if strings.Count(t, " ") >= 8 && !looksLikeWorkTitle(t) {
+		return true // long prose quote, not a title
+	}
+	return false
+}
+
+func looksLikeWorkTitle(title string) bool {
+	words := strings.Fields(title)
+	if len(words) == 0 || len(words) > 8 {
+		return false
+	}
+	caps := 0
+	for _, w := range words {
+		if len(w) > 0 && w[0] >= 'A' && w[0] <= 'Z' {
+			caps++
+		}
+	}
+	return caps >= 1 && caps >= len(words)/2
 }
