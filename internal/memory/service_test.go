@@ -13,14 +13,16 @@ import (
 )
 
 type memoryStoreStub struct {
-	records map[string]MemoryRecord
-	jobs    map[string]ExtractionJob
+	records     map[string]MemoryRecord
+	jobs        map[string]ExtractionJob
+	entityLinks map[string][]string
 }
 
 func newMemoryStoreStub() *memoryStoreStub {
 	return &memoryStoreStub{
-		records: map[string]MemoryRecord{},
-		jobs:    map[string]ExtractionJob{},
+		records:     map[string]MemoryRecord{},
+		jobs:        map[string]ExtractionJob{},
+		entityLinks: map[string][]string{},
 	}
 }
 
@@ -100,6 +102,46 @@ func (s *memoryStoreStub) GetMemory(_ context.Context, tenantID, subjectID, memo
 		}
 	}
 	return MemoryRecord{}, ErrMemoryNotFound
+}
+
+func (s *memoryStoreStub) LinkMemoryEntities(_ context.Context, _, _, memoryID string, entities []string) error {
+	if s.entityLinks == nil {
+		s.entityLinks = map[string][]string{}
+	}
+	for _, e := range entities {
+		s.entityLinks[e] = appendUnique(s.entityLinks[e], memoryID)
+	}
+	return nil
+}
+
+func (s *memoryStoreStub) EntityHubBoosts(_ context.Context, _, _ string, queryEntities []string) (map[string]float64, error) {
+	out := map[string]float64{}
+	for _, e := range queryEntities {
+		ids := s.entityLinks[e]
+		if len(ids) == 0 || len(ids) > 40 {
+			continue
+		}
+		w := 0.5 / float64(len(ids))
+		if w > 0.35 {
+			w = 0.35
+		}
+		for _, id := range ids {
+			out[id] += w
+			if out[id] > 0.5 {
+				out[id] = 0.5
+			}
+		}
+	}
+	return out, nil
+}
+
+func appendUnique(ids []string, id string) []string {
+	for _, existing := range ids {
+		if existing == id {
+			return ids
+		}
+	}
+	return append(ids, id)
 }
 
 func (s *memoryStoreStub) MarkSuperseded(_ context.Context, tenantID, subjectID, memoryID string) error {
