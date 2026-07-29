@@ -36,6 +36,8 @@ Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [staging competitiv
 | Surpass plan | Active | [path-to-sota.md](./path-to-sota.md) |
 | Mem0 parity gaps | Active | [mem0-parity-gaps.md](./mem0-parity-gaps.md) |
 | Paper roadmap | Active | [paper-topics.md](./paper-topics.md) |
+| OpMem Paper 1 draft | Draft | [posts/2026-07-opmem-v0.md](./posts/2026-07-opmem-v0.md) |
+| Gap crush checklist | **100%** | [gap-crush-checklist.md](./gap-crush-checklist.md) |
 
 ---
 
