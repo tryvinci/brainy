@@ -34,6 +34,7 @@ Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [staging competitiv
 | Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
 | Proveable eval framework | Spec + harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
 | Surpass plan | Active | [path-to-sota.md](./path-to-sota.md) |
+| Mem0 parity gaps | Active | [mem0-parity-gaps.md](./mem0-parity-gaps.md) |
 | Paper roadmap | Active | [paper-topics.md](./paper-topics.md) |
 
 ---

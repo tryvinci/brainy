@@ -35,8 +35,10 @@ func NewExtractor() DeterministicExtractor {
 func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]ExtractedMemory, error) {
 	var extracted []ExtractedMemory
 	retainEpisodes := shouldRetainConversationEpisodes(req)
+	var allUtterances []string
 	for _, message := range req.Messages {
 		for _, utterance := range splitUtterances(message.Content) {
+			allUtterances = append(allUtterances, utterance)
 			if memory, ok := classifySentence(utterance); ok {
 				extracted = append(extracted, memory)
 				continue
@@ -49,6 +51,11 @@ func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]E
 				}
 			}
 		}
+	}
+	// Attribute atoms: standalone searchable facts (identity, origin, titles,
+	// activities). Closes the Mem0-style ADD-fact gap for conversational ingest.
+	if retainEpisodes {
+		extracted = append(extracted, extractAttributeAtoms(allUtterances)...)
 	}
 	return extracted, nil
 }
