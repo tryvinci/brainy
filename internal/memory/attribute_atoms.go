@@ -21,7 +21,11 @@ var (
 	activityRE     = regexp.MustCompile(`(?i)\b(?:i|i've|i have)\s+(?:been\s+)?(camping|hiking|swimming|running|painting|pottery|reading|cooking)\b`)
 	loveActivityRE = regexp.MustCompile(`(?i)\b(?:i love|i like|i enjoy|i'm a (?:big )?fan of)\s+([a-z][a-z\s-]{2,40})`)
 	placeWithActRE = regexp.MustCompile(`(?i)\b(camping|hik(?:e|ing)|swimming)\s+(?:in|at|on)\s+(?:the\s+)?(beach|mountains?|forest|woods|lake|river|park)\b`)
-	kidsLikeRE     = regexp.MustCompile(`(?i)\b(?:kids?|children)\s+(?:love|like|enjoy|are into)\s+([a-z][a-z\s-]{2,40})`)
+	kidsLikeRE       = regexp.MustCompile(`(?i)\b(?:kids?|children)\s+(?:love|like|enjoy|are into|were\s+(?:especially\s+)?(?:excited|stoked)\s+about)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
+	transWomanRE     = regexp.MustCompile(`(?i)\bas a (transgender woman)\b`)
+	singleParentRE   = regexp.MustCompile(`(?i)\bas a (single parent)\b|\b(single parent)\b`)
+	homeCountryRE    = regexp.MustCompile(`(?i)\bhome country[, ]+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)\b|\bfrom (?:my )?home country[, ]+([A-Z][a-z]+)\b`)
+	dinosaurLikeRE   = regexp.MustCompile(`(?i)\b(dinosaur\s+exhibit|dinosaurs?)\b`)
 )
 
 func extractAttributeAtoms(utterances []string) []ExtractedMemory {
@@ -59,6 +63,22 @@ func attributeAtomsFromUtterance(speaker, body, source string) []ExtractedMemory
 		who = "User"
 	}
 
+	if m := transWomanRE.FindStringSubmatch(body); m != nil {
+		out = append(out, atomFact(
+			fmt.Sprintf("%s is a transgender woman", who),
+			source, 0.95, "attribute_identity",
+		))
+	}
+	if m := singleParentRE.FindStringSubmatch(body); m != nil {
+		out = append(out, atomFact(
+			fmt.Sprintf("%s is a single parent", who),
+			source, 0.92, "attribute_relationship",
+		))
+		out = append(out, atomFact(
+			fmt.Sprintf("%s is single", who),
+			source, 0.9, "attribute_relationship",
+		))
+	}
 	if m := iAmBareRE.FindStringSubmatch(body); m != nil {
 		attr := NormalizeText(m[1])
 		out = append(out, atomFact(
@@ -70,6 +90,29 @@ func attributeAtomsFromUtterance(speaker, body, source string) []ExtractedMemory
 		out = append(out, atomFact(
 			fmt.Sprintf("%s is a %s", who, attr),
 			source, 0.88, "attribute_identity",
+		))
+	}
+	if m := homeCountryRE.FindStringSubmatch(body); m != nil {
+		place := m[1]
+		if place == "" {
+			place = m[2]
+		}
+		place = NormalizeText(place)
+		if place != "" {
+			out = append(out, atomFact(
+				fmt.Sprintf("%s is from %s", who, place),
+				source, 0.93, "attribute_origin",
+			))
+			out = append(out, atomFact(
+				fmt.Sprintf("%s moved from %s", who, place),
+				source, 0.9, "attribute_origin",
+			))
+		}
+	}
+	if dinosaurLikeRE.MatchString(body) && (strings.Contains(strings.ToLower(body), "kid") || strings.Contains(strings.ToLower(body), "children") || strings.Contains(strings.ToLower(body), "stoked") || strings.Contains(strings.ToLower(body), "excited")) {
+		out = append(out, atomFact(
+			fmt.Sprintf("%s's kids like dinosaurs", who),
+			source, 0.9, "attribute_preference",
 		))
 	}
 

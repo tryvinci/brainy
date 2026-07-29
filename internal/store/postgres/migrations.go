@@ -230,6 +230,22 @@ CREATE INDEX IF NOT EXISTS memory_records_superseded_at_lookup
 ON memory_records (tenant_id, subject_id, superseded_at DESC NULLS LAST);
 `,
 	},
+	{
+		version: 12,
+		name:    "add_memory_entity_hub",
+		sql: `
+CREATE TABLE IF NOT EXISTS memory_entity_links (
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    entity_key TEXT NOT NULL,
+    linked_memory_ids TEXT[] NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, subject_id, entity_key)
+);
+CREATE INDEX IF NOT EXISTS memory_entity_links_subject_lookup
+ON memory_entity_links (tenant_id, subject_id);
+`,
+	},
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

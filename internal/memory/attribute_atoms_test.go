@@ -59,6 +59,65 @@ func TestAttributeAtomsTitlesAndActivities(t *testing.T) {
 	}
 }
 
+func TestAttributeAtomsBuriedDialogueFacts(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Caroline: I made it to show my own journey as a transgender woman and how we should accept growth"},
+			{Role: "user", Content: "Caroline: It'll be tough as a single parent, but I'm up for the challenge!"},
+			{Role: "user", Content: "Caroline: a gift from my grandma in my home country, Sweden. She gave it to me when I was young"},
+			{Role: "user", Content: "Melanie: They were stoked for the dinosaur exhibit! They love learning about animals"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	for _, need := range []string{
+		"transgender woman",
+		"single",
+		"sweden",
+		"dinosaur",
+	} {
+		if !strings.Contains(joined, need) {
+			t.Fatalf("expected %q atom in %q", need, joined)
+		}
+	}
+}
+
+func TestEntityHubBoostsLinkedMemories(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	_, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Dana: I am a transgender woman"},
+			{Role: "user", Content: "Dana: pottery keeps me grounded"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(store.entityLinks["dana"]) == 0 {
+		t.Fatalf("expected dana entity links, got %#v", store.entityLinks)
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What is Dana identity")
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, r := range search.Results {
+		joined += " " + strings.ToLower(r.Content)
+	}
+	if !strings.Contains(joined, "transgender") {
+		t.Fatalf("expected hub/atom identity recall, got %q", joined)
+	}
+}
+
 func TestAttributeAtomsSkippedForPackLabeledIngest(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{

@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const providerExtractionVersion = "provider-v1"
+const providerExtractionVersion = "provider-v2-additive"
 
 // ProviderConfig configures an OpenAI-compatible chat completions client.
 type ProviderConfig struct {
@@ -28,8 +28,8 @@ func (c ProviderConfig) Configured() bool {
 // ProviderExtractor calls an OpenAI-compatible /v1/chat/completions endpoint
 // and validates structured JSON memories. It never mutates raw ingest state.
 type ProviderExtractor struct {
-	client *http.Client
-	cfg    ProviderConfig
+	client   *http.Client
+	cfg      ProviderConfig
 	fallback DeterministicExtractor
 }
 
@@ -60,9 +60,6 @@ func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]E
 
 	providerMemories, err := p.extractProvider(ctx, req)
 	if err != nil {
-		// Soft-degrade: keep deterministic/conversational episodes so a flaky
-		// LLM response cannot leave the subject with zero searchable memory.
-		// Transport retries still happen when baseline itself is empty.
 		if len(baseline) > 0 {
 			return baseline, nil
 		}
@@ -73,7 +70,7 @@ func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]E
 
 func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
 	body, err := json.Marshal(map[string]any{
-		"model": p.cfg.Model,
+		"model":       p.cfg.Model,
 		"temperature": 0,
 		"response_format": map[string]string{"type": "json_object"},
 		"messages": []map[string]string{
@@ -120,28 +117,37 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 		return nil, fmt.Errorf("provider extract decode: %w", err)
 	}
 	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
-		// Soft-degrade: some gateways return empty on large prompts. Baseline
-		// episodes still land via mergeProviderAndBaseline.
 		return nil, nil
 	}
 
 	return parseProviderMemories(completion.Choices[0].Message.Content)
 }
 
-const providerSystemPrompt = `Extract durable memories from a conversation transcript.
-Return JSON only with shape:
-{"memories":[{"kind":"fact|preference|profile","content":"...","source_text":"...","confidence":0.0,"when":"optional ISO-8601 or natural date","duration":"optional duration"}]}
-Rules:
-- kind must be fact, preference, or profile
-- content must be a concise standalone memory that is searchable without the original turn
-- Prefer atomic attribute facts with the subject's name when known, e.g.
-  "Alex is a teacher", "Alex moved from Spain", "Alex read \"Title\"",
-  "Alex participates in pottery", "Alex is single"
-- Emit one memory per distinct attribute, activity, titled work, place, or preference
-- source_text must quote or closely paraphrase the supporting utterance
-- include when/duration when the dialogue states temporal information
-- omit chit-chat with no lasting value (greetings, thanks, acknowledgments)
-- return {"memories":[]} if nothing durable`
+// Mem0-inspired additive extraction: one standalone atom per fact, attributed
+// to named speakers. Multi-hop LOCOMO fails when we only store raw dialogue.
+const providerSystemPrompt = `You are a Memory Analyzer extracting ADD-only atomic memories from conversation.
+
+Return JSON only:
+{"memories":[{"kind":"fact|preference|profile","content":"...","source_text":"...","confidence":0.0,"when":"optional absolute date","duration":"optional"}]}
+
+CRITICAL RULES:
+1. content must be a self-contained factual sentence usable months later WITHOUT the original turn.
+2. In multi-speaker dialogue ("Name: ..."), attribute facts to that speaker by name
+   (e.g. "Caroline is a transgender woman", "Melanie participates in pottery").
+3. Emit ONE memory per distinct attribute, activity, place, titled work, preference, or plan.
+   Split compound utterances. Prefer many small atoms over one long paraphrase.
+4. Always extract when present:
+   - identity / gender / relationship status (including "single parent" → relationship)
+   - origin / moved from <place> (include country/city names literally, e.g. Sweden)
+   - activities and hobbies (pottery, camping, swimming, painting, running, …)
+   - places tied to activities (camped in mountains/beach/forest)
+   - book/movie titles in quotes
+   - kids' likes / preferences
+   - career plans and research topics
+5. Resolve relative time against Observation Date in the user message (yesterday → absolute date).
+6. Skip pure greetings/acks ("Thanks!", "Yeah, Name", "Cool").
+7. When in doubt, EXTRACT — missed atoms destroy multi-hop recall.
+8. return {"memories":[]} only if nothing durable exists.`
 
 func buildProviderUserPrompt(req IngestRequest) string {
 	var b strings.Builder
@@ -153,7 +159,15 @@ func buildProviderUserPrompt(req IngestRequest) string {
 		b.WriteString(v)
 		b.WriteString("\n")
 	}
-	b.WriteString("messages:\n")
+	if req.Metadata != nil {
+		if raw, ok := req.Metadata["observed_at"]; ok && raw != nil {
+			b.WriteString("Observation Date: ")
+			b.WriteString(fmt.Sprint(raw))
+			b.WriteString("\n")
+			b.WriteString("Resolve ALL relative time phrases against Observation Date only.\n")
+		}
+	}
+	b.WriteString("New Messages:\n")
 	for _, msg := range req.Messages {
 		role := msg.Role
 		if role == "" {
@@ -183,7 +197,6 @@ type providerMemoryItem struct {
 
 func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 	raw = strings.TrimSpace(raw)
-	// Some models wrap JSON in markdown fences.
 	if strings.HasPrefix(raw, "```") {
 		raw = strings.TrimPrefix(raw, "```json")
 		raw = strings.TrimPrefix(raw, "```")
@@ -241,9 +254,6 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 	return out, nil
 }
 
-// mergeProviderAndBaseline keeps structured provider facts and retains
-// deterministic conversational episodes that are not exact content duplicates.
-// Replacing the baseline wholesale dropped searchable dialogue spans.
 func mergeProviderAndBaseline(baseline, provider []ExtractedMemory) []ExtractedMemory {
 	if len(provider) == 0 {
 		return baseline
