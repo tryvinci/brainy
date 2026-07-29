@@ -1,14 +1,20 @@
-# LOCOMO smoke — gap checklist complete verify
+# LOCOMO smoke — Mem0-style extract + entity hub
 
-**Timestamp:** 2026-07-29  
-**Brainy:** staging (`ad8070e`) · gpt-oss · top_k=30 · async  
+**Staging:** `a61fa6f` · gpt-oss · top_k=30 · async  
 
-| Run | Overall | temporal | multi-hop | open | p50 |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| Diversify peak | **19/30** | 13/16 | 2/10 | 4/4 | ~730–890 |
-| Checklist-complete verify | 14/30 | 10/16 | 2/10 | 2/4 | ~1246 |
-| Mem0 same-pin | 12/30 | 2/16 | **6/10** | 4/4 | ~419 |
+| Run | Overall | multi-hop | temporal | open |
+| --- | ---: | ---: | ---: | ---: |
+| Prior diversify peak | 19/30 | 2/10 | 13/16 | 4/4 |
+| Entity hub v1 (broken quotes) | 16/30 | 2/10 | 10/16 | 4/4 |
+| **Entity hub v2 (quote hotfix)** | **16/30** | **3/10** | 10/16 | 3/4 |
+| Mem0 same-pin | 12/30 | **6/10** | 2/16 | 4/4 |
 
-OpMem: **12/12**. Gap checklist: **100%** — see `docs/research/gap-crush-checklist.md`.
+OpMem: **12/12**.
 
-Multi-hop vs Mem0 remains the stretch goal beyond checklist close.
+## Multi-hop movement
+
+- **q4 identity now passes** (was fail) — transgender signal surfaces.
+- Sweden atom appears (`moved from Sweden`) but still under-ranked / weak speaker attribution (`User` vs Caroline) → answerer abstains.
+- Remaining MH gap vs Mem0 is still mostly **list completeness** + a few missing atoms.
+
+See `docs/research/multihop-mem0-learn.md`.
