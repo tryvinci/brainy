@@ -141,17 +141,25 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     run_id = args.run_id or f"locomo-smoke-{uuid.uuid4().hex[:8]}"
     nonce = uuid.uuid4().hex[:8]
     async_ingest = not bool(getattr(args, "sync_ingest", False))
-    backend = BrainyBackend(
-        base_url,
-        tenant_prefix=f"locomo-{nonce}",
-        async_ingest=async_ingest,
-        async_timeout_s=float(getattr(args, "async_timeout", 180.0)),
-    )
-    print(
-        f"ingest_mode={'async' if async_ingest else 'sync'} "
-        f"(provider extract only on async worker path)",
-        flush=True,
-    )
+    system = (getattr(args, "system", None) or "brainy").strip().lower()
+    if system == "mem0":
+        from public.backends.mem0 import Mem0Backend  # local import — optional dependency path
+
+        backend = Mem0Backend(async_timeout_s=float(getattr(args, "async_timeout", 180.0)))
+        base_url = "https://api.mem0.ai"
+        print("system=mem0 (Platform API; same-pin compare GAP-M1)", flush=True)
+    else:
+        backend = BrainyBackend(
+            base_url,
+            tenant_prefix=f"locomo-{nonce}",
+            async_ingest=async_ingest,
+            async_timeout_s=float(getattr(args, "async_timeout", 180.0)),
+        )
+        print(
+            f"system=brainy ingest_mode={'async' if async_ingest else 'sync'} "
+            f"(provider extract only on async worker path)",
+            flush=True,
+        )
 
     llm = None if args.lexical_only else resolve_config(
         model=args.judge_model or args.answerer_model or "",
@@ -260,13 +268,13 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     result = UnifiedResult(
         metadata=Metadata(
             benchmark="locomo-smoke",
-            project_name="brainy",
+            project_name=system,
             run_id=run_id,
             timestamp=utc_now(),
             dataset_url=LOCOMO_DATASET_URL,
             dataset_sha256=dataset_sha,
             brainy_url=base_url,
-            brainy_commit=commit,
+            brainy_commit=commit if system == "brainy" else "",
             answerer_model=answerer_pin,
             judge_model=judge_pin,
             judge_temperature=0.0,
@@ -385,6 +393,12 @@ def _render_report(result: UnifiedResult, gaps: list[str]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Proveable LOCOMO smoke for Brainy")
     parser.add_argument("--base-url", default="")
+    parser.add_argument(
+        "--system",
+        choices=("brainy", "mem0"),
+        default="brainy",
+        help="Backend for same-pin compares (mem0 requires MEM0_API_KEY)",
+    )
     parser.add_argument("--conversations", type=int, default=1)
     parser.add_argument("--questions", type=int, default=30, help="Max questions across all convos")
     # Mem0 reports top_200; we keep a moderate default that balances recall vs
