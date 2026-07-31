@@ -97,7 +97,7 @@ class BrainyBackend:
         *,
         min_results: int = 1,
         timeout_s: float | None = None,
-        settle_polls: int = 12,
+        settle_polls: int = 6,
     ) -> list[dict]:
         """Poll until probe hits, then wait for result counts to stabilize.
 
