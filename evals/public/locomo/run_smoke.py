@@ -258,6 +258,12 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 )
             )
             used_this_conv += 1
+            if len(items) % 10 == 0 or judged.judgment == "CORRECT":
+                print(
+                    f"  [{sample_id}] q={len(items)} {judged.judgment} "
+                    f"lat={latency_ms:.0f}ms group={group}",
+                    flush=True,
+                )
         if global_budget is not None and len(items) >= global_budget:
             break
 
