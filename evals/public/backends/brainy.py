@@ -156,7 +156,7 @@ class BrainyBackend:
         )
 
     def recall(
-        self, user_id: str, query: str, top_k: int = 10, timeout: float = 60
+        self, user_id: str, query: str, top_k: int = 10, timeout: float = 120
     ) -> tuple[list[dict], float]:
         tenant = self._tenant(user_id)
         started = time.perf_counter()
