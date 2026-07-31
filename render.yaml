@@ -48,7 +48,7 @@ services:
     region: oregon
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: /app/brainy-worker
+    dockerCommand: /app/worker-respawn.sh
     envVars:
       - key: BRAINY_ENV
         value: staging
