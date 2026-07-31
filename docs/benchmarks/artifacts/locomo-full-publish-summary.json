@@ -1,0 +1,29 @@
+{
+  "runs": [
+    {
+      "seed": 0,
+      "run_id": "locomo-full-publish-s0-2a6a04",
+      "accuracy": 0.4941558441558442,
+      "correct": 761,
+      "total": 1540,
+      "by_group": {
+        "temporal": {
+          "correct": 176,
+          "total": 321
+        },
+        "open-domain": {
+          "correct": 37,
+          "total": 96
+        },
+        "multi-hop": {
+          "correct": 71,
+          "total": 282
+        },
+        "single-hop": {
+          "correct": 477,
+          "total": 841
+        }
+      }
+    }
+  ]
+}
