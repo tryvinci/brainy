@@ -18,7 +18,7 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := observability.NewLogger()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	store, err := postgres.New(ctx, cfg.DatabaseURL)
@@ -32,6 +32,11 @@ func main() {
 		logger.Error("failed to apply migrations", "error", err)
 		os.Exit(1)
 	}
+	go func() {
+		indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer indexCancel()
+		store.EnsureContentFTSIndex(indexCtx)
+	}()
 
 	metrics := observability.NewMetrics()
 	extractor := buildWorkerExtractor(cfg, logger)
