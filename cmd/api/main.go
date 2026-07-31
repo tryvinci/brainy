@@ -32,11 +32,15 @@ func main() {
 		logger.Error("failed to apply migrations", "error", err)
 		os.Exit(1)
 	}
-	go func() {
-		indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
-		defer indexCancel()
-		store.EnsureContentFTSIndex(indexCtx)
-	}()
+	// Optional: build FTS GIN off the request path. Disabled by default on
+	// starter plans — concurrent GIN builds can OOM small instances.
+	if os.Getenv("BRAINY_ENSURE_FTS_INDEX") == "1" {
+		go func() {
+			indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer indexCancel()
+			store.EnsureContentFTSIndex(indexCtx)
+		}()
+	}
 
 	metrics := observability.NewMetrics()
 	service := memory.NewService(store).
