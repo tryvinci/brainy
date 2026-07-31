@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 WORKDIR /app
 COPY --from=build /bin/brainy-api /bin/brainy-worker /app/
 COPY packs /app/packs
+COPY scripts/worker-respawn.sh /app/worker-respawn.sh
+RUN chmod +x /app/worker-respawn.sh
 ENV BRAINY_HTTP_ADDR=:8080
 EXPOSE 8080
 CMD ["/app/brainy-api"]
