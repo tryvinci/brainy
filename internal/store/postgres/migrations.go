@@ -268,14 +268,15 @@ ON memory_atoms (memory_id);
 `,
 	},
 	{
+		// Column + trigger only. GIN index is created best-effort outside the
+		// migration transaction (see EnsureContentFTSIndex) — CREATE INDEX on
+		// large staging tables exceeded the 10s boot timeout and crash-looped
+		// the worker.
 		version: 14,
 		name:    "add_content_fts",
 		sql: `
 ALTER TABLE memory_records
 ADD COLUMN IF NOT EXISTS content_tsv tsvector;
-
-CREATE INDEX IF NOT EXISTS memory_records_content_tsv_gin
-ON memory_records USING GIN (content_tsv);
 
 CREATE OR REPLACE FUNCTION memory_records_content_tsv_trigger() RETURNS trigger AS $$
 BEGIN
@@ -290,6 +291,29 @@ BEFORE INSERT OR UPDATE OF content ON memory_records
 FOR EACH ROW EXECUTE PROCEDURE memory_records_content_tsv_trigger();
 `,
 	},
+}
+
+// EnsureContentFTSIndex builds the GIN index outside the migration txn.
+// Safe to call repeatedly; ignores timeout/lock errors so boot is never blocked.
+func (s *Store) EnsureContentFTSIndex(ctx context.Context) {
+	// Drop leftover invalid indexes from prior timed-out CREATE INDEX attempts.
+	_, _ = s.pool.Exec(ctx, `
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_index i ON i.indexrelid = c.oid
+    WHERE c.relname = 'memory_records_content_tsv_gin' AND NOT i.indisvalid
+  ) THEN
+    EXECUTE 'DROP INDEX IF EXISTS memory_records_content_tsv_gin';
+  END IF;
+END $$;
+`)
+	// CONCURRENTLY avoids long write locks on memory_records during build.
+	_, _ = s.pool.Exec(ctx, `
+CREATE INDEX CONCURRENTLY IF NOT EXISTS memory_records_content_tsv_gin
+ON memory_records USING GIN (content_tsv);
+`)
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {
