@@ -144,7 +144,12 @@ def ingest_conversation(backend: BrainyBackend, user_id: str, conv: dict, chunk:
             meta["observed_at"] = str(date)
         for i in range(0, len(messages), chunk):
             batch = messages[i : i + chunk]
-            backend.remember_messages(user_id, batch, metadata=meta or None, wait=False)
+            try:
+                backend.remember_messages(user_id, batch, metadata=meta or None, wait=False)
+            except Exception:
+                # WAF can 403 multi-turn batches; fall back to single-message posts.
+                for msg in batch:
+                    backend.remember_messages(user_id, [msg], metadata=meta or None, wait=False)
             n += len(batch)
             tok = (batch[-1].get("content") or "").split()
             if tok:
