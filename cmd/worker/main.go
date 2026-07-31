@@ -32,11 +32,9 @@ func main() {
 		logger.Error("failed to apply migrations", "error", err)
 		os.Exit(1)
 	}
-	go func() {
-		indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
-		defer indexCancel()
-		store.EnsureContentFTSIndex(indexCtx)
-	}()
+	// Do NOT build the FTS GIN index in the worker process — CREATE INDEX
+	// CONCURRENTLY on a large staging table OOMs the starter plan and Render
+	// SIGTERMs the loop (~60s). API may ensure the index in the background.
 
 	metrics := observability.NewMetrics()
 	extractor := buildWorkerExtractor(cfg, logger)
