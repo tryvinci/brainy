@@ -18,15 +18,37 @@ def auth_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
 
 
 def post_json(base_url: str, path: str, payload: dict, timeout: float = 30) -> dict:
-    request = urllib.request.Request(
-        f"{base_url.rstrip('/')}{path}",
-        data=json.dumps(payload).encode("utf-8"),
-        headers=auth_headers({"Content-Type": "application/json"}),
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read().decode("utf-8"))
+    import time
+    import urllib.error
 
+    body = json.dumps(payload).encode("utf-8")
+    url = f"{base_url.rstrip('/')}{path}"
+    last_err: Exception | None = None
+    for attempt in range(5):
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers=auth_headers({"Content-Type": "application/json"}),
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=timeout) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as exc:
+            last_err = exc
+            # Staging WAF intermittently 403s large conversational payloads.
+            if exc.code in {403, 429, 502, 503} and attempt < 4:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            raise
+        except (TimeoutError, urllib.error.URLError) as exc:
+            last_err = exc
+            if attempt < 4:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            raise
+    assert last_err is not None
+    raise last_err
 
 def get_json(base_url: str, path: str, params: dict[str, str], timeout: float = 30) -> dict:
     filtered = {key: value for key, value in params.items() if value}
