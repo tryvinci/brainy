@@ -128,7 +128,7 @@ class BrainyBackend:
             for query in probes:
                 last_query = query
                 try:
-                    last, _ = self.recall(user_id, query, top_k=max(min_results, 10), timeout=60)
+                    last, _ = self.recall(user_id, query, top_k=max(min_results, 10), timeout=120)
                 except Exception:
                     # Staging can time out under embed load; keep polling.
                     time.sleep(self.async_poll_s)
