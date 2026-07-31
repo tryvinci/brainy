@@ -138,6 +138,7 @@ def _messages_from_conversation(conv: dict):
 def ingest_conversation(backend: BrainyBackend, user_id: str, conv: dict, chunk: int = 8) -> int:
     n = 0
     probes: list[str] = []
+    skipped = 0
     for date, messages in _messages_from_conversation(conv):
         meta: dict = {}
         if date:
@@ -146,14 +147,19 @@ def ingest_conversation(backend: BrainyBackend, user_id: str, conv: dict, chunk:
             batch = messages[i : i + chunk]
             try:
                 backend.remember_messages(user_id, batch, metadata=meta or None, wait=False)
+                n += len(batch)
             except Exception:
-                # WAF can 403 multi-turn batches; fall back to single-message posts.
                 for msg in batch:
-                    backend.remember_messages(user_id, [msg], metadata=meta or None, wait=False)
-            n += len(batch)
+                    try:
+                        backend.remember_messages(user_id, [msg], metadata=meta or None, wait=False)
+                        n += 1
+                    except Exception:
+                        skipped += 1
             tok = (batch[-1].get("content") or "").split()
             if tok:
                 probes.append(tok[0][:40])
+    if skipped:
+        print(f"  skipped {skipped} turns after WAF/ingest errors", flush=True)
     if n and backend.async_ingest:
         backend.wait_until_any_searchable(user_id, probes[:3] or ["conversation"], settle_polls=6)
     return n
