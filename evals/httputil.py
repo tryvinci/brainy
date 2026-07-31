@@ -8,7 +8,9 @@ import urllib.request
 
 
 def auth_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
-    headers = dict(extra or {})
+    # CF AI Gateway / staging WAF occasionally 403s bare Python urllib UA.
+    headers = {"User-Agent": "curl/8.5.0"}
+    headers.update(extra or {})
     key = os.environ.get("BRAINY_API_KEY", "").strip()
     if key:
         headers["Authorization"] = f"Bearer {key}"
