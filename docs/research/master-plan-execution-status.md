@@ -19,8 +19,8 @@ Gate R1 (LoCoMo ≥75): **not met**. Artifacts under `docs/benchmarks/artifacts/
 | Run | Status |
 | --- | --- |
 | W6 latency load | Done — p50 2403 / p95 4997 @ c=8 (SLO miss) |
-| LongMemEval-S | Harness ready — **next** |
-| BEAM-100K | Harness ready — after LME |
+| LongMemEval-S 100 | **Running** (~20/100, early score low) |
+| BEAM-100K conv 0 | **Done — 40% (8/20)** |
 
 ## Product takeaway
 
