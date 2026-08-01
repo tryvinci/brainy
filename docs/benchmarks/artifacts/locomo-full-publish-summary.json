@@ -1,29 +1,53 @@
 {
   "runs": [
     {
-      "seed": 0,
-      "run_id": "locomo-full-publish-s0-2a6a04",
-      "accuracy": 0.4941558441558442,
+      "seed": "publish-s0-2a6a04",
+      "accuracy": 0.4942,
       "correct": 761,
       "total": 1540,
       "by_group": {
+        "multi-hop": {
+          "c": 71,
+          "n": 282
+        },
         "temporal": {
-          "correct": 176,
-          "total": 321
+          "c": 176,
+          "n": 321
         },
         "open-domain": {
-          "correct": 37,
-          "total": 96
-        },
-        "multi-hop": {
-          "correct": 71,
-          "total": 282
+          "c": 37,
+          "n": 96
         },
         "single-hop": {
-          "correct": 477,
-          "total": 841
+          "c": 477,
+          "n": 841
+        }
+      }
+    },
+    {
+      "seed": "s12-s0-e7ba5b",
+      "accuracy": 0.4935,
+      "correct": 760,
+      "total": 1540,
+      "by_group": {
+        "multi-hop": {
+          "c": 74,
+          "n": 282
+        },
+        "temporal": {
+          "c": 176,
+          "n": 321
+        },
+        "open-domain": {
+          "c": 33,
+          "n": 96
+        },
+        "single-hop": {
+          "c": 477,
+          "n": 841
         }
       }
     }
-  ]
+  ],
+  "note": "Third seed (s12-s1) still running. Mean of first two \u2248 49.4%."
 }
