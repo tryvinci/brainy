@@ -10,6 +10,7 @@ Per master-plan §W1 holdout policy: tuning = LOCOMO convs 1–3; validation = 4
 | 2026-07-31 | `57e3dbc` | P4 full LoCoMo dry run (seed 0) started | `run_full.py --conversations 10 --questions 0 --top-k 50`; staging worker SIGTERM~60s workaround = local drain worker on external DB |
 | 2026-07-31 | `57e3dbc` | W6 latency load | `latency_load.py` c=8 → p50 **2403**/p95 **4997** ms (SLO miss under load); artifact `latency-load-20260731T065251Z.json` |
 | 2026-07-31 | `b5552d3` | P4 full LoCoMo seed 0 **complete** | **49.4% (761/1540)** cats 1–4; MH 25.2% (71/282), temp 54.8%, open 38.5%, single 56.7%; search p50/p95 2017/3447 ms. Artifact `docs/benchmarks/artifacts/locomo-full-publish-s0-2a6a04.md`. Seeds 1–2 started. |
+| 2026-08-01 | `cd65995` | P4 LoCoMo replicate seed | **49.35% (760/1540)** — MH 26.2%, temp 54.8%, open 34.4%, single 56.7%. Artifact `locomo-full-s12-s0-e7ba5b.md`. Confirms seed 0. Third seed in progress. |
 
 Reproduce re-baseline:
 
