@@ -13,7 +13,6 @@ Per master-plan §W1 holdout policy: tuning = LOCOMO convs 1–3; validation = 4
 | 2026-08-01 | `cd65995` | P4 LoCoMo replicate seed | **49.35% (760/1540)** — MH 26.2%, temp 54.8%, open 34.4%, single 56.7%. Artifact `locomo-full-s12-s0-e7ba5b.md`. Confirms seed 0. Third seed in progress. |
 | 2026-08-01 | — | BEAM-100K conv 0 sample | **40% (8/20)** abilities; contradiction/summarization strong; temporal/multi-session weak. Artifact `beam-100k-c0-async.md`. |
 | 2026-08-01 | `ac40806` | P4 LoCoMo 3-seed complete | Seeds **49.4 / 49.4 / 50.6** → mean **≈49.8%**. MH mean ≈26%. Gate R1 not met. Artifact `locomo-full-s12-s1-9b61f5.md` + updated summary. |
-| 2026-08-01 | — | BEAM-100K conv 0 sample | **40% (8/20)** abilities; contradiction/summarization strong; temporal/multi-session weak. Artifact `beam-100k-c0-async.md`. |
 | 2026-08-01 | — | LongMemEval-S 100 stratified | **4% (4/100)**. Skip LME-500 until long-haystack retrieval improves. Artifact `lme-s-100.md`. |
 
 Reproduce re-baseline:
