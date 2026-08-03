@@ -4,7 +4,8 @@
 vertical governance, latency/cost, and (fairly measured) conversational recall — then
 publish that evidence. Not LOCOMO parity alone. Not benchmax.
 
-**Master plan (program of record): [master-plan.md](./master-plan.md)** — supersedes path-to-sota / gap-crush-checklist / public-bench-ladder as guidance.
+**Master plan (program of record): [master-plan.md](./master-plan.md)** — supersedes path-to-sota / gap-crush-checklist / public-bench-ladder as guidance.  
+**External review briefing (2026-08): [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md)** — what Brainy is, measured gaps vs Mem0/SOTA, vertical+conversational roadmap.  
 History: [path-to-sota.md](./path-to-sota.md) · Papers: [paper-topics.md](./paper-topics.md) · Ladder: [public-bench-ladder.md](./public-bench-ladder.md)
 
 Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0’s LOCOMO writeups — **reproducible, cited, honest about gaps**.
@@ -35,6 +36,7 @@ Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [staging competitiv
 | Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
 | Proveable eval framework | Spec + harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
 | Surpass plan | Active | [path-to-sota.md](./path-to-sota.md) |
+| SOTA assessment + action plan (external review) | Active | [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md) |
 | Mem0 parity gaps | Active | [mem0-parity-gaps.md](./mem0-parity-gaps.md) |
 | Paper roadmap | Active | [paper-topics.md](./paper-topics.md) |
 | OpMem Paper 1 draft | Draft | [posts/2026-07-opmem-v0.md](./posts/2026-07-opmem-v0.md) |
