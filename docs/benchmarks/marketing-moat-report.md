@@ -55,7 +55,7 @@ Mem0 still wins on **provider-quality semantic embeddings** at scale; Brainy use
 
 ## Hybrid retrieval (ENG-87)
 
-- **Storage:** `memory_embeddings` table with `REAL[]`; optional `vector(128)` + HNSW when pgvector extension available (Docker: `pgvector/pgvector:pg17`)
+- **Storage:** `memory_embeddings` table with `REAL[]`; pgvector `vector(768)` + HNSW for hosted pin (Docker: `pgvector/pgvector:pg17`); hash embedder stays 128-d float[] for tests
 - **Embedder:** deterministic local hash embedder (`internal/embedding/local.go`) — no external API in CI
 - **Search:** token ILIKE + cosine similarity blend; paraphrase recall when token score = 0 and similarity ≥ 0.15
 - **Regression:** all parity and vertical fixtures unchanged
