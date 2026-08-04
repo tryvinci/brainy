@@ -324,12 +324,20 @@
     "recall": "synthesis_not_planner"
   },
   "external_review": "docs/research/external-reviews/2026-08-04-architecture-verdict.md",
+  "hazards_resolved": [
+    "pgvector_ann_was_128_only_now_768_hosted_pin"
+  ],
+  "hazards_open": [
+    "pack_v2_not_loaded_by_registry",
+    "recall_not_typed_planner",
+    "current_state_projection_mvp",
+    "provider_extract_still_text_first"
+  ],
   "next_sequence": [
     "oracle_ledger",
-    "evidence_v2",
     "typed_extract",
     "temporal_resolver",
-    "retrieval_store_v3",
+    "retrieval_store_v3_remainder",
     "planner",
     "packs_v2_executable"
   ]

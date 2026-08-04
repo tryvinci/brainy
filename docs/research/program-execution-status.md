@@ -86,5 +86,13 @@ Landed this cycle:
 - Oracle modes: `evidence` operational; unsupported modes return `oracle_unsupported`
 - Failure ledger scaffolding under `docs/benchmarks/artifacts/failure-ledger/`
 
-Still open (queued): typed extract v3, temporal resolver/as_of, executable packs v2, full LME adjudication (≥100), pgvector for non-128 dims, planner/evidence packets.
+Still open (queued): typed extract v3, temporal resolver/`as_of`, executable packs v2, full LME adjudication (≥100), planner/evidence packets, remaining retrieval-store v3 (channel traces, OR/phrase FTS ablations, re-embed staging rows).
+
+## pgvector 768 ANN pin (2026-08-04)
+
+- Migration **18**: `embedding_vec vector(768)` + HNSW for hosted `bge-base-en-v1.5`
+- Hosted 768-d vectors write into pgvector; local hash **128-d** stays float[]-only (tests/CI)
+- Cloud Agent secrets now include `BRAINY_EMBEDDING_*` (same pin as Render staging)
+- Live gateway probe from this pod may still 403 (egress); staging/API path remains the dim contract source
+- After deploy: re-embed or backfill rows that only have 128-d hash vectors so `embedding_vec` populates
 

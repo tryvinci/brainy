@@ -31,7 +31,7 @@ Brainy today is a **record-centric memory service mid-migration**. OpMem/vertica
 
 **Next sequence (do not fusion-retune first):** raw evidence → typed semantics → temporal truth → kill scan-heavy retrieval → plan evidence → executable packs.
 
-Verified debts: coverage≠BM25 until FTS rank plumbed; 128-d pgvector fallback loads all embeddings; multi-hop heuristic over-scans; pack v2 YAML scaffolds not loaded by registry.
+Verified debts (updated): FTS `ts_rank_cd` plumbed when available; **pgvector ANN pinned to 768-d hosted embedder** (migration 18; hash/128 float[]-only); multi-hop gate tightened but subject scans remain; pack v2 YAML scaffolds not loaded by registry; `/recall` still not a typed planner.
 
 ---
 
@@ -215,7 +215,7 @@ Program detail: [sota-end-to-end-program.md](./sota-end-to-end-program.md) §24.
 | 6 Neutral proof | SOTA qualification | Smoke only; full multi-seed pending |
 | 7–8 Associative / learned policy | Research gates | Deferred |
 
-**Post–2026-08-04 review priority:** PR1 oracle ledger → PR2 raw evidence → PR3 typed extract → PR4 temporal resolver → PR5 retrieval store → PR6 planner → PR7 executable packs.
+**Post–2026-08-04 review priority:** PR1 oracle ledger → PR2 raw evidence → PR3 typed extract → PR4 temporal resolver → PR5 retrieval store (**768-d pgvector landed**; traces/OR-FTS remain) → PR6 planner → PR7 executable packs.
 
 ---
 

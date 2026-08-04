@@ -302,9 +302,10 @@ flowchart LR
 3. [sota-end-to-end-program.md](./sota-end-to-end-program.md) — program of record  
 4. [program-execution-status.md](./program-execution-status.md) — latest measured numbers  
 5. `internal/memory/service.go` `SearchOpt` + `fusion_v2.go` + `recall.go`  
-6. `internal/store/postgres/migrations.go` (v12–v16)  
+6. `internal/store/postgres/migrations.go` (v12–v18; evidence v2 + pgvector 768)  
 7. One vertical pack: `packs/support/v2/` and `fixtures/vertical/support/`  
 
+**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; hash/128 is tests-only. Packs v2 still scaffold-only. `/recall` is not a planner.
 ---
 
 ## 10. Non-goals / traps for reviewers
