@@ -1,0 +1,4074 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "benchmark": "locomo-smoke",
+    "project_name": "brainy",
+    "run_id": "fusionv2-smoke-20260804T001930Z",
+    "timestamp": "2026-08-04T00:22:38Z",
+    "schema_compatible": "mem0ai/memory-benchmarks@UnifiedResult-1.0",
+    "dataset_url": "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json",
+    "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+    "brainy_url": "[REDACTED]",
+    "brainy_commit": "631a2934069ee3a779f6273798d154d742183fa4",
+    "answerer_model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+    "judge_model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+    "judge_temperature": 0.0,
+    "top_k": 30,
+    "config": {
+      "conversations": 1,
+      "questions": 20,
+      "lexical_only": false,
+      "llm_base_url": "https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+      "ingest_mode": "async",
+      "locomo_upstream": "https://github.com/snap-research/locomo",
+      "locomo_paper": "https://aclanthology.org/2024.acl-long.747/"
+    }
+  },
+  "metrics": {
+    "overall_accuracy": 0.25,
+    "total": 20,
+    "correct": 5,
+    "errors": 0,
+    "by_group": {
+      "temporal": {
+        "group_name": "temporal",
+        "total": 10,
+        "correct": 1,
+        "accuracy": 0.1
+      },
+      "open-domain": {
+        "group_name": "open-domain",
+        "total": 2,
+        "correct": 0,
+        "accuracy": 0.0
+      },
+      "multi-hop": {
+        "group_name": "multi-hop",
+        "total": 8,
+        "correct": 4,
+        "accuracy": 0.5
+      }
+    },
+    "latency_p50_ms": 1626.594594985363,
+    "latency_p95_ms": 2866.648398150574
+  },
+  "evaluations": [
+    {
+      "id": "conv-26-q0",
+      "group": "temporal",
+      "question": "When did Caroline go to the LGBTQ support group?",
+      "ground_truth": "7 May 2023",
+      "retrieval": {
+        "search_query": "When did Caroline go to the LGBTQ support group?",
+        "search_results": [
+          {
+            "id": "mem_1785802799610317589",
+            "content": "Caroline mentioned \"Connected LGBTQ Activists\"",
+            "score": 0.8056143390375836,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802805412742426",
+            "content": "Art gives me a sense of freedom, but so does having supportive people around, promoting LGBTQ rights and being true to myself",
+            "score": 0.7307836911760083,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802792221274371",
+            "content": "A lot's happened since we last chatted - I just joined a new LGBTQ activist group last Tues",
+            "score": 0.7288770954660437,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802774401288240",
+            "content": "It's great to see the love and support for the LGBTQ+ community",
+            "score": 0.6250776828122642,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802806839357603",
+            "content": "Caroline: I'm putting together an LGBTQ art show next month and I'm gonna show my paintings (25 September 2023)",
+            "score": 0.7411056538377783,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802792415704514",
+            "content": "We don't go often, usually only once or twice a year",
+            "score": 0.5854949545754613,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802789410265898",
+            "content": "Family support's huge",
+            "score": 0.5830979849737512,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802794735354159",
+            "content": "Our group, 'Connected LGBTQ Activists', is made of all kinds of people investing in positive changes",
+            "score": 0.7154949545754613,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802810216365335",
+            "content": "Caroline: Hey Mel, long time no chat",
+            "score": 0.61,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802774177569883",
+            "content": "Melanie: Wow, Caroline, sounds like the parade was an awesome experience",
+            "score": 0.5776611863820691,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802811015838005",
+            "content": "Caroline is a transgender woman and how we should",
+            "score": 0.6506704599241604,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.5791455785734494,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802773715154880",
+            "content": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption",
+            "score": 0.6956244898929584,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802795323435000",
+            "content": "Supporting each other and making good things happen - that's so inspiring",
+            "score": 0.5854949545754613,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802795547237149",
+            "content": "I ran into a group of religious conservatives who said something that really upset me",
+            "score": 0.5980358995316085,
+            "observed_at": "2023-08-17T13:50:00Z"
+          },
+          {
+            "id": "mem_1785802811410155419",
+            "content": "Caroline: Guitar's mostly my thing",
+            "score": 0.6030432869133318,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802779737385698",
+            "content": "Caroline: Ah, they're adorable",
+            "score": 0.5817908899437301,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802794463017453",
+            "content": "Caroline is a friend to share my journey",
+            "score": 0.5749082449041261,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802793713458978",
+            "content": "Glad to hear you found a great group where you can have an impact",
+            "score": 0.5854949545754613,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802811517116071",
+            "content": "Caroline: Whoa, Mel, that sign looks serious",
+            "score": 0.61,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802807816004941",
+            "content": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month",
+            "score": 0.5768765077764297,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802798911056120",
+            "content": "Caroline has done fulfilling at so many ways",
+            "score": 0.5854949545754613,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802780664813048",
+            "content": "This support network has been amazing",
+            "score": 0.5791455785734494,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802777959307035",
+            "content": "Caroline: That bowl is gorgeous",
+            "score": 0.5776611863820691,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802775225783555",
+            "content": "Talking to the community made me want to use my story to help others too - I'm still thinking that counseling and mental health is the way to go",
+            "score": 0.5776611863820691,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802776528839920",
+            "content": "Caroline is a single parent",
+            "score": 0.5599999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802794927767933",
+            "content": "We have regular meetings, plan events and campaigns, to get together and support each other",
+            "score": 0.5854949545754613,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802793315749847",
+            "content": "Caroline: Sounds special, those beach trips",
+            "score": 0.5854949545754613,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802774803889574",
+            "content": "Caroline: I'm thrilled to make a family for kids who need one",
+            "score": 0.5599999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802778111876045",
+            "content": "Caroline moved from Sweden",
+            "score": 0.5272705851769102,
+            "observed_at": "2023-06-27T10:37:00Z"
+          }
+        ],
+        "search_latency_ms": 2202.4700779875275,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Caroline joined (and went to) the new LGBTQ activist/support group on **Tuesday,\u202fJuly\u202f18\u202f2023**\u3010event_time=2023-07-20T20:56:00Z\u3011.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted date (July 18, 2023) does not match the ground truth date (7 May 2023).",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D1:3"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q1",
+      "group": "temporal",
+      "question": "When did Melanie paint a sunrise?",
+      "ground_truth": "2022",
+      "retrieval": {
+        "search_query": "When did Melanie paint a sunrise?",
+        "search_results": [
+          {
+            "id": "mem_1785802780786780884",
+            "content": "Melanie: Yeah, I painted that lake sunrise last year (8 May 2022)",
+            "score": 1.79,
+            "observed_at": "2023-05-08T13:56:00Z"
+          },
+          {
+            "id": "mem_1785802784959315223",
+            "content": "Melanie: We love painting together lately, especially nature-inspired ones",
+            "score": 0.7675048034385729,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802778815581790",
+            "content": "Melanie has done camping at mountains last week - it was a really (20 June 2023)",
+            "score": 0.628979536600733,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.6166666666666667,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802820020054660",
+            "content": "Melanie: Wow, Caroline, that looks awesome",
+            "score": 0.605231982199729,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802796869488409",
+            "content": "Melanie: The sky was so clear and filled with stars, and the meteor shower was amazing - it felt like we were part of something huge and awe-inspiring",
+            "score": 0.5888483488090884,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802795289222561",
+            "content": "Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower (20 July 2022)",
+            "score": 0.5888483488090884,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802795119301512",
+            "content": "Melanie: Wow, Caroline, your group sounds awesome",
+            "score": 0.5888483488090884,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802794188970908",
+            "content": "Melanie: We always look forward to our family camping trip",
+            "score": 0.5888483488090884,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802792121629016",
+            "content": "Melanie: Seeing my kids' faces so happy at the beach was the best",
+            "score": 0.5888483488090884,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802794255425288",
+            "content": "Melanie has done hiking at mountains and exploring forests",
+            "score": 0.587245777970203,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802790667066666",
+            "content": "Melanie: Yeah, Caroline, they're some of my fave memories",
+            "score": 0.587245777970203,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802790477847060",
+            "content": "Melanie: Yeah, Caroline, my family's been great - their love and support really helped me through tough times",
+            "score": 0.587245777970203,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802790023688946",
+            "content": "Melanie: My fam's been awesome - they helped out and showed lots of love and support",
+            "score": 0.587245777970203,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802789856881765",
+            "content": "Melanie: We enjoy hiking in the mountains and exploring forests",
+            "score": 0.587245777970203,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802781472376011",
+            "content": "Melanie: Hey Caroline, it's been super busy here",
+            "score": 0.587245777970203,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802782822585590",
+            "content": "Melanie: I've been running farther to de-stress, which has been great for my headspace",
+            "score": 0.5863718777016016,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802777449084550",
+            "content": "Melanie: I loved reading \"Charlotte's Web\" as a kid",
+            "score": 0.5846032700151464,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802777312518473",
+            "content": "Melanie: I'm a big fan of pottery - the creativity and skill is awesome",
+            "score": 0.5836108320477738,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802774177569883",
+            "content": "Melanie: Wow, Caroline, sounds like the parade was an awesome experience",
+            "score": 0.5836108320477738,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802785385278509",
+            "content": "Caroline: Wow Mel, that painting's amazing",
+            "score": 0.5804062090815958,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802776315587708",
+            "content": "Melanie has done taking at kids in need - you",
+            "score": 0.5718028799336413,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802784008066350",
+            "content": "Melanie is a kid",
+            "score": 0.5642364900209916,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802806688023671",
+            "content": "I painted it after I visited the beach last week (18 August 2023)",
+            "score": 0.5528224765848069,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802803914255302",
+            "content": "Melanie: Yeah, I made it in pottery class yesterday (24 August 2023)",
+            "score": 0.5200908680164437,
+            "observed_at": "2023-08-25T13:33:00Z"
+          }
+        ],
+        "search_latency_ms": 2839.7525920008775,
+        "total_results": 25
+      },
+      "generation": {
+        "generated_answer": "Melanie painted the lake sunrise on\u202f8\u202fMay\u202f2022\u3010event_time=2023-05-08T13:56:00Z\u3011.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "CORRECT",
+        "score": 1.0,
+        "reason": "The predicted answer specifies a date in 2022, matching the ground truth year.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D1:12"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q2",
+      "group": "open-domain",
+      "question": "What fields would Caroline be likely to pursue in her educaton?",
+      "ground_truth": "Psychology, counseling certification",
+      "retrieval": {
+        "search_query": "What fields would Caroline be likely to pursue in her educaton?",
+        "search_results": [
+          {
+            "id": "mem_1785802798911056120",
+            "content": "Caroline has done fulfilling at so many ways",
+            "score": 0.7281246973294133,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802774177569883",
+            "content": "Melanie: Wow, Caroline, sounds like the parade was an awesome experience",
+            "score": 0.6598264476102582,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.5704059367597204,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802806839357603",
+            "content": "Caroline: I'm putting together an LGBTQ art show next month and I'm gonna show my paintings (25 September 2023)",
+            "score": 0.5693692134238416,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802818610440875",
+            "content": "Caroline: It was a transgender poetry reading where transgender people shared their stories through poetry",
+            "score": 0.5858541919445082,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802777234315259",
+            "content": "Caroline: Since our last chat, I've been looking into counseling or mental health work more",
+            "score": 0.5525991711210323,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802790919499759",
+            "content": "Caroline: Seeing my mentee's face light up when they saw the support was the best",
+            "score": 0.5562281712662579,
+            "observed_at": "2023-07-17T14:31:00Z"
+          },
+          {
+            "id": "mem_1785802811517116071",
+            "content": "Caroline: Whoa, Mel, that sign looks serious",
+            "score": 0.5755895534391138,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802821617095901",
+            "content": "Caroline: Oops, sorry 'bout the accident",
+            "score": 0.5883333333333334,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802783514017777",
+            "content": "Caroline read \"ve got lots of kids\"",
+            "score": 0.5525991711210323,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.5883333333333334,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802773715154880",
+            "content": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption",
+            "score": 0.5383333333333333,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802787714027252",
+            "content": "Caroline: It must have been special at your wedding",
+            "score": 0.555544205576975,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802784918149130",
+            "content": "Caroline: Thanks Melanie - love the blue vase in the pic",
+            "score": 0.555544205576975,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802779737385698",
+            "content": "Caroline: Ah, they're adorable",
+            "score": 0.5545702571742223,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802811410155419",
+            "content": "Caroline: Guitar's mostly my thing",
+            "score": 0.5539569337396605,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802794463017453",
+            "content": "Caroline is a friend to share my journey",
+            "score": 0.5465335538026674,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802795200128525",
+            "content": "Caroline: Glad you found something that makes you so happy",
+            "score": 0.5666748102307525,
+            "observed_at": "2023-08-17T13:50:00Z"
+          },
+          {
+            "id": "mem_1785802785123251245",
+            "content": "Caroline: Realizing I can be me without fear and having the courage to transition was the best part",
+            "score": 0.555544205576975,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802774803889574",
+            "content": "Caroline: I'm thrilled to make a family for kids who need one",
+            "score": 0.5383333333333333,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802807816004941",
+            "content": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month",
+            "score": 0.5693692134238416,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802818409124810",
+            "content": "Caroline mentioned \"Brave\"",
+            "score": 0.5704059367597204,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802814911172841",
+            "content": "Caroline: Yeah totally",
+            "score": 0.5704059367597204,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802801082741910",
+            "content": "Caroline: That's amazing",
+            "score": 0.5666748102307525,
+            "observed_at": "2023-08-17T13:50:00Z"
+          },
+          {
+            "id": "mem_1785802782827147260",
+            "content": "Caroline: That photo is stunning",
+            "score": 0.555544205576975,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802777959307035",
+            "content": "Caroline: That bowl is gorgeous",
+            "score": 0.5514931142769249,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802776528839920",
+            "content": "Caroline is a single parent",
+            "score": 0.5383333333333333,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802778111876045",
+            "content": "Caroline moved from Sweden",
+            "score": 0.5372605754063136,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802773249733995",
+            "content": "Caroline: Since we last spoke, some big things have happened",
+            "score": 0.5514931142769249,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.5525991711210323,
+            "observed_at": "2023-07-06T20:18:00Z"
+          }
+        ],
+        "search_latency_ms": 3377.6687149947975,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Caroline\u2019s past comments point to several academic areas she\u2019s likely to study:\n\n- **Counseling / Mental\u2011health work** \u2013 \u201cSince our last chat, I\u2019ve been looking into counseling or mental health work more\u201d (2023\u201107\u201106).  \n- **Social work / Adoption services for LGBTQ+ families** \u2013 \u201cI chose them \u2019cause they help LGBTQ+ folks with adoption\u201d (2023\u201105\u201125) and \u201cI\u2019m thrilled to make a family for kids who need one\u201d (2023\u201105\u201125).  \n- **LGBTQ\u202f/\u202fGender studies** \u2013 She\u2019s organizing an LGBTQ art show and participates in transgender poetry readings (2023\u201108\u201125; 2023\u201110\u201113).  \n- **Visual arts (painting, art\u2011show curation)** \u2013 \u201cI\u2019m putting together an LGBTQ art show next month and I\u2019m gonna show my paintings\u201d (2023\u201108\u201125).  \n- **Children\u2019s literature / Education** \u2013 \u201cI\u2019ve got lots of kids\u2019 books\u2014classics, stories from different cultures, educational books\u201d (2023\u201107\u201106).  \n\nThese themes suggest she would likely pursue education in **counseling or mental\u2011health psychology, social work/adoption policy, LGBTQ/gender studies, visual arts, and children\u2019s literature or education**.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer mentions counseling/mental\u2011health work but does not include psychology (or a counseling certification) as the ground truth specifies, and adds many unrelated fields.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 3,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D1:9",
+          "D1:11"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q3",
+      "group": "multi-hop",
+      "question": "What did Caroline research?",
+      "ground_truth": "Adoption agencies",
+      "retrieval": {
+        "search_query": "What did Caroline research?",
+        "search_results": [
+          {
+            "id": "mem_1785802792136049068",
+            "content": "Caroline: Researching adoption agencies \u2014 it's been a dream to have a family and give a loving home to kids who need it",
+            "score": 1.4700000000000002,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802798911056120",
+            "content": "Caroline has done fulfilling at so many ways",
+            "score": 0.802491955664736,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802774803889574",
+            "content": "Caroline: I'm thrilled to make a family for kids who need one",
+            "score": 0.755,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802774126426157",
+            "content": "Melanie: That's great, Caroline",
+            "score": 0.755,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802773715154880",
+            "content": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption",
+            "score": 0.755,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802827674224601",
+            "content": "Caroline: Kids are amazingly resilient in tough situations",
+            "score": 0.7250000000000001,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802826508746759",
+            "content": "Caroline: The kids look so cute, Mel",
+            "score": 0.7250000000000001,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.7250000000000001,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802810216365335",
+            "content": "Caroline: Hey Mel, long time no chat",
+            "score": 0.7122562201057805,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.7070726034263871,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802806839357603",
+            "content": "Caroline: I'm putting together an LGBTQ art show next month and I'm gonna show my paintings (25 September 2023)",
+            "score": 0.7060358800905083,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802795703477599",
+            "content": "Caroline: Last weekend our city held a pride parade (13 July 2023)",
+            "score": 0.6939969127850053,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802795119301512",
+            "content": "Melanie: Wow, Caroline, your group sounds awesome",
+            "score": 0.6939969127850053,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802790477847060",
+            "content": "Melanie: Yeah, Caroline, my family's been great - their love and support really helped me through tough times",
+            "score": 0.6922108722436418,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802790242084813",
+            "content": "Caroline: Wow, Mel, family love and support is the best",
+            "score": 0.6922108722436418,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802788414498638",
+            "content": "Caroline: I felt so proud and grateful - the vibes were amazing and it was comforting to know I'm not alone and have a great community around me",
+            "score": 0.6922108722436418,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802785123251245",
+            "content": "Caroline: Realizing I can be me without fear and having the courage to transition was the best part",
+            "score": 0.6922108722436418,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802781472376011",
+            "content": "Melanie: Hey Caroline, it's been super busy here",
+            "score": 0.6922108722436418,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802781594998164",
+            "content": "Caroline: I'm so lucky to have such a great support system around me",
+            "score": 0.689265837787699,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.689265837787699,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802774177569883",
+            "content": "Melanie: Wow, Caroline, sounds like the parade was an awesome experience",
+            "score": 0.6881597809435916,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802773249733995",
+            "content": "Caroline: Since we last spoke, some big things have happened",
+            "score": 0.6881597809435916,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802780861806043",
+            "content": "Caroline: Glad it helped ya, Melanie",
+            "score": 0.6711661808253236,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802806435590670",
+            "content": "Caroline enjoys creating art",
+            "score": 0.6506757860883747,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802791158691159",
+            "content": "Caroline: Sounds fun",
+            "score": 0.629197930028896,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802799872662055",
+            "content": "Caroline has done investing at positive changes",
+            "score": 0.6177148827297808,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802783028834374",
+            "content": "Caroline: Cool, Melanie",
+            "score": 0.6018234266424429,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802779813044010",
+            "content": "Caroline: Awesome, Melanie",
+            "score": 0.5974974718584808,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802777904868125",
+            "content": "Caroline is from Sweden",
+            "score": 0.5922893879172854,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802785811397423",
+            "content": "Caroline: Yes, I did",
+            "score": 0.5837610038961158,
+            "observed_at": "2023-07-15T13:51:00Z"
+          }
+        ],
+        "search_latency_ms": 1568.0951669928618,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Caroline was researching adoption agencies as part of her dream to build a family, provide a loving home for children who need one\u3010eventtime=2023-05-25T13:14:00Z\u3011, adoption agencies\u3010Caroline: Researching adoption agencies \u2014 it's been a dream to have a family, give a loving home to kids who need it\u3011",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "CORRECT",
+        "score": 1.0,
+        "reason": "The predicted answer states that Caroline was researching adoption agencies, which matches the ground truth key fact.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 1,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D2:8"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q4",
+      "group": "multi-hop",
+      "question": "What is Caroline's identity?",
+      "ground_truth": "Transgender woman",
+      "retrieval": {
+        "search_query": "What is Caroline's identity?",
+        "search_results": [
+          {
+            "id": "mem_1785802813440301284",
+            "content": "Painting and drawing have helped me express my feelings and explore my gender identity",
+            "score": 0.811609649122807,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802804016035362",
+            "content": "Melanie: Wow, Caroline, that's great",
+            "score": 0.782795665634675,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802801096689554",
+            "content": "Melanie: Caroline, that's great",
+            "score": 0.782795665634675,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802800439562209",
+            "content": "Caroline: Painting's great for expressing myself",
+            "score": 0.782795665634675,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802797518321358",
+            "content": "Caroline: Wow, Melanie, that's amazing",
+            "score": 0.782795665634675,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802772554166743",
+            "content": "Melanie: Hey, Caroline",
+            "score": 0.7303514137297062,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802784781245991",
+            "content": "Conversations about gender identity and inclusion are so necessary and I'm thankful for being able to give a voice to the trans community",
+            "score": 0.7087500000000001,
+            "observed_at": "2023-06-09T19:55:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.7046501547987617,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802802918839678",
+            "content": "Painting helps me explore my identity and be true to myself",
+            "score": 0.702795665634675,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802801634019819",
+            "content": "Here's one- 'Embracing Identity' is all about finding comfort and love in being yourself",
+            "score": 0.6994347265221879,
+            "observed_at": "2023-08-14T14:24:00Z"
+          },
+          {
+            "id": "mem_1785802825530108985",
+            "content": "Caroline: Woohoo Melanie",
+            "score": 0.6811437411117727,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802800112018826",
+            "content": "Caroline: Hey, Mel",
+            "score": 0.6809372984750116,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802777904868125",
+            "content": "Caroline is from Sweden",
+            "score": 0.6721267302174211,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802825518898991",
+            "content": "Melanie: Yeah, you're right, Caroline",
+            "score": 0.6592593216604345,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802783028834374",
+            "content": "Caroline: Cool, Melanie",
+            "score": 0.6280290557659973,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802771145675951",
+            "content": "Caroline: Hey Mel",
+            "score": 0.6125475221686325,
+            "observed_at": "2023-08-17T13:50:00Z"
+          }
+        ],
+        "search_latency_ms": 1569.2660310014617,
+        "total_results": 16
+      },
+      "generation": {
+        "generated_answer": "Caroline is Swedish, is actively exploring\u202fher gender identity\u2014she identifies with the trans community, \u201cCaroline is from Sweden\u201d\u202f(2023\u201106\u201127), \u201cPainting, drawing have helped me express my feelings, explore my gender identity\u201d\u202f(2023\u201109\u201113), \u201cConversations about gender identity, inclusion are so necessary, I'm thankful for being able to give a voice to the trans community\u201d\u202f(2023\u201106\u201109), exploring her gender identity",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer only says Caroline is exploring her gender identity and identifies with the trans community, but does not state she is a transgender woman as required by the ground truth.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 1,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D1:5"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q5",
+      "group": "temporal",
+      "question": "When did Melanie run a charity race?",
+      "ground_truth": "The sunday before 25 May 2023",
+      "retrieval": {
+        "search_query": "When did Melanie run a charity race?",
+        "search_results": [
+          {
+            "id": "mem_1785802784863569260",
+            "content": "Melanie participates in running",
+            "score": 0.7726430232945208,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802779225082810",
+            "content": "Melanie's kids like nature",
+            "score": 0.6034737674987604,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802822412553731",
+            "content": "Melanie: Seven years now, and I've finally found my real muses: painting and pottery",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802795289222561",
+            "content": "Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower (20 July 2022)",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802790477847060",
+            "content": "Melanie: Yeah, Caroline, my family's been great - their love and support really helped me through tough times",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802792121629016",
+            "content": "Melanie: Seeing my kids' faces so happy at the beach was the best",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802777449084550",
+            "content": "Melanie: I loved reading \"Charlotte's Web\" as a kid",
+            "score": 0.6066111486971792,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802794255425288",
+            "content": "Melanie has done hiking at mountains and exploring forests",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802812116441905",
+            "content": "Melanie: I'm a fan of both classical like Bach and Mozart, as well as modern music like Ed Sheeran's \"Perfect\"",
+            "score": 0.6242248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802820717228053",
+            "content": "Melanie: Wow, sounds amazing",
+            "score": 0.6395055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802790314281280",
+            "content": "Melanie: Marrying my partner and promising to be together forever was the best part",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802786510934967",
+            "content": "Melanie: Flowers bring joy",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802785617082351",
+            "content": "Melanie: That's awesome, Caro",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802780554478530",
+            "content": "Melanie: They were stoked for the dinosaur exhibit",
+            "score": 0.6066111486971792,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802780710388390",
+            "content": "Melanie: Luna and Oliver",
+            "score": 0.6085608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802782510263410",
+            "content": "Melanie enjoys being a mom",
+            "score": 0.6066111486971792,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802824608475311",
+            "content": "Caroline: Glad your son is okay, Melanie",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802817121279904",
+            "content": "Melanie: Nope, never been to something like that",
+            "score": 0.6395055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802803914255302",
+            "content": "Melanie: Yeah, I made it in pottery class yesterday (24 August 2023)",
+            "score": 0.6231993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802806649214650",
+            "content": "Melanie has done getting at touch with ourselves",
+            "score": 0.6225594065829165,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802823014468333",
+            "content": "Melanie: Yeah, our trip got off to a bad start",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802812322406924",
+            "content": "Melanie: The sign was just a precaution, I had a great time",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802790667066666",
+            "content": "Melanie: Yeah, Caroline, they're some of my fave memories",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802781472376011",
+            "content": "Melanie: Hey Caroline, it's been super busy here",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802827074982923",
+            "content": "Melanie: Thanks",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802813813742421",
+            "content": "Melanie: Music's amazing, isn't it",
+            "score": 0.6242248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802800026008811",
+            "content": "Melanie: I appreciate our friendship too, Caroline",
+            "score": 0.6205341611021264,
+            "observed_at": "2023-08-17T13:50:00Z"
+          },
+          {
+            "id": "mem_1785802797314412293",
+            "content": "Caroline: Sure thing, Melanie",
+            "score": 0.6205341611021264,
+            "observed_at": "2023-08-17T13:50:00Z"
+          },
+          {
+            "id": "mem_1785802784959315223",
+            "content": "Melanie: We love painting together lately, especially nature-inspired ones",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          }
+        ],
+        "search_latency_ms": 1521.7861630080733,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Melanie ran a charity race on **12\u202fJuly\u202f2023**\u3010event_time=2023-07-12T16:33:00Z\u3011.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted date (12\u202fJuly\u202f2023) does not match the ground truth date (the Sunday before 25\u202fMay\u202f2023, i.e., 21\u202fMay\u202f2023).",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D2:1"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q6",
+      "group": "temporal",
+      "question": "When is Melanie planning on going camping?",
+      "ground_truth": "June 2023",
+      "retrieval": {
+        "search_query": "When is Melanie planning on going camping?",
+        "search_results": [
+          {
+            "id": "mem_1785802778815581790",
+            "content": "Melanie has done camping at mountains last week - it was a really (20 June 2023)",
+            "score": 2.0842237674987603,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802829451150131",
+            "content": "Melanie enjoys camping trips with my fam",
+            "score": 1.6492838722683532,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802795289222561",
+            "content": "Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower (20 July 2022)",
+            "score": 1.2610495500606405,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802784517252539",
+            "content": "Melanie has done camping at beach",
+            "score": 1.548835531974357,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802797216963966",
+            "content": "It's what keeps us going, even when life's hard",
+            "score": 0.6205341611021264,
+            "observed_at": "2023-08-17T13:50:00Z"
+          },
+          {
+            "id": "mem_1785802794927767933",
+            "content": "We have regular meetings, plan events and campaigns, to get together and support each other",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802812622784978",
+            "content": "We went camping with the kids a few weeks ago, had a blast exploring the forest and hiking",
+            "score": 0.6703522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802822412553731",
+            "content": "Melanie: Seven years now, and I've finally found my real muses: painting and pottery",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802813717276272",
+            "content": "Any plans coming up",
+            "score": 0.5646985265253966,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802794188970908",
+            "content": "Melanie: We always look forward to our family camping trip",
+            "score": 1.0111404409259217,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802812322406924",
+            "content": "Melanie: The sign was just a precaution, I had a great time",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802827923910531",
+            "content": "Caroline: That's so peaceful and calming, Melanie",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802817121279904",
+            "content": "Melanie: Nope, never been to something like that",
+            "score": 0.6395055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802820717228053",
+            "content": "Melanie: Wow, sounds amazing",
+            "score": 0.6395055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802823014468333",
+            "content": "Melanie: Yeah, our trip got off to a bad start",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802795064581213",
+            "content": "What's your best camping memory",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802786510934967",
+            "content": "Melanie: Flowers bring joy",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802784307011518",
+            "content": "Melanie read \"Charlotte's Web\"",
+            "score": 0.6066111486971792,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802780554478530",
+            "content": "Melanie: They were stoked for the dinosaur exhibit",
+            "score": 0.6066111486971792,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802790023688946",
+            "content": "Melanie: My fam's been awesome - they helped out and showed lots of love and support",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802780710388390",
+            "content": "Melanie: Luna and Oliver",
+            "score": 0.6085608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802772135691138",
+            "content": "A lot's been going on in my life",
+            "score": 0.6034737674987604,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.5648265593668959,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802824608475311",
+            "content": "Caroline: Glad your son is okay, Melanie",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802790314281280",
+            "content": "Melanie: Marrying my partner and promising to be together forever was the best part",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802806649214650",
+            "content": "Melanie has done getting at touch with ourselves",
+            "score": 0.6225594065829165,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802784863569260",
+            "content": "Melanie participates in running",
+            "score": 0.5648601449016775,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802790667066666",
+            "content": "Melanie: Yeah, Caroline, they're some of my fave memories",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802826684584479",
+            "content": "Love camping trips with my fam, 'cause nature brings such peace and serenity",
+            "score": 0.5820723025395802,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802777312518473",
+            "content": "Melanie: I'm a big fan of pottery - the creativity and skill is awesome",
+            "score": 0.605517085184962,
+            "observed_at": "2023-07-03T13:36:00Z"
+          }
+        ],
+        "search_latency_ms": 2020.7128009933513,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "There isn\u2019t a specific date mentioned for a future camping trip. The only hint about upcoming plans is the question **\u201cAny plans coming up\u201d** (recorded\u202f2023\u201109\u201113), but Melanie didn\u2019t give a concrete time for the next camping outing.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer does not provide the specific date June 2023, which is the ground truth.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D2:7"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q7",
+      "group": "multi-hop",
+      "question": "What is Caroline's relationship status?",
+      "ground_truth": "Single",
+      "retrieval": {
+        "search_query": "What is Caroline's relationship status?",
+        "search_results": [
+          {
+            "id": "mem_1785802776819595359",
+            "content": "Caroline is single",
+            "score": 0.8172777777777779,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802776528839920",
+            "content": "Caroline is a single parent",
+            "score": 0.8079276311832553,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802835837238204",
+            "content": "Now my relationships feel more genuine",
+            "score": 0.6966666666666667,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802832038342826",
+            "content": "What effect has the journey had on your relationships",
+            "score": 0.6966666666666667,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802813913972812",
+            "content": "Caroline: Melanie, that photo's amazing",
+            "score": 0.6966666666666667,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802810216365335",
+            "content": "Caroline: Hey Mel, long time no chat",
+            "score": 0.6966666666666667,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802777686912212",
+            "content": "Caroline has done going at in my life",
+            "score": 0.5969240517093629,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802772554166743",
+            "content": "Melanie: Hey, Caroline",
+            "score": 0.564450367122378,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802799610317589",
+            "content": "Caroline mentioned \"Connected LGBTQ Activists\"",
+            "score": 0.5402800308180623,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802773249733995",
+            "content": "Caroline: Since we last spoke, some big things have happened",
+            "score": 0.539366652168054,
+            "observed_at": "2023-07-03T13:36:00Z"
+          }
+        ],
+        "search_latency_ms": 1720.9476300049573,
+        "total_results": 10
+      },
+      "generation": {
+        "generated_answer": "Caroline\u2019s relationship status is single (she is also noted as a single parent).\u3010Caroline is single\u202f[2023\u201105\u201125]\u3011\u3010Caroline is a single parent\u202f[2023\u201105\u201125]\u3011, single\u3010Caroline is single\u3011, going at in my life",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "CORRECT",
+        "score": 1.0,
+        "reason": "The predicted answer states that Caroline\u2019s relationship status is single, which matches the ground truth.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 1,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D3:13",
+          "D2:14"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q8",
+      "group": "temporal",
+      "question": "When did Caroline give a speech at a school?",
+      "ground_truth": "The week before 9 June 2023",
+      "retrieval": {
+        "search_query": "When did Caroline give a speech at a school?",
+        "search_results": [
+          {
+            "id": "mem_1785802818409124810",
+            "content": "Caroline mentioned \"Brave\"",
+            "score": 0.8125766900455682,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802821319044689",
+            "content": "Caroline: Since I was 17 or so",
+            "score": 0.7871475673928668,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802775443681331",
+            "content": "I'm super excited to give back",
+            "score": 0.605517085184962,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802805412742426",
+            "content": "Art gives me a sense of freedom, but so does having supportive people around, promoting LGBTQ rights and being true to myself",
+            "score": 0.6225594065829165,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802790477847060",
+            "content": "Melanie: Yeah, Caroline, my family's been great - their love and support really helped me through tough times",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.6066111486971792,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802795703477599",
+            "content": "Caroline: Last weekend our city held a pride parade (13 July 2023)",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802810216365335",
+            "content": "Caroline: Hey Mel, long time no chat",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802821617095901",
+            "content": "Caroline: Oops, sorry 'bout the accident",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.6242248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802817518701392",
+            "content": "Caroline: I'm inspired seeing my work make a difference for the LGBTQ+ community",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802799872662055",
+            "content": "Caroline has done investing at positive changes",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802793315749847",
+            "content": "Caroline: Sounds special, those beach trips",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802826905273441",
+            "content": "Caroline: Wow, that's awesome",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802772235329430",
+            "content": "My goal is to give kids a loving home",
+            "score": 0.5924999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802811410155419",
+            "content": "Caroline: Guitar's mostly my thing",
+            "score": 0.6242248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802811015838005",
+            "content": "Caroline is a transgender woman and how we should",
+            "score": 0.6231993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802794463017453",
+            "content": "Caroline is a friend to share my journey",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802779737385698",
+            "content": "Caroline: Ah, they're adorable",
+            "score": 0.6085608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802795200128525",
+            "content": "Caroline: Glad you found something that makes you so happy",
+            "score": 0.6205341611021264,
+            "observed_at": "2023-08-17T13:50:00Z"
+          },
+          {
+            "id": "mem_1785802785123251245",
+            "content": "Caroline: Realizing I can be me without fear and having the courage to transition was the best part",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802773249733995",
+            "content": "Caroline: Since we last spoke, some big things have happened",
+            "score": 0.685769630897221,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802807816004941",
+            "content": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month",
+            "score": 0.6231993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802811517116071",
+            "content": "Caroline: Whoa, Mel, that sign looks serious",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802777959307035",
+            "content": "Caroline: That bowl is gorgeous",
+            "score": 0.605517085184962,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802776528839920",
+            "content": "Caroline is a single parent",
+            "score": 0.5924999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802773715154880",
+            "content": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption",
+            "score": 0.5924999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802821454069067",
+            "content": "Caroline: The room was electric with energy and support",
+            "score": 0.6395055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802778111876045",
+            "content": "Caroline moved from Sweden",
+            "score": 0.5876046419051013,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802824713785151",
+            "content": "Caroline enjoys all the yellow leaves",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          }
+        ],
+        "search_latency_ms": 1606.2301349884365,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "13\u202fJuly\u202f2023",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted date (13\u202fJuly\u202f2023) does not match the ground truth timeframe (the week before 9\u202fJune\u202f2023).",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D3:1"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q9",
+      "group": "temporal",
+      "question": "When did Caroline meet up with her friends, family, and mentors?",
+      "ground_truth": "The week before 9 June 2023",
+      "retrieval": {
+        "search_query": "When did Caroline meet up with her friends, family, and mentors?",
+        "search_results": [
+          {
+            "id": "mem_1785802773249733995",
+            "content": "Caroline: Since we last spoke, some big things have happened",
+            "score": 0.7614098870394505,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802818914712332",
+            "content": "I'm really thankful for my friends, family and mentors' support",
+            "score": 0.6974551913513033,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802825727019425",
+            "content": "Family's super important to me",
+            "score": 0.5877911671709893,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802813717276272",
+            "content": "Any plans coming up",
+            "score": 0.5751855722015499,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802777667656915",
+            "content": "It was so cool seeing how friendship and compassion can make a difference",
+            "score": 0.5524444820305127,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802777686912212",
+            "content": "Caroline has done going at in my life",
+            "score": 0.7099764930270366,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.5700581631533991,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802776699515896",
+            "content": "Melanie: It was an awesome time, Caroline",
+            "score": 0.6754846278740263,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.5524444820305127,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802827674224601",
+            "content": "Caroline: Kids are amazingly resilient in tough situations",
+            "score": 0.5877911671709893,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802794927767933",
+            "content": "We have regular meetings, plan events and campaigns, to get together and support each other",
+            "score": 0.557124256452318,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802790012023647",
+            "content": "Being around people who embrace and back me up is beyond words",
+            "score": 0.5553575825258764,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802826930434662",
+            "content": "These figurines I bought yesterday remind me of family love (21 October 2023)",
+            "score": 0.5883333333333334,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802821617095901",
+            "content": "Caroline: Oops, sorry 'bout the accident",
+            "score": 0.5877911671709893,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802799610317589",
+            "content": "Caroline mentioned \"Connected LGBTQ Activists\"",
+            "score": 0.5796783263132111,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802795489987192",
+            "content": "It was so amazing lying there and watching the sky light up with streaks of light",
+            "score": 0.557124256452318,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802794058152321",
+            "content": "Bet it feels great to be able to speak your truth and stand up for what's right",
+            "score": 0.557124256452318,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802793315749847",
+            "content": "Caroline: Sounds special, those beach trips",
+            "score": 0.557124256452318,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802824027580744",
+            "content": "Thankfully, my son's ok and that was a reminder that life is precious and to cherish our family",
+            "score": 0.5877911671709893,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802780432733782",
+            "content": "How have your friends and fam been helping you out with your transition",
+            "score": 0.5524444820305127,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802811410155419",
+            "content": "Caroline: Guitar's mostly my thing",
+            "score": 0.5700581631533991,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802808014964819",
+            "content": "Caroline: Yeah Mel, stoked",
+            "score": 0.5690326813437688,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802806435590670",
+            "content": "Caroline enjoys creating art",
+            "score": 0.5683927399162501,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.5877911671709893,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802773715154880",
+            "content": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption",
+            "score": 0.5383333333333333,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802789801919803",
+            "content": "How have your family been supportive during your move",
+            "score": 0.5553575825258764,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802789319434931",
+            "content": "Creativity and family keep me at peace",
+            "score": 0.5553575825258764,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802784751803081",
+            "content": "Caroline: Wow, nice pic",
+            "score": 0.5553575825258764,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802779737385698",
+            "content": "Caroline: Ah, they're adorable",
+            "score": 0.5543941949604806,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802794188970908",
+            "content": "Melanie: We always look forward to our family camping trip",
+            "score": 0.557124256452318,
+            "observed_at": "2023-07-20T20:56:00Z"
+          }
+        ],
+        "search_latency_ms": 1409.4768570212182,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Caroline\u2019s gatherings with her friends, family and mentors are reflected in two of her recent entries:\n\n* **July\u202f20\u202f2023** \u2013 \u201cWe have regular meetings, plan events and campaigns, to get together and support each other\u201d\u202f[2023\u201107\u201120T20:56:00Z]  \n* **September\u202f13\u202f2023** \u2013 \u201cI\u2019m really thankful for my friends, family and mentors\u2019 support\u201d\u202f[2023\u201109\u201113T00:09:00Z]  \n\nThese dates indicate when she was meeting up with (or reflecting on) her friends, family and mentors.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer cites July 20 and September 13 2023, which do not match the ground truth that she met up the week before 9 June 2023.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D3:11"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q10",
+      "group": "temporal",
+      "question": "How long has Caroline had her current group of friends for?",
+      "ground_truth": "4 years",
+      "retrieval": {
+        "search_query": "How long has Caroline had her current group of friends for?",
+        "search_results": [
+          {
+            "id": "mem_1785802794463017453",
+            "content": "Caroline is a friend to share my journey",
+            "score": 0.7606849168638744,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802830251363126",
+            "content": "Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it",
+            "score": 0.61,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802821319044689",
+            "content": "Caroline: Since I was 17 or so",
+            "score": 0.7341029382390059,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802794735354159",
+            "content": "Our group, 'Connected LGBTQ Activists', is made of all kinds of people investing in positive changes",
+            "score": 0.5787909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802792513360171",
+            "content": "Appreciate your friendship",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802790661881183",
+            "content": "Your friends and community really have your back",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802777686912212",
+            "content": "Caroline has done going at in my life",
+            "score": 0.7072099001547926,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802827674224601",
+            "content": "Caroline: Kids are amazingly resilient in tough situations",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802811517116071",
+            "content": "Caroline: Whoa, Mel, that sign looks serious",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802773249733995",
+            "content": "Caroline: Since we last spoke, some big things have happened",
+            "score": 0.6527402281561616,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802821617095901",
+            "content": "Caroline: Oops, sorry 'bout the accident",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.5741111486971793,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802785123251245",
+            "content": "Caroline: Realizing I can be me without fear and having the courage to transition was the best part",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802793315749847",
+            "content": "Caroline: Sounds special, those beach trips",
+            "score": 0.5787909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802826905273441",
+            "content": "Caroline: Wow, that's awesome",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802807816004941",
+            "content": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month",
+            "score": 0.5906993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802811410155419",
+            "content": "Caroline: Guitar's mostly my thing",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802811015838005",
+            "content": "Caroline is a transgender woman and how we should",
+            "score": 0.5906993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802806435590670",
+            "content": "Caroline enjoys creating art",
+            "score": 0.5900594065829166,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802773715154880",
+            "content": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption",
+            "score": 0.5599999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802779737385698",
+            "content": "Caroline: Ah, they're adorable",
+            "score": 0.5760608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802814911172841",
+            "content": "Caroline: Yeah totally",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802818409124810",
+            "content": "Caroline mentioned \"Brave\"",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802795547237149",
+            "content": "I ran into a group of religious conservatives who said something that really upset me",
+            "score": 0.5880341611021265,
+            "observed_at": "2023-08-17T13:50:00Z"
+          },
+          {
+            "id": "mem_1785802778104896417",
+            "content": "It sure shows how important friendship and compassion are",
+            "score": 0.5741111486971793,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802778111876045",
+            "content": "Caroline moved from Sweden",
+            "score": 0.5733299477200694,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802777959307035",
+            "content": "Caroline: That bowl is gorgeous",
+            "score": 0.573017085184962,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802788414498638",
+            "content": "Caroline: I felt so proud and grateful - the vibes were amazing and it was comforting to know I'm not alone and have a great community around me",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          }
+        ],
+        "search_latency_ms": 2524.7222629841417,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "I don\u2019t know. None of the provided memories specify how long Caroline has had her current group of friends.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer does not provide the correct duration (4 years) and instead states lack of knowledge, which does not match the ground truth.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D3:13"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q11",
+      "group": "multi-hop",
+      "question": "Where did Caroline move from 4 years ago?",
+      "ground_truth": "Sweden",
+      "retrieval": {
+        "search_query": "Where did Caroline move from 4 years ago?",
+        "search_results": [
+          {
+            "id": "mem_1785802778111876045",
+            "content": "Caroline moved from Sweden",
+            "score": 1.1374737674987605,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.9556461916533848,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802826112818789",
+            "content": "This is a big move towards my goal of having a family",
+            "score": 0.61,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802806839357603",
+            "content": "Caroline: I'm putting together an LGBTQ art show next month and I'm gonna show my paintings (25 September 2023)",
+            "score": 0.5906993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802818610440875",
+            "content": "Caroline: It was a transgender poetry reading where transgender people shared their stories through poetry",
+            "score": 0.6070055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802822412553731",
+            "content": "Melanie: Seven years now, and I've finally found my real muses: painting and pottery",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802812622784978",
+            "content": "We went camping with the kids a few weeks ago, had a blast exploring the forest and hiking",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802773249733995",
+            "content": "Caroline: Since we last spoke, some big things have happened",
+            "score": 0.6848627087253539,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802775161319147",
+            "content": "A friend made it for my 18th birthday ten years ago (27 June 2013; 10 years ago)",
+            "score": 0.7009737674987604,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802811517116071",
+            "content": "Caroline: Whoa, Mel, that sign looks serious",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802821617095901",
+            "content": "Caroline: Oops, sorry 'bout the accident",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802821454069067",
+            "content": "Caroline: The room was electric with energy and support",
+            "score": 0.6070055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802799872662055",
+            "content": "Caroline has done investing at positive changes",
+            "score": 0.5979544288469469,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802824713785151",
+            "content": "Caroline enjoys all the yellow leaves",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802783514017777",
+            "content": "Caroline read \"ve got lots of kids\"",
+            "score": 0.5741111486971793,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802817518701392",
+            "content": "Caroline: I'm inspired seeing my work make a difference for the LGBTQ+ community",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802793315749847",
+            "content": "Caroline: Sounds special, those beach trips",
+            "score": 0.5787909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802784016294904",
+            "content": "Caroline: Aww, that's so sweet",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802772670473237",
+            "content": "Looking forward to more happy years",
+            "score": 0.5650975204007395,
+            "observed_at": "2023-06-09T19:55:00Z"
+          },
+          {
+            "id": "mem_1785802811410155419",
+            "content": "Caroline: Guitar's mostly my thing",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802827674224601",
+            "content": "Caroline: Kids are amazingly resilient in tough situations",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802784751803081",
+            "content": "Caroline: Wow, nice pic",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802781318682308",
+            "content": "Caroline: Love that purple color",
+            "score": 0.5760608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802779737385698",
+            "content": "Caroline: Ah, they're adorable",
+            "score": 0.5760608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802785123251245",
+            "content": "Caroline: Realizing I can be me without fear and having the courage to transition was the best part",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802814911172841",
+            "content": "Caroline: Yeah totally",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802807816004941",
+            "content": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month",
+            "score": 0.5906993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.5588780758411986,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802818409124810",
+            "content": "Caroline mentioned \"Brave\"",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802777959307035",
+            "content": "Caroline: That bowl is gorgeous",
+            "score": 0.573017085184962,
+            "observed_at": "2023-07-03T13:36:00Z"
+          }
+        ],
+        "search_latency_ms": 1608.0665389890783,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Caroline moved from **Sweden**\u3010Caroline moved from Sweden\u202f[event_time=2023-06-27T10:37:00Z]\u3011.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "CORRECT",
+        "score": 1.0,
+        "reason": "The predicted answer states that Caroline moved from Sweden, which matches the ground truth.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 1,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D3:13",
+          "D4:3"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q12",
+      "group": "temporal",
+      "question": "How long ago was Caroline's 18th birthday?",
+      "ground_truth": "10 years ago",
+      "retrieval": {
+        "search_query": "How long ago was Caroline's 18th birthday?",
+        "search_results": [
+          {
+            "id": "mem_1785802775161319147",
+            "content": "A friend made it for my 18th birthday ten years ago (27 June 2013; 10 years ago)",
+            "score": 1.153150411975262,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802821319044689",
+            "content": "Caroline: Since I was 17 or so",
+            "score": 0.8581896777792115,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802827372657397",
+            "content": "It was a long process, but now they're super happy with their new kid",
+            "score": 0.607310178613797,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802812622784978",
+            "content": "We went camping with the kids a few weeks ago, had a blast exploring the forest and hiking",
+            "score": 0.5981896777792115,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.5777618954457852,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802816915536805",
+            "content": "Been reading that book you recommended a while ago and painting to keep busy",
+            "score": 0.607310178613797,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802781943300103",
+            "content": "Been running longer since our last chat - a great way to destress and clear my mind",
+            "score": 0.5795132763622891,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802834138197721",
+            "content": "Sharing your story and support might make a difference for a long time",
+            "score": 0.593583847751614,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802807067126745",
+            "content": "Melanie: Caroline, awesome news that you two are getting along",
+            "score": 0.5809863927172524,
+            "observed_at": "2023-07-17T14:31:00Z"
+          },
+          {
+            "id": "mem_1785802777686912212",
+            "content": "Caroline has done going at in my life",
+            "score": 0.6440351554374263,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802795886165309",
+            "content": "We celebrated my daughter's birthday with a concert surrounded by music, joy and the warm summer breeze",
+            "score": 0.5093765791565898,
+            "observed_at": "2023-08-14T14:24:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.6366900316929975,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802773249733995",
+            "content": "Caroline: Since we last spoke, some big things have happened",
+            "score": 0.6379918894087956,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802778111876045",
+            "content": "Caroline moved from Sweden",
+            "score": 0.6004810610836734,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802821028495290",
+            "content": "How long have you been creating art",
+            "score": 0.5981896777792115,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802787521317708",
+            "content": "Been a long road, but I'm proud of how far I've come",
+            "score": 0.5803786645798559,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802779713873726",
+            "content": "Melanie: That's a gorgeous photo, Caroline",
+            "score": 0.5777618954457852,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802776528839920",
+            "content": "Caroline is a single parent",
+            "score": 0.4855401114123543,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802814538090101",
+            "content": "Long time no see",
+            "score": 0.607310178613797,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802785181835150",
+            "content": "One special memory for me was this pride parade I went to a few weeks ago",
+            "score": 0.5803786645798559,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802789037422607",
+            "content": "How long have you been married",
+            "score": 0.5696651667714234,
+            "observed_at": "2023-06-09T19:55:00Z"
+          },
+          {
+            "id": "mem_1785802780600057243",
+            "content": "You've come a long way since your transition - keep on inspiring people with your strength and courage",
+            "score": 0.5696651667714234,
+            "observed_at": "2023-06-09T19:55:00Z"
+          },
+          {
+            "id": "mem_1785802790337963798",
+            "content": "I had a quiet weekend after we went camping with my fam two weekends ago",
+            "score": 0.5809863927172524,
+            "observed_at": "2023-07-17T14:31:00Z"
+          },
+          {
+            "id": "mem_1785802830251363126",
+            "content": "Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802778837544948",
+            "content": "So much has happened since we last spoke - I went to an LGBTQ conference two days ago and it was really special (10 July 2023)",
+            "score": 0.5795132763622891,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802781486980078",
+            "content": "How long have you had such a great support system",
+            "score": 0.5696651667714234,
+            "observed_at": "2023-06-09T19:55:00Z"
+          },
+          {
+            "id": "mem_1785802776553696596",
+            "content": "It made me reflect on how far I've come since I started transitioning three years ago (9 June 2020; 3 years ago)",
+            "score": 0.5696651667714234,
+            "observed_at": "2023-06-09T19:55:00Z"
+          },
+          {
+            "id": "mem_1785802772554166743",
+            "content": "Melanie: Hey, Caroline",
+            "score": 0.5689829523828792,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802777885584913",
+            "content": "Caroline: Wow, that's great",
+            "score": 0.5777618954457852,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802787638163890",
+            "content": "It's a great way to relax after a long day",
+            "score": 0.48,
+            "observed_at": "2023-05-08T13:56:00Z"
+          }
+        ],
+        "search_latency_ms": 1580.2046709868591,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Caroline\u2019s 18th birthday was on\u202f27\u202fJune\u202f2013.\u202fFrom today (4\u202fAugust\u202f2026) that is about **13\u202fyears, 1\u202fmonth and 8\u202fdays ago**\u3010A friend made it for my 18th birthday ten years ago (27 June 2013; 10 years ago)\u3011.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer states the birthday was about 13 years ago, which contradicts the ground truth of 10 years ago.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D4:5"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q13",
+      "group": "multi-hop",
+      "question": "What career path has Caroline decided to persue?",
+      "ground_truth": "counseling or mental health for Transgender people",
+      "retrieval": {
+        "search_query": "What career path has Caroline decided to persue?",
+        "search_results": [
+          {
+            "id": "mem_1785802798911056120",
+            "content": "Caroline has done fulfilling at so many ways",
+            "score": 0.7022419783338113,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802816518215370",
+            "content": "Whenever I hear this jam, I think about the paths I've taken and the progress I've made",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802806839357603",
+            "content": "Caroline: I'm putting together an LGBTQ art show next month and I'm gonna show my paintings (25 September 2023)",
+            "score": 0.5906993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802818610440875",
+            "content": "Caroline: It was a transgender poetry reading where transgender people shared their stories through poetry",
+            "score": 0.6070055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802827674224601",
+            "content": "Caroline: Kids are amazingly resilient in tough situations",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802825894086079",
+            "content": "Caroline: Glad you got some R&R after the drive",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802811517116071",
+            "content": "Caroline: Whoa, Mel, that sign looks serious",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802821617095901",
+            "content": "Caroline: Oops, sorry 'bout the accident",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802821454069067",
+            "content": "Caroline: The room was electric with energy and support",
+            "score": 0.6070055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802824713785151",
+            "content": "Caroline enjoys all the yellow leaves",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802794463017453",
+            "content": "Caroline is a friend to share my journey",
+            "score": 0.6269862230100084,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802785123251245",
+            "content": "Caroline: Realizing I can be me without fear and having the courage to transition was the best part",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802793315749847",
+            "content": "Caroline: Sounds special, those beach trips",
+            "score": 0.5787909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802826905273441",
+            "content": "Caroline: Wow, that's awesome",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802811410155419",
+            "content": "Caroline: Guitar's mostly my thing",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802777234315259",
+            "content": "Caroline: Since our last chat, I've been looking into counseling or mental health work more",
+            "score": 0.538079152796948,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802773715154880",
+            "content": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption",
+            "score": 0.5599999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802781318682308",
+            "content": "Caroline: Love that purple color",
+            "score": 0.5760608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802779737385698",
+            "content": "Caroline: Ah, they're adorable",
+            "score": 0.5760608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802814911172841",
+            "content": "Caroline: Yeah totally",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802807816004941",
+            "content": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month",
+            "score": 0.5906993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802788414498638",
+            "content": "Caroline: I felt so proud and grateful - the vibes were amazing and it was comforting to know I'm not alone and have a great community around me",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802818409124810",
+            "content": "Caroline mentioned \"Brave\"",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802783514017777",
+            "content": "Caroline read \"ve got lots of kids\"",
+            "score": 0.5741111486971793,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802777959307035",
+            "content": "Caroline: That bowl is gorgeous",
+            "score": 0.573017085184962,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802776528839920",
+            "content": "Caroline is a single parent",
+            "score": 0.5599999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802778111876045",
+            "content": "Caroline moved from Sweden",
+            "score": 0.5579672754675503,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802799872662055",
+            "content": "Caroline has done investing at positive changes",
+            "score": 0.5828056567269951,
+            "observed_at": "2023-07-20T20:56:00Z"
+          }
+        ],
+        "search_latency_ms": 1641.9630229938775,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Caroline has decided to move into counseling\u202f/\u202fmental\u2011health work, focusing on helping LGBTQ, people (including work related to LGBTQ, adoption).\u3010Since our last chat, I've been looking into counseling or mental health work more (2023\u201107\u201106)\u3011\u3010I chose them \u2019cause they help LGBTQ, folks with adoption (2023\u201105\u201125)\u3011, counseling or mental health work\u3010Since our last chat, I've been looking into counseling or mental health work more\u3011",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "CORRECT",
+        "score": 1.0,
+        "reason": "The predicted answer correctly identifies Caroline's chosen career path as counseling/mental\u2011health work, which aligns with the ground truth. It mentions helping LGBTQ people, which includes transgender individuals, thus covering the key fact.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 1,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D4:13",
+          "D1:11"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q14",
+      "group": "open-domain",
+      "question": "Would Caroline still want to pursue counseling as a career if she hadn't received support growing up?",
+      "ground_truth": "Likely no",
+      "retrieval": {
+        "search_query": "Would Caroline still want to pursue counseling as a career if she hadn't received support growing up?",
+        "search_results": [
+          {
+            "id": "mem_1785802775225783555",
+            "content": "Talking to the community made me want to use my story to help others too - I'm still thinking that counseling and mental health is the way to go",
+            "score": 0.6480380670401712,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802821319044689",
+            "content": "Caroline: Since I was 17 or so",
+            "score": 0.5790309471842245,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802782248332184",
+            "content": "Melanie: Glad you have support, Caroline",
+            "score": 0.5750719274358693,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802781594998164",
+            "content": "Caroline: I'm so lucky to have such a great support system around me",
+            "score": 0.5613939311399715,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802790242084813",
+            "content": "Caroline: Wow, Mel, family love and support is the best",
+            "score": 0.547024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802790477847060",
+            "content": "Melanie: Yeah, Caroline, my family's been great - their love and support really helped me through tough times",
+            "score": 0.5342329108097186,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802830251363126",
+            "content": "Finding self-acceptance was a long process, but now I'm ready to offer love and support to those who need it",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802829540676016",
+            "content": "Melanie: I totally agree, Caroline",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802829322839972",
+            "content": "Love and acceptance should be everyone's right, and I want them to experience it",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802828851994341",
+            "content": "Those kids will be so supported and happy in their new home",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802827386505700",
+            "content": "Caroline: Thanks so much, Melanie",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802826340006394",
+            "content": "Melanie: Congrats, Caroline",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802825530108985",
+            "content": "Caroline: Woohoo Melanie",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802807264773602",
+            "content": "Melanie: Wow, Caroline, that's awesome",
+            "score": 0.53,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802827674224601",
+            "content": "Caroline: Kids are amazingly resilient in tough situations",
+            "score": 0.529457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802827259451763",
+            "content": "They were scared but we reassured them and explained their brother would be OK",
+            "score": 0.529457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802826508746759",
+            "content": "Caroline: The kids look so cute, Mel",
+            "score": 0.529457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802825518898991",
+            "content": "Melanie: Yeah, you're right, Caroline",
+            "score": 0.529457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802824608475311",
+            "content": "Caroline: Glad your son is okay, Melanie",
+            "score": 0.529457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802821617095901",
+            "content": "Caroline: Oops, sorry 'bout the accident",
+            "score": 0.529457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802821431854650",
+            "content": "What's been up since we last talked",
+            "score": 0.529457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.529457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802824713785151",
+            "content": "Caroline enjoys all the yellow leaves",
+            "score": 0.5168522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802820020054660",
+            "content": "Melanie: Wow, Caroline, that looks awesome",
+            "score": 0.5168522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802818914712332",
+            "content": "I'm really thankful for my friends, family and mentors' support",
+            "score": 0.5168522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802813913972812",
+            "content": "Caroline: Melanie, that photo's amazing",
+            "score": 0.5168522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802813717276272",
+            "content": "Any plans coming up",
+            "score": 0.5168522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802810216365335",
+            "content": "Caroline: Hey Mel, long time no chat",
+            "score": 0.5168522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802817518701392",
+            "content": "Caroline: I'm inspired seeing my work make a difference for the LGBTQ+ community",
+            "score": 0.511932025353138,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802818409124810",
+            "content": "Caroline mentioned \"Brave\"",
+            "score": 0.5117248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          }
+        ],
+        "search_latency_ms": 1330.844612995861,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "The memories don\u2019t contain a direct answer to that \u201cwhat\u2011if\u201d scenario.\u202fWhat we do know is that Caroline\u2019s interest in counseling is closely tied to the support she\u2019s received:, \u201cTalking to the community made me want to use my story to help others too \u2013 I\u2019m still thinking that counseling, mental health is the way to go\u201d\u202f(2023\u201107\u201103), \u201cI\u2019m so lucky to have such a great support system around me\u201d\u202f(2023\u201107\u201106), \u201cFinding self\u2011acceptance was a long process, but now I\u2019m ready to offer love, support to those who need it\u201d\u202f(2023\u201110\u201122), These statements suggest her motivation to become a counselor stems from her own experience of receiving love, support. Since there\u2019s no explicit comment about how she would feel without that support, we can\u2019t say for certain what she would decide. The best we can infer is that her desire to pursue counseling is strongly linked to the support she\u2019s had, She\u2019s \u201cstill thinking that counseling, mental health is the way to go.\u201d\u3010Talking to the community made me want to use my story to help others too, I'm still thinking that counseling, mental health is the way to go\u3011",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer states uncertainty and does not assert the ground truth conclusion that she would likely not pursue counseling without support; it fails to match the key fact 'Likely no'.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 3,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D4:15",
+          "D3:5"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q15",
+      "group": "multi-hop",
+      "question": "What activities does Melanie partake in?",
+      "ground_truth": "pottery, camping, painting, swimming",
+      "retrieval": {
+        "search_query": "What activities does Melanie partake in?",
+        "search_results": [
+          {
+            "id": "mem_1785802790314281280",
+            "content": "Melanie: Marrying my partner and promising to be together forever was the best part",
+            "score": 0.9874131380814319,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802796869488409",
+            "content": "Melanie: The sky was so clear and filled with stars, and the meteor shower was amazing - it felt like we were part of something huge and awe-inspiring",
+            "score": 0.882124256452318,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802778815581790",
+            "content": "Melanie has done camping at mountains last week - it was a really (20 June 2023)",
+            "score": 0.8465293230543159,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802776431315263",
+            "content": "Have you found any activities that make you feel the same way",
+            "score": 0.6596837518516286,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802812242883136",
+            "content": "Melanie: Yeah, it's normal to be both excited and nervous with a big decision",
+            "score": 0.6767260732495832,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.6961245005043226,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802812322406924",
+            "content": "Melanie: The sign was just a precaution, I had a great time",
+            "score": 0.6835189055348831,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802822412553731",
+            "content": "Melanie: Seven years now, and I've finally found my real muses: painting and pottery",
+            "score": 0.6835189055348831,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802790023688946",
+            "content": "Melanie: My fam's been awesome - they helped out and showed lots of love and support",
+            "score": 0.6636909158592097,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802782510263410",
+            "content": "Melanie enjoys being a mom",
+            "score": 0.7421239555570737,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802807162504222",
+            "content": "Melanie: Wow, that's gorgeous",
+            "score": 0.6773660146771021,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802823014468333",
+            "content": "Melanie: Yeah, our trip got off to a bad start",
+            "score": 0.6961245005043226,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802784863569260",
+            "content": "Melanie participates in running",
+            "score": 0.7318674742664413,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802812116441905",
+            "content": "Melanie: I'm a fan of both classical like Bach and Mozart, as well as modern music like Ed Sheeran's \"Perfect\"",
+            "score": 0.6783914964867324,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802786510934967",
+            "content": "Melanie: Flowers bring joy",
+            "score": 0.6636909158592097,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802784307011518",
+            "content": "Melanie read \"Charlotte's Web\"",
+            "score": 0.6607778153638459,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802780554478530",
+            "content": "Melanie: They were stoked for the dinosaur exhibit",
+            "score": 0.6607778153638459,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802779225082810",
+            "content": "Melanie's kids like nature",
+            "score": 0.6576404341654271,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802813818621642",
+            "content": "Caroline: Oh man, sorry to hear that, Melanie",
+            "score": 0.6936722412469513,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802783938021148",
+            "content": "Melanie: Woah, Caroline, it sounds like you're doing some impressive work",
+            "score": 0.6576404341654271,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802820337418693",
+            "content": "Melanie: Oliver's hilarious",
+            "score": 0.6767260732495832,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802780710388390",
+            "content": "Melanie: Luna and Oliver",
+            "score": 0.6627275282938139,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802824608475311",
+            "content": "Caroline: Glad your son is okay, Melanie",
+            "score": 0.6961245005043226,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802792121629016",
+            "content": "Melanie: Seeing my kids' faces so happy at the beach was the best",
+            "score": 0.6654575897856513,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802789856881765",
+            "content": "Melanie: We enjoy hiking in the mountains and exploring forests",
+            "score": 0.6140752296635265,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802806649214650",
+            "content": "Melanie has done getting at touch with ourselves",
+            "score": 0.6495745688261381,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802794188970908",
+            "content": "Melanie: We always look forward to our family camping trip",
+            "score": 0.6654575897856513,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802784008066350",
+            "content": "Melanie is a kid",
+            "score": 0.702861128093303,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802830601937324",
+            "content": "Melanie: That must have been tough for you, Caroline",
+            "score": 0.6966666666666667,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802827074982923",
+            "content": "Melanie: Thanks",
+            "score": 0.6961245005043226,
+            "observed_at": "2023-10-20T18:55:00Z"
+          }
+        ],
+        "search_latency_ms": 1611.2261669768486,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Melanie\u2019s memories show that she takes part in a variety of activities, including:, Camping \u2013 \u201cMelanie has done camping at mountains last week\u201d (20\u202fJune\u202f2023)\u3010eventtime=2023-06-27T10:37:00Z\u3011, Road\u2011tripping \u2013 \u201cHey Caroline, that roadtrip this past weekend was insane\u201d (20\u202fOct\u202f2023)\u3010eventtime=2023-10-20T18:55:00Z\u3011, Running \u2013 \u201cMelanie participates in running\u201d (12\u202fJuly\u202f2023)\u3010eventtime=2023-07-12T16:33:00Z\u3011, Painting, pottery \u2013 \u201cSeven years now, pottery\u201d (13\u202fSept\u202f2023)\u3010eventtime=2023-09-13T00:09:00Z\u3011, Hiking / exploring forests \u2013 \u201cWe enjoy hiking in the mountains, exploring forests\u201d (15\u202fJuly\u202f2023)\u3010eventtime=2023-07-15T13:51:00Z\u3011, Parenting / being a mom \u2013 \u201cMelanie enjoys being a mom\u201d (6\u202fJuly\u202f2023)\u3010eventtime=2023-07-06T20:18:00Z\u3011, Beach outings \u2013 \u201cSeeing my kids' faces so happy at the beach was the best\u201d (20\u202fJuly\u202f2023)\u3010eventtime=2023-07-20T20:56:00Z\u3011, Stargazing / meteor\u2011shower watching \u2013 \u201cThe sky was so clear\u2026 the meteor shower was amazing\u201d (20\u202fJuly\u202f2023)\u3010eventtime=2023-07-20T20:56:00Z\u3011, Listening to music \u2013 \u201cI'm a fan of both classical like Bach, Mozart, as well as modern music like Ed Sheeran's \u2018Perfect\u2019\u201d (28\u202fAug\u202f2023)\u3010eventtime=2023-08-28T15:19:00Z\u3011, Reading \u2013 \u201cMelanie read \u2018Charlotte's Web\u2019\u201d (6\u202fJuly\u202f2023)\u3010eventtime=2023-07-06T20:18:00Z\u3011, Visiting exhibits (e.g, dinosaur exhibit) \u2013 \u201cThey were stoked for the dinosaur exhibit\u201d (6\u202fJuly\u202f2023)\u3010eventtime=2023-07-06T20:18:00Z\u3011, Self\u2011reflection / getting in touch with herself \u2013 \u201cMelanie has done getting at touch with ourselves\u201d (23\u202fAug\u202f2023)\u3010eventtime=2023-08-23T15:31:00Z\u3011, These are all the distinct activities mentioned across Melanie\u2019s memories, We need to extract the shortest answer to the question \"What activities does Melanie partake in?\" Must be directly supported by the memories. List activities, short comma-separated list, copying key phrases from memories, We need to scan all memories for activities Melanie does. Let's list:, \"Marrying my partner, promising to be together forever\" (event: marriage) maybe activity: marrying? But that's an event, not ongoing activity. Might include \"marrying\" but maybe not, \"The sky was so clear...\" not activity, \"Melanie has done camping at mountains last week\" => activity: camping, \"roadtrip this past weekend was insane\" => activity: roadtrip (travel), \"Seven years now, \"Melanie participates in running\" => activity: running, \"Melanie: I'm a fan of both classical like Bach, as well as modern music like Ed Sheeran's 'Perfect'\" => listening to music, but fan not activity, \"Melanie read 'Charlotte's Web'\" => activity: reading, \"Melanie: They were stoked for the dinosaur exhibit\" not activity, \"Melanie's kids like nature\" not activity, \"Melanie: Oliver's hilarious\" not, \"Luna, Oliver\" not, \"Seeing my kids' faces so happy at the beach was the best\" => activity: going to the beach (beach outing), \"We enjoy hiking in the mountains, exploring forests\" => activity: hiking, \"We always look forward to our family camping trip\" => camping again, \"Melanie enjoys being a mom\" not activity, \"Melanie participates in running\" already, \"Melanie: Flowers bring joy\" not, \"Melanie: Wow, that's gorgeous\" not, \"Melanie: Yeah, our trip got off to a bad start\" not, \"Melanie: The sign was just a precaution, I had a great time\" not, \"Melanie: I'm a fan of both classical...\" not, \"Melanie: ...\", \"Melanin...\", Okay enough, Thus activities: camping, beach (going, it was a, kid",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer includes many activities not listed in the ground truth and omits 'swimming', which is required. It does not match the expected set of activities.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 1,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D5:4",
+          "D9:1",
+          "D1:12",
+          "D1:18"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q16",
+      "group": "temporal",
+      "question": "When did Melanie sign up for a pottery class?",
+      "ground_truth": "2 July 2023",
+      "retrieval": {
+        "search_query": "When did Melanie sign up for a pottery class?",
+        "search_results": [
+          {
+            "id": "mem_1785802775994946118",
+            "content": "I just signed up for a pottery class yesterday (2 July 2023)",
+            "score": 1.6614677542702256,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802803914255302",
+            "content": "Melanie: Yeah, I made it in pottery class yesterday (24 August 2023)",
+            "score": 1.5287993480104356,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802822412553731",
+            "content": "Melanie: Seven years now, and I've finally found my real muses: painting and pottery",
+            "score": 0.7744094268165442,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802777312518473",
+            "content": "Melanie: I'm a big fan of pottery - the creativity and skill is awesome",
+            "score": 0.789412251591893,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802815908255824",
+            "content": "\"Brave\" by Sara Bareilles has a lot of significance for me",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802795933161321",
+            "content": "So many people marched through the streets waving flags, holding signs and celebrating love and diversity",
+            "score": 0.5787909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802779225082810",
+            "content": "Melanie's kids like nature",
+            "score": 0.5709737674987604,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.5741111486971793,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802824016706618",
+            "content": "Check out my pottery creation in the pic",
+            "score": 0.6558455772701156,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802794058152321",
+            "content": "Bet it feels great to be able to speak your truth and stand up for what's right",
+            "score": 0.5787909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802795289222561",
+            "content": "Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower (20 July 2022)",
+            "score": 0.5787909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802827308561155",
+            "content": "Melanie: It's a chance to be present and together",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802789856881765",
+            "content": "Melanie: We enjoy hiking in the mountains and exploring forests",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802784753189192",
+            "content": "What other creative projects do you do with them, besides pottery",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802807323915791",
+            "content": "Melanie: Wow, the beach really inspired you",
+            "score": 0.5906993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802806649214650",
+            "content": "Melanie has done getting at touch with ourselves",
+            "score": 0.5900594065829166,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802795489987192",
+            "content": "It was so amazing lying there and watching the sky light up with streaks of light",
+            "score": 0.5787909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802813717276272",
+            "content": "Any plans coming up",
+            "score": 0.5968522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802784307011518",
+            "content": "Melanie read \"Charlotte's Web\"",
+            "score": 0.5741111486971793,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802775021841163",
+            "content": "It'll be tough as a single parent, but I'm up for the challenge",
+            "score": 0.5599999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802790012023647",
+            "content": "Being around people who embrace and back me up is beyond words",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802784863569260",
+            "content": "Melanie participates in running",
+            "score": 0.5760608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802780710388390",
+            "content": "Melanie: Luna and Oliver",
+            "score": 0.5760608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802824608475311",
+            "content": "Caroline: Glad your son is okay, Melanie",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802816913558637",
+            "content": "Melanie: That's a gorgeous song, Caroline",
+            "score": 0.5917248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802775189984027",
+            "content": "Melanie: You're doing something amazing",
+            "score": 0.5599999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802790667066666",
+            "content": "Melanie: Yeah, Caroline, they're some of my fave memories",
+            "score": 0.577024249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802780912637705",
+            "content": "They are so sweet and playful - they really liven up the house",
+            "score": 0.5760608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802827074982923",
+            "content": "Melanie: Thanks",
+            "score": 0.609457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          }
+        ],
+        "search_latency_ms": 1846.241181017831,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "I don\u2019t have any memory indicating when Melanie signed up for a pottery class.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer does not provide the date '2 July 2023' and instead states a lack of memory, which does not match the ground truth.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D5:4"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q17",
+      "group": "temporal",
+      "question": "When is Caroline going to the transgender conference?",
+      "ground_truth": "July 2023",
+      "retrieval": {
+        "search_query": "When is Caroline going to the transgender conference?",
+        "search_results": [
+          {
+            "id": "mem_1785802818610440875",
+            "content": "Caroline: It was a transgender poetry reading where transgender people shared their stories through poetry",
+            "score": 0.9319217498282426,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802806839357603",
+            "content": "Caroline: I'm putting together an LGBTQ art show next month and I'm gonna show my paintings (25 September 2023)",
+            "score": 0.7321355135065499,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802776370982290",
+            "content": "Lots has been going on since then",
+            "score": 0.6066111486971792,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802813312715122",
+            "content": "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)",
+            "score": 0.6242248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802827674224601",
+            "content": "Caroline: Kids are amazingly resilient in tough situations",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802825894086079",
+            "content": "Caroline: Glad you got some R&R after the drive",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802811517116071",
+            "content": "Caroline: Whoa, Mel, that sign looks serious",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802821617095901",
+            "content": "Caroline: Oops, sorry 'bout the accident",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802821454069067",
+            "content": "Caroline: The room was electric with energy and support",
+            "score": 0.6395055745802846,
+            "observed_at": "2023-10-13T10:31:00Z"
+          },
+          {
+            "id": "mem_1785802811015838005",
+            "content": "Caroline is a transgender woman and how we should",
+            "score": 0.8863715917634413,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802798911056120",
+            "content": "Caroline has done fulfilling at so many ways",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802824713785151",
+            "content": "Caroline enjoys all the yellow leaves",
+            "score": 0.6293522388682165,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802777234315259",
+            "content": "Caroline: Since our last chat, I've been looking into counseling or mental health work more",
+            "score": 0.6066111486971792,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802793315749847",
+            "content": "Caroline: Sounds special, those beach trips",
+            "score": 0.6112909231189846,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802826905273441",
+            "content": "Caroline: Wow, that's awesome",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802811410155419",
+            "content": "Caroline: Guitar's mostly my thing",
+            "score": 0.6242248298200657,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802773715154880",
+            "content": "Caroline: I chose them 'cause they help LGBTQ+ folks with adoption",
+            "score": 0.5924999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802781318682308",
+            "content": "Caroline: Love that purple color",
+            "score": 0.6085608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802779737385698",
+            "content": "Caroline: Ah, they're adorable",
+            "score": 0.6085608616271472,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802785123251245",
+            "content": "Caroline: Realizing I can be me without fear and having the courage to transition was the best part",
+            "score": 0.5513675379222113,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802807816004941",
+            "content": "Caroline: I was out walking in my neighborhood when I came across this cool rainbow sidewalk for Pride Month",
+            "score": 0.6231993480104354,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802814911172841",
+            "content": "Caroline: Yeah totally",
+            "score": 0.6419578338376559,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802788414498638",
+            "content": "Caroline: I felt so proud and grateful - the vibes were amazing and it was comforting to know I'm not alone and have a great community around me",
+            "score": 0.609524249192543,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802799610317589",
+            "content": "Caroline mentioned \"Connected LGBTQ Activists\"",
+            "score": 0.6734560826442205,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802777959307035",
+            "content": "Caroline: That bowl is gorgeous",
+            "score": 0.605517085184962,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802778111876045",
+            "content": "Caroline moved from Sweden",
+            "score": 0.6034737674987604,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802772135691138",
+            "content": "A lot's been going on in my life",
+            "score": 0.6034737674987604,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802794463017453",
+            "content": "Caroline is a friend to share my journey",
+            "score": 0.5388576434331609,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802776528839920",
+            "content": "Caroline is a single parent",
+            "score": 0.5924999999999999,
+            "observed_at": "2023-05-25T13:14:00Z"
+          }
+        ],
+        "search_latency_ms": 1808.0711149959825,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Caroline\u2019s transgender\u2011focused event is scheduled for **October\u202f13\u202f2023** (the transgender poetry reading)\u3010event_time=2023-10-13T10:31:00Z\u3011.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer states October 13, 2023, which does not match the ground truth of July 2023.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 2,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D5:13"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q18",
+      "group": "multi-hop",
+      "question": "Where has Melanie camped?",
+      "ground_truth": "beach, mountains, forest",
+      "retrieval": {
+        "search_query": "Where has Melanie camped?",
+        "search_results": [
+          {
+            "id": "mem_1785802778815581790",
+            "content": "Melanie has done camping at mountains last week - it was a really (20 June 2023)",
+            "score": 1.1988551437077741,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802823014468333",
+            "content": "Melanie: Yeah, our trip got off to a bad start",
+            "score": 0.804457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802796869488409",
+            "content": "Melanie: The sky was so clear and filled with stars, and the meteor shower was amazing - it felt like we were part of something huge and awe-inspiring",
+            "score": 0.7737909231189847,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802777449084550",
+            "content": "Melanie: I loved reading \"Charlotte's Web\" as a kid",
+            "score": 0.7691111486971793,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802824608475311",
+            "content": "Caroline: Glad your son is okay, Melanie",
+            "score": 0.804457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802822412553731",
+            "content": "Melanie: Seven years now, and I've finally found my real muses: painting and pottery",
+            "score": 0.7118522388682166,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802829451150131",
+            "content": "Melanie enjoys camping trips with my fam",
+            "score": 0.9613843051992498,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802792121629016",
+            "content": "Melanie: Seeing my kids' faces so happy at the beach was the best",
+            "score": 0.7737909231189847,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802790023688946",
+            "content": "Melanie: My fam's been awesome - they helped out and showed lots of love and support",
+            "score": 0.6920242491925431,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802773312488704",
+            "content": "Melanie: Wow, that agency looks great",
+            "score": 0.675,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802779713873726",
+            "content": "Melanie: That's a gorgeous photo, Caroline",
+            "score": 0.7691111486971793,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802820010166877",
+            "content": "Melanie: Hey Caroline, that roadtrip this past weekend was insane",
+            "score": 0.6607042711649247,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802784863569260",
+            "content": "Melanie participates in running",
+            "score": 0.6925669528343179,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802784959315223",
+            "content": "Melanie: We love painting together lately, especially nature-inspired ones",
+            "score": 0.6920242491925431,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802794188970908",
+            "content": "Melanie: We always look forward to our family camping trip",
+            "score": 0.7322722006741806,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802806649214650",
+            "content": "Melanie has done getting at touch with ourselves",
+            "score": 0.6884933187560707,
+            "observed_at": "2023-08-23T15:31:00Z"
+          },
+          {
+            "id": "mem_1785802777312518473",
+            "content": "Melanie: I'm a big fan of pottery - the creativity and skill is awesome",
+            "score": 0.6880170851849621,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802825518898991",
+            "content": "Melanie: Yeah, you're right, Caroline",
+            "score": 0.804457833837656,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802803914255302",
+            "content": "Melanie: Yeah, I made it in pottery class yesterday (24 August 2023)",
+            "score": 0.7056993480104355,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802776315587708",
+            "content": "Melanie has done taking at kids in need - you",
+            "score": 0.6588295402381615,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802795289222561",
+            "content": "Melanie: I'll always remember our camping trip last year when we saw the Perseid meteor shower (20 July 2022)",
+            "score": 0.6662951095535238,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802829540676016",
+            "content": "Melanie: I totally agree, Caroline",
+            "score": 0.7250000000000001,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802827386505700",
+            "content": "Caroline: Thanks so much, Melanie",
+            "score": 0.7250000000000001,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802795119301512",
+            "content": "Melanie: Wow, Caroline, your group sounds awesome",
+            "score": 0.7737909231189847,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802810310255891",
+            "content": "Melanie: Cool",
+            "score": 0.6043648553331614,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802781472376011",
+            "content": "Melanie: Hey Caroline, it's been super busy here",
+            "score": 0.5490748599547932,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802790477847060",
+            "content": "Melanie: Yeah, Caroline, my family's been great - their love and support really helped me through tough times",
+            "score": 0.6920242491925431,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802782822585590",
+            "content": "Melanie: I've been running farther to de-stress, which has been great for my headspace",
+            "score": 0.53218122843616,
+            "observed_at": "2023-07-12T16:33:00Z"
+          },
+          {
+            "id": "mem_1785802774177569883",
+            "content": "Melanie: Wow, Caroline, sounds like the parade was an awesome experience",
+            "score": 0.6880170851849621,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802816913558637",
+            "content": "Melanie: That's a gorgeous song, Caroline",
+            "score": 0.7067248298200658,
+            "observed_at": "2023-08-28T15:19:00Z"
+          }
+        ],
+        "search_latency_ms": 1764.4069270172622,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Melanie has camped in the mountains (her recent mountain\u2011camping trip was noted on\u202f20\u202fJune\u202f2023).\u3010eventtime=2023-06-27T10:37:00Z\u3011, mountains (camping at mountains), camping at mountains last week, it was a, camping trips with my fam, running, getting at touch with ourselves, taking at kids in need, you",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer only mentions mountains and does not include the beach and forest locations required by the ground truth.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 1,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D6:16",
+          "D4:6",
+          "D8:32"
+        ]
+      }
+    },
+    {
+      "id": "conv-26-q19",
+      "group": "multi-hop",
+      "question": "What do Melanie's kids like?",
+      "ground_truth": "dinosaurs, nature",
+      "retrieval": {
+        "search_query": "What do Melanie's kids like?",
+        "search_results": [
+          {
+            "id": "mem_1785802779225082810",
+            "content": "Melanie's kids like nature",
+            "score": 2.1709737674987606,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802796869488409",
+            "content": "Melanie: The sky was so clear and filled with stars, and the meteor shower was amazing - it felt like we were part of something huge and awe-inspiring",
+            "score": 0.8308464786745402,
+            "observed_at": "2023-07-20T20:56:00Z"
+          },
+          {
+            "id": "mem_1785802774177569883",
+            "content": "Melanie: Wow, Caroline, sounds like the parade was an awesome experience",
+            "score": 0.8250726407405176,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802774929533204",
+            "content": "I've got some other stuff with sentimental value, like my hand-painted bowl",
+            "score": 0.6576404341654271,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802773829281810",
+            "content": "It's like a reminder of my roots and all the love and support I get from my family",
+            "score": 0.6576404341654271,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802824916203422",
+            "content": "Life's unpredictable, but moments like these remind us how important our loved ones are",
+            "score": 0.6161245005043227,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802812622784978",
+            "content": "We went camping with the kids a few weeks ago, had a blast exploring the forest and hiking",
+            "score": 0.6035189055348832,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802776094156476",
+            "content": "I'll do my best to make sure these kids have a safe and loving home",
+            "score": 0.5666666666666667,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802807716486112",
+            "content": "Can't wait to see your show - the LGBTQ community needs more platforms like this",
+            "score": 0.5973660146771022,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802781873096914",
+            "content": "Last Fri I finally took my kids to a pottery workshop",
+            "score": 0.5836909158592097,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802827957633834",
+            "content": "I hope to build my own family and put a roof over kids who haven't had that before",
+            "score": 0.6166666666666667,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802827496669166",
+            "content": "They're tough kids",
+            "score": 0.6161245005043227,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802784008066350",
+            "content": "Melanie is a kid",
+            "score": 0.7384547325484753,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802826508746759",
+            "content": "Caroline: The kids look so cute, Mel",
+            "score": 0.7372219418338243,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802777010451611",
+            "content": "Caroline: I've got lots of kids' books- classics, stories from different cultures, educational books, all of that",
+            "score": 0.580777815363846,
+            "observed_at": "2023-07-06T20:18:00Z"
+          },
+          {
+            "id": "mem_1785802806231328839",
+            "content": "Those colors are so vivid, it really looks like a real sunset",
+            "score": 0.5973660146771022,
+            "observed_at": "2023-08-25T13:33:00Z"
+          },
+          {
+            "id": "mem_1785802776315587708",
+            "content": "Melanie has done taking at kids in need - you",
+            "score": 0.7230175183170112,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802774467100440",
+            "content": "Got any other objects that you treasure, like that necklace",
+            "score": 0.6576404341654271,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802776209584941",
+            "content": "It's like therapy for me, letting me express myself and get creative",
+            "score": 0.5796837518516287,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802773728526553",
+            "content": "Everyone was so happy and it made me feel like I belonged",
+            "score": 0.5796837518516287,
+            "observed_at": "2023-07-03T13:36:00Z"
+          },
+          {
+            "id": "mem_1785802774018078826",
+            "content": "Melanie: That's gorgeous, Caroline",
+            "score": 0.6576404341654271,
+            "observed_at": "2023-06-27T10:37:00Z"
+          },
+          {
+            "id": "mem_1785802810310255891",
+            "content": "Melanie: Cool",
+            "score": 0.6273072005035324,
+            "observed_at": "2023-08-28T15:19:00Z"
+          },
+          {
+            "id": "mem_1785802812322769107",
+            "content": "Biking sounds like a great way to get out in nature",
+            "score": 0.6035189055348832,
+            "observed_at": "2023-09-13T00:09:00Z"
+          },
+          {
+            "id": "mem_1785802828851994341",
+            "content": "Those kids will be so supported and happy in their new home",
+            "score": 0.6166666666666667,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802827674224601",
+            "content": "Caroline: Kids are amazingly resilient in tough situations",
+            "score": 0.6161245005043227,
+            "observed_at": "2023-10-20T18:55:00Z"
+          },
+          {
+            "id": "mem_1785802775439348206",
+            "content": "Creating a family for those kids is so lovely",
+            "score": 0.5666666666666667,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802772235329430",
+            "content": "My goal is to give kids a loving home",
+            "score": 0.5666666666666667,
+            "observed_at": "2023-05-25T13:14:00Z"
+          },
+          {
+            "id": "mem_1785802784512403103",
+            "content": "It's awesome to see how kids show their personalities through art",
+            "score": 0.5836909158592097,
+            "observed_at": "2023-07-15T13:51:00Z"
+          },
+          {
+            "id": "mem_1785802828621797528",
+            "content": "Giving a home to needy kids is such a loving way to build a family",
+            "score": 0.6166666666666667,
+            "observed_at": "2023-10-22T09:55:00Z"
+          },
+          {
+            "id": "mem_1785802774803889574",
+            "content": "Caroline: I'm thrilled to make a family for kids who need one",
+            "score": 0.5666666666666667,
+            "observed_at": "2023-05-25T13:14:00Z"
+          }
+        ],
+        "search_latency_ms": 1575.0694189919159,
+        "total_results": 30
+      },
+      "generation": {
+        "generated_answer": "Melanie\u2019s kids like nature\u3010eventtime=2023-06-27T10:37:00Z\u3011, nature\u3010Melanie's kids like nature\u3011, kid, taking at kids in need, you",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+        "prompt_tokens": null,
+        "completion_tokens": null
+      },
+      "judgment": {
+        "judgment": "WRONG",
+        "score": 0.0,
+        "reason": "The predicted answer only mentions nature and omits dinosaurs, which is part of the ground truth.",
+        "model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]"
+      },
+      "extras": {
+        "category_id": 1,
+        "sample_id": "conv-26",
+        "evidence": [
+          "D6:6",
+          "D4:8"
+        ]
+      }
+    }
+  ]
+}
