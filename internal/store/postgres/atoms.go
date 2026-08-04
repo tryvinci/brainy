@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"time"
+
+	"brainy/internal/memory"
 )
 
 // UpsertMemoryAtom indexes a typed (predicate, value) atom for enumeration scans.
@@ -110,6 +112,81 @@ LIMIT $5`
 			return nil, err
 		}
 		out = append(out, id)
+	}
+	return out, rows.Err()
+}
+
+// GetStateAsOf returns the world-valid atom value at asOf (valid_from/valid_to).
+func (s *Store) GetStateAsOf(ctx context.Context, tenantID, subjectID, predicate string, asOf time.Time) (memoryID, value string, ok bool, err error) {
+	predicate = strings.TrimSpace(predicate)
+	if tenantID == "" || subjectID == "" || predicate == "" || asOf.IsZero() {
+		return "", "", false, nil
+	}
+	asOf = asOf.UTC()
+	err = s.pool.QueryRow(ctx, `
+SELECT memory_id, value_norm
+FROM memory_atoms
+WHERE tenant_id = $1 AND subject_id = $2 AND predicate = $3
+  AND (valid_from IS NULL OR valid_from <= $4)
+  AND (valid_to IS NULL OR valid_to > $4)
+ORDER BY COALESCE(valid_from, observed_at, updated_at) DESC NULLS LAST, updated_at DESC
+LIMIT 1
+`, tenantID, subjectID, predicate, asOf).Scan(&memoryID, &value)
+	if err != nil {
+		return "", "", false, nil
+	}
+	return memoryID, value, true, nil
+}
+
+// GetStateAsKnownAt returns the system-time view (recorded_at / retired_at).
+func (s *Store) GetStateAsKnownAt(ctx context.Context, tenantID, subjectID, predicate string, asKnownAt time.Time) (memoryID, value string, ok bool, err error) {
+	predicate = strings.TrimSpace(predicate)
+	if tenantID == "" || subjectID == "" || predicate == "" || asKnownAt.IsZero() {
+		return "", "", false, nil
+	}
+	asKnownAt = asKnownAt.UTC()
+	err = s.pool.QueryRow(ctx, `
+SELECT memory_id, value_norm
+FROM memory_atoms
+WHERE tenant_id = $1 AND subject_id = $2 AND predicate = $3
+  AND COALESCE(recorded_at, updated_at) <= $4
+  AND (retired_at IS NULL OR retired_at > $4)
+ORDER BY COALESCE(recorded_at, updated_at) DESC, updated_at DESC
+LIMIT 1
+`, tenantID, subjectID, predicate, asKnownAt).Scan(&memoryID, &value)
+	if err != nil {
+		return "", "", false, nil
+	}
+	return memoryID, value, true, nil
+}
+
+// ListStateHistory returns recent atom versions for a predicate (newest first).
+func (s *Store) ListStateHistory(ctx context.Context, tenantID, subjectID, predicate string, limit int) ([]memory.StateHistoryRow, error) {
+	predicate = strings.TrimSpace(predicate)
+	if tenantID == "" || subjectID == "" || predicate == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := s.pool.Query(ctx, `
+SELECT memory_id, value_norm, valid_from, valid_to, recorded_at, retired_at
+FROM memory_atoms
+WHERE tenant_id = $1 AND subject_id = $2 AND predicate = $3
+ORDER BY COALESCE(valid_from, observed_at, updated_at) DESC NULLS LAST, updated_at DESC
+LIMIT $4
+`, tenantID, subjectID, predicate, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]memory.StateHistoryRow, 0, limit)
+	for rows.Next() {
+		var row memory.StateHistoryRow
+		if err := rows.Scan(&row.MemoryID, &row.Value, &row.ValidFrom, &row.ValidTo, &row.RecordedAt, &row.RetiredAt); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
 	}
 	return out, rows.Err()
 }

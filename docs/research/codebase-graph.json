@@ -320,27 +320,28 @@
     "source": "live",
     "evidence": "raw_v2_partial",
     "semantic": "typed_extract_v3_partial",
-    "projection": "mvp_rebuildable_not_canonical",
-    "recall": "synthesis_not_planner"
+    "projection": "guarded_rebuildable_mvp",
+    "recall": "temporal_partial_not_planner"
   },
   "external_review": "docs/research/external-reviews/2026-08-04-architecture-verdict.md",
   "hazards_resolved": [
     "pgvector_ann_was_128_only_now_768_hosted_pin",
     "oracle_modes_mostly_noop",
     "provider_extract_no_typed_slots",
-    "async_worker_skipped_atom_upsert"
+    "async_worker_skipped_atom_upsert",
+    "current_state_blind_last_write",
+    "recall_as_of_ignored"
   ],
   "hazards_open": [
     "pack_v2_not_loaded_by_registry",
     "recall_not_typed_planner",
-    "current_state_projection_mvp",
-    "provider_extract_still_text_first"
+    "provider_extract_still_text_first",
+    "current_state_projection_guarded_mvp"
   ],
   "next_sequence": [
-    "temporal_resolver",
-    "retrieval_store_v3_remainder",
     "planner",
     "packs_v2_executable",
-    "lme_adjudication_100"
+    "lme_adjudication_100",
+    "retrieval_store_v3_remainder"
   ]
 }
