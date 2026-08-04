@@ -57,6 +57,7 @@ WHERE tenant_id = $1 AND subject_id = $2 AND predicate = $3
 }
 
 // ListAtomMemoryIDs returns memory IDs for a predicate scan (optional value_norm).
+// Empty predicate lists any current atoms for the subject (semantic oracle).
 // By default excludes retired / valid_to-in-past atoms (current-state view).
 func (s *Store) ListAtomMemoryIDs(ctx context.Context, tenantID, subjectID, predicate, valueNorm string, limit int) ([]string, error) {
 	if limit <= 0 {
@@ -68,7 +69,17 @@ func (s *Store) ListAtomMemoryIDs(ctx context.Context, tenantID, subjectID, pred
 
 	var query string
 	var args []any
-	if valueNorm == "" {
+	switch {
+	case predicate == "":
+		query = `
+SELECT memory_id FROM memory_atoms
+WHERE tenant_id = $1 AND subject_id = $2
+  AND retired_at IS NULL
+  AND (valid_to IS NULL OR valid_to > $4)
+ORDER BY updated_at DESC
+LIMIT $3`
+		args = []any{tenantID, subjectID, limit, now}
+	case valueNorm == "":
 		query = `
 SELECT memory_id FROM memory_atoms
 WHERE tenant_id = $1 AND subject_id = $2 AND predicate = $3
@@ -77,7 +88,7 @@ WHERE tenant_id = $1 AND subject_id = $2 AND predicate = $3
 ORDER BY updated_at DESC
 LIMIT $4`
 		args = []any{tenantID, subjectID, predicate, limit, now}
-	} else {
+	default:
 		query = `
 SELECT memory_id FROM memory_atoms
 WHERE tenant_id = $1 AND subject_id = $2 AND predicate = $3 AND value_norm = $4

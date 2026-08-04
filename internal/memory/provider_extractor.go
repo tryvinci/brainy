@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const providerExtractionVersion = "provider-v2-additive"
+const providerExtractionVersion = "provider-v3-typed"
 
 // ProviderConfig configures an OpenAI-compatible chat completions client.
 type ProviderConfig struct {
@@ -123,12 +123,18 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 	return parseProviderMemories(completion.Choices[0].Message.Content)
 }
 
-// Additive extraction: one standalone atom per fact, attributed to named speakers.
+// Typed extraction v3: flat content (legacy retrieval) + optional typed slots
+// that flow Explain → Metadata → memory_atoms (async + sync).
 // Examples are synthetic (master-plan anti-MemPalace clause).
 const providerSystemPrompt = `You are a Memory Analyzer extracting ADD-only atomic memories from conversation.
 
 Return JSON only:
-{"memories":[{"kind":"fact|preference|profile","content":"...","source_text":"...","confidence":0.0,"when":"optional absolute date","duration":"optional"}]}
+{"memories":[{"kind":"fact|preference|profile","content":"...","source_text":"...","confidence":0.0,"subject":"optional entity","predicate":"optional taxonomy slot","value":"optional typed value","assertion_kind":"explicit|observed|inferred|corrective|negative","when":"optional absolute date","duration":"optional"}]}
+
+Predicates (use when a typed slot fits; otherwise omit predicate/value):
+identity, relationship_status, origin, residence, occupation, education,
+family_member, activity, activity_purpose, event, media_consumed, preference,
+possession, health, plan, belief, skill, affiliation, contact_fact, metric.
 
 CRITICAL RULES:
 1. content must be a self-contained factual sentence usable months later WITHOUT the original turn.
@@ -136,7 +142,8 @@ CRITICAL RULES:
    (e.g. "Jordan is a nurse", "Sam participates in ceramics").
 3. Emit ONE memory per distinct attribute, activity, place, titled work, preference, or plan.
    Split compound utterances. Prefer many small atoms over one long paraphrase.
-4. Always extract when present:
+4. When possible set subject + predicate + value (normalized short value, not the full sentence).
+5. Always extract when present:
    - identity / role / relationship status
    - origin / moved from <place> (include country/city names literally)
    - activities and hobbies
@@ -144,10 +151,10 @@ CRITICAL RULES:
    - book/movie titles in quotes (verbatim spans)
    - family members' preferences (e.g. "Sam's kids like astronomy")
    - career plans and research topics
-5. Resolve relative time against Observation Date in the user message (yesterday → absolute date).
-6. Skip pure greetings/acks ("Thanks!", "Yeah, Name", "Cool").
-7. When in doubt, EXTRACT — missed atoms destroy multi-attribute recall.
-8. return {"memories":[]} only if nothing durable exists.`
+6. Resolve relative time against Observation Date in the user message (yesterday → absolute date).
+7. Skip pure greetings/acks ("Thanks!", "Yeah, Name", "Cool").
+8. When in doubt, EXTRACT — missed atoms destroy multi-attribute recall.
+9. return {"memories":[]} only if nothing durable exists.`
 
 func buildProviderUserPrompt(req IngestRequest) string {
 	var b strings.Builder
@@ -187,12 +194,16 @@ type providerMemoryPayload struct {
 }
 
 type providerMemoryItem struct {
-	Kind       string  `json:"kind"`
-	Content    string  `json:"content"`
-	SourceText string  `json:"source_text"`
-	Confidence float64 `json:"confidence"`
-	When       string  `json:"when"`
-	Duration   string  `json:"duration"`
+	Kind          string  `json:"kind"`
+	Content       string  `json:"content"`
+	SourceText    string  `json:"source_text"`
+	Confidence    float64 `json:"confidence"`
+	Subject       string  `json:"subject"`
+	Predicate     string  `json:"predicate"`
+	Value         string  `json:"value"`
+	AssertionKind string  `json:"assertion_kind"`
+	When          string  `json:"when"`
+	Duration      string  `json:"duration"`
 }
 
 func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
@@ -231,6 +242,20 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 		}
 		explain := map[string]any{
 			"rule": "provider_extract",
+		}
+		if subj := strings.TrimSpace(item.Subject); subj != "" {
+			explain["subject"] = subj
+		}
+		if pred := normalizeProviderPredicate(item.Predicate); pred != "" {
+			explain["predicate"] = pred
+			val := strings.TrimSpace(item.Value)
+			if val == "" {
+				val = content
+			}
+			explain["value_norm"] = strings.ToLower(NormalizeText(val))
+		}
+		if ak := strings.ToLower(strings.TrimSpace(item.AssertionKind)); ak != "" {
+			explain["assertion_kind"] = ak
 		}
 		if when := strings.TrimSpace(item.When); when != "" {
 			explain["when"] = when
@@ -290,4 +315,20 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "..."
+}
+
+func normalizeProviderPredicate(raw string) string {
+	p := strings.ToLower(strings.TrimSpace(raw))
+	p = strings.ReplaceAll(p, "-", "_")
+	p = strings.ReplaceAll(p, " ", "_")
+	switch p {
+	case PredicateIdentity, PredicateRelationshipStatus, PredicateOrigin, PredicateResidence,
+		PredicateOccupation, PredicateEducation, PredicateFamilyMember, PredicateActivity,
+		PredicateActivityPurpose, PredicateEvent, PredicateMediaConsumed, PredicatePreference,
+		PredicatePossession, PredicateHealth, PredicatePlan, PredicateBelief, PredicateSkill,
+		PredicateAffiliation, PredicateContactFact, PredicateMetric:
+		return p
+	default:
+		return ""
+	}
 }
