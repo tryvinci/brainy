@@ -10,16 +10,21 @@ import (
 	"unicode/utf8"
 )
 
-// RecallRequest is the product synthesis surface (master-plan W4).
+// RecallRequest is the product synthesis surface (master-plan W4 / program §14).
 type RecallRequest struct {
-	TenantID          string `json:"tenant_id"`
-	SubjectID         string `json:"subject_id"`
-	Query             string `json:"q"`
-	Mode              string `json:"mode"` // context | enumerate | answer
-	Vertical          string `json:"vertical,omitempty"`
-	TopK              int    `json:"top_k,omitempty"`
-	BudgetTokens      int    `json:"budget_tokens,omitempty"`
-	IncludeHistorical bool   `json:"include_historical,omitempty"`
+	TenantID           string `json:"tenant_id"`
+	SubjectID          string `json:"subject_id"`
+	Query              string `json:"q"`
+	Mode               string `json:"mode"` // context | enumerate | answer
+	Vertical           string `json:"vertical,omitempty"`
+	TopK               int    `json:"top_k,omitempty"`
+	BudgetTokens       int    `json:"budget_tokens,omitempty"`
+	IncludeHistorical  bool   `json:"include_historical,omitempty"`
+	View               string `json:"view,omitempty"` // current | historical | all
+	AsOf               string `json:"as_of,omitempty"`
+	IncludeProvenance  bool   `json:"include_provenance,omitempty"`
+	MaxEvidenceTokens  int    `json:"max_evidence_tokens,omitempty"`
+	OracleMode         string `json:"oracle_mode,omitempty"` // reader | evidence | semantic | ""
 }
 
 // RecallItem is one enumerated value with evidence.
@@ -33,12 +38,16 @@ type RecallItem struct {
 // RecallResponse is returned by POST /recall.
 type RecallResponse struct {
 	Mode         string         `json:"mode"`
+	AnswerStatus string         `json:"answer_status,omitempty"`
+	Intents      []string       `json:"intents,omitempty"`
 	ContextBlock string         `json:"context_block,omitempty"`
 	Answer       string         `json:"answer,omitempty"`
 	Abstained    bool           `json:"abstained,omitempty"`
 	Items        []RecallItem   `json:"items,omitempty"`
 	Memories     []SearchResult `json:"memories"`
+	Coverage     map[string]any `json:"coverage,omitempty"`
 	Explain      map[string]any `json:"explain,omitempty"`
+	Trace        *SearchTrace   `json:"trace,omitempty"`
 }
 
 // Recall assembles product-side context / enumeration / answer.
@@ -70,7 +79,12 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	out := RecallResponse{
 		Mode:     mode,
 		Memories: search.Results,
+		Intents:  AnalyzeQueryIntents(req.Query),
+		Trace:    search.Trace,
 		Explain:  map[string]any{"top_k": topK, "budget_tokens": budget},
+	}
+	if req.OracleMode != "" {
+		out.Explain["oracle_mode"] = req.OracleMode
 	}
 
 	switch mode {
@@ -79,6 +93,12 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		out.Items = items
 		out.ContextBlock = formatEnumerateContext(items)
 		out.Explain["item_count"] = len(items)
+		out.AnswerStatus = AnswerSupported
+		if len(items) == 0 {
+			out.AnswerStatus = AnswerNotFound
+			out.Abstained = true
+		}
+		out.Coverage = map[string]any{"targets": 1, "satisfied": len(items) > 0}
 	case "answer":
 		items := s.enumerateFromSearch(ctx, req, search.Results)
 		out.Items = items
@@ -89,16 +109,32 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				vals = append(vals, it.Value)
 			}
 			out.Answer = strings.Join(vals, ", ")
+			out.AnswerStatus = AnswerSupported
+			if len(items) == 1 && looksListQuery(tokenize(req.Query)) {
+				out.AnswerStatus = AnswerPartiallySupported
+			}
 		} else if out.ContextBlock != "" {
 			// Deterministic extractive fallback: first non-question statement.
 			out.Answer = firstStatement(search.Results)
+			out.AnswerStatus = AnswerPartiallySupported
 		}
 		if strings.TrimSpace(out.Answer) == "" {
 			out.Abstained = true
 			out.Answer = "not in memory"
+			out.AnswerStatus = AnswerInsufficient
+		}
+		out.Coverage = map[string]any{
+			"targets":   1,
+			"satisfied": !out.Abstained,
 		}
 	case "context":
 		out.ContextBlock = assembleContextBlock(search.Results, budget)
+		if out.ContextBlock == "" {
+			out.AnswerStatus = AnswerNotFound
+			out.Abstained = true
+		} else {
+			out.AnswerStatus = AnswerSupported
+		}
 	default:
 		return RecallResponse{}, fmt.Errorf("unsupported recall mode %q", mode)
 	}

@@ -1,0 +1,32 @@
+{
+  "name": "mk_v2_01_brand_authority",
+  "ingests": [
+    {
+      "tenant_id": "fixture-mkt-v2-01",
+      "subject_id": "brand-v2",
+      "vertical": "marketing",
+      "label": "brand_rule",
+      "source_type": "brand_guidelines",
+      "messages": [{"role": "user", "content": "Brand rule: never claim clinical outcomes without citation"}]
+    },
+    {
+      "tenant_id": "fixture-mkt-v2-01",
+      "subject_id": "brand-v2",
+      "vertical": "marketing",
+      "label": "preference",
+      "source_type": "agent_suggestion",
+      "messages": [{"role": "user", "content": "Agent suggestion: claim clinically proven results in hero copy"}]
+    }
+  ],
+  "search": {
+    "tenant_id": "fixture-mkt-v2-01",
+    "subject_id": "brand-v2",
+    "vertical": "marketing",
+    "q": "clinical outcomes claim"
+  },
+  "expect": {
+    "created_at_least": 1,
+    "min_results": 1,
+    "first_content_contains": "never claim clinical"
+  }
+}
