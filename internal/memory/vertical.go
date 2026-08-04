@@ -1,8 +1,10 @@
 package memory
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"brainy/internal/pack"
 )
@@ -60,6 +62,9 @@ func ApplyVerticalPack(record *MemoryRecord, req IngestRequest, kind, content st
 	}
 
 	applyPackLifecycle(record, p)
+	if err := validatePackStateMachine(p, req, ""); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -98,4 +103,63 @@ func IsLifecycleSearchVisible(state string) bool {
 	default:
 		return true
 	}
+}
+
+// validatePackStateTransition looks up prior ticket_state for the same
+// ticket_id and enforces the pack sidecar FSM when present.
+func (s *Service) validatePackStateTransition(ctx context.Context, req IngestRequest) error {
+	if s.packs == nil {
+		return nil
+	}
+	vertical := strings.TrimSpace(req.Vertical)
+	if vertical == "" || vertical == VerticalCore {
+		return nil
+	}
+	p, ok := s.packs.Get(vertical)
+	if !ok {
+		return nil
+	}
+	label := strings.TrimSpace(req.Label)
+	if p.MachineForLabel(label) == "" {
+		return nil
+	}
+	prior := s.lookupPriorPackState(ctx, req)
+	return validatePackStateMachine(p, req, prior)
+}
+
+func (s *Service) lookupPriorPackState(ctx context.Context, req IngestRequest) string {
+	ticketID := metadataString(req.Metadata, "ticket_id")
+	if ticketID == "" || s.store == nil {
+		return ""
+	}
+	listed, err := s.listSubjectCorpus(ctx, req.TenantID, req.SubjectID, true, 200)
+	if err != nil {
+		return ""
+	}
+	var best string
+	var bestTime time.Time
+	for _, m := range listed {
+		if strings.TrimSpace(m.Label) != strings.TrimSpace(req.Label) {
+			continue
+		}
+		if metadataString(m.Metadata, "ticket_id") != ticketID {
+			continue
+		}
+		status := metadataString(m.Metadata, "status")
+		if status == "" {
+			status = metadataString(m.Metadata, "value_norm")
+		}
+		if status == "" {
+			continue
+		}
+		ts := m.UpdatedAt
+		if ts.IsZero() {
+			ts = m.CreatedAt
+		}
+		if best == "" || ts.After(bestTime) {
+			best = status
+			bestTime = ts
+		}
+	}
+	return best
 }

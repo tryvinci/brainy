@@ -27,7 +27,55 @@ func validatePackMetadata(reg *pack.Registry, req IngestRequest) error {
 	if err := p.ValidateMetadata(label, req.Metadata); err != nil {
 		return fmt.Errorf("pack metadata validation failed: %w", err)
 	}
+	if err := validatePackStateMachine(p, req, ""); err != nil {
+		return err
+	}
 	return nil
+}
+
+func validatePackStateMachine(p *pack.Pack, req IngestRequest, priorStatus string) error {
+	if p == nil {
+		return nil
+	}
+	label := strings.TrimSpace(req.Label)
+	machine := p.MachineForLabel(label)
+	if machine == "" {
+		return nil
+	}
+	status := metadataString(req.Metadata, "status")
+	if status == "" {
+		status = metadataString(req.Metadata, "value_norm")
+	}
+	if status == "" {
+		return nil
+	}
+	from := metadataString(req.Metadata, "from_status")
+	if from == "" {
+		from = metadataString(req.Metadata, "previous_status")
+	}
+	if from == "" {
+		from = priorStatus
+	}
+	if err := p.ValidateStateTransition(machine, from, status); err != nil {
+		return fmt.Errorf("pack state machine validation failed: %w", err)
+	}
+	return nil
+}
+
+func metadataString(metadata map[string]any, key string) string {
+	if metadata == nil {
+		return ""
+	}
+	raw, ok := metadata[key]
+	if !ok {
+		return ""
+	}
+	switch v := raw.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	default:
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
 }
 
 func synthesizeBeliefFromOutcome(req IngestRequest) (MemoryRecord, bool) {

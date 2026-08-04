@@ -76,12 +76,18 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		return RecallResponse{}, err
 	}
 
+	intents := AnalyzeQueryIntents(req.Query)
+	plan := PlanQuery(req.Query, intents)
 	out := RecallResponse{
 		Mode:     mode,
 		Memories: search.Results,
-		Intents:  AnalyzeQueryIntents(req.Query),
+		Intents:  intents,
 		Trace:    search.Trace,
-		Explain:  map[string]any{"top_k": topK, "budget_tokens": budget},
+		Explain: map[string]any{
+			"top_k":         topK,
+			"budget_tokens": budget,
+			"query_plan":    plan,
+		},
 	}
 	if req.View != "" {
 		out.Explain["view"] = req.View
@@ -95,6 +101,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	}
 	s.applyTemporalResolution(ctx, req, &out, asOfTime, asOfOK)
+	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
+	out.Explain["evidence_packet"] = pkt
+	if out.Coverage == nil && pkt.Coverage != nil {
+		out.Coverage = pkt.Coverage
+	}
 	oracle := strings.ToLower(strings.TrimSpace(req.OracleMode))
 	if oracle != "" {
 		out.Explain["oracle_mode"] = oracle

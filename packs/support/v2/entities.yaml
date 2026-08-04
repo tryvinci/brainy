@@ -1,4 +1,4 @@
-# Support v2 entity catalog (program §13.4). Not loaded by pack.Registry yet.
+# Support v2 entity catalog (program §13.4). Loaded by pack.LoadFile sidecar.
 entities:
   - { name: customer, primary_id: crm_customer_id }
   - { name: account, primary_id: account_id }

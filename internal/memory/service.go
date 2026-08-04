@@ -110,6 +110,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 	if err := validatePackMetadata(s.packs, req); err != nil {
 		return IngestResult{}, err
 	}
+	if err := s.validatePackStateTransition(ctx, req); err != nil {
+		return IngestResult{}, err
+	}
 
 	// Evidence Plane v2: capture raw messages before extraction.
 	_ = s.persistRawEvidence(ctx, req)
@@ -220,6 +223,12 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 
 func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncIngestResult, error) {
 	if err := validateIngestRequest(req); err != nil {
+		return AsyncIngestResult{}, err
+	}
+	if err := validatePackMetadata(s.packs, req); err != nil {
+		return AsyncIngestResult{}, err
+	}
+	if err := s.validatePackStateTransition(ctx, req); err != nil {
 		return AsyncIngestResult{}, err
 	}
 

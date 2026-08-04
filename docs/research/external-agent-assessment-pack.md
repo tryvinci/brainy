@@ -31,7 +31,9 @@ Brainy today is a **record-centric memory service mid-migration**. OpMem/vertica
 
 **Next sequence (do not fusion-retune first):** raw evidence → typed semantics → temporal truth → kill scan-heavy retrieval → plan evidence → executable packs.
 
-Verified debts (updated): FTS `ts_rank_cd` plumbed when available; **pgvector ANN pinned via additive `embedding_vec_768` (mig 18/19; legacy `vector(128)` retained)**; multi-hop gate tightened but subject scans remain; pack v2 YAML scaffolds not loaded by registry; `/recall` still not a typed planner.
+Verified debts (updated): FTS `ts_rank_cd` plumbed when available; **pgvector ANN pinned via additive `embedding_vec_768` (mig 18/19; legacy `vector(128)` retained)**; multi-hop gate tightened but subject scans remain; pack v2 YAML sidecars loaded by registry + support ticket FSM on ingest; `/recall` emits typed `query_plan` + `evidence_packet` (not a full tool-calling controller yet).
+
+**HNSW/re-embed catch-up:** backfill of hosted 768→`embedding_vec_768` is essentially done on staging; HNSW must reach `indisvalid=true` after any cancelled CONCURRENTLY build; hash/128 residue still needs hosted re-embed.
 
 ---
 
