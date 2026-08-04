@@ -110,22 +110,37 @@ func (p *Processor) persistEmbedding(ctx context.Context, record memory.MemoryRe
 }
 
 func (p *Processor) persistEntityLinks(ctx context.Context, record memory.MemoryRecord) {
-	linker, ok := p.store.(memory.EntityLinker)
-	if !ok {
-		return
-	}
-	ents := memory.ExtractEntities(record.Content + " " + record.SourceText)
-	if record.Metadata != nil {
-		if raw, ok := record.Metadata["entities"]; ok {
-			if list, ok := raw.([]string); ok && len(list) > 0 {
-				ents = list
+	if linker, ok := p.store.(memory.EntityLinker); ok {
+		ents := memory.ExtractEntities(record.Content + " " + record.SourceText)
+		if record.Metadata != nil {
+			if raw, ok := record.Metadata["entities"]; ok {
+				if list, ok := raw.([]string); ok && len(list) > 0 {
+					ents = list
+				}
 			}
 		}
+		if len(ents) > 0 {
+			_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
+		}
 	}
-	if len(ents) == 0 {
-		return
+
+	// Mirror Service.persistEntityLinks: typed extract must land on atoms for
+	// async LoCoMo/LME (default eval path), not only sync /ingest.
+	if indexer, ok := p.store.(memory.AtomIndexer); ok {
+		pred, _ := record.Explain["predicate"].(string)
+		val, _ := record.Explain["value_norm"].(string)
+		if pred == "" && record.Metadata != nil {
+			if v, ok := record.Metadata["predicate"].(string); ok {
+				pred = v
+			}
+			if v, ok := record.Metadata["value_norm"].(string); ok {
+				val = v
+			}
+		}
+		if pred != "" && val != "" {
+			_ = indexer.UpsertMemoryAtom(ctx, record.TenantID, record.SubjectID, pred, val, record.MemoryID, record.ObservedAt)
+		}
 	}
-	_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
 }
 
 func (p *Processor) persistEvidenceAndEvents(ctx context.Context, record memory.MemoryRecord) {

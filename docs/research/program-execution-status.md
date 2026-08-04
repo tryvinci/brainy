@@ -83,15 +83,21 @@ Landed this cycle:
 - Bounded embedding fallback (no unbounded `LoadEmbeddings` hot path)
 - Stricter multi-hop scan gate (ask + ≥3 bearing tokens)
 - Current-state projection after auto-supersede on sync ingest
-- Oracle modes: `evidence` operational; unsupported modes return `oracle_unsupported`
+- Oracle modes: `evidence`, `semantic`, `retrieval`, `coverage`, `reader` operational; unknown → `oracle_unsupported`
 - Failure ledger scaffolding under `docs/benchmarks/artifacts/failure-ledger/`
+- LoCoMo smoke `--failure-ledger` stage probes on WRONG/SKIPPED
 
-Still open (queued): typed extract v3, temporal resolver/`as_of`, executable packs v2, full LME adjudication (≥100), planner/evidence packets, remaining retrieval-store v3 (channel traces, OR/phrase FTS ablations, re-embed staging rows).
+## PR1 oracles + PR3 typed extract (2026-08-04)
+
+- Provider extract **v3 typed**: optional `subject` / `predicate` / `value` / `assertion_kind` slots → Explain → Metadata → `memory_atoms`
+- Async worker upserts typed atoms (closes LoCoMo/LME default-path gap vs sync ingest)
+- `ListAtomMemoryIDs` empty predicate = any current atoms (semantic oracle)
+- Still open: temporal resolver/`as_of`, executable packs v2, ≥100 LME adjudication, planner/evidence packets, HNSW catch-up / re-embed
 
 ## pgvector 768 ANN pin (2026-08-04)
 
 - Migration **18/19**: additive `embedding_vec_768 vector(768)` (legacy `embedding_vec vector(128)` retained — DROP/rewrite deadlocked staging)
-- Staging: mig 18/19 applied; API `c1874cb` live; hosted upsert/search use `embedding_vec_768`
+- Staging: mig 18/19 applied; API live; hosted upsert/search use `embedding_vec_768`
 - `EnsureEmbeddingVecIndex`: batched backfill + CONCURRENTLY HNSW (API background)
 - API/worker boot retries migrations instead of crash-looping on advisory-lock timeouts
 - Cloud Agent secrets include `BRAINY_EMBEDDING_*` (gateway probe from this pod may still 403)
