@@ -117,14 +117,66 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Answer = "oracle_unsupported"
 			return out, nil
 		case "semantic":
-			// Prefer atom-backed memories when available.
+			// Semantic-object-present: prefer atom-indexed memories; fall back to
+			// any active search hit as weak semantic presence.
+			atomCount := 0
+			if indexer, ok := s.store.(AtomIndexer); ok {
+				ids, err := indexer.ListAtomMemoryIDs(ctx, req.TenantID, req.SubjectID, "", "", topK)
+				if err == nil {
+					atomCount = len(ids)
+				}
+			}
 			out.Explain["oracle_semantic"] = true
-		case "reader", "retrieval", "coverage":
-			out.Explain["oracle_unsupported"] = true
-			out.AnswerStatus = AnswerInsufficient
-			out.Abstained = true
-			out.Answer = "oracle_unsupported"
+			out.Explain["oracle_atom_count"] = atomCount
+			out.Explain["oracle_memory_count"] = len(search.Results)
+			present := atomCount > 0 || len(search.Results) > 0
+			out.Coverage = map[string]any{"targets": 1, "satisfied": present, "oracle": "semantic"}
+			if !present {
+				out.AnswerStatus = AnswerNotFound
+				out.Abstained = true
+				out.Answer = "semantic_absent"
+				return out, nil
+			}
+			out.ContextBlock = assembleContextBlock(search.Results, budget)
+			out.AnswerStatus = AnswerSupported
+			out.Answer = firstStatement(search.Results)
 			return out, nil
+		case "retrieval":
+			out.Explain["oracle_retrieval"] = true
+			out.Explain["oracle_memory_count"] = len(search.Results)
+			out.Coverage = map[string]any{"targets": 1, "satisfied": len(search.Results) > 0, "oracle": "retrieval"}
+			if len(search.Results) == 0 {
+				out.AnswerStatus = AnswerNotFound
+				out.Abstained = true
+				out.Answer = "retrieval_miss"
+				return out, nil
+			}
+			out.ContextBlock = assembleContextBlock(search.Results, budget)
+			out.AnswerStatus = AnswerSupported
+			out.Answer = firstStatement(search.Results)
+			return out, nil
+		case "coverage":
+			items := s.enumerateFromSearch(ctx, req, search.Results)
+			out.Items = items
+			out.Explain["oracle_coverage"] = true
+			out.Explain["oracle_item_count"] = len(items)
+			satisfied := len(items) > 0
+			out.Coverage = map[string]any{"targets": 1, "satisfied": satisfied, "oracle": "coverage"}
+			if !satisfied {
+				out.AnswerStatus = AnswerInsufficient
+				out.Abstained = true
+				out.Answer = "coverage_miss"
+				return out, nil
+			}
+			out.ContextBlock = formatEnumerateContext(items)
+			out.AnswerStatus = AnswerSupported
+			out.Answer = out.ContextBlock
+			return out, nil
+		case "reader":
+			// Reader oracle = product answer path (same as mode=answer) but tagged.
+			out.Explain["oracle_reader"] = true
+			req.Mode = "answer"
+			mode = "answer"
 		default:
 			out.Explain["oracle_unsupported"] = true
 			out.AnswerStatus = AnswerInsufficient
