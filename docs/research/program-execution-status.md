@@ -92,7 +92,14 @@ Landed this cycle:
 - Provider extract **v3 typed**: optional `subject` / `predicate` / `value` / `assertion_kind` slots → Explain → Metadata → `memory_atoms`
 - Async worker upserts typed atoms (closes LoCoMo/LME default-path gap vs sync ingest)
 - `ListAtomMemoryIDs` empty predicate = any current atoms (semantic oracle)
-- Still open: temporal resolver/`as_of`, executable packs v2, ≥100 LME adjudication, planner/evidence packets, HNSW catch-up / re-embed
+- Still open: executable packs v2, ≥100 LME adjudication, planner/evidence packets, HNSW catch-up / re-embed
+
+## PR4 temporal resolver (2026-08-04)
+
+- Guarded `memory_current_state` projection: late-arriving older world-valid facts cannot blind-win
+- Typed reads: `GetStateAsOf`, `GetStateAsKnownAt`, `ListStateHistory` on atoms
+- `/recall` wires `view` / `as_of` / `include_historical` into temporal explain + answer when resolvable
+- Still open: pack-defined authority, full conflict packets, executable packs v2, planner, LME adjudication
 
 ## pgvector 768 ANN pin (2026-08-04)
 

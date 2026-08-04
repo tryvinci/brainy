@@ -215,7 +215,7 @@ Program detail: [sota-end-to-end-program.md](./sota-end-to-end-program.md) §24.
 | 6 Neutral proof | SOTA qualification | Smoke only; full multi-seed pending |
 | 7–8 Associative / learned policy | Research gates | Deferred |
 
-**Post–2026-08-04 review priority:** PR1 oracle ledger (**operational**) → PR2 raw evidence (**landed**) → PR3 typed extract (**v3 slots + async atoms**) → PR4 temporal resolver → PR5 retrieval store (**768-d pgvector landed**; traces/OR-FTS remain) → PR6 planner → PR7 executable packs.
+**Post–2026-08-04 review priority:** PR1 oracle ledger (**operational**) → PR2 raw evidence (**landed**) → PR3 typed extract (**v3 slots + async atoms**) → PR4 temporal resolver (**as_of / guarded current_state**) → PR5 retrieval store (**768-d pgvector landed**; traces/OR-FTS remain) → PR6 planner → PR7 executable packs.
 
 ---
 

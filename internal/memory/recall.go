@@ -86,11 +86,15 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	if req.View != "" {
 		out.Explain["view"] = req.View
 	}
+	asOfTime, asOfOK := ParseAsOf(req.AsOf)
 	if req.AsOf != "" {
-		// Wired for clients; full temporal resolver is PR4. Document honestly.
 		out.Explain["as_of"] = req.AsOf
-		out.Explain["as_of_applied"] = false
+		out.Explain["as_of_applied"] = asOfOK
+		if !asOfOK {
+			out.Explain["as_of_error"] = "unparseable"
+		}
 	}
+	s.applyTemporalResolution(ctx, req, &out, asOfTime, asOfOK)
 	oracle := strings.ToLower(strings.TrimSpace(req.OracleMode))
 	if oracle != "" {
 		out.Explain["oracle_mode"] = oracle
@@ -239,7 +243,120 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	}
 	out.Explain["memory_count"] = len(search.Results)
 	out.Explain["context_runes"] = utf8.RuneCountInString(out.ContextBlock)
+	if temporalAnswer, _ := out.Explain["temporal_answer"].(string); temporalAnswer != "" {
+		if mode == "answer" && (out.Abstained || out.AnswerStatus == AnswerPartiallySupported || strings.TrimSpace(out.Answer) == "" || strings.TrimSpace(out.Answer) == "not in memory") {
+			out.Answer = temporalAnswer
+			out.Abstained = false
+			out.AnswerStatus = AnswerSupported
+			out.Coverage = map[string]any{"targets": 1, "satisfied": true, "source": "temporal_resolver"}
+		}
+		if mode == "context" && out.ContextBlock == "" {
+			out.ContextBlock = temporalAnswer
+			out.Abstained = false
+			out.AnswerStatus = AnswerSupported
+		}
+	}
 	return out, nil
+}
+
+// applyTemporalResolution fills explain + optional temporal_answer from typed
+// current-state / as-of / history reads when the store supports TemporalStore.
+func (s *Service) applyTemporalResolution(ctx context.Context, req RecallRequest, out *RecallResponse, asOf time.Time, asOfOK bool) {
+	ts, ok := s.store.(TemporalStore)
+	if !ok {
+		// CurrentStateStore alone still helps view=current.
+		if cs, ok := s.store.(CurrentStateStore); ok {
+			s.applyCurrentStateOnly(ctx, req, out, cs)
+		}
+		return
+	}
+	view := strings.ToLower(strings.TrimSpace(req.View))
+	wantCurrent := view == "current" || view == "" && hasIntent(out.Intents, IntentCurrentState)
+	wantHistory := req.IncludeHistorical || view == "historical" || view == "all" || hasIntent(out.Intents, IntentHistoricalState) || hasIntent(out.Intents, IntentTemporalSequence)
+	preds := predicateHintsFromQuery(req.Query)
+	resolved := make([]map[string]any, 0, len(preds))
+	var answerParts []string
+
+	for _, pred := range preds {
+		entry := map[string]any{"predicate": pred}
+		switch {
+		case asOfOK && strings.EqualFold(view, "as_known_at"):
+			id, val, found, _ := ts.GetStateAsKnownAt(ctx, req.TenantID, req.SubjectID, pred, asOf)
+			entry["mode"] = "as_known_at"
+			if found {
+				entry["memory_id"] = id
+				entry["value"] = val
+				answerParts = append(answerParts, pred+": "+val)
+			}
+		case asOfOK:
+			id, val, found, _ := ts.GetStateAsOf(ctx, req.TenantID, req.SubjectID, pred, asOf)
+			entry["mode"] = "as_of"
+			if found {
+				entry["memory_id"] = id
+				entry["value"] = val
+				answerParts = append(answerParts, pred+": "+val)
+			}
+		case wantCurrent || view == "current":
+			id, val, policy, found, _ := ts.GetCurrentState(ctx, req.TenantID, req.SubjectID, pred)
+			entry["mode"] = "current"
+			entry["policy"] = policy
+			if found {
+				entry["memory_id"] = id
+				entry["value"] = val
+				answerParts = append(answerParts, pred+": "+val)
+			}
+		}
+		if wantHistory {
+			hist, err := ts.ListStateHistory(ctx, req.TenantID, req.SubjectID, pred, 8)
+			if err == nil && len(hist) > 0 {
+				entry["history"] = hist
+			}
+		}
+		if entry["value"] != nil || entry["history"] != nil {
+			resolved = append(resolved, entry)
+		}
+	}
+	if len(resolved) > 0 {
+		out.Explain["temporal"] = resolved
+		out.Explain["temporal_applied"] = true
+	}
+	if len(answerParts) > 0 {
+		out.Explain["temporal_answer"] = strings.Join(answerParts, "; ")
+	}
+}
+
+func (s *Service) applyCurrentStateOnly(ctx context.Context, req RecallRequest, out *RecallResponse, cs CurrentStateStore) {
+	view := strings.ToLower(strings.TrimSpace(req.View))
+	if view != "current" && !hasIntent(out.Intents, IntentCurrentState) {
+		return
+	}
+	preds := predicateHintsFromQuery(req.Query)
+	resolved := make([]map[string]any, 0, len(preds))
+	var parts []string
+	for _, pred := range preds {
+		id, val, policy, found, _ := cs.GetCurrentState(ctx, req.TenantID, req.SubjectID, pred)
+		if !found {
+			continue
+		}
+		resolved = append(resolved, map[string]any{
+			"predicate": pred, "memory_id": id, "value": val, "policy": policy, "mode": "current",
+		})
+		parts = append(parts, pred+": "+val)
+	}
+	if len(resolved) > 0 {
+		out.Explain["temporal"] = resolved
+		out.Explain["temporal_applied"] = true
+		out.Explain["temporal_answer"] = strings.Join(parts, "; ")
+	}
+}
+
+func hasIntent(intents []string, want string) bool {
+	for _, i := range intents {
+		if i == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, results []SearchResult) []RecallItem {
