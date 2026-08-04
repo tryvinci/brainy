@@ -468,13 +468,30 @@ SELECT EXISTS (
 		return
 	}
 
-	_, _ = s.pool.Exec(ctx, `
+	// Batched backfill — full-table UPDATE on staging OOMs/starves the
+	// basic Postgres plan for many minutes and blocks concurrent DDL.
+	for {
+		tag, err := s.pool.Exec(ctx, `
 UPDATE memory_embeddings
 SET embedding_vec_768 = embedding::vector(768)
-WHERE embedding_vec_768 IS NULL
-  AND embedding IS NOT NULL
-  AND cardinality(embedding) = 768
+WHERE memory_id IN (
+  SELECT memory_id
+  FROM memory_embeddings
+  WHERE embedding_vec_768 IS NULL
+    AND embedding IS NOT NULL
+    AND cardinality(embedding) = 768
+  LIMIT 500
+)
 `)
+		if err != nil || tag.RowsAffected() == 0 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+	}
 
 	_, _ = s.pool.Exec(ctx, `
 DO $$
