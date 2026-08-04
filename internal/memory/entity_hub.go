@@ -86,6 +86,11 @@ type AtomIndexer interface {
 	ListAtomMemoryIDs(ctx context.Context, tenantID, subjectID, predicate, valueNorm string, limit int) ([]string, error)
 }
 
+// AtomRetirer retires superseded state atoms (bitemporal valid_to / retired_at).
+type AtomRetirer interface {
+	RetireMemoryAtom(ctx context.Context, tenantID, subjectID, predicate, value, memoryID string, endedAt *time.Time) error
+}
+
 func (s *Service) entityHubBoostMap(ctx context.Context, tenantID, subjectID, query string) map[string]float64 {
 	linker, ok := s.store.(EntityLinker)
 	if !ok {

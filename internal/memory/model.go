@@ -162,6 +162,7 @@ type SearchOptions struct {
 
 type SearchResponse struct {
 	Results []SearchResult `json:"results"`
+	Trace   *SearchTrace   `json:"trace,omitempty"`
 }
 
 type MutationResult struct {

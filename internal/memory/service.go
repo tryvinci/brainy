@@ -136,6 +136,8 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		}
 		s.persistEmbedding(ctx, upserted.Record)
 		s.persistEntityLinks(ctx, upserted.Record)
+		s.persistEvidenceShadow(ctx, upserted.Record)
+		s.persistEventIfApplicable(ctx, upserted.Record)
 		_ = s.autoSupersedePriorState(ctx, upserted.Record)
 		if err := s.applyIngestSupersession(ctx, upserted.Record); err != nil {
 			return IngestResult{}, err
@@ -186,6 +188,8 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		}
 		s.persistEmbedding(ctx, upserted.Record)
 		s.persistEntityLinks(ctx, upserted.Record)
+		s.persistEvidenceShadow(ctx, upserted.Record)
+		s.persistEventIfApplicable(ctx, upserted.Record)
 		switch upserted.State {
 		case "created":
 			result.Created++
@@ -268,6 +272,14 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 
 	includeSuperseded := opts.IncludeHistorical
+	fusionV2 := FusionV2Enabled()
+	intents := AnalyzeQueryIntents(query)
+	overfetch := CandidateOverfetch(opts.Limit)
+	trace := &SearchTrace{
+		CandidateOverfetch: overfetch,
+		FusionV2:           fusionV2,
+		Intents:            intents,
+	}
 
 	// Lexical search and dense scoring run in parallel — same signals, lower p95.
 	var (
@@ -279,7 +291,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		memories, lexErr = s.store.SearchMemories(ctx, tenantID, subjectID, patterns, 100, includeSuperseded)
+		memories, lexErr = s.store.SearchMemories(ctx, tenantID, subjectID, patterns, overfetch, includeSuperseded)
 	}()
 	go func() {
 		defer wg.Done()
@@ -290,19 +302,42 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	if lexErr != nil {
 		return SearchResponse{}, lexErr
 	}
+	trace.LexicalHits = len(memories)
 
-	// One subject corpus listing reused for preference fill, dense admit,
-	// session expansion, and subject-content bridging.
+	// Bounded subject corpus for multi-hop / subject-bridge / preference fill.
+	// Prefer ListMemoriesLimited to avoid unbounded hot-path full scans (Phase 1).
 	var allMemories []MemoryRecord
-	needAll := len(embedScores) > 0 || looksMultiHopQuery(queryTokens) ||
+	listQuery := looksListQuery(queryTokens)
+	needCorpus := looksMultiHopQuery(queryTokens) ||
 		(len(memories) < 10 && hasResponseKeyword(queryTokens)) ||
-		len(nameLikeTokens(contentQueryTokens)) > 0
-	if needAll {
-		listed, err := s.store.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+		len(nameLikeTokens(contentQueryTokens)) > 0 ||
+		listQuery
+	if needCorpus {
+		listed, err := s.listSubjectCorpus(ctx, tenantID, subjectID, includeSuperseded, 400)
 		if err != nil {
 			return SearchResponse{}, err
 		}
 		allMemories = listed
+		trace.ListedSubject = true
+	}
+	// Dense admit: fetch only high-similarity IDs via GetMemory when no corpus.
+	if len(embedScores) > 0 && len(allMemories) == 0 {
+		for memID, score := range embedScores {
+			if score < 0.15 {
+				continue
+			}
+			rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID)
+			if err != nil || (rec.Status != "" && rec.Status != StatusActive) {
+				continue
+			}
+			if !includeSuperseded && !IsLifecycleSearchVisible(rec.LifecycleState) {
+				continue
+			}
+			allMemories = append(allMemories, rec)
+			if len(allMemories) >= 48 {
+				break
+			}
+		}
 	}
 
 	if len(memories) < 10 && hasResponseKeyword(queryTokens) {
@@ -323,44 +358,52 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	for _, record := range memories {
 		candidates[record.MemoryID] = record
 	}
+	denseAdmitted := 0
 	if len(embedScores) > 0 {
 		for _, record := range allMemories {
 			if score := embedScores[record.MemoryID]; score >= 0.15 {
 				if _, ok := candidates[record.MemoryID]; !ok {
 					candidates[record.MemoryID] = record
+					denseAdmitted++
 				}
 			}
 		}
 	}
+	trace.DenseAdmitted = denseAdmitted
 
 	// Mem0-style entity hub: admit memories linked to query entities even when
 	// they lack surface-verb overlap (multi-hop attribute recall).
 	hubBoosts := s.entityHubBoostMap(ctx, tenantID, subjectID, query)
-	if len(hubBoosts) > 0 && len(allMemories) > 0 {
-		byID := make(map[string]MemoryRecord, len(allMemories))
-		for _, record := range allMemories {
-			byID[record.MemoryID] = record
-		}
+	if len(hubBoosts) > 0 {
+		byID := indexMemoriesByID(allMemories)
 		admitted := 0
 		for memID := range hubBoosts {
 			if _, ok := candidates[memID]; ok {
 				continue
 			}
-			if record, ok := byID[memID]; ok {
-				candidates[memID] = record
-				admitted++
-				if admitted >= 24 {
-					break
+			var record MemoryRecord
+			var ok bool
+			if record, ok = byID[memID]; !ok {
+				fetched, err := s.store.GetMemory(ctx, tenantID, subjectID, memID)
+				if err != nil {
+					continue
 				}
+				record = fetched
+			}
+			if admitRecord(candidates, record, includeSuperseded) {
+				admitted++
+			}
+			if admitted >= 24 {
+				break
 			}
 		}
+		trace.EntityHubAdmitted = admitted
 	}
 
 	// Subject-content bridge: admit content-dense memories that mention a
 	// queried person/topic even when they lack the question's surface verbs.
 	// List-shaped queries get a larger, diversity-aware admit set so multi-fact
 	// answers are not starved by one dense theme.
-	listQuery := looksListQuery(queryTokens)
 	if len(allMemories) > 0 {
 		subLimit := 20
 		if listQuery {
@@ -374,18 +417,26 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			if pred := predicateFromListQuery(queryTokens); pred != "" {
 				ids, err := indexer.ListAtomMemoryIDs(ctx, tenantID, subjectID, pred, "", 40)
 				if err == nil && len(ids) > 0 {
-					byID := make(map[string]MemoryRecord, len(allMemories))
-					for _, record := range allMemories {
-						byID[record.MemoryID] = record
-					}
+					byID := indexMemoriesByID(allMemories)
+					atomAdmitted := 0
 					for _, id := range ids {
 						if _, ok := candidates[id]; ok {
 							continue
 						}
-						if record, ok := byID[id]; ok {
-							candidates[id] = record
+						var record MemoryRecord
+						var ok bool
+						if record, ok = byID[id]; !ok {
+							fetched, err := s.store.GetMemory(ctx, tenantID, subjectID, id)
+							if err != nil {
+								continue
+							}
+							record = fetched
+						}
+						if admitRecord(candidates, record, includeSuperseded) {
+							atomAdmitted++
 						}
 					}
+					trace.AtomScanAdmitted = atomAdmitted
 				}
 			}
 		}
@@ -471,6 +522,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	ranked := make([]rankedSearchResult, 0, len(candidates))
 	entitiesByID := make(map[string][]string, len(candidates))
 	for _, record := range candidates {
+		if record.Status != "" && record.Status != StatusActive {
+			continue
+		}
 		if includeSuperseded {
 			if record.LifecycleState == LifecycleArchived || record.LifecycleState == LifecycleSuppressed {
 				continue
@@ -490,13 +544,35 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if explain == nil {
 			explain = map[string]any{}
 		}
-		// Calibrated semantic + Mem0-style entity-hub boost, fused additively.
+		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
 		if hubBoosts != nil {
 			hub = hubBoosts[record.MemoryID]
 		}
-		if score > 0 || embedScore >= 0.15 || hub > 0 {
+		if fusionV2 {
+			// Lexical coverage as BM25-like [0,1]; fuse with ScoreAndRankV2.
+			bm25 := 0.0
+			if cov, ok := explain["coverage"].(float64); ok {
+				bm25 = cov
+			} else if score > 0 {
+				bm25 = math.Min(score/3.0, 1.0)
+			}
+			combined, parts := ScoreAndRankV2(embedScore, bm25, hub, 0.12)
+			if combined <= 0 && score <= 0 {
+				continue
+			}
+			if combined > 0 {
+				// Rescale into Brainy score units so downstream boosts stay calibrated.
+				score = math.Max(score, 1.0) * (0.35 + 0.65*combined)
+				for k, v := range parts {
+					explain["signal_"+k] = v
+				}
+				explain["fusion"] = "v2"
+			} else if score <= 0 {
+				continue
+			}
+		} else if score > 0 || embedScore >= 0.15 || hub > 0 {
 			if score <= 0 && embedScore >= 0.15 {
 				score = embedScore * 0.9
 				explain["ranking_basis"] = "hybrid_embedding"
@@ -565,13 +641,14 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		return ranked[i].result.Score > ranked[j].result.Score
 	})
 
-	// List questions only: reorder so top results cover distinct content tokens
-	// (MMR-style). Do not diversify all multi-hop — that fights recency/preference.
-	if listQuery {
-		ranked = diversifyByContentTokens(ranked, 32)
-	}
-
-	if opts.Limit > 0 && len(ranked) > opts.Limit {
+	// List / multi-hop: evidence-set selection (coverage-aware) instead of flat top-k.
+	if listQuery || looksMultiHopQuery(queryTokens) {
+		limit := opts.Limit
+		if limit <= 0 {
+			limit = 32
+		}
+		ranked = selectEvidenceSet(ranked, limit)
+	} else if opts.Limit > 0 && len(ranked) > opts.Limit {
 		ranked = ranked[:opts.Limit]
 	}
 
@@ -580,7 +657,58 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		results[i] = item.result
 	}
 
-	return SearchResponse{Results: results}, nil
+	return SearchResponse{Results: results, Trace: trace}, nil
+}
+
+func admitRecord(candidates map[string]MemoryRecord, record MemoryRecord, includeSuperseded bool) bool {
+	if record.MemoryID == "" {
+		return false
+	}
+	if _, ok := candidates[record.MemoryID]; ok {
+		return false
+	}
+	if record.Status != "" && record.Status != StatusActive {
+		return false
+	}
+	if includeSuperseded {
+		if record.LifecycleState == LifecycleArchived || record.LifecycleState == LifecycleSuppressed {
+			return false
+		}
+	} else if !IsLifecycleSearchVisible(record.LifecycleState) {
+		return false
+	}
+	candidates[record.MemoryID] = record
+	return true
+}
+
+func indexMemoriesByID(records []MemoryRecord) map[string]MemoryRecord {
+	out := make(map[string]MemoryRecord, len(records))
+	for _, r := range records {
+		out[r.MemoryID] = r
+	}
+	return out
+}
+
+// LimitedSubjectLister caps hot-path subject scans (Phase 1 / MEM-015).
+type LimitedSubjectLister interface {
+	ListMemoriesLimited(ctx context.Context, tenantID, subjectID string, includeSuperseded bool, limit int) ([]MemoryRecord, error)
+}
+
+func (s *Service) listSubjectCorpus(ctx context.Context, tenantID, subjectID string, includeSuperseded bool, limit int) ([]MemoryRecord, error) {
+	if limit <= 0 {
+		limit = 400
+	}
+	if limited, ok := s.store.(LimitedSubjectLister); ok {
+		return limited.ListMemoriesLimited(ctx, tenantID, subjectID, includeSuperseded, limit)
+	}
+	all, err := s.store.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+	if err != nil {
+		return nil, err
+	}
+	if len(all) > limit {
+		return all[:limit], nil
+	}
+	return all, nil
 }
 
 func sessionIDOf(record MemoryRecord) string {
@@ -1214,9 +1342,7 @@ func (s *Service) autoSupersedePriorState(ctx context.Context, record MemoryReco
 		return nil
 	}
 	// Only auto-supersede stateful predicates (not events/media lists).
-	switch pred {
-	case PredicateRelationshipStatus, PredicateResidence, PredicateOccupation, PredicateIdentity:
-	default:
+	if !IsStatefulPredicate(pred) {
 		return nil
 	}
 	indexer, ok := s.store.(AtomIndexer)
@@ -1244,6 +1370,9 @@ func (s *Service) autoSupersedePriorState(ctx context.Context, record MemoryReco
 			continue
 		}
 		_ = s.store.MarkSuperseded(ctx, record.TenantID, record.SubjectID, id)
+		if retirer, ok := indexer.(AtomRetirer); ok {
+			_ = retirer.RetireMemoryAtom(ctx, record.TenantID, record.SubjectID, pred, pval, id, record.ObservedAt)
+		}
 	}
 	return nil
 }
@@ -1377,6 +1506,7 @@ func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights 
 	explain := map[string]any{
 		"matched_terms": matched,
 		"ranking_basis": "deterministic_baseline",
+		"coverage":      score,
 	}
 	if len(idf) > 0 {
 		explain["ranking_basis"] = "idf_weighted"
