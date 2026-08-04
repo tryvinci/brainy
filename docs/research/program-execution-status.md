@@ -90,10 +90,9 @@ Still open (queued): typed extract v3, temporal resolver/`as_of`, executable pac
 
 ## pgvector 768 ANN pin (2026-08-04)
 
-- Migration **18**: column swap to `embedding_vec vector(768)` only (boot-safe)
-- `EnsureEmbeddingVecIndex`: async backfill of 768-d `REAL[]` → `embedding_vec` + `CREATE INDEX CONCURRENTLY` HNSW (API background; not worker)
-- First staging deploy of HNSW-in-migration timed out at 120s boot (`update_failed`); bootsafe follow-up required
-- Hosted 768-d vectors write into pgvector; local hash **128-d** stays float[]-only (tests/CI)
+- Migration **18**: **additive** `embedding_vec_768 vector(768)` (no DROP of legacy `embedding_vec` — DROP/rewrite timed out under boot lock on staging)
+- `EnsureEmbeddingVecIndex`: async backfill + `CREATE INDEX CONCURRENTLY` on `embedding_vec_768`
+- Upsert/search hosted path writes/queries `embedding_vec_768`; hash/128 stays float[] (+ legacy `embedding_vec`)
 - Cloud Agent secrets include `BRAINY_EMBEDDING_*` (gateway probe from this pod may still 403)
-- After deploy: re-embed rows that only have 128-d hash vectors so `embedding_vec` populates
+- After deploy: re-embed hash-only rows under hosted model so `embedding_vec_768` populates
 

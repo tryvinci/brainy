@@ -41,7 +41,7 @@ UPDATE memory_records SET embedding = $2 WHERE memory_id = $1
 		return err
 	}
 
-	// pgvector ANN is pinned to the hosted embedder dim; hash/128 stays on float[] only.
+	// pgvector ANN uses embedding_vec_768 for hosted dims; hash/128 stays on float[] / legacy embedding_vec.
 	if len(floats) != embedding.ProviderDim {
 		return nil
 	}
@@ -55,11 +55,11 @@ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
 
 	_, _ = s.pool.Exec(ctx, `
 UPDATE memory_embeddings
-SET embedding_vec = $2::vector(768)
+SET embedding_vec_768 = $2::vector(768)
 WHERE memory_id = $1
   AND EXISTS (
     SELECT 1 FROM information_schema.columns
-    WHERE table_name = 'memory_embeddings' AND column_name = 'embedding_vec'
+    WHERE table_name = 'memory_embeddings' AND column_name = 'embedding_vec_768'
   )
 `, memoryID, vectorLiteral(floats))
 	return nil
@@ -123,13 +123,13 @@ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
 	out := map[string]float64{}
 	if hasVector && len(query) == embedding.ProviderDim {
 		rows, err := s.pool.Query(ctx, `
-SELECT e.memory_id, 1 - (e.embedding_vec <=> $3::vector(768)) AS similarity
+SELECT e.memory_id, 1 - (e.embedding_vec_768 <=> $3::vector(768)) AS similarity
 FROM memory_embeddings e
 JOIN memory_records m ON m.memory_id = e.memory_id
 WHERE e.tenant_id = $1 AND e.subject_id = $2
   AND m.status = 'active'
-  AND e.embedding_vec IS NOT NULL
-ORDER BY e.embedding_vec <=> $3::vector(768)
+  AND e.embedding_vec_768 IS NOT NULL
+ORDER BY e.embedding_vec_768 <=> $3::vector(768)
 LIMIT $4
 `, tenantID, subjectID, vectorLiteral(floats), limit)
 		if err == nil {
