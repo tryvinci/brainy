@@ -125,3 +125,9 @@ Staging Render API+worker already stay up for multi-hour LoCoMo/LME runs; no spe
 - Pack registry loads v2 sidecars `entities.yaml` + `state-machines.yaml`; prefers higher pack version for the same id
 - Support ticket FSM enforced on ingest (`label=ticket_state` + `metadata.status`, prior status from same `ticket_id` or `from_status`)
 
+### Overnight proof (started 2026-08-04)
+
+- Staging Render API+worker auto-deployed `3eb67c4` from `dev` (planner/packs live; `/recall` returns `query_plan` + `evidence_packet`)
+- HNSW `CREATE INDEX CONCURRENTLY` rebuild running on staging (~494k rows); leave until `indisvalid=true`
+- LoCoMo smoke with `--failure-ledger` + stratified LME-100 started against staging (async ingest); Mem0 key available for later same-pin compare
+
