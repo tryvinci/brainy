@@ -6,7 +6,11 @@ import (
 	"strings"
 )
 
+// Dim is the local hash embedder size (unit tests / CI without a hosted model).
 const Dim = 128
+
+// ProviderDim is the pinned hosted embedder size (bge-base-en-v1.5 → pgvector ANN).
+const ProviderDim = 768
 
 var synonymGroups = [][]string{
 	// Product / marketing paraphrase helpers only (W3.1: no LOCOMO vocabulary).

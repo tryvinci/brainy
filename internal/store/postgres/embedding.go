@@ -6,6 +6,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"brainy/internal/embedding"
 )
 
 type scoredMemory struct {
@@ -39,8 +41,8 @@ UPDATE memory_records SET embedding = $2 WHERE memory_id = $1
 		return err
 	}
 
-	// pgvector column is vector(128) for the local hash path only.
-	if len(floats) != 128 {
+	// pgvector ANN is pinned to the hosted embedder dim; hash/128 stays on float[] only.
+	if len(floats) != embedding.ProviderDim {
 		return nil
 	}
 
@@ -53,7 +55,7 @@ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
 
 	_, _ = s.pool.Exec(ctx, `
 UPDATE memory_embeddings
-SET embedding_vec = $2::vector(128)
+SET embedding_vec = $2::vector(768)
 WHERE memory_id = $1
   AND EXISTS (
     SELECT 1 FROM information_schema.columns
@@ -119,15 +121,15 @@ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
 	}
 
 	out := map[string]float64{}
-	if hasVector && len(query) == 128 {
+	if hasVector && len(query) == embedding.ProviderDim {
 		rows, err := s.pool.Query(ctx, `
-SELECT e.memory_id, 1 - (e.embedding_vec <=> $3::vector) AS similarity
+SELECT e.memory_id, 1 - (e.embedding_vec <=> $3::vector(768)) AS similarity
 FROM memory_embeddings e
 JOIN memory_records m ON m.memory_id = e.memory_id
 WHERE e.tenant_id = $1 AND e.subject_id = $2
   AND m.status = 'active'
   AND e.embedding_vec IS NOT NULL
-ORDER BY e.embedding_vec <=> $3::vector
+ORDER BY e.embedding_vec <=> $3::vector(768)
 LIMIT $4
 `, tenantID, subjectID, vectorLiteral(floats), limit)
 		if err == nil {
