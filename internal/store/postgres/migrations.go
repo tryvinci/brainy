@@ -451,6 +451,9 @@ ON memory_records USING GIN (content_tsv);
 
 // EnsureEmbeddingVecIndex backfills hosted 768-d vectors into
 // embedding_vec_768 and builds HNSW outside the boot migration txn.
+//
+// CREATE INDEX CONCURRENTLY must not inherit short boot/deploy timeouts —
+// cancelling mid-build leaves an INVALID index that ANN cannot use.
 func (s *Store) EnsureEmbeddingVecIndex(ctx context.Context) {
 	var hasVector bool
 	if err := s.pool.QueryRow(ctx, `
@@ -470,6 +473,8 @@ SELECT EXISTS (
 
 	// Batched backfill — full-table UPDATE on staging OOMs/starves the
 	// basic Postgres plan for many minutes and blocks concurrent DDL.
+	// Only copies already-hosted 768-d float[] → vector(768). Hash/128
+	// rows need a separate hosted re-embed of memory_records.content.
 	for {
 		tag, err := s.pool.Exec(ctx, `
 UPDATE memory_embeddings
@@ -493,6 +498,32 @@ WHERE memory_id IN (
 		}
 	}
 
+	var valid bool
+	_ = s.pool.QueryRow(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM pg_class c
+  JOIN pg_index i ON i.indexrelid = c.oid
+  WHERE c.relname = 'memory_embeddings_vec_768_hnsw' AND i.indisvalid
+)
+`).Scan(&valid)
+	if valid {
+		return
+	}
+
+	var building bool
+	_ = s.pool.QueryRow(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM pg_stat_activity
+  WHERE pid <> pg_backend_pid()
+    AND query ILIKE '%CREATE INDEX%CONCURRENTLY%memory_embeddings_vec_768_hnsw%'
+)
+`).Scan(&building)
+	if building {
+		return
+	}
+
+	// Drop INVALID leftovers from cancelled concurrent builds, then rebuild
+	// with an uncancellable context so deploy SIGTERM/timeouts cannot flap.
 	_, _ = s.pool.Exec(ctx, `
 DO $$
 BEGIN
@@ -505,7 +536,8 @@ BEGIN
   END IF;
 END $$;
 `)
-	_, _ = s.pool.Exec(ctx, `
+	ddlCtx := context.WithoutCancel(ctx)
+	_, _ = s.pool.Exec(ddlCtx, `
 CREATE INDEX CONCURRENTLY IF NOT EXISTS memory_embeddings_vec_768_hnsw
 ON memory_embeddings USING hnsw (embedding_vec_768 vector_cosine_ops);
 `)

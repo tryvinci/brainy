@@ -305,7 +305,7 @@ flowchart LR
 6. `internal/store/postgres/migrations.go` (v12–v18; evidence v2 + pgvector 768)  
 7. One vertical pack: `packs/support/v2/` and `fixtures/vertical/support/`  
 
-**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; hash/128 is tests-only. Packs v2 still scaffold-only. `/recall` is not a planner.
+**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; hash/128 is tests-only residue needing re-embed. Packs v2 sidecars + support ticket FSM load at registry time. `/recall` emits typed query_plan + evidence_packet (not a full tool controller).
 ---
 
 ## 10. Non-goals / traps for reviewers
