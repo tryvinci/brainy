@@ -1,9 +1,14 @@
 # Brainy: State of the System, Gaps, and Path to SOTA Memory
 
 **Audience:** External technical reviewers  
-**Date:** 2026-08-01  
-**Purpose:** Self-contained briefing on what Brainy is today, what we have measured, which gaps matter, and the proposed roadmap to competitive conversational memory **and** leadership in vertical / operational memory.  
-**Related:** [master-plan.md](./master-plan.md) (program of record), [master-plan-execution-status.md](./master-plan-execution-status.md) (latest measured numbers)
+**Date:** 2026-08-01 (measurements); **handoff pack refreshed 2026-08-04**  
+**Purpose:** Self-contained briefing on what Brainy is today, what we have measured, which gaps matter, and the proposed roadmap to competitive conversational memory **and** leadership in vertical / operational memory.
+
+> **Prefer this handoff for new external agents (2026-08-04):**  
+> **[external-agent-assessment-pack.md](./external-agent-assessment-pack.md)** + **[codebase-graph.md](./codebase-graph.md)** + **[codebase-graph.json](./codebase-graph.json)**  
+> Program of record: [sota-end-to-end-program.md](./sota-end-to-end-program.md) · Status: [program-execution-status.md](./program-execution-status.md)
+
+**Related (historical):** [master-plan.md](./master-plan.md), [master-plan-execution-status.md](./master-plan-execution-status.md)
 
 ---
 
@@ -283,18 +288,25 @@ We would especially value feedback on:
 
 ## 9. Appendix — quick file map for reviewers
 
+> **Superseded by the full graph:** [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)  
+> **Single handoff:** [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)
+
 ```
 internal/memory/service.go          # search, ranking, supersession
+internal/memory/fusion_v2.go        # default-on Fusion V2
 internal/memory/recall.go           # POST /recall
 internal/memory/attribute_atoms.go  # deterministic typed atoms
 internal/memory/provider_extractor.go
 internal/memory/entity_hub.go       # fusion helpers + entity links
+internal/memory/evidence_plane.go   # shadow evidence + events wiring
 internal/memory/predicates.go
-internal/memory/vertical.go
-internal/store/postgres/{store,atoms,entity_hub,migrations}.go
-packs/{marketing,support}/v1/pack.yaml
+internal/memory/predicate_policy.go
+internal/memory/trace.go            # intents + failure taxonomy
+internal/store/postgres/{store,atoms,entity_hub,events,migrations}.go
+packs/{marketing,support}/v{1,2}/
 evals/public/{locomo,longmemeval,beam}/
-docs/research/master-plan.md
+docs/research/sota-end-to-end-program.md
+docs/research/external-agent-assessment-pack.md
 docs/benchmarks/artifacts/          # measured run reports
 ```
 
@@ -304,13 +316,15 @@ docs/benchmarks/artifacts/          # measured run reports
 # OpMem
 python3 evals/run_opmem.py --systems brainy --base-url "$BRAINY_BASE_URL"
 
-# Marketing vertical
-python3 evals/run_marketing_mvp_benchmark.py --base-url "$BRAINY_BASE_URL" --systems brainy,mem0
+# Marketing / support vertical
+python3 evals/run_vertical_eval.py --base-url "$BRAINY_BASE_URL" \
+  --fixture-dir fixtures/vertical/marketing
 
-# Full LoCoMo (publish stack)
-cd evals && python -m public.locomo.run_full --conversations 10 --seeds 3 --top-k 50
+# LoCoMo smoke
+python3 evals/public/locomo/run_smoke.py --base-url "$BRAINY_BASE_URL" \
+  --conversations 2 --questions 30
 ```
 
 ---
 
-*Document prepared for external technical review. Numbers are from Brainy’s publish-stack runs as of 2026-08-01; competitor headline scores are cited from public materials and may use different judges, budgets, and model stacks.*
+*Document prepared for external technical review. Prefer the 2026-08-04 assessment pack for agent handoff. Numbers in §3 may lag [program-execution-status.md](./program-execution-status.md).*
