@@ -2,6 +2,8 @@ package jobs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -78,6 +80,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		}
 		p.persistEmbedding(ctx, upserted.Record)
 		p.persistEntityLinks(ctx, upserted.Record)
+		p.persistEvidenceAndEvents(ctx, upserted.Record)
 	}
 
 	if err := p.store.CompleteExtractionJob(ctx, job.JobID, job.IngestID); err != nil {
@@ -123,4 +126,38 @@ func (p *Processor) persistEntityLinks(ctx context.Context, record memory.Memory
 		return
 	}
 	_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
+}
+
+func (p *Processor) persistEvidenceAndEvents(ctx context.Context, record memory.MemoryRecord) {
+	if writer, ok := p.store.(memory.EvidenceWriter); ok {
+		srcType := "conversation"
+		session := ""
+		if record.Metadata != nil {
+			if v, ok := record.Metadata["source_type"].(string); ok && v != "" {
+				srcType = v
+			}
+			if v, ok := record.Metadata["session_id"].(string); ok {
+				session = v
+			}
+		}
+		_ = writer.ShadowWriteEvidence(ctx, record.TenantID, record.SubjectID, srcType, record.MemoryID, session, record.Content, record.MemoryID, record.ObservedAt, record.Metadata)
+	}
+	if writer, ok := p.store.(memory.EventWriter); ok && record.Metadata != nil {
+		pred, _ := record.Metadata["predicate"].(string)
+		val, _ := record.Metadata["value_norm"].(string)
+		if pred == "" {
+			return
+		}
+		if memory.IsStatefulPredicate(pred) && val != "" {
+			if cs, ok := p.store.(memory.CurrentStateStore); ok {
+				_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, pred, record.MemoryID, val, string(memory.PredicatePolicy(pred)))
+			}
+			return
+		}
+		if memory.PredicatePolicy(pred) == memory.PolicyAppendOnlyEvent || pred == memory.PredicateEvent || pred == memory.PredicateActivity {
+			sum := sha256.Sum256([]byte(record.TenantID + pred + val + record.MemoryID))
+			eventID := "evt_" + hex.EncodeToString(sum[:12])
+			_ = writer.UpsertMemoryEvent(ctx, record.TenantID, record.SubjectID, eventID, pred, val, record.Content, record.MemoryID, "", record.ObservedAt, record.Confidence, memory.ExtractEntities(record.Content))
+		}
+	}
 }
