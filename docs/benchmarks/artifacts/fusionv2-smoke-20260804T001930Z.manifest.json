@@ -1,0 +1,27 @@
+{
+  "framework": "brainy/evals/public",
+  "framework_version": "0.1.0",
+  "benchmark": "locomo-smoke",
+  "dataset_url": "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json",
+  "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "dataset_path": "/workspace/datasets/locomo/locomo10.json",
+  "brainy_url": "[REDACTED]",
+  "brainy_commit": "631a2934069ee3a779f6273798d154d742183fa4",
+  "answerer_model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+  "judge_model": "[REDACTED]@https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+  "judge_temperature": 0.0,
+  "top_k": 30,
+  "conversation_limit": 1,
+  "question_limit": 20,
+  "scored_categories": [
+    1,
+    2,
+    3,
+    4
+  ],
+  "notes": "Smoke run \u2014 not full LOCOMO. lexical judge is not publishable J-score.",
+  "extras": {
+    "llm_base_url": "https://gateway.ai.cloudflare.com/v1/[REDACTED]",
+    "ingest_mode": "async"
+  }
+}
