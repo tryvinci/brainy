@@ -63,6 +63,57 @@ func TestProviderExtractorParsesStructuredMemories(t *testing.T) {
 	}
 }
 
+func TestProviderExtractorParsesTypedSlotsV3(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"memories":[{"kind":"fact","content":"Jordan is a nurse","source_text":"Jordan: I work as a nurse","confidence":0.91,"subject":"Jordan","predicate":"occupation","value":"nurse","assertion_kind":"explicit"}]}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		APIKey:  "test",
+		Model:   "test-model",
+	}, server.Client())
+
+	memories, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "Jordan: I work as a nurse"}},
+	})
+	if err != nil {
+		t.Fatalf("extract failed: %v", err)
+	}
+	var providerFact *ExtractedMemory
+	for i := range memories {
+		if memories[i].Explain["rule"] == "provider_extract" {
+			providerFact = &memories[i]
+			break
+		}
+	}
+	if providerFact == nil {
+		t.Fatalf("expected provider_extract memory")
+	}
+	if providerFact.Explain["predicate"] != PredicateOccupation {
+		t.Fatalf("predicate=%v", providerFact.Explain["predicate"])
+	}
+	if providerFact.Explain["value_norm"] != "nurse" {
+		t.Fatalf("value_norm=%v", providerFact.Explain["value_norm"])
+	}
+	if providerFact.Explain["subject"] != "Jordan" {
+		t.Fatalf("subject=%v", providerFact.Explain["subject"])
+	}
+	if providerExtractionVersion != "provider-v3-typed" {
+		t.Fatalf("version=%s", providerExtractionVersion)
+	}
+}
+
 func TestProviderExtractorMergesBaselineEpisodes(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
