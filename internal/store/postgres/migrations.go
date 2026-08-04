@@ -291,6 +291,87 @@ BEFORE INSERT OR UPDATE OF content ON memory_records
 FOR EACH ROW EXECUTE PROCEDURE memory_records_content_tsv_trigger();
 `,
 	},
+	{
+		version: 15,
+		name:    "atoms_bitemporal_fields",
+		sql: `
+ALTER TABLE memory_atoms ADD COLUMN IF NOT EXISTS valid_from TIMESTAMPTZ;
+ALTER TABLE memory_atoms ADD COLUMN IF NOT EXISTS recorded_at TIMESTAMPTZ;
+ALTER TABLE memory_atoms ADD COLUMN IF NOT EXISTS retired_at TIMESTAMPTZ;
+UPDATE memory_atoms SET recorded_at = COALESCE(recorded_at, updated_at) WHERE recorded_at IS NULL;
+UPDATE memory_atoms SET valid_from = COALESCE(valid_from, observed_at, updated_at) WHERE valid_from IS NULL;
+CREATE INDEX IF NOT EXISTS memory_atoms_current_scan
+ON memory_atoms (tenant_id, subject_id, predicate)
+WHERE retired_at IS NULL;
+`,
+	},
+	{
+		version: 16,
+		name:    "memory_events_and_evidence_shadow",
+		sql: `
+CREATE TABLE IF NOT EXISTS memory_evidence (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    namespace TEXT NOT NULL DEFAULT 'default',
+    subject_id TEXT,
+    source_type TEXT NOT NULL,
+    source_ref TEXT,
+    session_id TEXT,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    occurred_at TIMESTAMPTZ,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    metadata JSONB NOT NULL DEFAULT '{}',
+    suppression_status TEXT NOT NULL DEFAULT 'active',
+    memory_id TEXT
+);
+CREATE INDEX IF NOT EXISTS memory_evidence_subject_lookup
+ON memory_evidence (tenant_id, subject_id, occurred_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS memory_evidence_hash_uniq
+ON memory_evidence (tenant_id, content_hash);
+
+CREATE TABLE IF NOT EXISTS memory_events (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    namespace TEXT NOT NULL DEFAULT 'default',
+    subject_id TEXT,
+    event_type TEXT NOT NULL,
+    title TEXT,
+    description TEXT,
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    time_precision TEXT,
+    confidence DOUBLE PRECISION NOT NULL DEFAULT 0.5,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    pack_id TEXT,
+    evidence_id TEXT,
+    memory_id TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS memory_events_subject_time
+ON memory_events (tenant_id, subject_id, starts_at DESC);
+
+CREATE TABLE IF NOT EXISTS memory_event_participants (
+    event_id TEXT NOT NULL REFERENCES memory_events(id) ON DELETE CASCADE,
+    entity_key TEXT NOT NULL,
+    participant_role TEXT NOT NULL DEFAULT 'participant',
+    metadata JSONB NOT NULL DEFAULT '{}',
+    PRIMARY KEY (event_id, entity_key, participant_role)
+);
+
+CREATE TABLE IF NOT EXISTS memory_current_state (
+    tenant_id TEXT NOT NULL,
+    namespace TEXT NOT NULL DEFAULT 'default',
+    subject_id TEXT NOT NULL,
+    predicate TEXT NOT NULL,
+    winning_memory_id TEXT NOT NULL,
+    resolved_value TEXT NOT NULL,
+    resolution_policy TEXT NOT NULL,
+    resolved_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, namespace, subject_id, predicate)
+);
+`,
+	},
 }
 
 // EnsureContentFTSIndex builds the GIN index outside the migration txn.
