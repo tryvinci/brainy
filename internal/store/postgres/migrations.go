@@ -385,26 +385,21 @@ ON memory_evidence (tenant_id, subject_id, recorded_at DESC);
 `,
 	},
 	{
+		// Column swap only. Backfill + HNSW are best-effort outside the
+		// migration transaction (see EnsureEmbeddingVecIndex) — CREATE INDEX /
+		// full-table UPDATE exceeded the 120s boot timeout and crash-looped
+		// staging API (same failure mode as FTS GIN in v14).
 		version: 18,
 		name:    "pgvector_embedding_vec_768",
 		sql: `
--- Hosted pin: workers-ai/@cf/baai/bge-base-en-v1.5 (768-d).
--- Drop legacy vector(128) ANN (hash-only) and rebuild for provider dims.
+-- Hosted pin: bge-base-en-v1.5 (768-d).
+-- Drop legacy vector(128) ANN (hash-only); provider dims use vector(768).
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
-        DROP INDEX IF EXISTS memory_embeddings_vec_hnsw;
         ALTER TABLE memory_embeddings DROP COLUMN IF EXISTS embedding_vec;
         ALTER TABLE memory_embeddings
             ADD COLUMN embedding_vec vector(768);
-
-        UPDATE memory_embeddings
-        SET embedding_vec = embedding::vector(768)
-        WHERE embedding IS NOT NULL
-          AND cardinality(embedding) = 768;
-
-        CREATE INDEX IF NOT EXISTS memory_embeddings_vec_hnsw
-        ON memory_embeddings USING hnsw (embedding_vec vector_cosine_ops);
     END IF;
 EXCEPTION
     WHEN OTHERS THEN
@@ -434,6 +429,51 @@ END $$;
 	_, _ = s.pool.Exec(ctx, `
 CREATE INDEX CONCURRENTLY IF NOT EXISTS memory_records_content_tsv_gin
 ON memory_records USING GIN (content_tsv);
+`)
+}
+
+// EnsureEmbeddingVecIndex backfills hosted 768-d vectors into embedding_vec and
+// builds HNSW outside the boot migration txn. Safe to call repeatedly.
+func (s *Store) EnsureEmbeddingVecIndex(ctx context.Context) {
+	var hasVector bool
+	if err := s.pool.QueryRow(ctx, `
+SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
+`).Scan(&hasVector); err != nil || !hasVector {
+		return
+	}
+	var hasCol bool
+	if err := s.pool.QueryRow(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM information_schema.columns
+  WHERE table_name = 'memory_embeddings' AND column_name = 'embedding_vec'
+)
+`).Scan(&hasCol); err != nil || !hasCol {
+		return
+	}
+
+	_, _ = s.pool.Exec(ctx, `
+UPDATE memory_embeddings
+SET embedding_vec = embedding::vector(768)
+WHERE embedding_vec IS NULL
+  AND embedding IS NOT NULL
+  AND cardinality(embedding) = 768
+`)
+
+	_, _ = s.pool.Exec(ctx, `
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_index i ON i.indexrelid = c.oid
+    WHERE c.relname = 'memory_embeddings_vec_hnsw' AND NOT i.indisvalid
+  ) THEN
+    EXECUTE 'DROP INDEX IF EXISTS memory_embeddings_vec_hnsw';
+  END IF;
+END $$;
+`)
+	_, _ = s.pool.Exec(ctx, `
+CREATE INDEX CONCURRENTLY IF NOT EXISTS memory_embeddings_vec_hnsw
+ON memory_embeddings USING hnsw (embedding_vec vector_cosine_ops);
 `)
 }
 
