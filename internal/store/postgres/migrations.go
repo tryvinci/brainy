@@ -372,6 +372,18 @@ CREATE TABLE IF NOT EXISTS memory_current_state (
 );
 `,
 	},
+	{
+		version: 17,
+		name:    "evidence_plane_v2_subject_safe_dedupe",
+		sql: `
+ALTER TABLE memory_evidence ADD COLUMN IF NOT EXISTS actor_role TEXT;
+DROP INDEX IF EXISTS memory_evidence_hash_uniq;
+CREATE UNIQUE INDEX IF NOT EXISTS memory_evidence_subject_hash_uniq
+ON memory_evidence (tenant_id, namespace, subject_id, content_hash, source_ref);
+CREATE INDEX IF NOT EXISTS memory_evidence_content_lookup
+ON memory_evidence (tenant_id, subject_id, recorded_at DESC);
+`,
+	},
 }
 
 // EnsureContentFTSIndex builds the GIN index outside the migration txn.

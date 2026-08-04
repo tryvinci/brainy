@@ -23,6 +23,8 @@ an implementable architecture.
 | 5 | Packs v2 scaffolds (support/marketing) | Deepen before adding a third vertical |
 | 6 | Re-measure OpMem, vertical, LoCoMo smoke/full | Gates are measured, not merge-complete |
 
+**External review (2026-08-04):** [external-reviews/2026-08-04-architecture-verdict.md](./external-reviews/2026-08-04-architecture-verdict.md) — accepted. Remaining work order is **raw evidence → typed semantics → temporal → retrieval store → planner → executable packs** (not fusion retune).
+
 **Rejected from earlier shorter plan (per §23):** tuning on LoCoMo validation convs 4–10 as product authoring; treating `valid_to=now()` as a complete temporal model; flat top-k as sufficient for multi-hop.
 
 ---

@@ -336,16 +336,102 @@ func (s *Store) SearchActiveMemories(ctx context.Context, tenantID, subjectID st
 }
 
 func (s *Store) SearchMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	recs, _, err := s.SearchMemoriesRanked(ctx, tenantID, subjectID, patterns, limit, includeSuperseded)
+	return recs, err
+}
+
+func ftsQueryFromPatterns(patterns []string) string {
+	terms := make([]string, 0, len(patterns))
+	for _, p := range patterns {
+		t := strings.Trim(p, "% ")
+		t = strings.ReplaceAll(t, "'", "")
+		if len(t) < 2 {
+			continue
+		}
+		terms = append(terms, t)
+	}
+	if len(terms) == 0 {
+		return ""
+	}
+	return strings.Join(terms, " ")
+}
+
+func (s *Store) searchMemoriesFTS(ctx context.Context, tenantID, subjectID, query string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	recs, _, err := s.searchMemoriesFTSRanked(ctx, tenantID, subjectID, query, limit, includeSuperseded)
+	return recs, err
+}
+
+// SearchMemoriesRanked returns memories plus normalized FTS ranks when available.
+func (s *Store) SearchMemoriesRanked(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, map[string]float64, error) {
 	if limit <= 0 {
 		limit = 100
 	}
-	// Prefer FTS when a plain query string can be derived from patterns.
 	query := ftsQueryFromPatterns(patterns)
 	if query != "" {
-		if results, err := s.searchMemoriesFTS(ctx, tenantID, subjectID, query, limit, includeSuperseded); err == nil && len(results) > 0 {
-			return results, nil
+		if results, ranks, err := s.searchMemoriesFTSRanked(ctx, tenantID, subjectID, query, limit, includeSuperseded); err == nil && len(results) > 0 {
+			return results, ranks, nil
 		}
 	}
+	recs, err := s.searchMemoriesILIKE(ctx, tenantID, subjectID, patterns, limit, includeSuperseded)
+	return recs, map[string]float64{}, err
+}
+
+func (s *Store) searchMemoriesFTSRanked(ctx context.Context, tenantID, subjectID, query string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, map[string]float64, error) {
+	sql := `
+SELECT memory_id, ts_rank_cd(content_tsv, plainto_tsquery('english', $4)) AS lex_rank
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND lifecycle_state NOT IN ('archived', 'suppressed'`
+	if !includeSuperseded {
+		sql += `, 'superseded'`
+	}
+	sql += `)
+  AND content_tsv IS NOT NULL
+  AND content_tsv @@ plainto_tsquery('english', $4)
+ORDER BY lex_rank DESC, updated_at DESC
+LIMIT $5`
+	rows, err := s.pool.Query(ctx, sql, tenantID, subjectID, memory.StatusActive, query, limit)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	type hit struct {
+		id   string
+		rank float64
+	}
+	hits := make([]hit, 0, limit)
+	var maxRank float64
+	for rows.Next() {
+		var h hit
+		if err := rows.Scan(&h.id, &h.rank); err != nil {
+			return nil, nil, err
+		}
+		hits = append(hits, h)
+		if h.rank > maxRank {
+			maxRank = h.rank
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	out := make([]memory.MemoryRecord, 0, len(hits))
+	ranks := make(map[string]float64, len(hits))
+	for _, h := range hits {
+		rec, err := s.GetMemory(ctx, tenantID, subjectID, h.id)
+		if err != nil {
+			continue
+		}
+		out = append(out, rec)
+		norm := h.rank
+		if maxRank > 0 {
+			norm = h.rank / maxRank
+		}
+		ranks[h.id] = norm
+	}
+	return out, ranks, nil
+}
+
+func (s *Store) searchMemoriesILIKE(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
 	var (
 		rows pgx.Rows
 		err  error
@@ -370,62 +456,6 @@ WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
 ORDER BY updated_at DESC
 LIMIT $8
 `, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed, patterns, limit)
-	}
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []memory.MemoryRecord
-	for rows.Next() {
-		record, err := scanMemoryRow(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, record)
-	}
-	return out, rows.Err()
-}
-
-func ftsQueryFromPatterns(patterns []string) string {
-	terms := make([]string, 0, len(patterns))
-	for _, p := range patterns {
-		t := strings.Trim(p, "% ")
-		t = strings.ReplaceAll(t, "'", "")
-		if len(t) < 2 {
-			continue
-		}
-		terms = append(terms, t)
-	}
-	if len(terms) == 0 {
-		return ""
-	}
-	return strings.Join(terms, " ")
-}
-
-func (s *Store) searchMemoriesFTS(ctx context.Context, tenantID, subjectID, query string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
-	var rows pgx.Rows
-	var err error
-	if includeSuperseded {
-		rows, err = s.pool.Query(ctx, `
-SELECT `+memoryRecordSelectCols+`
-FROM memory_records
-WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
-  AND lifecycle_state NOT IN ($4, $5)
-  AND content_tsv @@ plainto_tsquery('english', $6)
-ORDER BY ts_rank_cd(content_tsv, plainto_tsquery('english', $6)) DESC, updated_at DESC
-LIMIT $7
-`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuppressed, query, limit)
-	} else {
-		rows, err = s.pool.Query(ctx, `
-SELECT `+memoryRecordSelectCols+`
-FROM memory_records
-WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
-  AND lifecycle_state NOT IN ($4, $5, $6)
-  AND content_tsv @@ plainto_tsquery('english', $7)
-ORDER BY ts_rank_cd(content_tsv, plainto_tsquery('english', $7)) DESC, updated_at DESC
-LIMIT $8
-`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed, query, limit)
 	}
 	if err != nil {
 		return nil, err

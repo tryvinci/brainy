@@ -111,6 +111,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		return IngestResult{}, err
 	}
 
+	// Evidence Plane v2: capture raw messages before extraction.
+	_ = s.persistRawEvidence(ctx, req)
+
 	memories := s.extractOrLabel(req)
 	if len(memories) == 0 && strings.TrimSpace(req.Label) != "performance_outcome" {
 		return IngestResult{
@@ -139,6 +142,12 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		s.persistEvidenceShadow(ctx, upserted.Record)
 		s.persistEventIfApplicable(ctx, upserted.Record)
 		_ = s.autoSupersedePriorState(ctx, upserted.Record)
+		// Project current state only after supersession decisions.
+		fresh := upserted.Record
+		if got, err := s.store.GetMemory(ctx, fresh.TenantID, fresh.SubjectID, fresh.MemoryID); err == nil {
+			fresh = got
+		}
+		s.projectCurrentStateIfApplicable(ctx, fresh)
 		if err := s.applyIngestSupersession(ctx, upserted.Record); err != nil {
 			return IngestResult{}, err
 		}
@@ -219,6 +228,8 @@ func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncInge
 		JobID:    s.id("job"),
 		Accepted: true,
 	}
+	// Capture raw evidence before async enrichment so source survives extract failure.
+	_ = s.persistRawEvidence(ctx, req)
 	idempotencyKey := s.idempotencyKey(req)
 	enqueueResult, err := s.store.EnqueueIngestJob(ctx, result.IngestID, result.JobID, idempotencyKey, req)
 	if err != nil {
@@ -289,9 +300,14 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		wg          sync.WaitGroup
 	)
 	wg.Add(2)
+	var lexRanks map[string]float64
 	go func() {
 		defer wg.Done()
-		memories, lexErr = s.store.SearchMemories(ctx, tenantID, subjectID, patterns, overfetch, includeSuperseded)
+		if ranked, ok := s.store.(RankedSearcher); ok {
+			memories, lexRanks, lexErr = ranked.SearchMemoriesRanked(ctx, tenantID, subjectID, patterns, overfetch, includeSuperseded)
+		} else {
+			memories, lexErr = s.store.SearchMemories(ctx, tenantID, subjectID, patterns, overfetch, includeSuperseded)
+		}
 	}()
 	go func() {
 		defer wg.Done()
@@ -551,14 +567,28 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			hub = hubBoosts[record.MemoryID]
 		}
 		if fusionV2 {
-			// Lexical coverage as BM25-like [0,1]; fuse with ScoreAndRankV2.
+			// Prefer real FTS rank when available; else token coverage.
 			bm25 := 0.0
-			if cov, ok := explain["coverage"].(float64); ok {
-				bm25 = cov
-			} else if score > 0 {
-				bm25 = math.Min(score/3.0, 1.0)
+			if lexRanks != nil {
+				if r, ok := lexRanks[record.MemoryID]; ok {
+					bm25 = r
+				}
 			}
-			combined, parts := ScoreAndRankV2(embedScore, bm25, hub, 0.12)
+			if bm25 <= 0 {
+				if cov, ok := explain["coverage"].(float64); ok {
+					bm25 = cov
+				} else if score > 0 {
+					bm25 = math.Min(score/3.0, 1.0)
+				}
+			} else if bm25 > 1 {
+				bm25 = NormalizeBM25Sigmoid(bm25, len(contentQueryTokens))
+			}
+			semOnlyFloor := 0.42
+			if len(contentQueryTokens) <= 1 {
+				// Short entity-probe queries: block template false-friends.
+				semOnlyFloor = 0.78
+			}
+			combined, parts := ScoreAndRankV2(embedScore, bm25, hub, 0.12, semOnlyFloor)
 			if combined <= 0 && score <= 0 {
 				continue
 			}
@@ -755,8 +785,7 @@ func expandSessionNeighbors(candidates map[string]MemoryRecord, seeds []MemoryRe
 }
 
 // looksMultiHopQuery detects questions that typically need multiple supporting
-// memories: an ask word plus either a named subject or several content tokens.
-// Kept generic — no dataset-specific cue lists.
+// memories. Kept strict to avoid ordinary wh-questions triggering subject scans.
 func looksMultiHopQuery(tokens []string) bool {
 	hasAsk := false
 	for _, token := range tokens {
@@ -769,10 +798,8 @@ func looksMultiHopQuery(tokens []string) bool {
 		return false
 	}
 	bearing := contentBearingTokens(tokens)
-	if len(nameLikeTokens(bearing)) > 0 {
-		return true
-	}
-	return len(bearing) >= 2
+	// Require at least three content-bearing tokens (name-like alone is too broad).
+	return len(bearing) >= 3
 }
 
 // nameLikeTokens returns longer non-stop content tokens that often name people

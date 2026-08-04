@@ -1,0 +1,1 @@
+{"ts": "2026-08-04T09:21:04Z", "dataset": "locomo-smoke", "question_id": "process-note", "question": "starter ledger after architecture verdict", "primary": "REPRESENTATION_MISS", "secondary": "PLANNING_MISS", "flags": {"working_hypothesis": true}, "notes": "External review: representation+planning ahead of fusion retune; full LME adjudication pending"}
