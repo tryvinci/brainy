@@ -70,3 +70,21 @@ Interpretation: small-n smoke; multi-hop slice improved vs full-set MH≈26% bas
 - Support vertical: **4/4**; Marketing: **17/17** (after semantic-only isolation fix)
 - vs prior: Fusion V2 first smoke 25% (5/20); publish-stack full LoCoMo mean still ≈49.8% (3-seed) until re-run
 
+## External review course correction (2026-08-04) — execution
+
+Accepted architecture verdict: five-plane **target** approved; implementation remains **record-centric mid-migration**.
+
+Landed this cycle:
+
+- External review archive + intake SOP (`docs/research/external-reviews/`)
+- Assessment pack honesty / maturity matrix refresh
+- Evidence Plane v2: raw message capture before extract; subject-safe dedupe (migration 17)
+- FTS `ts_rank_cd` plumbed into Fusion V2 when available
+- Bounded embedding fallback (no unbounded `LoadEmbeddings` hot path)
+- Stricter multi-hop scan gate (ask + ≥3 bearing tokens)
+- Current-state projection after auto-supersede on sync ingest
+- Oracle modes: `evidence` operational; unsupported modes return `oracle_unsupported`
+- Failure ledger scaffolding under `docs/benchmarks/artifacts/failure-ledger/`
+
+Still open (queued): typed extract v3, temporal resolver/as_of, executable packs v2, full LME adjudication (≥100), pgvector for non-128 dims, planner/evidence packets.
+

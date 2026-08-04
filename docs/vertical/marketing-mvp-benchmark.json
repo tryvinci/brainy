@@ -1,6 +1,6 @@
 {
   "benchmark_id": "marketing-mvp-v1",
-  "generated_at": "2026-07-29T22:42:06Z",
+  "generated_at": "2026-08-04T09:20:58Z",
   "mem0_reference_commit": "a670333d67be1207b5be2fc73af60c3439444f48",
   "mem0_mode": "declared",
   "systems": [
@@ -49,8 +49,8 @@
     ]
   },
   "vertical": {
-    "passed": 16,
-    "total": 16,
+    "passed": 17,
+    "total": 17,
     "mem0_expected": "fail",
     "results": [
       {
@@ -145,6 +145,14 @@
       },
       {
         "fixture": "lc02_active_campaign_ranks_above_completed",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "mk_v2_01_brand_authority",
         "ingest_created": 2,
         "ingest_deduped": 0,
         "search_result_count": 2,

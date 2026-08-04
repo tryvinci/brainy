@@ -129,18 +129,20 @@ func (p *Processor) persistEntityLinks(ctx context.Context, record memory.Memory
 }
 
 func (p *Processor) persistEvidenceAndEvents(ctx context.Context, record memory.MemoryRecord) {
-	if writer, ok := p.store.(memory.EvidenceWriter); ok {
-		srcType := "conversation"
-		session := ""
-		if record.Metadata != nil {
-			if v, ok := record.Metadata["source_type"].(string); ok && v != "" {
-				srcType = v
+	if _, hasRaw := p.store.(memory.RawEvidenceWriter); !hasRaw {
+		if writer, ok := p.store.(memory.EvidenceWriter); ok {
+			srcType := "conversation"
+			session := ""
+			if record.Metadata != nil {
+				if v, ok := record.Metadata["source_type"].(string); ok && v != "" {
+					srcType = v
+				}
+				if v, ok := record.Metadata["session_id"].(string); ok {
+					session = v
+				}
 			}
-			if v, ok := record.Metadata["session_id"].(string); ok {
-				session = v
-			}
+			_ = writer.ShadowWriteEvidence(ctx, record.TenantID, record.SubjectID, srcType, record.MemoryID, session, record.Content, record.MemoryID, record.ObservedAt, record.Metadata)
 		}
-		_ = writer.ShadowWriteEvidence(ctx, record.TenantID, record.SubjectID, srcType, record.MemoryID, session, record.Content, record.MemoryID, record.ObservedAt, record.Metadata)
 	}
 	if writer, ok := p.store.(memory.EventWriter); ok && record.Metadata != nil {
 		pred, _ := record.Metadata["predicate"].(string)
