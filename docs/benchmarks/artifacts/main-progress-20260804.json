@@ -1,0 +1,24 @@
+{
+  "date": "2026-08-04T04:34:15Z",
+  "main_commit": "13d6b3b",
+  "dev_commit": "71d1943",
+  "locomo_smoke": {
+    "overall": "15/30",
+    "acc": 0.5,
+    "multi_hop": "2/8",
+    "temporal": "12/18",
+    "single_hop": "1/2",
+    "open_domain": "0/2",
+    "search_p50_ms": 1655,
+    "search_p95_ms": 3005
+  },
+  "opmem": "13/13",
+  "support": "4/4",
+  "marketing": "17/17",
+  "notes": [
+    "main merged with user approval; Render runtime is staging on branch=dev",
+    "Fusion V2 semantic-only floor fix required for bv06 isolation",
+    "LoCoMo 50% smoke improves vs prior FusionV2 25% (5/20) and ~historical 13/30 smoke",
+    "multi-hop still weak (~25%); full 3-seed still required for SOTA claims"
+  ]
+}
