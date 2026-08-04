@@ -47,3 +47,17 @@
 - Expand OpMem / SupportBench fixture counts per program §13
 - Full bitemporal reads (`as_of`, system-time) end-to-end API
 - Entity aliases / reversible merge (MEM-030/031)
+
+## Phase 6 staging smoke (post-merge to `dev`)
+
+| Run | Result |
+| --- | ---: |
+| LoCoMo smoke 1 conv / 20 Q (async, Fusion V2 live) | **25% (5/20)** |
+| multi-hop (n=8) | **50%** |
+| temporal (n=10) | **10%** |
+| Search p50 / p95 | 1627 / 2867 ms |
+
+Artifact: `docs/benchmarks/artifacts/locomo-smoke-fusionv2-20260804.md`
+
+Interpretation: small-n smoke; multi-hop slice improved vs full-set MH≈26% baseline, but temporal slice is weak and overall is not a publish claim. Full 3-seed re-measure still required before SOTA gates.
+
