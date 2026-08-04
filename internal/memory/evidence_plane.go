@@ -124,5 +124,11 @@ func (s *Service) projectCurrentStateIfApplicable(ctx context.Context, record Me
 	if !IsLifecycleSearchVisible(record.LifecycleState) && record.LifecycleState != "" && record.LifecycleState != LifecycleActive {
 		return
 	}
+	if existingID, _, _, found, _ := cs.GetCurrentState(ctx, record.TenantID, record.SubjectID, pred); found && existingID != "" && existingID != record.MemoryID {
+		existing, err := s.store.GetMemory(ctx, record.TenantID, record.SubjectID, existingID)
+		if err == nil && !shouldReplaceCurrentState(record, existing) {
+			return
+		}
+	}
 	_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, pred, record.MemoryID, val, string(PredicatePolicy(pred)))
 }
