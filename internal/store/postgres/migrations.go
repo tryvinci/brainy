@@ -384,6 +384,34 @@ CREATE INDEX IF NOT EXISTS memory_evidence_content_lookup
 ON memory_evidence (tenant_id, subject_id, recorded_at DESC);
 `,
 	},
+	{
+		version: 18,
+		name:    "pgvector_embedding_vec_768",
+		sql: `
+-- Hosted pin: workers-ai/@cf/baai/bge-base-en-v1.5 (768-d).
+-- Drop legacy vector(128) ANN (hash-only) and rebuild for provider dims.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+        DROP INDEX IF EXISTS memory_embeddings_vec_hnsw;
+        ALTER TABLE memory_embeddings DROP COLUMN IF EXISTS embedding_vec;
+        ALTER TABLE memory_embeddings
+            ADD COLUMN embedding_vec vector(768);
+
+        UPDATE memory_embeddings
+        SET embedding_vec = embedding::vector(768)
+        WHERE embedding IS NOT NULL
+          AND cardinality(embedding) = 768;
+
+        CREATE INDEX IF NOT EXISTS memory_embeddings_vec_hnsw
+        ON memory_embeddings USING hnsw (embedding_vec vector_cosine_ops);
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+`,
+	},
 }
 
 // EnsureContentFTSIndex builds the GIN index outside the migration txn.

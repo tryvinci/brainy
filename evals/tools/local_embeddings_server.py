@@ -16,8 +16,8 @@ Usage:
     # entity ranking auto-enables when an embedding model is configured
 
 Notes:
-- Brainy stores provider-dim vectors in the float[] path; the pgvector(128)
-  column is only used for the 128-d local hash embedder.
+- Brainy writes provider-dim (768 for bge-base) vectors into pgvector ANN + float[];
+  the 128-d local hash embedder stays on float[] only (unit tests / CI).
 - Per-query similarity calibration (internal/memory/hybrid.go) makes ranking
   robust to a model's baseline cosine, so any embedding model works.
 """
