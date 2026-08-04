@@ -18,7 +18,7 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := observability.NewLogger()
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	store, err := postgres.New(ctx, cfg.DatabaseURL)

@@ -18,7 +18,7 @@ import (
 func main() {
 	cfg := config.Load()
 	var logger *slog.Logger = observability.NewLogger()
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 180*time.Second)
 	defer cancel()
 
 	store, err := postgres.New(ctx, cfg.DatabaseURL)
@@ -29,15 +29,33 @@ func main() {
 	defer store.Close()
 
 	if err := store.ApplyMigrations(ctx); err != nil {
-		logger.Error("failed to apply migrations", "error", err)
-		os.Exit(1)
+		// Do not crash-loop the API on migration lock/timeout (staging hit this
+		// when DROP/HNSW held the advisory lock past boot). Retry in background.
+		logger.Error("failed to apply migrations at boot; retrying in background", "error", err)
+		go func() {
+			for attempt := 1; attempt <= 20; attempt++ {
+				migCtx, migCancel := context.WithTimeout(context.Background(), 3*time.Minute)
+				err := store.ApplyMigrations(migCtx)
+				migCancel()
+				if err == nil {
+					logger.Info("background migrations applied", "attempt", attempt)
+					indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+					store.EnsureEmbeddingVecIndex(indexCtx)
+					indexCancel()
+					return
+				}
+				logger.Error("background migration retry failed", "attempt", attempt, "error", err)
+				time.Sleep(15 * time.Second)
+			}
+		}()
+	} else {
+		// Backfill + HNSW for hosted 768-d embeddings (additive column).
+		go func() {
+			indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer indexCancel()
+			store.EnsureEmbeddingVecIndex(indexCtx)
+		}()
 	}
-	// Backfill + HNSW for hosted 768-d embeddings (migration 18 is column-only).
-	go func() {
-		indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
-		defer indexCancel()
-		store.EnsureEmbeddingVecIndex(indexCtx)
-	}()
 	// Optional: build FTS GIN off the request path. Disabled by default on
 	// starter plans — concurrent GIN builds can OOM small instances.
 	if os.Getenv("BRAINY_ENSURE_FTS_INDEX") == "1" {
