@@ -1,4 +1,4 @@
-# Support v2 state machines (program §13.4).
+# Support v2 state machines (program §13.4). Loaded by pack.LoadFile sidecar.
 ticket_status:
   states: [open, pending, waiting_customer, escalated, resolved, closed, reopened]
   transitions:

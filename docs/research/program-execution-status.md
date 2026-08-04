@@ -99,13 +99,35 @@ Landed this cycle:
 - Guarded `memory_current_state` projection: late-arriving older world-valid facts cannot blind-win
 - Typed reads: `GetStateAsOf`, `GetStateAsKnownAt`, `ListStateHistory` on atoms
 - `/recall` wires `view` / `as_of` / `include_historical` into temporal explain + answer when resolvable
-- Still open: pack-defined authority, full conflict packets, executable packs v2, planner, LME adjudication
+- Still open: pack-defined authority, full conflict packets, LME adjudication
 
 ## pgvector 768 ANN pin (2026-08-04)
 
 - Migration **18/19**: additive `embedding_vec_768 vector(768)` (legacy `embedding_vec vector(128)` retained — DROP/rewrite deadlocked staging)
 - Staging: mig 18/19 applied; API live; hosted upsert/search use `embedding_vec_768`
-- `EnsureEmbeddingVecIndex`: batched backfill + CONCURRENTLY HNSW (API background)
+- `EnsureEmbeddingVecIndex`: batched backfill + CONCURRENTLY HNSW (API background); skips when valid index exists or a concurrent build is already running; CREATE INDEX uses uncancellable context so deploy timeouts cannot leave INVALID indexes
 - API/worker boot retries migrations instead of crash-looping on advisory-lock timeouts
 - Cloud Agent secrets include `BRAINY_EMBEDDING_*` (gateway probe from this pod may still 403)
+
+### What “HNSW / re-embed still catching up” means
+
+Two distinct catch-up jobs after the additive 768 column:
+
+1. **Backfill** — copy already-hosted `embedding real[768]` → `embedding_vec_768`. Staging sample (~2%) shows this is effectively done for 768-d rows.
+2. **HNSW** — `memory_embeddings_vec_768_hnsw` must be `indisvalid=true`. Cancelled/timed-out `CREATE INDEX CONCURRENTLY` leaves an INVALID index (~208 MB placeholder) that ANN cannot use. Fix: drop INVALID + rebuild CONCURRENTLY (hours on ~494k rows on Render basic). Do not SIGTERM the rebuild mid-flight.
+3. **Re-embed residue** — rows that only ever got **hash/128** embeddings have `embedding_vec_768 IS NULL` and need a hosted BGE re-embed of `memory_records.content` (backfill cannot invent 768-d from 128-d). Sample residual ≈ 0.5% of rows.
+
+Staging Render API+worker already stay up for multi-hour LoCoMo/LME runs; no special unlock. Prefer not redeploying during an active HNSW rebuild.
+
+## PR6 planner + PR7 executable packs (2026-08-04)
+
+- `/recall` emits deterministic `explain.query_plan` + `explain.evidence_packet` (intents → tools/coverage targets; does not rewrite SearchOpt)
+- Pack registry loads v2 sidecars `entities.yaml` + `state-machines.yaml`; prefers higher pack version for the same id
+- Support ticket FSM enforced on ingest (`label=ticket_state` + `metadata.status`, prior status from same `ticket_id` or `from_status`)
+
+### Overnight proof (started 2026-08-04)
+
+- Staging Render API+worker auto-deployed `3eb67c4` from `dev` (planner/packs live; `/recall` returns `query_plan` + `evidence_packet`)
+- HNSW `CREATE INDEX CONCURRENTLY` rebuild running on staging (~494k rows); leave until `indisvalid=true`
+- LoCoMo smoke with `--failure-ledger` + stratified LME-100 started against staging (async ingest); Mem0 key available for later same-pin compare
 
