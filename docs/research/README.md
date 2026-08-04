@@ -5,8 +5,10 @@ vertical governance, latency/cost, and (fairly measured) conversational recall �
 publish that evidence. Not LOCOMO parity alone. Not benchmax.
 
 **Program of record (2026-08): [sota-end-to-end-program.md](./sota-end-to-end-program.md)** — evidence/event/bitemporal architecture, phased execution, SOTA qualification gates.  
+**External agent handoff (preferred): [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)** — self-contained assessment brief + review charter.  
+**Codebase graph: [codebase-graph.md](./codebase-graph.md)** · machine-readable [codebase-graph.json](./codebase-graph.json).  
 **Prior master plan: [master-plan.md](./master-plan.md)** — still useful for W1–W7 history; new work follows the end-to-end program.  
-**External review briefing: [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md)** — short briefing that seeded the program of record.  
+**Earlier external briefing: [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md)** — seeded the program; prefer the assessment pack for new agents.  
 History: [path-to-sota.md](./path-to-sota.md) · Papers: [paper-topics.md](./paper-topics.md) · Ladder: [public-bench-ladder.md](./public-bench-ladder.md)
 
 Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0’s LOCOMO writeups — **reproducible, cited, honest about gaps**.
@@ -37,8 +39,10 @@ Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [staging competitiv
 | Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
 | Proveable eval framework | Spec + harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
 | Surpass plan | Active | [path-to-sota.md](./path-to-sota.md) |
+| External agent assessment pack | **Preferred handoff** | [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) |
+| Codebase graph (mermaid + JSON) | Active | [codebase-graph.md](./codebase-graph.md) · [codebase-graph.json](./codebase-graph.json) |
 | SOTA end-to-end program (PoR) | Active | [sota-end-to-end-program.md](./sota-end-to-end-program.md) |
-| SOTA assessment + action plan (external briefing) | Superseded by PoR | [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md) |
+| SOTA assessment + action plan (earlier briefing) | Superseded by pack + PoR | [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md) |
 | Mem0 parity gaps | Active | [mem0-parity-gaps.md](./mem0-parity-gaps.md) |
 | Paper roadmap | Active | [paper-topics.md](./paper-topics.md) |
 | OpMem Paper 1 draft | Draft | [posts/2026-07-opmem-v0.md](./posts/2026-07-opmem-v0.md) |
