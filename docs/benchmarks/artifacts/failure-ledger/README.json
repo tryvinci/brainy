@@ -1,6 +1,6 @@
 {
   "schema": "brainy-failure-ledger-1.0",
-  "note": "Append-only JSONL samples. Full LME adjudication is ops-gated; starter rows document smoke multi-hop misses for process.",
+  "note": "Append-only JSONL. LoCoMo smoke writes via --failure-ledger using stage oracles (evidence→semantic→retrieval→coverage). Full LME ≥100 adjudication remains ops-gated.",
   "primary_labels": [
     "SOURCE_MISS",
     "WRITE_MISS",
@@ -15,5 +15,9 @@
     "ABSTENTION_MISS",
     "JUDGE_MISS",
     "HARNESS_ERROR"
-  ]
+  ],
+  "oracle_modes": ["evidence", "semantic", "retrieval", "coverage", "reader"],
+  "runners": {
+    "locomo_smoke": "python -m public.locomo.run_smoke --failure-ledger docs/benchmarks/artifacts/failure-ledger/locomo-smoke.jsonl"
+  }
 }

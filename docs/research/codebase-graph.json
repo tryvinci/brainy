@@ -319,13 +319,16 @@
   "implementation_maturity": {
     "source": "live",
     "evidence": "raw_v2_partial",
-    "semantic": "text_first_mid_migration",
+    "semantic": "typed_extract_v3_partial",
     "projection": "mvp_rebuildable_not_canonical",
     "recall": "synthesis_not_planner"
   },
   "external_review": "docs/research/external-reviews/2026-08-04-architecture-verdict.md",
   "hazards_resolved": [
-    "pgvector_ann_was_128_only_now_768_hosted_pin"
+    "pgvector_ann_was_128_only_now_768_hosted_pin",
+    "oracle_modes_mostly_noop",
+    "provider_extract_no_typed_slots",
+    "async_worker_skipped_atom_upsert"
   ],
   "hazards_open": [
     "pack_v2_not_loaded_by_registry",
@@ -334,11 +337,10 @@
     "provider_extract_still_text_first"
   ],
   "next_sequence": [
-    "oracle_ledger",
-    "typed_extract",
     "temporal_resolver",
     "retrieval_store_v3_remainder",
     "planner",
-    "packs_v2_executable"
+    "packs_v2_executable",
+    "lme_adjudication_100"
   ]
 }
