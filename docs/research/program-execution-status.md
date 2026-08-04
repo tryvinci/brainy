@@ -61,3 +61,12 @@ Artifact: `docs/benchmarks/artifacts/locomo-smoke-fusionv2-20260804.md`
 
 Interpretation: small-n smoke; multi-hop slice improved vs full-set MH≈26% baseline, but temporal slice is weak and overall is not a publish claim. Full 3-seed re-measure still required before SOTA gates.
 
+## Production push + progress retest (2026-08-04)
+
+- **`main` pushed** (`13d6b3b`) with user approval. Render hosts **staging on `dev`** only (no separate prod service).
+- LoCoMo smoke 2 conv / 30 Q: **50% (15/30)** — temporal **66.7%**, multi-hop **25%**, search p50/p95 ≈ 1.7s / 3.0s  
+  Artifact: `docs/benchmarks/artifacts/locomo-smoke-main-progress-20260804.md`
+- OpMem staging: **13/13**
+- Support vertical: **4/4**; Marketing: **17/17** (after semantic-only isolation fix)
+- vs prior: Fusion V2 first smoke 25% (5/20); publish-stack full LoCoMo mean still ≈49.8% (3-seed) until re-run
+
