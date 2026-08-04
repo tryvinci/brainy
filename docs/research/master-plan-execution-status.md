@@ -1,5 +1,8 @@
 # Master-plan execution status
 
+> **Superseding program of record (2026-08):** [sota-end-to-end-program.md](./sota-end-to-end-program.md) — see [program-execution-status.md](./program-execution-status.md) for Phase 0–5 landings.
+
+
 **Date:** 2026-08-01  
 **Program:** `docs/research/master-plan.md` (PR #69)
 
