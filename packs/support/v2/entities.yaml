@@ -1,0 +1,11 @@
+# Support v2 entity catalog (program §13.4). Not loaded by pack.Registry yet.
+entities:
+  - { name: customer, primary_id: crm_customer_id }
+  - { name: account, primary_id: account_id }
+  - { name: ticket, primary_id: ticket_id }
+  - { name: order, primary_id: order_id }
+  - { name: product, primary_id: sku }
+  - { name: incident, primary_id: incident_id }
+  - { name: agent, primary_id: agent_id }
+  - { name: resolution, primary_id: resolution_id }
+  - { name: escalation, primary_id: escalation_id }
