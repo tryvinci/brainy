@@ -7,70 +7,291 @@
   "program_of_record": "docs/research/sota-end-to-end-program.md",
   "assessment_pack": "docs/research/external-agent-assessment-pack.md",
   "processes": [
-    {"id": "api", "path": "cmd/api", "role": "HTTP API"},
-    {"id": "worker", "path": "cmd/worker", "role": "async extraction", "wrapper": "scripts/worker-respawn.sh"}
+    {
+      "id": "api",
+      "path": "cmd/api",
+      "role": "HTTP API"
+    },
+    {
+      "id": "worker",
+      "path": "cmd/worker",
+      "role": "async extraction",
+      "wrapper": "scripts/worker-respawn.sh"
+    }
   ],
   "packages": [
-    {"id": "memory", "path": "internal/memory", "role": "domain: ingest/search/recall/lifecycle/fusion", "hot_files": ["service.go", "recall.go", "fusion_v2.go", "attribute_atoms.go", "provider_extractor.go", "trace.go", "predicate_policy.go", "evidence_set.go", "evidence_plane.go"]},
-    {"id": "postgres", "path": "internal/store/postgres", "role": "persistence + migrations", "hot_files": ["store.go", "atoms.go", "events.go", "entity_hub.go", "embedding.go", "migrations.go"]},
-    {"id": "api", "path": "internal/api", "role": "HTTP routing", "hot_files": ["router.go"]},
-    {"id": "jobs", "path": "internal/jobs", "role": "worker processor", "hot_files": ["processor.go"]},
-    {"id": "pack", "path": "internal/pack", "role": "vertical pack registry"},
-    {"id": "embedding", "path": "internal/embedding", "role": "local hash + OpenAI-compatible embeddings"},
-    {"id": "config", "path": "internal/config", "role": "env flags"},
-    {"id": "auth", "path": "internal/auth", "role": "API key auth"},
-    {"id": "observability", "path": "internal/observability", "role": "metrics"}
+    {
+      "id": "memory",
+      "path": "internal/memory",
+      "role": "domain: ingest/search/recall/lifecycle/fusion",
+      "hot_files": [
+        "service.go",
+        "recall.go",
+        "fusion_v2.go",
+        "attribute_atoms.go",
+        "provider_extractor.go",
+        "trace.go",
+        "predicate_policy.go",
+        "evidence_set.go",
+        "evidence_plane.go"
+      ]
+    },
+    {
+      "id": "postgres",
+      "path": "internal/store/postgres",
+      "role": "persistence + migrations",
+      "hot_files": [
+        "store.go",
+        "atoms.go",
+        "events.go",
+        "entity_hub.go",
+        "embedding.go",
+        "migrations.go"
+      ]
+    },
+    {
+      "id": "api",
+      "path": "internal/api",
+      "role": "HTTP routing",
+      "hot_files": [
+        "router.go"
+      ]
+    },
+    {
+      "id": "jobs",
+      "path": "internal/jobs",
+      "role": "worker processor",
+      "hot_files": [
+        "processor.go"
+      ]
+    },
+    {
+      "id": "pack",
+      "path": "internal/pack",
+      "role": "vertical pack registry"
+    },
+    {
+      "id": "embedding",
+      "path": "internal/embedding",
+      "role": "local hash + OpenAI-compatible embeddings"
+    },
+    {
+      "id": "config",
+      "path": "internal/config",
+      "role": "env flags"
+    },
+    {
+      "id": "auth",
+      "path": "internal/auth",
+      "role": "API key auth"
+    },
+    {
+      "id": "observability",
+      "path": "internal/observability",
+      "role": "metrics"
+    }
   ],
   "edges": [
-    {"from": "api", "to": "memory", "via": "Service calls"},
-    {"from": "jobs", "to": "memory", "via": "BuildMemoryRecord + Upsert"},
-    {"from": "memory", "to": "postgres", "via": "Store interface"},
-    {"from": "memory", "to": "pack", "via": "Registry"},
-    {"from": "memory", "to": "embedding", "via": "Embedder"},
-    {"from": "api_process", "to": "api", "via": "cmd/api"},
-    {"from": "worker_process", "to": "jobs", "via": "cmd/worker"}
+    {
+      "from": "api",
+      "to": "memory",
+      "via": "Service calls"
+    },
+    {
+      "from": "jobs",
+      "to": "memory",
+      "via": "BuildMemoryRecord + Upsert"
+    },
+    {
+      "from": "memory",
+      "to": "postgres",
+      "via": "Store interface"
+    },
+    {
+      "from": "memory",
+      "to": "pack",
+      "via": "Registry"
+    },
+    {
+      "from": "memory",
+      "to": "embedding",
+      "via": "Embedder"
+    },
+    {
+      "from": "api_process",
+      "to": "api",
+      "via": "cmd/api"
+    },
+    {
+      "from": "worker_process",
+      "to": "jobs",
+      "via": "cmd/worker"
+    }
   ],
   "http_routes": [
-    {"method": "GET", "path": "/healthz"},
-    {"method": "GET", "path": "/metrics"},
-    {"method": "POST", "path": "/ingest"},
-    {"method": "POST", "path": "/ingest/async"},
-    {"method": "GET", "path": "/memories/search"},
-    {"method": "POST", "path": "/recall"},
-    {"method": "POST", "path": "/events"},
-    {"method": "POST", "path": "/memories/{id}/suppress"},
-    {"method": "POST", "path": "/memories/{id}/correct"},
-    {"method": "POST", "path": "/memories/{id}/supersede"}
+    {
+      "method": "GET",
+      "path": "/healthz"
+    },
+    {
+      "method": "GET",
+      "path": "/metrics"
+    },
+    {
+      "method": "POST",
+      "path": "/ingest"
+    },
+    {
+      "method": "POST",
+      "path": "/ingest/async"
+    },
+    {
+      "method": "GET",
+      "path": "/memories/search"
+    },
+    {
+      "method": "POST",
+      "path": "/recall"
+    },
+    {
+      "method": "POST",
+      "path": "/events"
+    },
+    {
+      "method": "POST",
+      "path": "/memories/{id}/suppress"
+    },
+    {
+      "method": "POST",
+      "path": "/memories/{id}/correct"
+    },
+    {
+      "method": "POST",
+      "path": "/memories/{id}/supersede"
+    }
   ],
   "tables": [
-    {"name": "memory_records", "plane": "semantic+legacy", "migration": "v1+"},
-    {"name": "memory_embeddings", "plane": "index", "migration": "v*"},
-    {"name": "memory_entity_links", "plane": "semantic", "migration": 12},
-    {"name": "memory_atoms", "plane": "semantic", "migration": 13, "bitemporal": 15},
-    {"name": "memory_records.content_tsv", "plane": "index", "migration": 14},
-    {"name": "memory_evidence", "plane": "evidence", "migration": 16, "status": "shadow"},
-    {"name": "memory_events", "plane": "semantic", "migration": 16, "status": "mvp"},
-    {"name": "memory_event_participants", "plane": "semantic", "migration": 16, "status": "mvp"},
-    {"name": "memory_current_state", "plane": "projection", "migration": 16, "status": "mvp"}
+    {
+      "name": "memory_records",
+      "plane": "semantic+legacy",
+      "migration": "v1+"
+    },
+    {
+      "name": "memory_embeddings",
+      "plane": "index",
+      "migration": "v*"
+    },
+    {
+      "name": "memory_entity_links",
+      "plane": "semantic",
+      "migration": 12
+    },
+    {
+      "name": "memory_atoms",
+      "plane": "semantic",
+      "migration": 13,
+      "bitemporal": 15
+    },
+    {
+      "name": "memory_records.content_tsv",
+      "plane": "index",
+      "migration": 14
+    },
+    {
+      "name": "memory_evidence",
+      "plane": "evidence",
+      "migration": 16,
+      "status": "shadow"
+    },
+    {
+      "name": "memory_events",
+      "plane": "semantic",
+      "migration": 16,
+      "status": "mvp"
+    },
+    {
+      "name": "memory_event_participants",
+      "plane": "semantic",
+      "migration": 16,
+      "status": "mvp"
+    },
+    {
+      "name": "memory_current_state",
+      "plane": "projection",
+      "migration": 16,
+      "status": "mvp"
+    }
   ],
   "feature_flags": {
-    "BRAINY_FUSION_V2": {"default": "on", "desc": "Mem0-style additive fusion + semantic-only floor"},
-    "BRAINY_ENTITY_RANKING": {"default": "off", "desc": "entity overlap rerank"},
-    "BRAINY_IDF_RANKING": {"default": "off", "desc": "IDF lexical weights"},
-    "BRAINY_ENSURE_FTS_INDEX": {"default": "off", "desc": "API best-effort GIN build"}
+    "BRAINY_FUSION_V2": {
+      "default": "on",
+      "desc": "Mem0-style additive fusion + semantic-only floor"
+    },
+    "BRAINY_ENTITY_RANKING": {
+      "default": "off",
+      "desc": "entity overlap rerank"
+    },
+    "BRAINY_IDF_RANKING": {
+      "default": "off",
+      "desc": "IDF lexical weights"
+    },
+    "BRAINY_ENSURE_FTS_INDEX": {
+      "default": "off",
+      "desc": "API best-effort GIN build"
+    }
   },
-  "planes": ["source", "evidence", "semantic", "projection", "recall"],
+  "planes": [
+    "source",
+    "evidence",
+    "semantic",
+    "projection",
+    "recall"
+  ],
   "packs": [
-    {"vertical": "marketing", "versions": ["v1", "v2"], "path": "packs/marketing"},
-    {"vertical": "support", "versions": ["v1", "v2"], "path": "packs/support"}
+    {
+      "vertical": "marketing",
+      "versions": [
+        "v1",
+        "v2"
+      ],
+      "path": "packs/marketing"
+    },
+    {
+      "vertical": "support",
+      "versions": [
+        "v1",
+        "v2"
+      ],
+      "path": "packs/support"
+    }
   ],
   "evals": [
-    {"name": "opmem", "runner": "evals/run_opmem.py", "fixtures": "fixtures/opmem"},
-    {"name": "vertical", "runner": "evals/run_vertical_eval.py", "fixtures": "fixtures/vertical"},
-    {"name": "marketing_mvp", "runner": "evals/run_marketing_mvp_benchmark.py"},
-    {"name": "locomo", "runner": "evals/public/locomo"},
-    {"name": "longmemeval", "runner": "evals/public/longmemeval"},
-    {"name": "beam", "runner": "evals/public/beam"}
+    {
+      "name": "opmem",
+      "runner": "evals/run_opmem.py",
+      "fixtures": "fixtures/opmem"
+    },
+    {
+      "name": "vertical",
+      "runner": "evals/run_vertical_eval.py",
+      "fixtures": "fixtures/vertical"
+    },
+    {
+      "name": "marketing_mvp",
+      "runner": "evals/run_marketing_mvp_benchmark.py"
+    },
+    {
+      "name": "locomo",
+      "runner": "evals/public/locomo"
+    },
+    {
+      "name": "longmemeval",
+      "runner": "evals/public/longmemeval"
+    },
+    {
+      "name": "beam",
+      "runner": "evals/public/beam"
+    }
   ],
   "measured_snapshot_2026_08_04": {
     "locomo_full_3seed_mean": 0.498,
@@ -94,5 +315,22 @@
     "Is multi-hop failure primarily representation, coverage, or planning?",
     "Are support/marketing pack v2 schemas sufficient for vertical leadership claims?",
     "What 2025-26 techniques are missing for a Go/Postgres memory service?"
+  ],
+  "implementation_maturity": {
+    "source": "live",
+    "evidence": "raw_v2_partial",
+    "semantic": "text_first_mid_migration",
+    "projection": "mvp_rebuildable_not_canonical",
+    "recall": "synthesis_not_planner"
+  },
+  "external_review": "docs/research/external-reviews/2026-08-04-architecture-verdict.md",
+  "next_sequence": [
+    "oracle_ledger",
+    "evidence_v2",
+    "typed_extract",
+    "temporal_resolver",
+    "retrieval_store_v3",
+    "planner",
+    "packs_v2_executable"
   ]
 }

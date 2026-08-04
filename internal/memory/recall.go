@@ -69,7 +69,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	}
 
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
-		IncludeHistorical: req.IncludeHistorical,
+		IncludeHistorical: req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all"),
 		Limit:             topK,
 	})
 	if err != nil {
@@ -83,8 +83,55 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		Trace:    search.Trace,
 		Explain:  map[string]any{"top_k": topK, "budget_tokens": budget},
 	}
-	if req.OracleMode != "" {
-		out.Explain["oracle_mode"] = req.OracleMode
+	if req.View != "" {
+		out.Explain["view"] = req.View
+	}
+	if req.AsOf != "" {
+		// Wired for clients; full temporal resolver is PR4. Document honestly.
+		out.Explain["as_of"] = req.AsOf
+		out.Explain["as_of_applied"] = false
+	}
+	oracle := strings.ToLower(strings.TrimSpace(req.OracleMode))
+	if oracle != "" {
+		out.Explain["oracle_mode"] = oracle
+		switch oracle {
+		case "evidence":
+			if raw, ok := s.store.(RawEvidenceWriter); ok {
+				rows, err := raw.ListEvidence(ctx, req.TenantID, req.SubjectID, topK)
+				if err != nil {
+					return RecallResponse{}, err
+				}
+				out.Explain["oracle_evidence_count"] = len(rows)
+				out.ContextBlock = formatEvidenceOracle(rows, budget)
+				out.AnswerStatus = AnswerSupported
+				if len(rows) == 0 {
+					out.AnswerStatus = AnswerNotFound
+					out.Abstained = true
+				}
+				out.Coverage = map[string]any{"targets": 1, "satisfied": len(rows) > 0, "oracle": "evidence"}
+				return out, nil
+			}
+			out.Explain["oracle_unsupported"] = true
+			out.AnswerStatus = AnswerInsufficient
+			out.Abstained = true
+			out.Answer = "oracle_unsupported"
+			return out, nil
+		case "semantic":
+			// Prefer atom-backed memories when available.
+			out.Explain["oracle_semantic"] = true
+		case "reader", "retrieval", "coverage":
+			out.Explain["oracle_unsupported"] = true
+			out.AnswerStatus = AnswerInsufficient
+			out.Abstained = true
+			out.Answer = "oracle_unsupported"
+			return out, nil
+		default:
+			out.Explain["oracle_unsupported"] = true
+			out.AnswerStatus = AnswerInsufficient
+			out.Abstained = true
+			out.Answer = "oracle_unsupported"
+			return out, nil
+		}
 	}
 
 	switch mode {
@@ -210,6 +257,27 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		items = append(items, seen[key])
 	}
 	return items
+}
+
+func formatEvidenceOracle(rows []map[string]any, budgetTokens int) string {
+	if budgetTokens <= 0 {
+		budgetTokens = 4000
+	}
+	budget := budgetTokens * 4
+	var b strings.Builder
+	for _, row := range rows {
+		content, _ := row["content"].(string)
+		content = strings.TrimSpace(content)
+		if content == "" {
+			continue
+		}
+		line := "- " + content + "\n"
+		if b.Len()+len(line) > budget {
+			break
+		}
+		b.WriteString(line)
+	}
+	return b.String()
 }
 
 func valueFromMemoryContent(content string) string {

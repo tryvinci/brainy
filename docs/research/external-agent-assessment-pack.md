@@ -1,20 +1,42 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-04  
-**How to use:** Pass this file (plus optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent. It is self-contained enough to assess architecture, gaps, and next bets without repo spelunking.
+**Date:** 2026-08-04 (updated after external architecture verdict)  
+**How to use:** Pass this file (plus optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent.
 
 | Related doc | Role |
 | --- | --- |
+| [external-reviews/2026-08-04-architecture-verdict.md](./external-reviews/2026-08-04-architecture-verdict.md) | **Latest course correction** (accepted) |
+| [external-reviews/README.md](./external-reviews/README.md) | Standing intake SOP for future reviews |
 | [codebase-graph.md](./codebase-graph.md) | Visual/structural map |
 | [codebase-graph.json](./codebase-graph.json) | Machine-readable graph |
-| [sota-end-to-end-program.md](./sota-end-to-end-program.md) | **Program of record** (implementation mandate) |
-| [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md) | Earlier external briefing (still useful; numbers older in places) |
-| [program-execution-status.md](./program-execution-status.md) | Latest execution + measurement notes |
+| [sota-end-to-end-program.md](./sota-end-to-end-program.md) | Program of record |
+| [program-execution-status.md](./program-execution-status.md) | Execution + measurement notes |
+
+---
+
+## Architecture verdict (read this first)
+
+**Approve the five-plane target. Do not treat the current implementation as having reached it.**
+
+Brainy today is a **record-centric memory service mid-migration**. OpMem/vertical greens validate legacy `memory_records` more than the new planes.
+
+| Plane | Honest status |
+| --- | --- |
+| Source | Live (`IngestRequest` messages) |
+| Evidence | Moving shadow → **raw Evidence Plane v2** |
+| Semantic | Text-first + partial atoms/events |
+| Projection | `current_state` rebuildable MVP — **not** canonical truth |
+| Recall | Synthesis over search; not yet a planner |
+
+**Next sequence (do not fusion-retune first):** raw evidence → typed semantics → temporal truth → kill scan-heavy retrieval → plan evidence → executable packs.
+
+Verified debts: coverage≠BM25 until FTS rank plumbed; 128-d pgvector fallback loads all embeddings; multi-hop heuristic over-scans; pack v2 YAML scaffolds not loaded by registry.
 
 ---
 
 ## 0. One-paragraph product definition
+
 
 Brainy is a **Go + Postgres memory service** for agents and products. It stores durable facts with **tenant/subject isolation**, **lifecycle** (suppress / supersede / correct), **vertical packs** (marketing, support), and **hybrid retrieval** (FTS + dense + entity hub + typed atoms). It competes on **operational correctness** and **governed vertical memory**, while pursuing **credible conversational recall** (LoCoMo / LongMemEval / BEAM) under an **anti-benchmax** rule: no benchmark surface forms in product code.
 
@@ -161,7 +183,7 @@ Primary labels (also in `internal/memory/trace.go`):
 
 `SOURCE_MISS` · `WRITE_MISS` · `REPRESENTATION_MISS` · `ENTITY_LINK_MISS` · `RETRIEVAL_MISS` · `EVIDENCE_COVERAGE_MISS` · `TEMPORAL_RESOLUTION_MISS` · `CONFLICT_RESOLUTION_MISS` · `PLANNING_MISS` · `READER_MISS` · `ABSTENTION_MISS` · `JUDGE_MISS` · `HARNESS_ERROR`
 
-Oracle helpers: `evals/public/oracle.py` + recall `oracle_mode`.
+Oracle helpers: `evals/public/oracle.py`, `evals/public/stage_oracle.py`, recall `oracle_mode` (must be operational or explicitly `oracle_unsupported`).
 
 ---
 
@@ -182,16 +204,18 @@ Program detail: [sota-end-to-end-program.md](./sota-end-to-end-program.md) §24.
 
 ## 8. Proposed roadmap (compressed)
 
-| Phase | Intent | Status (2026-08-04) |
+| Phase | Intent | Status |
 | --- | --- | --- |
-| 0 Baseline + traces + oracle | Diagnostic truth | **Landed** |
-| 1 Fusion / overfetch / evidence-set / scan caps | Retrieval reliability | **Landed** (latency SLO open) |
-| 2 Evidence + bitemporal | Immutable source + time | **Partial** (shadow + atom fields) |
-| 3 Events / procedures / profiles | Representation | **MVP events**; procedures thin |
-| 4 Planner + tools + abstention | Query controller | **Intents/statuses**; tools incomplete |
-| 5 Packs v2 | Vertical leadership | **Scaffolds + fixtures** |
-| 6 Neutral proof | SOTA qualification | **Smoke only**; full multi-seed pending |
-| 7–8 Associative / learned policy | Research gates | **Deferred** |
+| 0 Baseline + traces + oracle | Diagnostic truth | Traces landed; **oracle/ledger hardening in progress** |
+| 1 Fusion / overfetch / evidence-set | Retrieval reliability | Useful progress; **not true BM25 fusion yet** |
+| 2 Evidence + bitemporal | Immutable source + time | **Evidence Plane v2 (raw) in progress**; atoms partial |
+| 3 Events / procedures / profiles | Representation | MVP events; **typed extract still flat text** |
+| 4 Planner + tools + abstention | Query controller | Intents cosmetic; **not a planner** |
+| 5 Packs v2 | Vertical leadership | **Scaffolds only** (registry loads pack.yaml) |
+| 6 Neutral proof | SOTA qualification | Smoke only; full multi-seed pending |
+| 7–8 Associative / learned policy | Research gates | Deferred |
+
+**Post–2026-08-04 review priority:** PR1 oracle ledger → PR2 raw evidence → PR3 typed extract → PR4 temporal resolver → PR5 retrieval store → PR6 planner → PR7 executable packs.
 
 ---
 
@@ -233,7 +257,8 @@ Pins: Brainy commit SHA, dataset hash, answerer/judge models, top-k, Fusion flag
 
 ## 11. Handoff checklist for the receiving agent
 
-- [ ] Read §§0–5 of this pack  
+- [ ] Read **Architecture verdict** + §§0–5  
+- [ ] Read [2026-08-04 architecture verdict](./external-reviews/2026-08-04-architecture-verdict.md)  
 - [ ] Skim [codebase-graph.md](./codebase-graph.md) diagrams  
 - [ ] Load [codebase-graph.json](./codebase-graph.json) if using tools  
 - [ ] Inspect `SearchOpt` + `ScoreAndRankV2` + `Recall`  

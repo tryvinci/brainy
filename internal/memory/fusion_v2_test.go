@@ -3,7 +3,7 @@ package memory
 import "testing"
 
 func TestScoreAndRankV2Additive(t *testing.T) {
-	combined, parts := ScoreAndRankV2(0.8, 0.6, 0.25, 0.12)
+	combined, parts := ScoreAndRankV2(0.8, 0.6, 0.25, 0.12, 0.42)
 	if combined <= 0 || combined > 1 {
 		t.Fatalf("combined out of range: %v %#v", combined, parts)
 	}
@@ -13,18 +13,19 @@ func TestScoreAndRankV2Additive(t *testing.T) {
 }
 
 func TestScoreAndRankV2SemanticGate(t *testing.T) {
-	combined, _ := ScoreAndRankV2(0.05, 0, 0, 0.12)
+	combined, _ := ScoreAndRankV2(0.05, 0, 0, 0.12, 0.42)
 	if combined != 0 {
 		t.Fatalf("weak semantic alone should gate to 0, got %v", combined)
 	}
-	// Template false-friend range must not pass semantic-only.
-	combined, details := ScoreAndRankV2(0.55, 0, 0, 0.12)
+	// Entity-probe floor must block mid false-friends.
+	combined, details := ScoreAndRankV2(0.55, 0, 0, 0.12, 0.78)
 	if combined != 0 {
-		t.Fatalf("mid semantic-only should gate to 0, got %v %#v", combined, details)
+		t.Fatalf("mid semantic-only should gate at 0.78 floor, got %v %#v", combined, details)
 	}
-	combined, _ = ScoreAndRankV2(0.85, 0, 0, 0.12)
+	// Paraphrase floor allows mid-high semantic.
+	combined, _ = ScoreAndRankV2(0.55, 0, 0, 0.12, 0.42)
 	if combined <= 0 {
-		t.Fatalf("strong semantic-only should pass, got %v", combined)
+		t.Fatalf("paraphrase semantic-only should pass at 0.42 floor, got %v", combined)
 	}
 }
 
