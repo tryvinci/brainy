@@ -17,6 +17,15 @@ func TestScoreAndRankV2SemanticGate(t *testing.T) {
 	if combined != 0 {
 		t.Fatalf("weak semantic alone should gate to 0, got %v", combined)
 	}
+	// Template false-friend range must not pass semantic-only.
+	combined, details := ScoreAndRankV2(0.55, 0, 0, 0.12)
+	if combined != 0 {
+		t.Fatalf("mid semantic-only should gate to 0, got %v %#v", combined, details)
+	}
+	combined, _ = ScoreAndRankV2(0.85, 0, 0, 0.12)
+	if combined <= 0 {
+		t.Fatalf("strong semantic-only should pass, got %v", combined)
+	}
 }
 
 func TestNormalizeBM25Sigmoid(t *testing.T) {

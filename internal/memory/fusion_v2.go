@@ -48,6 +48,10 @@ func NormalizeBM25Sigmoid(raw float64, numQueryTerms int) float64 {
 
 // ScoreAndRankV2 fuses signals the Mem0 way: threshold-gate semantic first,
 // then (semantic + bm25 + entity) / max_possible, capped at 1.
+//
+// Semantic-only candidates (no lexical/entity evidence) require a stricter
+// similarity floor so parallel templates ("Never mention BrandX rival Y")
+// cannot leak across scopes on weak/hash embeddings.
 func ScoreAndRankV2(semantic, bm25, entityBoost, semanticThreshold float64) (combined float64, details map[string]float64) {
 	details = map[string]float64{
 		"semantic":      semantic,
@@ -55,7 +59,14 @@ func ScoreAndRankV2(semantic, bm25, entityBoost, semanticThreshold float64) (com
 		"entity_boost":  entityBoost,
 		"sem_threshold": semanticThreshold,
 	}
-	if semantic > 0 && semantic < semanticThreshold && bm25 <= 0 && entityBoost <= 0 {
+	const semanticOnlyFloor = 0.78
+	if bm25 <= 0 && entityBoost <= 0 {
+		if semantic < semanticOnlyFloor {
+			details["combined"] = 0
+			details["semantic_only_floor"] = semanticOnlyFloor
+			return 0, details
+		}
+	} else if semantic > 0 && semantic < semanticThreshold && bm25 <= 0 && entityBoost <= 0 {
 		details["combined"] = 0
 		return 0, details
 	}
