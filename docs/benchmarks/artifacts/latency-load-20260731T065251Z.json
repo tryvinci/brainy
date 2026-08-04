@@ -1,0 +1,15 @@
+{
+  "tenant_id": "load-7e6d77a1",
+  "memories": 200,
+  "queries": 120,
+  "concurrency": 8,
+  "top_k": 30,
+  "errors": 0,
+  "n": 120,
+  "p50_ms": 2403.4,
+  "p95_ms": 4996.7,
+  "p99_ms": 5304.6,
+  "mean_ms": 2579.4,
+  "slo_p50_met": false,
+  "slo_p95_met": false
+}

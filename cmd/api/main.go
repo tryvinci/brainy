@@ -18,7 +18,7 @@ import (
 func main() {
 	cfg := config.Load()
 	var logger *slog.Logger = observability.NewLogger()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	store, err := postgres.New(ctx, cfg.DatabaseURL)
@@ -32,9 +32,21 @@ func main() {
 		logger.Error("failed to apply migrations", "error", err)
 		os.Exit(1)
 	}
+	// Optional: build FTS GIN off the request path. Disabled by default on
+	// starter plans — concurrent GIN builds can OOM small instances.
+	if os.Getenv("BRAINY_ENSURE_FTS_INDEX") == "1" {
+		go func() {
+			indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+			defer indexCancel()
+			store.EnsureContentFTSIndex(indexCtx)
+		}()
+	}
 
 	metrics := observability.NewMetrics()
-	service := memory.NewService(store)
+	service := memory.NewService(store).
+		WithEmbedder(config.BuildEmbedder(cfg, logger)).
+		WithEntityRanking(cfg.EntityRanking).
+		WithIDFRanking(cfg.IDFRanking)
 	keyRing := auth.ParseKeyRing(cfg.APIKeys)
 	router := api.NewRouter(service, metrics)
 	router = api.APIKeyMiddleware(keyRing, cfg.RequireAPIKey)(router)

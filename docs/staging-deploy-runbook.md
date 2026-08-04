@@ -28,6 +28,41 @@ pgvector is **optional** (migration v9 no-ops if the extension is missing). Stag
      Example (auth later): `*:sk_staging_bench,demo:sk_demo`
 5. Click **Apply**. Wait for DB + API + worker healthy (~5–10 min first deploy).
 6. Copy the API URL (e.g. `https://brainy-api-staging.onrender.com`).
+7. **Provider extract (conversational long-memory):** on `brainy-worker-staging`, set Dashboard secrets:
+   - `BRAINY_PROVIDER_BASE_URL` — OpenAI-compatible base (e.g. CF AI Gateway `/compat`)
+   - `BRAINY_PROVIDER_API_KEY`
+   - `BRAINY_PROVIDER_MODEL`
+   - optional `BRAINY_PROVIDER_TIMEOUT` (Blueprint default `45s`)
+
+   Leave empty to keep deterministic-only worker extract. Sync `/ingest` on the API is always deterministic.
+8. **Dense embeddings + reranking (SOTA path):** on both `brainy-api-staging` and
+   `brainy-worker-staging`, set a strong hosted embeddings endpoint:
+   - `BRAINY_EMBEDDING_BASE_URL`, `BRAINY_EMBEDDING_API_KEY`, `BRAINY_EMBEDDING_MODEL`
+
+   **Cloudflare AI Gateway (Workers AI) — verified 2026-07-23:** `/compat/embeddings`
+   works when the model uses the `workers-ai/` provider prefix (bare `@cf/...`
+   returns `Invalid provider`; OpenAI embeddings need wholesale credits):
+
+   ```bash
+   # smoke the gateway first
+   curl -s "$LLM_BASE_URL/embeddings" \
+     -H "Authorization: Bearer $LLM_API_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"model":"workers-ai/@cf/baai/bge-base-en-v1.5","input":"hello"}'
+   # expect HTTP 200 + 768-d vector
+
+   # then set on BOTH Render services (API + worker):
+   # BRAINY_EMBEDDING_BASE_URL=<same as LLM_BASE_URL / gateway …/compat>
+   # BRAINY_EMBEDDING_API_KEY=<same gateway key>
+   # BRAINY_EMBEDDING_MODEL=workers-ai/@cf/baai/bge-base-en-v1.5
+   ```
+
+   Entity ranking stays **off** by default even with embeddings set (same-pin
+   A/B still regresses — see `entity-linking-ab.md`). Optionally A/B
+   `BRAINY_ENTITY_RANKING=true` / `BRAINY_IDF_RANKING=true` on staging, then
+   re-measure LOCOMO with a **comparable answerer/judge** and re-tune the boost
+   stack *there* — never against the 30-question smoke (see
+   `docs/research/path-to-sota.md`).
 
 CLI alternative (if already logged into Render):
 

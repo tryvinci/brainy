@@ -1,55 +1,76 @@
 # Brainy Research
 
-Benchmark-backed claims for vertical memory. Goal: a public research surface in the spirit of [SuperMemory Research](https://supermemory.ai/research/) and Mem0’s LOCOMO writeups — **reproducible, cited, honest about gaps**.
+**Strategy:** Surpass Mem0 and peers on **multiple axes** — operational correctness,
+vertical governance, latency/cost, and (fairly measured) conversational recall — then
+publish that evidence. Not LOCOMO parity alone. Not benchmax.
 
----
+**Program of record (2026-08): [sota-end-to-end-program.md](./sota-end-to-end-program.md)** — evidence/event/bitemporal architecture, phased execution, SOTA qualification gates.  
+**Prior master plan: [master-plan.md](./master-plan.md)** — still useful for W1–W7 history; new work follows the end-to-end program.  
+**External review briefing: [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md)** — short briefing that seeded the program of record.  
+History: [path-to-sota.md](./path-to-sota.md) · Papers: [paper-topics.md](./paper-topics.md) · Ladder: [public-bench-ladder.md](./public-bench-ladder.md)
 
-## Published
-
-| Piece | Status | Link |
-| --- | --- | --- |
-| OpMem v0 (operational memory) | Live results | [spec](./opmem-spec.md) · [staging vs Mem0](../benchmarks/staging-competitive-report.md) |
-| Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
-| Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
-| Public-bench ladder (LOCOMO …) | Plan | [public-bench-ladder.md](./public-bench-ladder.md) |
-| Proveable eval framework | Spec + L2/L3 harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
+Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0’s LOCOMO writeups — **reproducible, cited, honest about gaps**.
 
 ---
 
 ## Headline (today)
 
-**Brainy 12/12 OpMem vs Mem0 9/12** on staging, after matching Mem0 **4/4** on thin-slice parity.
+| Axis | Result |
+| --- | --- |
+| **OpMem** (operational) | Brainy **12/12** vs Mem0 **9/12** on staging |
+| **Marketing vertical** | **16/16** (Mem0: no equivalent track) |
+| **LOCOMO smoke** (1×30, gpt-oss, dense emb) | **16/30** — mid score, multi-hop **3/10**; not a SOTA claim |
+| **Search latency** | p50 ~730–890 ms after content-dense ranking (↓ vs ~1.0s) |
 
-That is *not* a LOCOMO / LongMemEval claim. Those require LLM judges, long transcripts, and latency/token measurement — tracked explicitly on the ladder.
+Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [staging competitive](../benchmarks/staging-competitive-report.md) · [moat](../benchmarks/marketing-moat-report.md)
+
+---
+
+## Published / live artifacts
+
+| Piece | Status | Link |
+| --- | --- | --- |
+| OpMem v0 | Live results | [spec](./opmem-spec.md) · [staging vs Mem0](../benchmarks/staging-competitive-report.md) |
+| Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
+| Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
+| LOCOMO smoke (L3) | Live mid score | [locomo-smoke.md](../benchmarks/locomo-smoke.md) |
+| Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
+| Proveable eval framework | Spec + harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
+| Surpass plan | Active | [path-to-sota.md](./path-to-sota.md) |
+| SOTA end-to-end program (PoR) | Active | [sota-end-to-end-program.md](./sota-end-to-end-program.md) |
+| SOTA assessment + action plan (external briefing) | Superseded by PoR | [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md) |
+| Mem0 parity gaps | Active | [mem0-parity-gaps.md](./mem0-parity-gaps.md) |
+| Paper roadmap | Active | [paper-topics.md](./paper-topics.md) |
+| OpMem Paper 1 draft | Draft | [posts/2026-07-opmem-v0.md](./posts/2026-07-opmem-v0.md) |
+| Gap crush checklist | **100%** | [gap-crush-checklist.md](./gap-crush-checklist.md) |
 
 ---
 
 ## External datasets we cite
 
-Always outlink upstream when discussing public suites:
-
-- **LOCOMO** — [snap-research/locomo](https://github.com/snap-research/locomo) · [ACL 2024](https://aclanthology.org/2024.acl-long.747/) · [project site](https://snap-research.github.io/locomo/)
-- **Memory harness (runners)** — [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks) (LOCOMO / LongMemEval / BEAM runners + Mem0 adapters)
-- **Industry research pages** — [SuperMemory research](https://supermemory.ai/research/) · [LongMemBench](https://supermemory.ai/research/longmembench/)
+- **LOCOMO** — [snap-research/locomo](https://github.com/snap-research/locomo) · [ACL 2024](https://aclanthology.org/2024.acl-long.747/)
+- **Memory harness** — [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)
+- **Industry research pages** — [SuperMemory research](https://supermemory.ai/research/)
 
 ---
 
-## Content format we are targeting
+## Content format for public posts
 
-Posts should eventually look like Mem0’s LOCOMO-style note and SuperMemory’s research pages:
+1. One-line headline with primary metric  
+2. Systems + version pins  
+3. Table: accuracy · p50/p95 · tokens/query  
+4. Category breakdown  
+5. Methodology (dataset, judge, temperature, retrieval policy)  
+6. Reproduce CLI  
+7. Limitations — what we did *not* claim  
 
-1. **One-line headline** with the primary metric (accuracy / pass rate)
-2. **Systems compared** (Brainy, Mem0, …) + version pins
-3. **Table**: accuracy · p50/p95 latency · tokens/query (when measured)
-4. **Category breakdown** (temporal, multi-hop, suppression, …)
-5. **Methodology** — dataset link, judge model, temperature, retrieval policy
-6. **Reproduce** — exact CLI against staging or tagged release
-7. **Limitations** — what we did *not* claim
-
-First posts can ship with **empty / TBD cells** for latency and LOCOMO — preferable to inventing numbers.
+Empty / TBD cells beat invented numbers.
 
 ---
 
 ## Next engineering step
 
-See [public-bench-ladder.md](./public-bench-ladder.md): Brainy adapter for `mem0ai/memory-benchmarks` (or thin clone under `evals/public/`) → run LOCOMO top-50 → publish even if scores are mid.
+1. ~~ENG-86 temporal supersession v1~~ — [supersession-v1.md](./supersession-v1.md)  
+2. Multi-hop product path (graph re-tune off 30-Q smoke)  
+3. Paper 1 (OpMem) multi-system matrix + public post  
+4. Fair full LOCOMO under identical pins before any “beat Mem0 on LOCOMO” claim  

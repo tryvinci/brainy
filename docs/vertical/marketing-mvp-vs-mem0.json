@@ -1,0 +1,541 @@
+{
+  "benchmark_id": "marketing-mvp-v1",
+  "generated_at": "2026-07-29T02:38:27Z",
+  "mem0_reference_commit": "a670333d67be1207b5be2fc73af60c3439444f48",
+  "mem0_mode": "empirical",
+  "systems": [
+    "brainy",
+    "mem0"
+  ],
+  "mvp_ready": false,
+  "parity": {
+    "passed": 4,
+    "total": 4,
+    "mem0_expected": "pass",
+    "results": [
+      {
+        "fixture": "dark_mode_vim_preference",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "factual_context",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "profile_lookup",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "response_style_preference",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "repeat_deduped": 1,
+        "search_after_suppress_count": 0
+      }
+    ]
+  },
+  "vertical": {
+    "passed": 15,
+    "total": 16,
+    "mem0_expected": "fail",
+    "results": [
+      {
+        "fixture": "bv01_principle_over_preference",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv02_suppression_leak",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "search_after_suppress_count": 0
+      },
+      {
+        "fixture": "bv03_voice_preference_ingest",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv04_correction_stickiness",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv05_core_vertical_unaffected",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv06_multi_brand_isolation",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": false,
+        "errors": [
+          "search result count above expected maximum"
+        ]
+      },
+      {
+        "fixture": "bv07_dedupe_marketing",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "repeat_deduped": 1
+      },
+      {
+        "fixture": "bv08_brand_rule_extraction",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv09_response_style_marketing",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "bv10_dual_message_brand_voice",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "lc01_archived_campaign_hidden",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 0,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "lc02_active_campaign_ranks_above_completed",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "ob05_outcome_updates_belief_rank",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "pt08_cross_campaign_pattern",
+        "ingest_created": 3,
+        "ingest_deduped": 0,
+        "search_result_count": 3,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "sg10_scoped_segment_prefs_coexist",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "ts09_style_matched_creative_ranks",
+        "ingest_created": 2,
+        "ingest_deduped": 0,
+        "search_result_count": 2,
+        "passed": true,
+        "errors": []
+      }
+    ]
+  },
+  "differentiation": {
+    "passed": 6,
+    "total": 7
+  },
+  "capabilities": [
+    {
+      "id": "principle_hierarchy",
+      "name": "Principle ranks above soft preference",
+      "mem0_has_declared": false,
+      "mem0_empirical_pass": false,
+      "gap": "Generic Mem0 has no Principle primitive; recency or preference kind wins ties.",
+      "fixtures": [
+        "bv01_principle_over_preference"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "suppression_leak",
+      "name": "Suppressed taboo never resurfaces",
+      "mem0_has_declared": "approximate",
+      "mem0_empirical_pass": true,
+      "gap": "Mem0 supports delete/suppress; Brainy adds explicit leak regression on vertical queries.",
+      "fixtures": [
+        "bv02_suppression_leak"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "voice_preference_ingest",
+      "name": "Marketing vertical maps preferences to voice_profile",
+      "mem0_has_declared": false,
+      "mem0_empirical_pass": false,
+      "gap": "Mem0 stores flat preference facts without pack label or primitive.",
+      "fixtures": [
+        "bv03_voice_preference_ingest"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "correction_stickiness",
+      "name": "Editorial correction persists in retrieval",
+      "mem0_has_declared": "approximate",
+      "mem0_empirical_pass": true,
+      "gap": "Mem0 supports updates; Brainy scores corrected memories higher deterministically.",
+      "fixtures": [
+        "bv04_correction_stickiness"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "core_vertical_isolation",
+      "name": "Core ingest unaffected by marketing pack weights",
+      "mem0_has_declared": true,
+      "mem0_empirical_pass": false,
+      "gap": "N/A \u2014 parity baseline.",
+      "fixtures": [
+        "bv05_core_vertical_unaffected"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "multi_brand_isolation",
+      "name": "Subject isolation prevents cross-brand bleed",
+      "mem0_has_declared": "approximate",
+      "mem0_empirical_pass": false,
+      "gap": "Mem0 user_id isolation is analogous; Brainy validates subject_id + vertical filter.",
+      "fixtures": [
+        "bv06_multi_brand_isolation"
+      ],
+      "brainy_pass": false,
+      "differentiation": false
+    },
+    {
+      "id": "dedupe_idempotency",
+      "name": "Duplicate marketing ingest dedupes",
+      "mem0_has_declared": true,
+      "mem0_empirical_pass": true,
+      "gap": "N/A \u2014 parity target.",
+      "fixtures": [
+        "bv07_dedupe_marketing"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "brand_rule_extraction",
+      "name": "Never-sentences classify as brand_rule / principle",
+      "mem0_has_declared": false,
+      "mem0_empirical_pass": false,
+      "gap": "Mem0 has no brand_rule label or Principle primitive from heuristics.",
+      "fixtures": [
+        "bv08_brand_rule_extraction"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "response_style_ranking",
+      "name": "Response-style queries rank marketing preferences",
+      "mem0_has_declared": "approximate",
+      "mem0_empirical_pass": false,
+      "gap": "Mem0 may surface preferences; Brainy adds vertical-scoped primitive bonus.",
+      "fixtures": [
+        "bv09_response_style_marketing"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    },
+    {
+      "id": "dual_message_extraction",
+      "name": "Multi-message ingest extracts voice + rule",
+      "mem0_has_declared": false,
+      "mem0_empirical_pass": true,
+      "gap": "Mem0 lacks pack-driven multi-label extraction with principle precedence.",
+      "fixtures": [
+        "bv10_dual_message_brand_voice"
+      ],
+      "brainy_pass": true,
+      "differentiation": false
+    },
+    {
+      "id": "campaign_lifecycle",
+      "name": "Archived campaign excluded from search",
+      "mem0_has_declared": false,
+      "mem0_empirical_pass": false,
+      "gap": "Mem0 has no pack lifecycle_rules or campaign metadata state machine.",
+      "fixtures": [
+        "lc01_archived_campaign_hidden"
+      ],
+      "brainy_pass": true,
+      "differentiation": true
+    }
+  ],
+  "mem0": {
+    "parity": {
+      "passed": 4,
+      "total": 4,
+      "suite_passed": true,
+      "results": [
+        {
+          "fixture": "dark_mode_vim_preference",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": true,
+          "errors": [],
+          "top_content": "User prefers dark mode and uses vim keybindings"
+        },
+        {
+          "fixture": "factual_context",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": true,
+          "errors": [],
+          "top_content": "User's launch date is May 12"
+        },
+        {
+          "fixture": "profile_lookup",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": true,
+          "errors": [],
+          "top_content": "User works at Acme"
+        },
+        {
+          "fixture": "response_style_preference",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": true,
+          "errors": [],
+          "top_content": "User prefers concise, direct answers"
+        }
+      ]
+    },
+    "vertical": {
+      "passed": 4,
+      "total": 16,
+      "suite_passed": false,
+      "results": [
+        {
+          "fixture": "bv01_principle_over_preference",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "first search result content mismatch",
+            "first search result explain.primitive mismatch (unsupported on Mem0)",
+            "created count below expected minimum"
+          ],
+          "top_content": "User prefers warm, casual copy when creating written content, favoring a friendly and approachable tone over formal or technical language."
+        },
+        {
+          "fixture": "bv02_suppression_leak",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": true,
+          "errors": [],
+          "top_content": "User instructed that the competitor named Zebra must never be mentioned in any marketing copy."
+        },
+        {
+          "fixture": "bv03_voice_preference_ingest",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "first search result kind mismatch"
+          ],
+          "top_content": "User prefers copy that is warm in tone, concise, and written in second person"
+        },
+        {
+          "fixture": "bv04_correction_stickiness",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": true,
+          "errors": [],
+          "top_content": "User prefers a warm conversational tone when communicating, indicating they favor friendly and personable dialogue over formal or neutral styles."
+        },
+        {
+          "fixture": "bv05_core_vertical_unaffected",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "first search result kind mismatch"
+          ],
+          "top_content": "User prefers receiving concise answers and values brevity in responses, indicating a desire for succinct communication."
+        },
+        {
+          "fixture": "bv06_multi_brand_isolation",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "search result count above expected maximum",
+            "created count below expected minimum"
+          ],
+          "top_content": "User requests that the rival company OmegaCorp of BrandAlpha should never be mentioned in any conversation."
+        },
+        {
+          "fixture": "bv07_dedupe_marketing",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": true,
+          "errors": [],
+          "top_content": "User prefers short headlines for articles and news pieces, indicating a preference for concise, punchy phrasing rather than longer titles."
+        },
+        {
+          "fixture": "bv08_brand_rule_extraction",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "first search result explain.primitive mismatch (unsupported on Mem0)"
+          ],
+          "top_content": "User prefers that slang never be used in customer-facing copy"
+        },
+        {
+          "fixture": "bv09_response_style_marketing",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "first search result kind mismatch"
+          ],
+          "top_content": "User prefers marketing copy that is concise and direct."
+        },
+        {
+          "fixture": "bv10_dual_message_brand_voice",
+          "provider": "mem0",
+          "search_result_count": 2,
+          "passed": true,
+          "errors": [],
+          "top_content": "User prefers never using slang in any communication"
+        },
+        {
+          "fixture": "lc01_archived_campaign_hidden",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "search result count above expected maximum"
+          ],
+          "top_content": "User's Summer Sale campaign headline is \"Save 20% today\""
+        },
+        {
+          "fixture": "lc02_active_campaign_ranks_above_completed",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "search result count below expected minimum",
+            "first search result content mismatch",
+            "created count below expected minimum"
+          ],
+          "top_content": "Winter splash sale is active"
+        },
+        {
+          "fixture": "ob05_outcome_updates_belief_rank",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "first search result content mismatch",
+            "first search result explain.primitive mismatch (unsupported on Mem0)",
+            "created count below expected minimum"
+          ],
+          "top_content": "User believes that including emojis in email subject lines can lead to a slight improvement in open rates, based on their understanding of email marketing best practices."
+        },
+        {
+          "fixture": "pt08_cross_campaign_pattern",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "first search result content mismatch",
+            "first search result explain.primitive mismatch (unsupported on Mem0)",
+            "created count below expected minimum"
+          ],
+          "top_content": "User observed that carousel ads outperformed static images during the spring season"
+        },
+        {
+          "fixture": "sg10_scoped_segment_prefs_coexist",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "search result count below expected minimum",
+            "created count below expected minimum"
+          ],
+          "top_content": "The VIP segment prefers receiving promotional messages via email rather than SMS."
+        },
+        {
+          "fixture": "ts09_style_matched_creative_ranks",
+          "provider": "mem0",
+          "search_result_count": 1,
+          "passed": false,
+          "errors": [
+            "first search result content mismatch",
+            "first search result explain.primitive mismatch (unsupported on Mem0)",
+            "created count below expected minimum"
+          ],
+          "top_content": "User is looking for a corporate-dense headline specifically designed to attract and resonate with enterprise buyers, indicating a focus on B2B marketing messaging"
+        }
+      ]
+    }
+  }
+}

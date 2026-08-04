@@ -2,9 +2,12 @@ package jobs
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"time"
 
+	"brainy/internal/embedding"
 	"brainy/internal/memory"
 	"brainy/internal/observability"
 	"brainy/internal/pack"
@@ -13,6 +16,7 @@ import (
 type Processor struct {
 	store     memory.Store
 	extractor memory.Extractor
+	embedder  embedding.Embedder
 	packs     *pack.Registry
 	metrics   *observability.Metrics
 	now       func() time.Time
@@ -20,10 +24,18 @@ type Processor struct {
 }
 
 func NewProcessor(store memory.Store, metrics *observability.Metrics) *Processor {
+	return NewProcessorWithExtractor(store, metrics, memory.NewDeterministicExtractor())
+}
+
+func NewProcessorWithExtractor(store memory.Store, metrics *observability.Metrics, extractor memory.Extractor) *Processor {
 	reg, _ := pack.LoadRegistryFromDir("packs")
+	if extractor == nil {
+		extractor = memory.NewDeterministicExtractor()
+	}
 	return &Processor{
 		store:     store,
-		extractor: memory.NewExtractor(),
+		extractor: extractor,
+		embedder:  embedding.Default(),
 		packs:     reg,
 		metrics:   metrics,
 		now:       time.Now().UTC,
@@ -33,40 +45,119 @@ func NewProcessor(store memory.Store, metrics *observability.Metrics) *Processor
 	}
 }
 
+func (p *Processor) WithEmbedder(embedder embedding.Embedder) *Processor {
+	if embedder != nil {
+		p.embedder = embedder
+	}
+	return p
+}
+
 func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	job, ok, err := p.store.ClaimNextExtractionJob(ctx)
 	if err != nil || !ok {
 		return ok, err
 	}
 
-	for _, extracted := range p.extractor.Extract(job.Request) {
+	extracted, err := p.extractor.Extract(ctx, job.Request)
+	if err != nil {
+		// Fail before any upserts so a provider error cannot leave partial
+		// enrichment or mutate the immutable raw_ingests payload.
+		_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
+		return true, err
+	}
+
+	for _, item := range extracted {
 		p.metrics.RecordExtraction()
-		now := p.now()
-		record := memory.MemoryRecord{
-			MemoryID:          p.id("mem"),
-			TenantID:          job.Request.TenantID,
-			SubjectID:         job.Request.SubjectID,
-			Kind:              extracted.Kind,
-			Content:           extracted.Content,
-			SourceText:        extracted.SourceText,
-			SourceType:        job.Request.SourceType,
-			DedupeKey:         memory.DedupeKey(job.Request.TenantID, job.Request.SubjectID, extracted.Kind, extracted.Content),
-			Status:            memory.StatusActive,
-			Confidence:        extracted.Confidence,
-			ExtractionVersion: "deterministic-v1",
-			Explain:           extracted.Explain,
-			CreatedAt:         now,
-			UpdatedAt:         now,
-		}
-		memory.ApplyVerticalPack(&record, job.Request, extracted.Kind, extracted.Content, p.packs)
-		if _, err := p.store.UpsertMemory(ctx, record); err != nil {
+		record, err := memory.BuildMemoryRecord(p.id("mem"), p.now(), job.Request, item, p.packs)
+		if err != nil {
 			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
 			return true, err
 		}
+		upserted, err := p.store.UpsertMemory(ctx, record)
+		if err != nil {
+			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
+			return true, err
+		}
+		p.persistEmbedding(ctx, upserted.Record)
+		p.persistEntityLinks(ctx, upserted.Record)
+		p.persistEvidenceAndEvents(ctx, upserted.Record)
 	}
 
 	if err := p.store.CompleteExtractionJob(ctx, job.JobID, job.IngestID); err != nil {
 		return true, err
 	}
 	return true, nil
+}
+
+type embeddingWriter interface {
+	UpsertEmbedding(ctx context.Context, memoryID, tenantID, subjectID string, values []float32) error
+}
+
+func (p *Processor) persistEmbedding(ctx context.Context, record memory.MemoryRecord) {
+	writer, ok := p.store.(embeddingWriter)
+	if !ok {
+		return
+	}
+	embedder := p.embedder
+	if embedder == nil {
+		embedder = embedding.Default()
+	}
+	values, err := embedder.Embed(ctx, record.Content)
+	if err != nil || len(values) == 0 {
+		return
+	}
+	_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, values)
+}
+
+func (p *Processor) persistEntityLinks(ctx context.Context, record memory.MemoryRecord) {
+	linker, ok := p.store.(memory.EntityLinker)
+	if !ok {
+		return
+	}
+	ents := memory.ExtractEntities(record.Content + " " + record.SourceText)
+	if record.Metadata != nil {
+		if raw, ok := record.Metadata["entities"]; ok {
+			if list, ok := raw.([]string); ok && len(list) > 0 {
+				ents = list
+			}
+		}
+	}
+	if len(ents) == 0 {
+		return
+	}
+	_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
+}
+
+func (p *Processor) persistEvidenceAndEvents(ctx context.Context, record memory.MemoryRecord) {
+	if writer, ok := p.store.(memory.EvidenceWriter); ok {
+		srcType := "conversation"
+		session := ""
+		if record.Metadata != nil {
+			if v, ok := record.Metadata["source_type"].(string); ok && v != "" {
+				srcType = v
+			}
+			if v, ok := record.Metadata["session_id"].(string); ok {
+				session = v
+			}
+		}
+		_ = writer.ShadowWriteEvidence(ctx, record.TenantID, record.SubjectID, srcType, record.MemoryID, session, record.Content, record.MemoryID, record.ObservedAt, record.Metadata)
+	}
+	if writer, ok := p.store.(memory.EventWriter); ok && record.Metadata != nil {
+		pred, _ := record.Metadata["predicate"].(string)
+		val, _ := record.Metadata["value_norm"].(string)
+		if pred == "" {
+			return
+		}
+		if memory.IsStatefulPredicate(pred) && val != "" {
+			if cs, ok := p.store.(memory.CurrentStateStore); ok {
+				_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, pred, record.MemoryID, val, string(memory.PredicatePolicy(pred)))
+			}
+			return
+		}
+		if memory.PredicatePolicy(pred) == memory.PolicyAppendOnlyEvent || pred == memory.PredicateEvent || pred == memory.PredicateActivity {
+			sum := sha256.Sum256([]byte(record.TenantID + pred + val + record.MemoryID))
+			eventID := "evt_" + hex.EncodeToString(sum[:12])
+			_ = writer.UpsertMemoryEvent(ctx, record.TenantID, record.SubjectID, eventID, pred, val, record.Content, record.MemoryID, "", record.ObservedAt, record.Confidence, memory.ExtractEntities(record.Content))
+		}
+	}
 }

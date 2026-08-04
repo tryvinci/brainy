@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -23,6 +24,8 @@ func NewRouter(service *memory.Service, metrics *observability.Metrics) http.Han
 	mux.HandleFunc("/metrics", router.handleMetrics)
 	mux.HandleFunc("/ingest", router.handleIngest)
 	mux.HandleFunc("/ingest/async", router.handleIngestAsync)
+	mux.HandleFunc("/events", router.handleDomainEvent)
+	mux.HandleFunc("/recall", router.handleRecall)
 	mux.HandleFunc("/memories/search", router.handleSearch)
 	mux.HandleFunc("/memories/", router.handleMemoryAction)
 	return mux
@@ -86,13 +89,21 @@ func (r *Router) handleSearch(w http.ResponseWriter, req *http.Request) {
 	}
 
 	start := time.Now()
-	result, err := r.service.Search(
+	includeHistorical := queryTruthy(req.URL.Query().Get("include_historical"))
+	limit := 0
+	if raw := strings.TrimSpace(req.URL.Query().Get("limit")); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	result, err := r.service.SearchOpt(
 		req.Context(),
 		req.URL.Query().Get("tenant_id"),
 		req.URL.Query().Get("subject_id"),
 		req.URL.Query().Get("vertical"),
 		req.URL.Query().Get("scope"),
 		req.URL.Query().Get("q"),
+		memory.SearchOptions{IncludeHistorical: includeHistorical, Limit: limit},
 	)
 	r.metrics.RecordSearch(time.Since(start), err != nil)
 	if err != nil {
@@ -116,6 +127,9 @@ func (r *Router) handleMemoryAction(w http.ResponseWriter, req *http.Request) {
 		return
 	case strings.HasSuffix(path, "/correct"):
 		r.handleCorrect(w, req, path)
+		return
+	case strings.HasSuffix(path, "/supersede"):
+		r.handleSupersede(w, req, path)
 		return
 	default:
 		writeError(w, http.StatusNotFound, "not_found", "route not found")
@@ -175,8 +189,85 @@ func (r *Router) handleCorrect(w http.ResponseWriter, req *http.Request, path st
 	writeJSON(w, http.StatusOK, result)
 }
 
+func (r *Router) handleSupersede(w http.ResponseWriter, req *http.Request, path string) {
+	memoryID := memoryIDFromActionPath(path, "/supersede")
+	if memoryID == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "memory id is required")
+		return
+	}
+
+	var payload memory.SupersedeRequest
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+		return
+	}
+
+	tenantID := req.URL.Query().Get("tenant_id")
+	subjectID := req.URL.Query().Get("subject_id")
+	result, err := r.service.Supersede(req.Context(), tenantID, subjectID, memoryID, payload)
+	if err != nil {
+		if errors.Is(err, memory.ErrMemoryNotFound) {
+			writeError(w, http.StatusNotFound, "not_found", err.Error())
+			return
+		}
+		if errors.Is(err, memory.ErrMemoryConflict) {
+			writeError(w, http.StatusConflict, "conflict", err.Error())
+			return
+		}
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleDomainEvent(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		return
+	}
+	var payload memory.DomainEventRequest
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+		return
+	}
+	result, err := r.service.ApplyDomainEvent(req.Context(), payload)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleRecall(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		return
+	}
+	var payload memory.RecallRequest
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+		return
+	}
+	result, err := r.service.Recall(req.Context(), payload)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
 func memoryIDFromActionPath(path, suffix string) string {
 	return strings.TrimSuffix(strings.TrimSuffix(path, suffix), "/")
+}
+
+func queryTruthy(raw string) bool {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

@@ -15,7 +15,7 @@ Use this checklist before onboarding design partners or accepting payment.
 | Marketing vertical pack | Done | `packs/marketing/v1/pack.yaml` |
 | Async worker + DLQ | Done | `cmd/worker` |
 | API versioning policy | Done | v0.x preview; breaking changes documented in releases |
-| Migration policy | Partial | Postgres migrations v1–v9; document backup before upgrade |
+| Migration policy | Partial | Postgres migrations include `observed_at` (v10); document backup before upgrade |
 
 ---
 
@@ -46,8 +46,8 @@ Clients send `Authorization: Bearer sk_live_partner_a` on all routes except `/he
 | Item | Status | Notes |
 | --- | --- | --- |
 | Manual invoicing for design partners | Ready | No Stripe integration yet |
-| Terms of service | Todo | Required before GA |
-| Privacy policy | Todo | Required before GA |
+| Terms of service | Todo | **Required before GA** — legal draft; do not invent copy in-repo |
+| Privacy policy | Todo | **Required before GA** — legal draft; do not invent copy in-repo |
 | DPA for enterprise | Todo | Post-beta |
 
 ---
@@ -73,7 +73,7 @@ Clients send `Authorization: Bearer sk_live_partner_a` on all routes except `/he
 | Item | Status | Notes |
 | --- | --- | --- |
 | README quickstart | Done | 5-minute Docker path |
-| Benchmark reports | Done | OpMem 12/12 + marketing moat |
+| Benchmark reports | Done | OpMem 12/12 + marketing moat + [LOCOMO smoke 7/30](./benchmarks/locomo-smoke.md) (honest mid; not SOTA) |
 | Launch narrative | Done | [launch-narrative.md](./benchmarks/launch-narrative.md) |
 | Design partner Slack | Ready | Manual onboarding |
 | Ticketing | Todo | Before GA |

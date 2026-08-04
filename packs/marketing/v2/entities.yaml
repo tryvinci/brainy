@@ -1,0 +1,13 @@
+# Marketing v2 entities (program §13.5).
+entities:
+  - { name: brand, primary_id: brand_id }
+  - { name: campaign, primary_id: campaign_id }
+  - { name: audience, primary_id: audience_id }
+  - { name: asset, primary_id: asset_id }
+  - { name: channel, primary_id: channel_id }
+  - { name: experiment, primary_id: experiment_id }
+  - { name: creative_variant, primary_id: variant_id }
+  - { name: metric, primary_id: metric_id }
+  - { name: outcome, primary_id: outcome_id }
+  - { name: rule, primary_id: rule_id }
+  - { name: belief, primary_id: belief_id }

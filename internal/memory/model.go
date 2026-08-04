@@ -59,6 +59,37 @@ type CorrectionRequest struct {
 	SourceText string `json:"source_text,omitempty"`
 }
 
+// SupersedeRequest replaces a memory with a new active record and marks the
+// prior record lifecycle=superseded (ENG-86). Prefer this over in-place Correct
+// when the product needs ADD-style lineage (supersedes_id).
+type SupersedeRequest struct {
+	Content    string `json:"content"`
+	SourceText string `json:"source_text,omitempty"`
+}
+
+// DomainEventRequest batch-invalidates memories (campaign end, fact revision).
+// Prefer explicit IDs when known; or Match to select by label/metadata (v2).
+type DomainEventRequest struct {
+	TenantID           string             `json:"tenant_id"`
+	SubjectID          string             `json:"subject_id"`
+	EventType          string             `json:"event_type"`
+	SupersedeMemoryIDs []string           `json:"supersede_memory_ids,omitempty"`
+	Match              *DomainEventMatch  `json:"match,omitempty"`
+	Metadata           map[string]any     `json:"metadata,omitempty"`
+}
+
+// DomainEventMatch selects memories to supersede without listing IDs.
+type DomainEventMatch struct {
+	Label    string            `json:"label,omitempty"`
+	Kind     string            `json:"kind,omitempty"`
+	Metadata map[string]string `json:"metadata,omitempty"`
+}
+
+type DomainEventResult struct {
+	EventType  string   `json:"event_type"`
+	Superseded []string `json:"superseded"`
+}
+
 type MemoryRecord struct {
 	MemoryID          string
 	TenantID          string
@@ -82,6 +113,12 @@ type MemoryRecord struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	CorrectedAt       *time.Time
+	// ObservedAt is conversational event time (client metadata.observed_at or provider when).
+	ObservedAt *time.Time
+	// SupersedesID is the memory this record replaces (new → old). Empty if none.
+	SupersedesID string
+	// SupersededAt is when this record was marked lifecycle=superseded.
+	SupersededAt *time.Time
 }
 
 type IngestResult struct {
@@ -107,15 +144,25 @@ type IngestResultMemory struct {
 }
 
 type SearchResult struct {
-	MemoryID string         `json:"memory_id"`
-	Kind     string         `json:"kind"`
-	Content  string         `json:"content"`
-	Score    float64        `json:"score"`
-	Explain  map[string]any `json:"explain"`
+	MemoryID   string         `json:"memory_id"`
+	Kind       string         `json:"kind"`
+	Content    string         `json:"content"`
+	Score      float64        `json:"score"`
+	ObservedAt *time.Time     `json:"observed_at,omitempty"`
+	Explain    map[string]any `json:"explain"`
+}
+
+// SearchOptions controls retrieval visibility. Default excludes superseded /
+// archived / suppressed lifecycle states (production default).
+type SearchOptions struct {
+	IncludeHistorical bool // when true, include lifecycle=superseded rows
+	// Limit caps returned results (0 = unlimited / caller truncates).
+	Limit int
 }
 
 type SearchResponse struct {
 	Results []SearchResult `json:"results"`
+	Trace   *SearchTrace   `json:"trace,omitempty"`
 }
 
 type MutationResult struct {
@@ -131,6 +178,8 @@ type ExtractedMemory struct {
 	SourceText string
 	Confidence float64
 	Explain    map[string]any
+	When       string // optional temporal slot from provider extract
+	Duration   string
 }
 
 type ExtractionJob struct {

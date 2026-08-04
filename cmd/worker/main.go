@@ -10,6 +10,7 @@ import (
 
 	"brainy/internal/config"
 	"brainy/internal/jobs"
+	"brainy/internal/memory"
 	"brainy/internal/observability"
 	"brainy/internal/store/postgres"
 )
@@ -17,7 +18,7 @@ import (
 func main() {
 	cfg := config.Load()
 	logger := observability.NewLogger()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
 
 	store, err := postgres.New(ctx, cfg.DatabaseURL)
@@ -31,9 +32,13 @@ func main() {
 		logger.Error("failed to apply migrations", "error", err)
 		os.Exit(1)
 	}
+	// Do NOT build the FTS GIN index in the worker process — CREATE INDEX
+	// CONCURRENTLY on a large staging table OOMs the starter plan and Render
+	// SIGTERMs the loop (~60s). API may ensure the index in the background.
 
 	metrics := observability.NewMetrics()
-	processor := jobs.NewProcessor(store, metrics)
+	extractor := buildWorkerExtractor(cfg, logger)
+	processor := jobs.NewProcessorWithExtractor(store, metrics, extractor).WithEmbedder(config.BuildEmbedder(cfg, logger))
 	switch cfg.WorkerMode {
 	case "loop":
 		runLoop(processor, cfg.WorkerPollInterval, logger)
@@ -51,6 +56,21 @@ func main() {
 	}
 }
 
+func buildWorkerExtractor(cfg config.Config, logger *slog.Logger) memory.Extractor {
+	providerCfg := memory.ProviderConfig{
+		BaseURL: cfg.ProviderBaseURL,
+		APIKey:  cfg.ProviderAPIKey,
+		Model:   cfg.ProviderModel,
+		Timeout: cfg.ProviderTimeout,
+	}
+	if !providerCfg.Configured() {
+		logger.Info("worker using deterministic extractor")
+		return memory.NewDeterministicExtractor()
+	}
+	logger.Info("worker using provider extractor", "base_url", providerCfg.BaseURL, "model", providerCfg.Model)
+	return memory.NewProviderExtractor(providerCfg, nil)
+}
+
 func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Logger) {
 	logger.Info("brainy worker entering loop mode", "poll_interval", interval.String())
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -62,8 +82,16 @@ func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Log
 	for {
 		processed, err := processor.ProcessNext(ctx)
 		if err != nil {
+			// Job already failed/requeued inside ProcessNext. Keep the loop
+			// alive so a single provider flake cannot stall the queue.
 			logger.Error("processing failed", "error", err)
-			os.Exit(1)
+			select {
+			case <-ctx.Done():
+				logger.Info("brainy worker shutting down")
+				return
+			case <-ticker.C:
+			}
+			continue
 		}
 		if processed {
 			continue

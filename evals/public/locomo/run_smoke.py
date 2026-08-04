@@ -35,7 +35,7 @@ if str(EVALS) not in sys.path:
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from public.backends.brainy import BrainyBackend  # noqa: E402
+from public.backends.brainy import BrainyBackend, _probe_token  # noqa: E402
 from public.judge import answer_from_memories, lexical_judge, llm_judge  # noqa: E402
 from public.llm import resolve_config  # noqa: E402
 from public.locomo.dataset import (  # noqa: E402
@@ -81,30 +81,53 @@ def ingest_conversation(
     backend: BrainyBackend,
     user_id: str,
     sessions: list[dict],
-    chunk: int = 32,
+    chunk: int = 8,
 ) -> int:
     """Ingest dialogue as atomic turns (one API message each).
 
-    Batching multiple *messages* in one /ingest call is fine — product extract
+    Batching multiple *messages* in one ingest call is fine — product extract
     atomizes per message. Pass session_id / observed_at as client metadata
     (same pattern product docs recommend for chat apps).
+
+    Default public smoke uses ``/ingest/async`` so the worker provider extract
+    path matches production clients. Per-batch wait is skipped during enqueue;
+    a final readiness poll runs after all sessions are submitted.
     """
     remembered = 0
+    probes: list[str] = []
     for session in sessions:
         meta: dict = {"session_id": session.get("session_id") or ""}
         observed = (session.get("observed_at") or "").strip()
         if observed:
             meta["observed_at"] = observed
+            year = _probe_token([{"content": observed}])
+            if year:
+                probes.append(year)
         batch: list[dict] = []
         for speaker, text in session.get("turns") or []:
             batch.append({"role": "user", "content": f"{speaker}: {text}"})
             if len(batch) >= chunk:
-                backend.remember_messages(user_id, batch, metadata=meta)
+                backend.remember_messages(user_id, batch, metadata=meta, wait=False)
+                probe = _probe_token(batch)
+                if probe:
+                    probes.append(probe)
                 remembered += len(batch)
                 batch = []
         if batch:
-            backend.remember_messages(user_id, batch, metadata=meta)
+            backend.remember_messages(user_id, batch, metadata=meta, wait=False)
+            probe = _probe_token(batch)
+            if probe:
+                probes.append(probe)
             remembered += len(batch)
+    if backend.async_ingest and remembered:
+        # Cap probes — long unique lists hammer staging search under embed load.
+        uniq: list[str] = []
+        for p in probes:
+            if p and p not in uniq:
+                uniq.append(p)
+            if len(uniq) >= 3:
+                break
+        backend.wait_until_any_searchable(user_id, uniq or ["conversation"])
     return remembered
 
 
@@ -117,7 +140,26 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     base_url = (args.base_url or os.environ.get("BRAINY_BASE_URL") or "http://127.0.0.1:8080").rstrip("/")
     run_id = args.run_id or f"locomo-smoke-{uuid.uuid4().hex[:8]}"
     nonce = uuid.uuid4().hex[:8]
-    backend = BrainyBackend(base_url, tenant_prefix=f"locomo-{nonce}")
+    async_ingest = not bool(getattr(args, "sync_ingest", False))
+    system = (getattr(args, "system", None) or "brainy").strip().lower()
+    if system == "mem0":
+        from public.backends.mem0 import Mem0Backend  # local import — optional dependency path
+
+        backend = Mem0Backend(async_timeout_s=float(getattr(args, "async_timeout", 180.0)))
+        base_url = "https://api.mem0.ai"
+        print("system=mem0 (Platform API; same-pin compare GAP-M1)", flush=True)
+    else:
+        backend = BrainyBackend(
+            base_url,
+            tenant_prefix=f"locomo-{nonce}",
+            async_ingest=async_ingest,
+            async_timeout_s=float(getattr(args, "async_timeout", 180.0)),
+        )
+        print(
+            f"system=brainy ingest_mode={'async' if async_ingest else 'sync'} "
+            f"(provider extract only on async worker path)",
+            flush=True,
+        )
 
     llm = None if args.lexical_only else resolve_config(
         model=args.judge_model or args.answerer_model or "",
@@ -144,7 +186,19 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         print("LLM unset — lexical judge + retrieval-concat (not publishable J-score)", flush=True)
 
     items: list[EvalItem] = []
-    question_budget = args.questions
+    # When evaluating multiple conversations, distribute the question budget
+    # across them. Otherwise a large --questions value is exhausted by conv[0]
+    # and later conversations never run (breaks L4-style multi-convo runs).
+    n_conv = max(1, len(conversations))
+    if args.questions is None or args.questions <= 0:
+        per_conv_budget = None
+        global_budget = None
+    elif n_conv > 1:
+        per_conv_budget = max(1, args.questions // n_conv)
+        global_budget = args.questions
+    else:
+        per_conv_budget = args.questions
+        global_budget = args.questions
 
     for conv_idx, conversation in enumerate(conversations):
         sample_id = str(conversation.get("sample_id") or f"c{conv_idx}")
@@ -155,8 +209,11 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         print(f"[{sample_id}] ingested {n_ingested} turns ({n_turns} total, {len(sessions)} sessions)", flush=True)
 
         questions = iter_questions(conversation)
+        used_this_conv = 0
         for qa in questions:
-            if question_budget is not None and len(items) >= question_budget:
+            if global_budget is not None and len(items) >= global_budget:
+                break
+            if per_conv_budget is not None and used_this_conv >= per_conv_budget:
                 break
             cat_id = qa.get("category")
             try:
@@ -200,7 +257,14 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                     },
                 )
             )
-        if question_budget is not None and len(items) >= question_budget:
+            used_this_conv += 1
+            if len(items) % 10 == 0 or judged.judgment == "CORRECT":
+                print(
+                    f"  [{sample_id}] q={len(items)} {judged.judgment} "
+                    f"lat={latency_ms:.0f}ms group={group}",
+                    flush=True,
+                )
+        if global_budget is not None and len(items) >= global_budget:
             break
 
     metrics = compute_metrics(items, CATEGORIES_TO_SCORE)
@@ -210,13 +274,13 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     result = UnifiedResult(
         metadata=Metadata(
             benchmark="locomo-smoke",
-            project_name="brainy",
+            project_name=system,
             run_id=run_id,
             timestamp=utc_now(),
             dataset_url=LOCOMO_DATASET_URL,
             dataset_sha256=dataset_sha,
             brainy_url=base_url,
-            brainy_commit=commit,
+            brainy_commit=commit if system == "brainy" else "",
             answerer_model=answerer_pin,
             judge_model=judge_pin,
             judge_temperature=0.0,
@@ -226,6 +290,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 "questions": args.questions,
                 "lexical_only": not use_llm,
                 "llm_base_url": (llm.base_url if llm else ""),
+                "ingest_mode": "async" if async_ingest else "sync",
                 "locomo_upstream": LOCOMO_UPSTREAM,
                 "locomo_paper": LOCOMO_PAPER,
             },
@@ -248,7 +313,10 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         conversation_limit=args.conversations,
         question_limit=args.questions,
         notes="Smoke run — not full LOCOMO. lexical judge is not publishable J-score.",
-        extras={"llm_base_url": (llm.base_url if llm else "")},
+        extras={
+            "llm_base_url": (llm.base_url if llm else ""),
+            "ingest_mode": "async" if async_ingest else "sync",
+        },
     )
     gaps = require_pins(manifest)
     out_dir = pathlib.Path(args.out_dir)
@@ -331,9 +399,17 @@ def _render_report(result: UnifiedResult, gaps: list[str]) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Proveable LOCOMO smoke for Brainy")
     parser.add_argument("--base-url", default="")
+    parser.add_argument(
+        "--system",
+        choices=("brainy", "mem0"),
+        default="brainy",
+        help="Backend for same-pin compares (mem0 requires MEM0_API_KEY)",
+    )
     parser.add_argument("--conversations", type=int, default=1)
     parser.add_argument("--questions", type=int, default=30, help="Max questions across all convos")
-    parser.add_argument("--top-k", type=int, default=10)
+    # Mem0 reports top_200; we keep a moderate default that balances recall vs
+    # answerer context. Override with --top-k for ablations.
+    parser.add_argument("--top-k", type=int, default=30)
     parser.add_argument(
         "--answerer-model",
         default="",
@@ -351,6 +427,17 @@ def main() -> None:
     )
     parser.add_argument("--llm-api-key", default="", help="Overrides LLM_API_KEY / OPENAI_API_KEY")
     parser.add_argument("--lexical-only", action="store_true")
+    parser.add_argument(
+        "--sync-ingest",
+        action="store_true",
+        help="Use deterministic sync /ingest instead of async worker path (default: async)",
+    )
+    parser.add_argument(
+        "--async-timeout",
+        type=float,
+        default=900.0,
+        help="Seconds to wait for async extract to become searchable (LOCOMO-sized queues need ~10m)",
+    )
     parser.add_argument("--run-id", default="")
     parser.add_argument(
         "--out-dir",

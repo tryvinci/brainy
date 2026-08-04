@@ -1,0 +1,39 @@
+{
+  "benchmark": "locomo-full-10",
+  "n_seeds": 3,
+  "mean_accuracy": 0.4981,
+  "mean_correct": 767.0,
+  "total_q": 1540,
+  "mean_multihop": 0.2636,
+  "seeds": [
+    {
+      "id": "2a6a04",
+      "acc": 0.4942,
+      "correct": 761,
+      "mh": 71,
+      "temp": 176,
+      "open": 37,
+      "single": 477
+    },
+    {
+      "id": "e7ba5b",
+      "acc": 0.4935,
+      "correct": 760,
+      "mh": 74,
+      "temp": 176,
+      "open": 33,
+      "single": 477
+    },
+    {
+      "id": "9b61f5",
+      "acc": 0.5065,
+      "correct": 780,
+      "mh": 78,
+      "temp": 179,
+      "open": 37,
+      "single": 486
+    }
+  ],
+  "gate_r1_loCoMo_ge_75": false,
+  "note": "Honest post-deoverfit CF gpt-oss publish stack. Multi-hop remains primary gap."
+}

@@ -9,15 +9,29 @@ import (
 )
 
 type storeStub struct {
-	records map[string]memory.MemoryRecord
-	jobs    map[string]memory.ExtractionJob
+	records     map[string]memory.MemoryRecord
+	jobs        map[string]memory.ExtractionJob
+	failedJobs  map[string]string
+	embeddings  map[string][]float32
 }
 
 func newStoreStub() *storeStub {
 	return &storeStub{
-		records: map[string]memory.MemoryRecord{},
-		jobs:    map[string]memory.ExtractionJob{},
+		records:    map[string]memory.MemoryRecord{},
+		jobs:       map[string]memory.ExtractionJob{},
+		failedJobs: map[string]string{},
+		embeddings: map[string][]float32{},
 	}
+}
+
+func (s *storeStub) UpsertEmbedding(_ context.Context, memoryID, _, _ string, values []float32) error {
+	if len(values) == 0 {
+		return nil
+	}
+	copied := make([]float32, len(values))
+	copy(copied, values)
+	s.embeddings[memoryID] = copied
+	return nil
 }
 
 func (s *storeStub) UpsertMemory(_ context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
@@ -25,7 +39,12 @@ func (s *storeStub) UpsertMemory(_ context.Context, record memory.MemoryRecord) 
 	return memory.StoreUpsertResult{Record: record, State: "created"}, nil
 }
 
-func (s *storeStub) ListActiveMemories(_ context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
+func (s *storeStub) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]memory.MemoryRecord, error) {
+	return s.ListMemories(ctx, tenantID, subjectID, false)
+}
+
+func (s *storeStub) ListMemories(_ context.Context, tenantID, subjectID string, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	_ = includeSuperseded
 	var out []memory.MemoryRecord
 	for _, record := range s.records {
 		if record.TenantID == tenantID && record.SubjectID == subjectID && record.Status == memory.StatusActive {
@@ -35,10 +54,21 @@ func (s *storeStub) ListActiveMemories(_ context.Context, tenantID, subjectID st
 	return out, nil
 }
 
-func (s *storeStub) SearchActiveMemories(_ context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
-	_ = patterns
-	return s.ListActiveMemories(context.Background(), tenantID, subjectID)
+func (s *storeStub) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
+	return s.SearchMemories(ctx, tenantID, subjectID, patterns, limit, false)
 }
+
+func (s *storeStub) SearchMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]memory.MemoryRecord, error) {
+	_ = patterns
+	_ = limit
+	return s.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+}
+
+func (s *storeStub) GetMemory(_ context.Context, _, _, _ string) (memory.MemoryRecord, error) {
+	return memory.MemoryRecord{}, memory.ErrMemoryNotFound
+}
+
+func (s *storeStub) MarkSuperseded(_ context.Context, _, _, _ string) error { return nil }
 
 func (s *storeStub) SuppressMemory(_ context.Context, _, _, _ string) error { return nil }
 
@@ -61,7 +91,10 @@ func (s *storeStub) ClaimNextExtractionJob(_ context.Context) (memory.Extraction
 
 func (s *storeStub) CompleteExtractionJob(_ context.Context, _, _ string) error { return nil }
 
-func (s *storeStub) FailExtractionJob(_ context.Context, _, _, _ string) error { return nil }
+func (s *storeStub) FailExtractionJob(_ context.Context, jobID, _, reason string) error {
+	s.failedJobs[jobID] = reason
+	return nil
+}
 
 func TestProcessorProcessesQueuedJob(t *testing.T) {
 	store := newStoreStub()
@@ -89,4 +122,50 @@ func TestProcessorProcessesQueuedJob(t *testing.T) {
 	if len(store.records) != 1 {
 		t.Fatalf("expected 1 created memory, got %d", len(store.records))
 	}
+	if len(store.embeddings) != 1 {
+		t.Fatalf("expected 1 embedding upsert, got %d", len(store.embeddings))
+	}
+	for memoryID, values := range store.embeddings {
+		if len(values) == 0 {
+			t.Fatalf("expected non-empty embedding for %s", memoryID)
+		}
+	}
+}
+
+func TestProcessorProviderFailureLeavesNoMemories(t *testing.T) {
+	store := newStoreStub()
+	failing := failingExtractor{err: context.DeadlineExceeded}
+	processor := NewProcessorWithExtractor(store, observability.NewMetrics(), failing)
+
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_fail", "job_fail", "", memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "Caroline went on 7 May 2023"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	processed, err := processor.ProcessNext(context.Background())
+	if err == nil {
+		t.Fatal("expected extract failure")
+	}
+	if !processed {
+		t.Fatal("expected job claim")
+	}
+	if len(store.records) != 0 {
+		t.Fatalf("provider failure must not upsert memories, got %d", len(store.records))
+	}
+	if store.failedJobs["job_fail"] == "" {
+		t.Fatal("expected FailExtractionJob called")
+	}
+}
+
+type failingExtractor struct {
+	err error
+}
+
+func (f failingExtractor) Extract(_ context.Context, _ memory.IngestRequest) ([]memory.ExtractedMemory, error) {
+	return nil, f.err
 }

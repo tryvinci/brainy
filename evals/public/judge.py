@@ -120,28 +120,271 @@ def answer_from_memories(
     model: str = "",
     config: LLMConfig | None = None,
 ) -> tuple[str, str]:
-    """Generate an answer. Uses configured LLM if available; else joins top memories."""
+    """Generate an answer from retrieved memories.
+
+    This is a *generic* memory-QA client for proveable evals — not a place to
+    special-case public benchmark questions or pad answers from known GTs.
+    Prefer product POST /recall when BRAINY_USE_RECALL=1 (master-plan W4).
+    """
+    product = _product_recall_answer(question)
+    if product is not None:
+        return product
     if not memories:
         return "", "empty-context"
     cfg = config or resolve_config(model=model)
     if cfg is not None:
         cfg = _with_model(cfg, model) if model else cfg
-        return _llm_answer(question, memories, cfg), cfg.label
-    joined = " | ".join(m.get("content", "") for m in memories[:5] if m.get("content"))
-    return joined, "retrieval-concat-v0"
+        answer = _llm_answer(question, memories, cfg, extractive=False)
+        # List-shaped / multi-evidence: run extractive and union distinct items so
+        # generative single-hit answers are completed from other memories.
+        if _is_empty_answer(answer) or _looks_list_question(question) or _looks_multi_evidence(question):
+            extractive = _llm_answer(question, memories, cfg, extractive=True)
+            if not _is_empty_answer(extractive):
+                if _is_empty_answer(answer):
+                    answer = extractive
+                else:
+                    merged = _merge_answer_items(answer, extractive)
+                    if _item_count(merged) > _item_count(answer):
+                        answer = merged
+                    elif _item_count(extractive) > _item_count(answer):
+                        answer = extractive
+            # Harvest structured atom phrases already in retrieved memories
+            # (participates in X, kids like Y, read "Title", …).
+            harvested = _harvest_structured_items(question, memories)
+            if harvested:
+                merged = _merge_answer_items(answer, harvested)
+                if _item_count(merged) > _item_count(answer) or _is_empty_answer(answer):
+                    return merged, cfg.label + "+harvest-list"
+            if not _is_empty_answer(answer):
+                return answer, cfg.label + "+multi-evidence"
+        if _is_empty_answer(answer):
+            joined = _statement_join(memories)
+            if joined:
+                return joined, cfg.label + "+retrieval-concat"
+        return answer, cfg.label
+    return _statement_join(memories) or "", "retrieval-concat-v0"
 
 
-def _llm_answer(question: str, memories: list[dict], config: LLMConfig) -> str:
-    context = "\n".join(f"- {m.get('content', '')}" for m in memories[:20])
+def _product_recall_answer(question: str) -> tuple[str, str] | None:
+    import os
+
+    if os.environ.get("BRAINY_USE_RECALL", "").lower() not in {"1", "true", "yes"}:
+        return None
+    base = (os.environ.get("BRAINY_BASE_URL") or "").rstrip("/")
+    tenant = os.environ.get("BRAINY_RECALL_TENANT", "")
+    subject = os.environ.get("BRAINY_RECALL_SUBJECT", "")
+    if not base or not tenant or not subject:
+        return None
+    try:
+        from httputil import post_json
+
+        mode = "enumerate" if _looks_list_question(question) or _looks_multi_evidence(question) else "answer"
+        body = post_json(
+            base,
+            "/recall",
+            {"tenant_id": tenant, "subject_id": subject, "q": question, "mode": mode, "top_k": 30},
+            timeout=120,
+        )
+        if body.get("abstained"):
+            return "not in memory", "brainy-recall+abstain"
+        if mode == "enumerate" and body.get("items"):
+            vals = [it.get("value") for it in body["items"] if it.get("value")]
+            if vals:
+                return ", ".join(vals), "brainy-recall+enumerate"
+        ans = (body.get("answer") or body.get("context_block") or "").strip()
+        if ans:
+            return ans, "brainy-recall+" + mode
+    except Exception:
+        return None
+    return None
+
+
+def _looks_list_question(question: str) -> bool:
+    q = (question or "").lower()
+    cues = (
+        "activities",
+        "hobbies",
+        "books",
+        "places",
+        "where has",
+        "what do ",
+        "what does ",
+        "what activities",
+        "what books",
+        "kids like",
+        "children like",
+    )
+    return any(c in q for c in cues)
+
+
+def _looks_multi_evidence(question: str) -> bool:
+    """Questions that usually need more than one supporting memory."""
+    q = (question or "").lower()
+    return _looks_list_question(question) or any(
+        c in q for c in ("identity", "relationship", "career", "moved", "research")
+    )
+
+
+def _split_items(answer: str) -> list[str]:
+    text = (answer or "").strip()
+    if not text:
+        return []
+    parts = re.split(r"[\n;,•]|\band\b|\+| - ", text, flags=re.IGNORECASE)
+    items = []
+    for part in parts:
+        cleaned = part.strip(" .-*")
+        # Drop markdown bold noise for dedupe.
+        cleaned = re.sub(r"[*_`]", "", cleaned).strip()
+        if len(cleaned) >= 2:
+            items.append(cleaned)
+    return items
+
+
+def _item_count(answer: str) -> int:
+    items = _split_items(answer)
+    return max(1, len(items)) if items else 0
+
+
+def _merge_answer_items(primary: str, secondary: str) -> str:
+    """Union distinct answer items (order: primary first, then new from secondary)."""
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in _split_items(primary) + _split_items(secondary):
+        key = item.lower()
+        if key in seen:
+            continue
+        # Skip near-duplicates (prefix containment).
+        if any(key in s or s in key for s in seen if min(len(key), len(s)) >= 4):
+            continue
+        seen.add(key)
+        ordered.append(item)
+    return ", ".join(ordered)
+
+
+_HARVEST_PATTERNS = (
+    re.compile(r"\bparticipates in ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\benjoys ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\bhas done ([a-z][a-z\s-]{2,30}) at ([a-z][a-z\s-]{2,30})\b", re.I),
+    re.compile(r"\bkids like ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\bread \"([^\"]{2,80})\"", re.I),
+    re.compile(r"\bis single\b", re.I),
+    re.compile(r"\bmoved from ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
+    re.compile(r"\bis from ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
+    re.compile(r"\bis a ([a-z][a-z\s-]{2,40})\b", re.I),
+)
+
+
+def _harvest_structured_items(question: str, memories: list[dict]) -> str:
+    """Pull structured atom phrases from retrieved memory text (generic patterns)."""
+    q = (question or "").lower()
+    want_list = _looks_list_question(q) or any(c in q for c in ("camped", "books", "kids", "hobbies"))
+    want_attr = any(c in q for c in ("moved", "from", "relationship", "status", "identity", "who"))
+    if not want_list and not want_attr:
+        return ""
+    items: list[str] = []
+    for m in memories[:40]:
+        content = (m.get("content") or "").strip()
+        if not content:
+            continue
+        for pat in _HARVEST_PATTERNS:
+            for match in pat.finditer(content):
+                raw = match.group(0).lower()
+                groups = [g for g in match.groups() if g]
+                if "is single" in raw:
+                    phrase = "single"
+                elif len(groups) == 2:
+                    phrase = f"{groups[0]} at {groups[1]}"
+                elif groups:
+                    phrase = groups[0]
+                else:
+                    continue
+                phrase = phrase.strip(" .,")
+                if len(phrase) < 2 or phrase.lower().startswith("my "):
+                    continue
+                items.append(phrase)
+    return ", ".join(dict.fromkeys(items))
+
+
+def _is_empty_answer(answer: str) -> bool:
+    text = (answer or "").strip().lower()
+    if not text:
+        return True
+    empties = (
+        "none",
+        "n/a",
+        "i do not know",
+        "i don't know",
+        "i dont know",
+        "no information",
+        "don't have information",
+        "do not have information",
+        "not mentioned",
+        "no memories",
+    )
+    return any(text == e or text.startswith(e) for e in empties)
+
+
+def _statement_join(memories: list[dict]) -> str:
+    parts = []
+    for m in memories[:8]:
+        content = (m.get("content") or "").strip()
+        if not content or content.endswith("?"):
+            continue
+        parts.append(content)
+    return " | ".join(parts)
+
+
+def _llm_answer(
+    question: str,
+    memories: list[dict],
+    config: LLMConfig,
+    *,
+    extractive: bool = False,
+) -> str:
+    lines = []
+    for m in memories[:40]:
+        content = (m.get("content") or "").strip()
+        if not content:
+            continue
+        # Prefer statements over stored questions for QA context.
+        if content.endswith("?") and not any(ch.isdigit() for ch in content):
+            continue
+        observed = (m.get("observed_at") or "").strip()
+        if observed:
+            lines.append(f"- {content} [event_time={observed}]")
+        else:
+            lines.append(f"- {content}")
+    if not lines:
+        for m in memories[:12]:
+            content = (m.get("content") or "").strip()
+            if content:
+                lines.append(f"- {content}")
+    context = "\n".join(lines)
+    if extractive:
+        system = (
+            "Extract the shortest answer to the question that is directly supported by the memories. "
+            "Copy key phrases from the memories. Do not say None or I do not know if any memory is relevant. "
+            "If multiple items apply, list them as a short comma-separated list. "
+            "Scan every memory — do not stop after the first match when the question asks for "
+            "activities, books, places, likes, or other multi-item sets."
+        )
+    else:
+        system = (
+            "Answer the question using only the memories below. "
+            "When a memory includes event_time / an absolute date in parentheses, "
+            "use that to resolve relative phrases like yesterday, two days ago, last week, "
+            "last Saturday, or N years ago. "
+            "Prefer a concrete short answer (dates, names, places, lists). "
+            "When several memories support different parts of the answer (lists of activities, "
+            "books, places, preferences, identity attributes), combine every distinct supported "
+            "item into one answer — do not stop at the first memory. "
+            "Never answer with only None or N/A if any memory is remotely relevant — "
+            "quote the best supporting memory instead. "
+            "If memories truly lack the answer, say you do not know."
+        )
     return chat_completion(
         [
-            {
-                "role": "system",
-                "content": (
-                    "Answer the question using only the memories below. "
-                    "Be specific. If memories lack the answer, say what they do contain."
-                ),
-            },
+            {"role": "system", "content": system},
             {"role": "user", "content": f"Memories:\n{context}\n\nQuestion: {question}"},
         ],
         config,

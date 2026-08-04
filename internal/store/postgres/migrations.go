@@ -203,6 +203,198 @@ EXCEPTION
 END $$;
 `,
 	},
+	{
+		version: 10,
+		name:    "add_observed_at",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS observed_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS memory_records_observed_at_lookup
+ON memory_records (tenant_id, subject_id, observed_at DESC NULLS LAST);
+`,
+	},
+	{
+		version: 11,
+		name:    "add_supersession_lineage",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS supersedes_id TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS superseded_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS memory_records_supersedes_lookup
+ON memory_records (tenant_id, subject_id, supersedes_id)
+WHERE supersedes_id <> '';
+
+CREATE INDEX IF NOT EXISTS memory_records_superseded_at_lookup
+ON memory_records (tenant_id, subject_id, superseded_at DESC NULLS LAST);
+`,
+	},
+	{
+		version: 12,
+		name:    "add_memory_entity_hub",
+		sql: `
+CREATE TABLE IF NOT EXISTS memory_entity_links (
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    entity_key TEXT NOT NULL,
+    linked_memory_ids TEXT[] NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, subject_id, entity_key)
+);
+CREATE INDEX IF NOT EXISTS memory_entity_links_subject_lookup
+ON memory_entity_links (tenant_id, subject_id);
+`,
+	},
+	{
+		version: 13,
+		name:    "add_memory_atoms_index",
+		sql: `
+CREATE TABLE IF NOT EXISTS memory_atoms (
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    predicate TEXT NOT NULL,
+    value_norm TEXT NOT NULL,
+    memory_id TEXT NOT NULL,
+    observed_at TIMESTAMPTZ,
+    valid_to TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, subject_id, predicate, value_norm, memory_id)
+);
+CREATE INDEX IF NOT EXISTS memory_atoms_predicate_scan
+ON memory_atoms (tenant_id, subject_id, predicate, value_norm);
+CREATE INDEX IF NOT EXISTS memory_atoms_memory_lookup
+ON memory_atoms (memory_id);
+`,
+	},
+	{
+		// Column + trigger only. GIN index is created best-effort outside the
+		// migration transaction (see EnsureContentFTSIndex) — CREATE INDEX on
+		// large staging tables exceeded the 10s boot timeout and crash-looped
+		// the worker.
+		version: 14,
+		name:    "add_content_fts",
+		sql: `
+ALTER TABLE memory_records
+ADD COLUMN IF NOT EXISTS content_tsv tsvector;
+
+CREATE OR REPLACE FUNCTION memory_records_content_tsv_trigger() RETURNS trigger AS $$
+BEGIN
+  NEW.content_tsv := to_tsvector('english', coalesce(NEW.content, ''));
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS memory_records_content_tsv_update ON memory_records;
+CREATE TRIGGER memory_records_content_tsv_update
+BEFORE INSERT OR UPDATE OF content ON memory_records
+FOR EACH ROW EXECUTE PROCEDURE memory_records_content_tsv_trigger();
+`,
+	},
+	{
+		version: 15,
+		name:    "atoms_bitemporal_fields",
+		sql: `
+ALTER TABLE memory_atoms ADD COLUMN IF NOT EXISTS valid_from TIMESTAMPTZ;
+ALTER TABLE memory_atoms ADD COLUMN IF NOT EXISTS recorded_at TIMESTAMPTZ;
+ALTER TABLE memory_atoms ADD COLUMN IF NOT EXISTS retired_at TIMESTAMPTZ;
+UPDATE memory_atoms SET recorded_at = COALESCE(recorded_at, updated_at) WHERE recorded_at IS NULL;
+UPDATE memory_atoms SET valid_from = COALESCE(valid_from, observed_at, updated_at) WHERE valid_from IS NULL;
+CREATE INDEX IF NOT EXISTS memory_atoms_current_scan
+ON memory_atoms (tenant_id, subject_id, predicate)
+WHERE retired_at IS NULL;
+`,
+	},
+	{
+		version: 16,
+		name:    "memory_events_and_evidence_shadow",
+		sql: `
+CREATE TABLE IF NOT EXISTS memory_evidence (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    namespace TEXT NOT NULL DEFAULT 'default',
+    subject_id TEXT,
+    source_type TEXT NOT NULL,
+    source_ref TEXT,
+    session_id TEXT,
+    content TEXT NOT NULL,
+    content_hash TEXT NOT NULL,
+    occurred_at TIMESTAMPTZ,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    metadata JSONB NOT NULL DEFAULT '{}',
+    suppression_status TEXT NOT NULL DEFAULT 'active',
+    memory_id TEXT
+);
+CREATE INDEX IF NOT EXISTS memory_evidence_subject_lookup
+ON memory_evidence (tenant_id, subject_id, occurred_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS memory_evidence_hash_uniq
+ON memory_evidence (tenant_id, content_hash);
+
+CREATE TABLE IF NOT EXISTS memory_events (
+    id TEXT PRIMARY KEY,
+    tenant_id TEXT NOT NULL,
+    namespace TEXT NOT NULL DEFAULT 'default',
+    subject_id TEXT,
+    event_type TEXT NOT NULL,
+    title TEXT,
+    description TEXT,
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    time_precision TEXT,
+    confidence DOUBLE PRECISION NOT NULL DEFAULT 0.5,
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    pack_id TEXT,
+    evidence_id TEXT,
+    memory_id TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'
+);
+CREATE INDEX IF NOT EXISTS memory_events_subject_time
+ON memory_events (tenant_id, subject_id, starts_at DESC);
+
+CREATE TABLE IF NOT EXISTS memory_event_participants (
+    event_id TEXT NOT NULL REFERENCES memory_events(id) ON DELETE CASCADE,
+    entity_key TEXT NOT NULL,
+    participant_role TEXT NOT NULL DEFAULT 'participant',
+    metadata JSONB NOT NULL DEFAULT '{}',
+    PRIMARY KEY (event_id, entity_key, participant_role)
+);
+
+CREATE TABLE IF NOT EXISTS memory_current_state (
+    tenant_id TEXT NOT NULL,
+    namespace TEXT NOT NULL DEFAULT 'default',
+    subject_id TEXT NOT NULL,
+    predicate TEXT NOT NULL,
+    winning_memory_id TEXT NOT NULL,
+    resolved_value TEXT NOT NULL,
+    resolution_policy TEXT NOT NULL,
+    resolved_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, namespace, subject_id, predicate)
+);
+`,
+	},
+}
+
+// EnsureContentFTSIndex builds the GIN index outside the migration txn.
+// Safe to call repeatedly; ignores timeout/lock errors so boot is never blocked.
+func (s *Store) EnsureContentFTSIndex(ctx context.Context) {
+	// Drop leftover invalid indexes from prior timed-out CREATE INDEX attempts.
+	_, _ = s.pool.Exec(ctx, `
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_index i ON i.indexrelid = c.oid
+    WHERE c.relname = 'memory_records_content_tsv_gin' AND NOT i.indisvalid
+  ) THEN
+    EXECUTE 'DROP INDEX IF EXISTS memory_records_content_tsv_gin';
+  END IF;
+END $$;
+`)
+	// CONCURRENTLY avoids long write locks on memory_records during build.
+	_, _ = s.pool.Exec(ctx, `
+CREATE INDEX CONCURRENTLY IF NOT EXISTS memory_records_content_tsv_gin
+ON memory_records USING GIN (content_tsv);
+`)
 }
 
 func (s *Store) ApplyMigrations(ctx context.Context) error {

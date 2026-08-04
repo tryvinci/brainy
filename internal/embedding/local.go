@@ -9,6 +9,7 @@ import (
 const Dim = 128
 
 var synonymGroups = [][]string{
+	// Product / marketing paraphrase helpers only (W3.1: no LOCOMO vocabulary).
 	{"warm", "friendly", "approachable", "welcoming"},
 	{"concise", "brief", "short", "compact"},
 	{"professional", "formal", "business"},
