@@ -1,7 +1,7 @@
 # Marketing MVP Benchmark Report
 
 - **Benchmark:** `marketing-mvp-v1`
-- **Generated:** 2026-07-29T22:42:06Z
+- **Generated:** 2026-08-04T09:20:58Z
 - **Mem0 mode:** `declared` (static matrix only)
 - **Mem0 reference commit:** `a670333d67be1207b5be2fc73af60c3439444f48`
 
@@ -10,7 +10,7 @@
 | Suite | Brainy | Mem0 |
 | --- | ---: | ---: |
 | Parity | 4/4 | pass |
-| Vertical (marketing) | 16/16 | fail |
+| Vertical (marketing) | 17/17 | fail |
 
 **MVP ready (Brainy):** yes
 
@@ -55,6 +55,7 @@
 - `bv10_dual_message_brand_voice` — **pass**
 - `lc01_archived_campaign_hidden` — **pass**
 - `lc02_active_campaign_ranks_above_completed` — **pass**
+- `mk_v2_01_brand_authority` — **pass**
 - `ob05_outcome_updates_belief_rank` — **pass**
 - `pt08_cross_campaign_pattern` — **pass**
 - `sg10_scoped_segment_prefs_coexist` — **pass**

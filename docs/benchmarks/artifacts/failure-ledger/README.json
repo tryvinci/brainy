@@ -1,0 +1,19 @@
+{
+  "schema": "brainy-failure-ledger-1.0",
+  "note": "Append-only JSONL samples. Full LME adjudication is ops-gated; starter rows document smoke multi-hop misses for process.",
+  "primary_labels": [
+    "SOURCE_MISS",
+    "WRITE_MISS",
+    "REPRESENTATION_MISS",
+    "ENTITY_LINK_MISS",
+    "RETRIEVAL_MISS",
+    "EVIDENCE_COVERAGE_MISS",
+    "TEMPORAL_RESOLUTION_MISS",
+    "CONFLICT_RESOLUTION_MISS",
+    "PLANNING_MISS",
+    "READER_MISS",
+    "ABSTENTION_MISS",
+    "JUDGE_MISS",
+    "HARNESS_ERROR"
+  ]
+}

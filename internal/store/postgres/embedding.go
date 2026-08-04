@@ -64,11 +64,23 @@ WHERE memory_id = $1
 }
 
 func (s *Store) LoadEmbeddings(ctx context.Context, tenantID, subjectID string) (map[string][]float32, error) {
-	rows, err := s.pool.Query(ctx, `
+	return s.LoadEmbeddingsLimited(ctx, tenantID, subjectID, 0)
+}
+
+// LoadEmbeddingsLimited caps in-process cosine fallbacks (never unbounded hot path).
+func (s *Store) LoadEmbeddingsLimited(ctx context.Context, tenantID, subjectID string, limit int) (map[string][]float32, error) {
+	query := `
 SELECT memory_id, embedding
 FROM memory_embeddings
 WHERE tenant_id = $1 AND subject_id = $2
-`, tenantID, subjectID)
+ORDER BY updated_at DESC`
+	args := []any{tenantID, subjectID}
+	if limit > 0 {
+		query += `
+LIMIT $3`
+		args = append(args, limit)
+	}
+	rows, err := s.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +119,7 @@ SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
 	}
 
 	out := map[string]float64{}
-	if hasVector {
+	if hasVector && len(query) == 128 {
 		rows, err := s.pool.Query(ctx, `
 SELECT e.memory_id, 1 - (e.embedding_vec <=> $3::vector) AS similarity
 FROM memory_embeddings e
@@ -137,7 +149,15 @@ LIMIT $4
 		}
 	}
 
-	embeddings, err := s.LoadEmbeddings(ctx, tenantID, subjectID)
+	// Bounded fallback: never load unbounded subject embeddings on the hot path.
+	capN := limit * 8
+	if capN < 64 {
+		capN = 64
+	}
+	if capN > 256 {
+		capN = 256
+	}
+	embeddings, err := s.LoadEmbeddingsLimited(ctx, tenantID, subjectID, capN)
 	if err != nil {
 		return nil, err
 	}
