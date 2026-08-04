@@ -286,6 +286,51 @@ ORDER BY updated_at DESC, memory_id ASC
 	return out, rows.Err()
 }
 
+// ListMemoriesLimited is the hot-path subject corpus scan with an explicit cap
+// (program Phase 1 / MEM-015). Prefer this over unbounded ListMemories.
+func (s *Store) ListMemoriesLimited(ctx context.Context, tenantID, subjectID string, includeSuperseded bool, limit int) ([]memory.MemoryRecord, error) {
+	if limit <= 0 {
+		limit = 400
+	}
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	if includeSuperseded {
+		rows, err = s.pool.Query(ctx, `
+SELECT `+memoryRecordSelectCols+`
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND lifecycle_state NOT IN ($4, $5)
+ORDER BY updated_at DESC, memory_id ASC
+LIMIT $6
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuppressed, limit)
+	} else {
+		rows, err = s.pool.Query(ctx, `
+SELECT `+memoryRecordSelectCols+`
+FROM memory_records
+WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+  AND lifecycle_state NOT IN ($4, $5, $6)
+ORDER BY updated_at DESC, memory_id ASC
+LIMIT $7
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]memory.MemoryRecord, 0, limit)
+	for rows.Next() {
+		record, err := scanMemoryRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, record)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
 	return s.SearchMemories(ctx, tenantID, subjectID, patterns, limit, false)
 }
