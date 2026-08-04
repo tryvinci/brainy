@@ -48,6 +48,7 @@ from public.locomo.dataset import (  # noqa: E402
     load_conversations,
 )
 from public.proveability import RunManifest, require_pins  # noqa: E402
+from public.stage_oracle import probe_failure_stages, write_failure_record  # noqa: E402
 from public.schema import (  # noqa: E402
     CATEGORY_NAMES,
     CATEGORIES_TO_SCORE,
@@ -257,6 +258,37 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                     },
                 )
             )
+            if (
+                system == "brainy"
+                and judged.judgment != "CORRECT"
+                and getattr(args, "failure_ledger", None)
+            ):
+                tenant_id = backend._tenant(user_id)
+                primary, flags = probe_failure_stages(
+                    base_url,
+                    tenant_id=tenant_id,
+                    subject_id=user_id,
+                    query=qa["question"],
+                    answer_ok=False,
+                    api_key=os.environ.get("BRAINY_API_KEY")
+                    or (os.environ.get("BRAINY_API_KEYS") or "").split(",")[0].strip(),
+                )
+                write_failure_record(
+                    args.failure_ledger,
+                    dataset="locomo-smoke",
+                    question_id=f"{sample_id}-{qa['id']}",
+                    question=qa["question"],
+                    primary=primary or "READER_MISS",
+                    flags={
+                        **flags,
+                        "group": group,
+                        "category_id": cat_id_int,
+                        "judgment": judged.judgment,
+                        "ground_truth": qa["answer"],
+                        "generated_answer": answer,
+                    },
+                    notes=judged.reason or "",
+                )
             used_this_conv += 1
             if len(items) % 10 == 0 or judged.judgment == "CORRECT":
                 print(
@@ -444,6 +476,11 @@ def main() -> None:
         default=str(ROOT / "docs" / "benchmarks" / "runs"),
     )
     parser.add_argument("--report", default="", help="Optional markdown report path")
+    parser.add_argument(
+        "--failure-ledger",
+        default=str(ROOT / "docs/benchmarks/artifacts/failure-ledger/locomo-smoke.jsonl"),
+        help="Append-only JSONL path for stage-oracle failure labels (WRONG/SKIPPED)",
+    )
     args = parser.parse_args()
     run(args)
 

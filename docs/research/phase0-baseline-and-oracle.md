@@ -6,12 +6,21 @@ defaults leave it empty.
 | Mode | Behavior |
 | --- | --- |
 | *(empty)* | Normal retrieval + synthesis |
-| `reader` | Caller supplies gold evidence in the request path / harness; measures reader ceiling |
-| `evidence` | Confirms raw source text exists after ingest (write/source plane) |
-| `semantic` | Confirms typed atoms/events/assertions exist for the gold fact |
+| `evidence` | Lists raw `memory_evidence` for the subject (source plane) |
+| `semantic` | Confirms memories (and typed atoms when present) exist for the subject |
+| `retrieval` | Confirms `SearchOpt` returns ≥1 active hit |
+| `coverage` | Confirms enumerate/evidence-set yields ≥1 item |
+| `reader` | Runs product `mode=answer` path tagged as reader oracle |
 
-Harness helpers live in `evals/public/oracle.py`. Failure labels use the
-taxonomy in `internal/memory/trace.go` (`SOURCE_MISS`, `RETRIEVAL_MISS`, …).
+Unknown modes return `oracle_unsupported` (honest no-op — no silent product path).
+
+Harness helpers:
+- `evals/public/oracle.py` — failure taxonomy + `recall_body`
+- `evals/public/stage_oracle.py` — ledger writer + multi-stage `probe_failure_stages`
+- LoCoMo smoke: `--failure-ledger` appends JSONL for WRONG/SKIPPED with stage labels
+
+Failure labels use the taxonomy in `internal/memory/trace.go`
+(`SOURCE_MISS`, `RETRIEVAL_MISS`, …).
 
 Baseline freeze (2026-08-01 internal):
 
