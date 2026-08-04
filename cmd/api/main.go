@@ -32,6 +32,12 @@ func main() {
 		logger.Error("failed to apply migrations", "error", err)
 		os.Exit(1)
 	}
+	// Backfill + HNSW for hosted 768-d embeddings (migration 18 is column-only).
+	go func() {
+		indexCtx, indexCancel := context.WithTimeout(context.Background(), 30*time.Minute)
+		defer indexCancel()
+		store.EnsureEmbeddingVecIndex(indexCtx)
+	}()
 	// Optional: build FTS GIN off the request path. Disabled by default on
 	// starter plans — concurrent GIN builds can OOM small instances.
 	if os.Getenv("BRAINY_ENSURE_FTS_INDEX") == "1" {
