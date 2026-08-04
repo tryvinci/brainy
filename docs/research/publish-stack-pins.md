@@ -2,7 +2,8 @@
 
 **Dev / CI stack (default):**
 - Answerer/judge: CF Workers AI via AI Gateway (`LLM_MODEL`, typically gpt-oss-120b)
-- Embeddings: staging `BRAINY_EMBEDDING_MODEL=workers-ai/@cf/baai/bge-base-en-v1.5`
+- Embeddings: staging `BRAINY_EMBEDDING_MODEL=workers-ai/@cf/baai/bge-base-en-v1.5` (**768-d**; pgvector `embedding_vec vector(768)` + HNSW)
+- Local hash embedder remains **128-d** for unit tests only (not written to pgvector ANN)
 - Purpose: iteration, OpMem, smoke
 
 **Publish stack (phase gates / public claims):**

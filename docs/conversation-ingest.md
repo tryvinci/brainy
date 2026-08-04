@@ -48,7 +48,7 @@ Hybrid search uses an `Embedder`:
 - Default / CI: deterministic local hash embedder
 - Optional: OpenAI-compatible `BRAINY_EMBEDDING_MODEL` (+ base URL/key, defaulting to provider/LLM settings)
 
-Provider embedding failures soft-degrade to the local embedder. pgvector `embedding_vec` is only populated for 128-d local vectors; provider dims use the float[] path.
+Provider embedding failures soft-degrade to the local embedder. pgvector `embedding_vec` is `vector(768)` for the pinned hosted model (`bge-base-en-v1.5`); the 128-d local hash path keeps float[] only.
 
 
 Local Docker Compose passes provider vars through from the host environment. Staging Blueprint (`render.yaml`) declares the same keys as Dashboard secrets on `brainy-worker-staging`.

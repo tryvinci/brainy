@@ -86,5 +86,13 @@ Landed this cycle:
 - Oracle modes: `evidence` operational; unsupported modes return `oracle_unsupported`
 - Failure ledger scaffolding under `docs/benchmarks/artifacts/failure-ledger/`
 
-Still open (queued): typed extract v3, temporal resolver/as_of, executable packs v2, full LME adjudication (≥100), pgvector for non-128 dims, planner/evidence packets.
+Still open (queued): typed extract v3, temporal resolver/`as_of`, executable packs v2, full LME adjudication (≥100), planner/evidence packets, remaining retrieval-store v3 (channel traces, OR/phrase FTS ablations, re-embed staging rows).
+
+## pgvector 768 ANN pin (2026-08-04)
+
+- Migration **18/19**: additive `embedding_vec_768 vector(768)` (legacy `embedding_vec vector(128)` retained — DROP/rewrite deadlocked staging)
+- Staging: mig 18/19 applied; API `c1874cb` live; hosted upsert/search use `embedding_vec_768`
+- `EnsureEmbeddingVecIndex`: batched backfill + CONCURRENTLY HNSW (API background)
+- API/worker boot retries migrations instead of crash-looping on advisory-lock timeouts
+- Cloud Agent secrets include `BRAINY_EMBEDDING_*` (gateway probe from this pod may still 403)
 

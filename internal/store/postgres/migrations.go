@@ -384,6 +384,46 @@ CREATE INDEX IF NOT EXISTS memory_evidence_content_lookup
 ON memory_evidence (tenant_id, subject_id, recorded_at DESC);
 `,
 	},
+	{
+		// Additive column only — do NOT drop embedding_vec (vector(128)+HNSW)
+		// during boot: DROP/rewrite timed out on staging under the 120s
+		// migration lock. Hosted ANN uses embedding_vec_768; hash/128 keeps
+		// the legacy column. Backfill + HNSW: EnsureEmbeddingVecIndex.
+		version: 18,
+		name:    "pgvector_embedding_vec_768",
+		sql: `
+-- Hosted pin: bge-base-en-v1.5 (768-d) via embedding_vec_768.
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+        ALTER TABLE memory_embeddings
+            ADD COLUMN IF NOT EXISTS embedding_vec_768 vector(768);
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+`,
+	},
+
+	{
+		// Staging may have recorded mig 18 via EXCEPTION no-op or a DROP rewrite.
+		// Always ensure the additive hosted ANN column exists (IF NOT EXISTS).
+		version: 19,
+		name:    "pgvector_embedding_vec_768_additive",
+		sql: `
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+        ALTER TABLE memory_embeddings
+            ADD COLUMN IF NOT EXISTS embedding_vec_768 vector(768);
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        NULL;
+END $$;
+`,
+	},
 }
 
 // EnsureContentFTSIndex builds the GIN index outside the migration txn.
@@ -406,6 +446,68 @@ END $$;
 	_, _ = s.pool.Exec(ctx, `
 CREATE INDEX CONCURRENTLY IF NOT EXISTS memory_records_content_tsv_gin
 ON memory_records USING GIN (content_tsv);
+`)
+}
+
+// EnsureEmbeddingVecIndex backfills hosted 768-d vectors into
+// embedding_vec_768 and builds HNSW outside the boot migration txn.
+func (s *Store) EnsureEmbeddingVecIndex(ctx context.Context) {
+	var hasVector bool
+	if err := s.pool.QueryRow(ctx, `
+SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')
+`).Scan(&hasVector); err != nil || !hasVector {
+		return
+	}
+	var hasCol bool
+	if err := s.pool.QueryRow(ctx, `
+SELECT EXISTS (
+  SELECT 1 FROM information_schema.columns
+  WHERE table_name = 'memory_embeddings' AND column_name = 'embedding_vec_768'
+)
+`).Scan(&hasCol); err != nil || !hasCol {
+		return
+	}
+
+	// Batched backfill — full-table UPDATE on staging OOMs/starves the
+	// basic Postgres plan for many minutes and blocks concurrent DDL.
+	for {
+		tag, err := s.pool.Exec(ctx, `
+UPDATE memory_embeddings
+SET embedding_vec_768 = embedding::vector(768)
+WHERE memory_id IN (
+  SELECT memory_id
+  FROM memory_embeddings
+  WHERE embedding_vec_768 IS NULL
+    AND embedding IS NOT NULL
+    AND cardinality(embedding) = 768
+  LIMIT 500
+)
+`)
+		if err != nil || tag.RowsAffected() == 0 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+	}
+
+	_, _ = s.pool.Exec(ctx, `
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_index i ON i.indexrelid = c.oid
+    WHERE c.relname = 'memory_embeddings_vec_768_hnsw' AND NOT i.indisvalid
+  ) THEN
+    EXECUTE 'DROP INDEX IF EXISTS memory_embeddings_vec_768_hnsw';
+  END IF;
+END $$;
+`)
+	_, _ = s.pool.Exec(ctx, `
+CREATE INDEX CONCURRENTLY IF NOT EXISTS memory_embeddings_vec_768_hnsw
+ON memory_embeddings USING hnsw (embedding_vec_768 vector_cosine_ops);
 `)
 }
 
