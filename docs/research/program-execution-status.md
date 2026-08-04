@@ -90,9 +90,9 @@ Still open (queued): typed extract v3, temporal resolver/`as_of`, executable pac
 
 ## pgvector 768 ANN pin (2026-08-04)
 
-- Migration **18**: **additive** `embedding_vec_768 vector(768)` (no DROP of legacy `embedding_vec` — DROP/rewrite timed out under boot lock on staging)
-- `EnsureEmbeddingVecIndex`: async backfill + `CREATE INDEX CONCURRENTLY` on `embedding_vec_768`
-- Upsert/search hosted path writes/queries `embedding_vec_768`; hash/128 stays float[] (+ legacy `embedding_vec`)
+- Migration **18/19**: additive `embedding_vec_768 vector(768)` (legacy `embedding_vec vector(128)` retained — DROP/rewrite deadlocked staging)
+- Staging: mig 18/19 applied; API `c1874cb` live; hosted upsert/search use `embedding_vec_768`
+- `EnsureEmbeddingVecIndex`: batched backfill + CONCURRENTLY HNSW (API background)
+- API/worker boot retries migrations instead of crash-looping on advisory-lock timeouts
 - Cloud Agent secrets include `BRAINY_EMBEDDING_*` (gateway probe from this pod may still 403)
-- After deploy: re-embed hash-only rows under hosted model so `embedding_vec_768` populates
 

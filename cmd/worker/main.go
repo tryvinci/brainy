@@ -29,8 +29,19 @@ func main() {
 	defer store.Close()
 
 	if err := store.ApplyMigrations(ctx); err != nil {
-		logger.Error("failed to apply migrations", "error", err)
-		os.Exit(1)
+		// Match API: do not exit on migration lock/timeout — retry then continue.
+		logger.Error("failed to apply migrations at boot; retrying then continuing", "error", err)
+		for attempt := 1; attempt <= 5; attempt++ {
+			migCtx, migCancel := context.WithTimeout(context.Background(), 3*time.Minute)
+			err := store.ApplyMigrations(migCtx)
+			migCancel()
+			if err == nil {
+				logger.Info("background migrations applied", "attempt", attempt)
+				break
+			}
+			logger.Error("migration retry failed", "attempt", attempt, "error", err)
+			time.Sleep(10 * time.Second)
+		}
 	}
 	// Do NOT build the FTS GIN index in the worker process — CREATE INDEX
 	// CONCURRENTLY on a large staging table OOMs the starter plan and Render
