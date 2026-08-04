@@ -1,0 +1,14 @@
+# Support v2 state machines (program §13.4).
+ticket_status:
+  states: [open, pending, waiting_customer, escalated, resolved, closed, reopened]
+  transitions:
+    - { from: open, to: pending }
+    - { from: open, to: escalated }
+    - { from: pending, to: waiting_customer }
+    - { from: pending, to: resolved }
+    - { from: waiting_customer, to: open }
+    - { from: escalated, to: resolved }
+    - { from: resolved, to: closed }
+    - { from: resolved, to: reopened }
+    - { from: closed, to: reopened }
+    - { from: reopened, to: open }
