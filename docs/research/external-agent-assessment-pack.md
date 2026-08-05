@@ -1,14 +1,15 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-05 (updated after LoCoMo smoke + planner/packs land)  
+**Date:** 2026-08-05 (architect PR1–PR7 sequence **closed**)  
 **How to use:** Pass this file (plus optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent.
 
 | Related doc | Role |
 | --- | --- |
-| [external-reviews/2026-08-04-architecture-verdict.md](./external-reviews/2026-08-04-architecture-verdict.md) | Architecture course correction (accepted) |
+| [external-reviews/2026-08-04-architecture-verdict.md](./external-reviews/2026-08-04-architecture-verdict.md) | Architecture course correction (accepted; **sequence closed**) |
 | [external-reviews/README.md](./external-reviews/README.md) | Standing intake SOP for future reviews |
-| [locomo-smoke-planner-packs-20260804.md](../benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md) | **Latest LoCoMo smoke + ledger diagnosis** |
+| [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) | **Latest** product `/recall` reader smoke |
+| [locomo-smoke-planner-packs-20260804.md](../benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md) | Prior LLM-over-search smoke (60%) |
 | [codebase-graph.md](./codebase-graph.md) | Visual/structural map |
 | [codebase-graph.json](./codebase-graph.json) | Machine-readable graph |
 | [sota-end-to-end-program.md](./sota-end-to-end-program.md) | Program of record |
@@ -18,41 +19,40 @@
 
 ## Architecture verdict (read this first)
 
-**Approve the five-plane target. Do not treat the current implementation as having reached it.**
+**Approve the five-plane target. Do not treat the current implementation as SOTA-ready.**
 
-Brainy today is a **record-centric memory service mid-migration**. OpMem/vertical greens validate legacy `memory_records` more than the new planes. PR1–PR7 of the 2026-08-04 sequence are largely landed; the **measured conversational bottleneck has shifted**.
+The **2026-08-04 architect sequence (PR1–PR7) is complete for that pass.** Brainy remains a record-centric service mid-migration toward the five-plane target; OpMem/vertical greens still lean on `memory_records`. Do **not** re-litigate PR1–PR7 unless new evidence reopens a finding.
 
 | Plane | Honest status |
 | --- | --- |
 | Source | Live (`IngestRequest` messages) |
 | Evidence | **Raw Evidence Plane v2** (subject-safe dedupe) |
-| Semantic | Text-first + typed extract v3 slots → atoms (async path) |
-| Projection | Guarded `current_state` + as_of / history reads — **not** canonical truth |
-| Recall | Typed `query_plan` + `evidence_packet` emitted; **reader/synthesis still weak** |
+| Semantic | Text-first + typed extract v3 → atoms (sync + async) |
+| Projection | Guarded `current_state` on **sync + async**; as_of / history reads |
+| Recall | `/recall` **consumes** `evidence_packet` + plan (deterministic reader) |
 
-### Latest measurement shift (important)
-
-LoCoMo smoke `locomo-smoke-c223da3d` (staging, async, post planner/packs): **60% (18/30)**.  
-Failure ledger: **12/12 WRONG = `READER_MISS`**, while evidence / semantic / retrieval / coverage oracles were **supported on every miss**.
-
-**Implication:** Do **not** open with fusion retune or another retrieval-store rewrite. Next build should make the **reader consume evidence packets** (enumeration completeness, temporal precision, multi-hop composition, honest abstention).
-
-### Accepted sequence progress
+### Accepted sequence — closed (2026-08-05)
 
 | Step | Status |
 | --- | --- |
-| Stage oracles + failure ledger | **Operational** |
-| Evidence Plane v2 (raw) | **Landed** |
-| Typed extract v3 + async atoms | **Landed** |
-| Temporal resolver + guarded current_state | **Landed** |
-| Retrieval store (FTS rank + 768-d pgvector) | **Landed**; HNSW valid on staging (~1.4 GB) |
-| Typed query planner + evidence packets | **Emitted on `/recall`** (not a full tool controller) |
-| Executable packs v2 | **Sidecars loaded**; support ticket FSM on ingest |
+| 1 Stage oracles + failure ledger | **Complete** |
+| 2 Evidence Plane v2 (raw) | **Complete** |
+| 3 Typed extract v3 + async atoms | **Complete** |
+| 4 Temporal resolver + guarded current_state | **Complete** (async parity landed) |
+| 5 Retrieval store (FTS rank + 768-d pgvector) | **Complete** (HNSW valid; corpus/FTS honesty patches) |
+| 6 Typed query planner + evidence packets | **Complete** (reader synthesizes from packet; `tools_executed` honest) |
+| 7 Executable packs v2 | **Complete** for architect finding (entities + state-machines loaded; support + marketing FSMs) |
 
-Verified ops notes: additive `embedding_vec_768` (mig 18/19; legacy `vector(128)` retained); `EnsureEmbeddingVecIndex` skips valid/in-progress builds and does not cancel CONCURRENTLY mid-flight; hash/128 residue still needs hosted re-embed (~0.5% sample).
+Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority / procedures / conflict packets; evidence-as-search-primary; hash/128 re-embed residue; LME-100 + Mem0 same-pin proof; Phase-6 multi-seed SOTA gates.
 
-**Next sequence (updated 2026-08-05):** reader/synthesis over evidence packets → finish LME-100 adjudication → Mem0 same-pin compare → only then revisit retrieval gaps the ledger still shows as `RETRIEVAL_MISS` / `EVIDENCE_COVERAGE_MISS`.
+### Latest measurements
 
+| Pin | Result |
+| --- | ---: |
+| LoCoMo smoke LLM-over-search `c223da3d` | **60% (18/30)** — ledger 12/12 `READER_MISS` with oracles supported |
+| LoCoMo smoke product `/recall` `f722342a` | **43.3% (13/30)** — all answers `brainy-recall+*`; MH **50%**; deterministic reader baseline |
+
+**Implication for next agent:** Architect sequence is closed. Next work is **reader quality over packets** (composition / optional bounded LLM reader over packet IDs only), LME-100 adjudication, Mem0 same-pin — **not** fusion retune, graph DB, or category dictionaries.
 ---
 
 ## 0. One-paragraph product definition
@@ -153,7 +153,7 @@ internal/api ──► internal/memory.Service ◄── internal/jobs.Processor
 - Evidence-set selection for list/multi-hop  
 - Bounded subject corpus (`ListMemoriesLimited`)  
 - Search/recall traces + intent labels + answer_status  
-- `/recall` emits `explain.query_plan` + `explain.evidence_packet`
+- `/recall` emits and **consumes** `explain.query_plan` + `explain.evidence_packet`
 
 ### 4.4 Mid-migration substrate
 
@@ -163,9 +163,9 @@ internal/api ──► internal/memory.Service ◄── internal/jobs.Processor
 | Typed `memory_atoms` + bitemporal cols | **Live** (async upsert path) |
 | `memory_evidence` raw capture | **Live (v2)** |
 | `memory_events` + participants | **MVP** |
-| `memory_current_state` projection | **Guarded MVP** |
-| Planner / evidence packets | **Emitted**; tools not fully executed |
-| Reader/synthesis fidelity | **Weak** (ledger: READER_MISS) |
+| `memory_current_state` projection | **Guarded** (sync + async) |
+| Planner / evidence packets | **Consumed by `/recall` reader** |
+| Reader quality vs judge gold | **Weak** (deterministic extractive baseline 43.3%) |
 
 ---
 
@@ -197,22 +197,34 @@ internal/api ──► internal/memory.Service ◄── internal/jobs.Processor
 
 | Axis | Signal |
 | --- | ---: |
-| LoCoMo smoke 1×30 Q | **60% (18/30)** |
+| LoCoMo smoke 1×30 Q (LLM over search) | **60% (18/30)** |
 | — temporal | **68.8%** |
 | — multi-hop | **40%** |
 | — open-domain | **75%** |
 | Search p50/p95 | ≈ **807 / 1509 ms** |
 | Failure ledger | **12/12 READER_MISS**; stage oracles all supported |
 | HNSW `embedding_vec_768` | **valid** on staging (~1.4 GB) |
-| LME-100 stratified | **In progress / incomplete** (async searchability timeouts observed) |
 
-**Interpretation for reviewers:** Operational + vertical suites remain green. Conversational smoke moved from ~50% → **60%** on a small pin, and latency improved, but **this is still smoke — not a 3-seed SOTA claim**. The ledger says the next credibility gap is **reader/synthesis**, especially multi-hop composition, not “empty retrieval.”
+### Architect closeout — product `/recall` smoke (2026-08-05)
+
+| Axis | Signal |
+| --- | ---: |
+| LoCoMo smoke 1×30 Q (`BRAINY_USE_RECALL=1`, sync) | **43.3% (13/30)** |
+| — multi-hop | **50%** |
+| — temporal | **43.8%** |
+| — open-domain | **25%** |
+| Search p50/p95 | ≈ **683 / 1108 ms** |
+| Answer models | all `brainy-recall+*` |
+| Architect PR1–PR7 | **Closed** |
+
+**Interpretation for reviewers:** Operational + vertical suites remain green. Architect sequence is structurally complete. Conversational score under deterministic packet reader is lower than LLM-over-search (expected); next agent should improve **reader quality**, not reopen PR1–PR7.
 
 Artifacts:  
+- `docs/benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md`  
 - `docs/benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md`  
-- `docs/benchmarks/runs/locomo-smoke-c223da3d.json` (+ `.manifest.json`)  
-- `docs/benchmarks/artifacts/failure-ledger/locomo-smoke.jsonl`  
-- prior: `locomo-smoke-main-progress-20260804.md`, publish-stack under `docs/benchmarks/artifacts/`
+- `docs/benchmarks/runs/locomo-smoke-f722342a.json` (+ `.manifest.json`)  
+- `docs/benchmarks/artifacts/failure-ledger/locomo-recall-smoke.jsonl`  
+- prior: `locomo-smoke-c223da3d.*`, publish-stack under `docs/benchmarks/artifacts/`
 
 ---
 
@@ -251,17 +263,17 @@ Program detail: [sota-end-to-end-program.md](./sota-end-to-end-program.md) §24.
 | 1 Fusion / overfetch / evidence-set | Retrieval reliability | Useful; FTS rank plumbed when available |
 | 2 Evidence + bitemporal | Immutable source + time | **Evidence Plane v2 landed**; atoms partial |
 | 3 Events / procedures / profiles | Representation | MVP events; **typed extract v3 slots live** |
-| 4 Planner + tools + abstention | Query controller | **Plan + packet emitted**; reader still weak |
-| 5 Packs v2 | Vertical leadership | **Sidecars + support FSM loaded** |
+| 4 Planner + tools + abstention | Query controller | **Packet reader live** on `/recall`; quality gap remains |
+| 5 Packs v2 | Vertical leadership | **Sidecars + support/marketing FSMs** (authority/procedures still open) |
 | 6 Neutral proof | SOTA qualification | Smoke only; full multi-seed + LME pending |
 | 7–8 Associative / learned policy | Research gates | Deferred |
 
-**Active priority (2026-08-05):**  
-1. Reader/synthesis over `evidence_packet` (cut `READER_MISS`)  
-2. Multi-hop subquestion coverage + enumeration completeness  
-3. Finish LME-100 adjudication + fix async “not searchable” harness/worker flaps  
-4. Mem0 same-pin compare (`MEM0_API_KEY` available)  
-5. Only then revisit residual retrieval / re-embed / scan debts the ledger still marks as retrieval/coverage
+**Active priority (post architect closeout):**  
+1. Improve reader quality over packets (composition / optional bounded LLM reader on packet IDs)  
+2. Finish LME-100 adjudication + drain async worker backlog  
+3. Mem0 same-pin compare (`MEM0_API_KEY` available)  
+4. Pack authority / procedures / conflict packets  
+5. Evidence-as-search-primary only if ledger shows retrieval/coverage misses
 
 ---
 

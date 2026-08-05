@@ -151,3 +151,28 @@ Staging Render API+worker already stay up for multi-hour LoCoMo/LME runs; no spe
 
 **Next build (do not fusion-retune):** reader/synthesis over `evidence_packet` (enumeration completeness, temporal precision, multi-hop composition) → finish LME-100 adjudication → Mem0 same-pin.
 
+## Architect sequence closeout (2026-08-05)
+
+Closed remaining PR4–PR7 honesty gaps on `dev` (`3725489`):
+
+- Async worker: `AutoSupersedePriorState` + `ProjectCurrentStateIfApplicable` (no blind current_state)
+- `/recall` synthesizes from `evidence_packet`; `tools_executed` / `reader_source=evidence_packet`
+- `needCorpus` no longer fires on name-like alone; FTS `lexRanks` not mixed with coverage-as-bm25
+- Marketing v2 `state-machines.yaml` (campaign_status + creative_approval)
+
+### Product `/recall` LoCoMo smoke (`f722342a`)
+
+| Axis | Result |
+| --- | ---: |
+| Overall | **43.3% (13/30)** |
+| multi-hop | **50%** |
+| temporal | **43.8%** |
+| open-domain | **25%** |
+| Search p50 / p95 | ≈ **683 / 1108 ms** |
+
+- `BRAINY_USE_RECALL=1`, sync ingest; all answers `brainy-recall+*`
+- Artifact: `docs/benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md`
+- Ledger: `docs/benchmarks/artifacts/failure-ledger/locomo-recall-smoke.jsonl`
+
+**Architect PR1–PR7 = complete for that pass.** Next agent: reader quality, LME-100, Mem0 same-pin, pack authority/procedures/conflict packets (not re-opening the 2026-08-04 sequence).
+
