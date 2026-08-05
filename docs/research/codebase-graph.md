@@ -305,7 +305,7 @@ flowchart LR
 6. `internal/store/postgres/migrations.go` (v12–v18; evidence v2 + pgvector 768)  
 7. One vertical pack: `packs/support/v2/` and `fixtures/vertical/support/`  
 
-**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; hash/128 is tests-only residue needing re-embed. Packs v2 sidecars + support ticket FSM load at registry time. `/recall` emits typed query_plan + evidence_packet (not a full tool controller).
+**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; HNSW valid on staging; hash/128 residue still needs re-embed. Packs v2 sidecars + support ticket FSM load at registry time. `/recall` emits typed query_plan + evidence_packet; **reader/synthesis is the current conversational bottleneck** (LoCoMo smoke ledger: READER_MISS-dominant).
 ---
 
 ## 10. Non-goals / traps for reviewers
