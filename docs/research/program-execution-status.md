@@ -1,7 +1,8 @@
-# Program execution status — SOTA end-to-end (2026-08-04)
+# Program execution status — SOTA end-to-end (2026-08-05)
 
 **Program of record:** [sota-end-to-end-program.md](./sota-end-to-end-program.md)  
-**Baseline freeze:** [phase0-baseline-and-oracle.md](./phase0-baseline-and-oracle.md)
+**Baseline freeze:** [phase0-baseline-and-oracle.md](./phase0-baseline-and-oracle.md)  
+**External handoff:** [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)
 
 ## Realistic adjudication of the attached guide
 
@@ -92,8 +93,7 @@ Landed this cycle:
 - Provider extract **v3 typed**: optional `subject` / `predicate` / `value` / `assertion_kind` slots → Explain → Metadata → `memory_atoms`
 - Async worker upserts typed atoms (closes LoCoMo/LME default-path gap vs sync ingest)
 - `ListAtomMemoryIDs` empty predicate = any current atoms (semantic oracle)
-- Still open: executable packs v2, ≥100 LME adjudication, planner/evidence packets, HNSW catch-up / re-embed
-
+- Follow-ups moved: LME adjudication; reader over packets (see 2026-08-05)
 ## PR4 temporal resolver (2026-08-04)
 
 - Guarded `memory_current_state` projection: late-arriving older world-valid facts cannot blind-win
@@ -128,6 +128,26 @@ Staging Render API+worker already stay up for multi-hour LoCoMo/LME runs; no spe
 ### Overnight proof (started 2026-08-04)
 
 - Staging Render API+worker auto-deployed `3eb67c4` from `dev` (planner/packs live; `/recall` returns `query_plan` + `evidence_packet`)
-- HNSW `CREATE INDEX CONCURRENTLY` rebuild running on staging (~494k rows); leave until `indisvalid=true`
-- LoCoMo smoke with `--failure-ledger` + stratified LME-100 started against staging (async ingest); Mem0 key available for later same-pin compare
+- HNSW `CREATE INDEX CONCURRENTLY` rebuild completed — staging `memory_embeddings_vec_768_hnsw` is **valid** (~1.4 GB)
+- LoCoMo smoke finished same evening (~4 min), not a multi-hour job — see below
+- Stratified LME-100 started; incomplete at last check (async “not searchable” timeouts mid-run)
+- Mem0 key available for later same-pin compare
+- **`main` merged** with user approval (`5d759d6`)
+
+## LoCoMo smoke after planner/packs (2026-08-04 evening)
+
+| Axis | Result |
+| --- | ---: |
+| Overall | **60% (18/30)** |
+| multi-hop | **40%** |
+| temporal | **68.8%** |
+| open-domain | **75%** |
+| Search p50 / p95 | ≈ **807 / 1509 ms** |
+
+- Run: `locomo-smoke-c223da3d` on staging commit `e8ecb82`, async ingest
+- Failure ledger: **12/12 WRONG = `READER_MISS`**; evidence/semantic/retrieval/coverage oracles **supported** on every miss
+- Artifact: `docs/benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md`
+- Ledger: `docs/benchmarks/artifacts/failure-ledger/locomo-smoke.jsonl`
+
+**Next build (do not fusion-retune):** reader/synthesis over `evidence_packet` (enumeration completeness, temporal precision, multi-hop composition) → finish LME-100 adjudication → Mem0 same-pin.
 
