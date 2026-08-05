@@ -81,6 +81,14 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		p.persistEmbedding(ctx, upserted.Record)
 		p.persistEntityLinks(ctx, upserted.Record)
 		p.persistEvidenceAndEvents(ctx, upserted.Record)
+		// Match sync ingest: supersede older state, then project current_state
+		// only when shouldReplaceCurrentState allows (no blind late-older wins).
+		_ = memory.AutoSupersedePriorState(ctx, p.store, upserted.Record)
+		fresh := upserted.Record
+		if got, err := p.store.GetMemory(ctx, fresh.TenantID, fresh.SubjectID, fresh.MemoryID); err == nil {
+			fresh = got
+		}
+		memory.ProjectCurrentStateIfApplicable(ctx, p.store, fresh)
 	}
 
 	if err := p.store.CompleteExtractionJob(ctx, job.JobID, job.IngestID); err != nil {
@@ -165,10 +173,9 @@ func (p *Processor) persistEvidenceAndEvents(ctx context.Context, record memory.
 		if pred == "" {
 			return
 		}
+		// Stateful current_state projection happens after supersede in
+		// ProcessNext (guarded). Events still append here.
 		if memory.IsStatefulPredicate(pred) && val != "" {
-			if cs, ok := p.store.(memory.CurrentStateStore); ok {
-				_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, pred, record.MemoryID, val, string(memory.PredicatePolicy(pred)))
-			}
 			return
 		}
 		if memory.PredicatePolicy(pred) == memory.PolicyAppendOnlyEvent || pred == memory.PredicateEvent || pred == memory.PredicateActivity {

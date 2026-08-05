@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -63,6 +64,88 @@ func TestParseAsOf(t *testing.T) {
 	if _, ok := ParseAsOf("not-a-date"); ok {
 		t.Fatal("expected fail")
 	}
+}
+
+func TestProjectCurrentStateRejectsOlderLateArrival(t *testing.T) {
+	newerObs := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
+	olderObs := time.Date(2023, 1, 1, 0, 0, 0, 0, time.UTC)
+	store := &projectStateStub{
+		records: map[string]MemoryRecord{
+			"mem_new": {
+				MemoryID: "mem_new", TenantID: "t", SubjectID: "s",
+				Status: StatusActive, LifecycleState: LifecycleActive,
+				ObservedAt: &newerObs, CreatedAt: newerObs, Confidence: 0.9,
+				Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse"},
+			},
+		},
+		current: map[string]string{"occupation": "mem_new"},
+		values:  map[string]string{"occupation": "nurse"},
+	}
+	late := MemoryRecord{
+		MemoryID: "mem_old_late", TenantID: "t", SubjectID: "s",
+		Status: StatusActive, LifecycleState: LifecycleActive,
+		ObservedAt: &olderObs, CreatedAt: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
+		Confidence: 0.99,
+		Metadata:   map[string]any{"predicate": PredicateOccupation, "value_norm": "doctor"},
+	}
+	ProjectCurrentStateIfApplicable(context.Background(), store, late)
+	if store.current["occupation"] != "mem_new" {
+		t.Fatalf("late older fact projected: %v", store.current)
+	}
+}
+
+type projectStateStub struct {
+	records map[string]MemoryRecord
+	current map[string]string
+	values  map[string]string
+}
+
+func (s *projectStateStub) UpsertMemory(context.Context, MemoryRecord) (StoreUpsertResult, error) {
+	return StoreUpsertResult{}, nil
+}
+func (s *projectStateStub) ListActiveMemories(ctx context.Context, tenantID, subjectID string) ([]MemoryRecord, error) {
+	return s.ListMemories(ctx, tenantID, subjectID, false)
+}
+func (s *projectStateStub) ListMemories(context.Context, string, string, bool) ([]MemoryRecord, error) {
+	return nil, nil
+}
+func (s *projectStateStub) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]MemoryRecord, error) {
+	return nil, nil
+}
+func (s *projectStateStub) SearchMemories(context.Context, string, string, []string, int, bool) ([]MemoryRecord, error) {
+	return nil, nil
+}
+func (s *projectStateStub) GetMemory(_ context.Context, _, _, memoryID string) (MemoryRecord, error) {
+	if r, ok := s.records[memoryID]; ok {
+		return r, nil
+	}
+	return MemoryRecord{}, ErrMemoryNotFound
+}
+func (s *projectStateStub) MarkSuperseded(context.Context, string, string, string) error { return nil }
+func (s *projectStateStub) SuppressMemory(context.Context, string, string, string) error {
+	return nil
+}
+func (s *projectStateStub) CorrectMemory(context.Context, string, string, string, string, string) (MemoryRecord, error) {
+	return MemoryRecord{}, nil
+}
+func (s *projectStateStub) EnqueueIngestJob(context.Context, string, string, string, IngestRequest) (EnqueueResult, error) {
+	return EnqueueResult{}, nil
+}
+func (s *projectStateStub) ClaimNextExtractionJob(context.Context) (ExtractionJob, bool, error) {
+	return ExtractionJob{}, false, nil
+}
+func (s *projectStateStub) CompleteExtractionJob(context.Context, string, string) error { return nil }
+func (s *projectStateStub) FailExtractionJob(context.Context, string, string, string) error {
+	return nil
+}
+func (s *projectStateStub) GetCurrentState(_ context.Context, _, _, predicate string) (memoryID, value, policy string, ok bool, err error) {
+	id, ok := s.current[predicate]
+	return id, s.values[predicate], "", ok, nil
+}
+func (s *projectStateStub) UpsertCurrentState(_ context.Context, _, _, predicate, memoryID, value, _ string) error {
+	s.current[predicate] = memoryID
+	s.values[predicate] = value
+	return nil
 }
 
 func TestPredicateHintsFromQuery(t *testing.T) {

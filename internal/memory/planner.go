@@ -141,7 +141,7 @@ func BuildEvidencePacket(plan QueryPlan, results []SearchResult, explain map[str
 		if r.MemoryID != "" {
 			pkt.MemoryIDs = append(pkt.MemoryIDs, r.MemoryID)
 		}
-		if c := strings.TrimSpace(r.Content); c != "" {
+		if c := strings.TrimSpace(r.Content); c != "" && !strings.HasSuffix(c, "?") {
 			pkt.Contents = append(pkt.Contents, c)
 		}
 	}
@@ -165,11 +165,50 @@ func BuildEvidencePacket(plan QueryPlan, results []SearchResult, explain map[str
 			}
 		}
 	}
-	satisfied := len(pkt.MemoryIDs) > 0 || pkt.TemporalAnswer != ""
+	satisfied := packetCoverageSatisfied(plan, pkt)
 	pkt.Coverage = map[string]any{
 		"targets":   len(plan.CoverageTargets),
 		"satisfied": satisfied,
 		"hit_count": len(pkt.MemoryIDs),
 	}
 	return pkt
+}
+
+func packetCoverageSatisfied(plan QueryPlan, pkt EvidencePacket) bool {
+	if len(pkt.Contents) == 0 && pkt.TemporalAnswer == "" {
+		return false
+	}
+	if plan.NeedsMultiHop {
+		return len(pkt.Contents) >= 2 || (len(pkt.Contents) >= 1 && pkt.TemporalAnswer != "")
+	}
+	if plan.NeedsTemporal && pkt.TemporalAnswer != "" {
+		return true
+	}
+	return len(pkt.MemoryIDs) > 0 || pkt.TemporalAnswer != ""
+}
+
+// ExecutedPlanTools returns tools that actually ran for this recall synthesis.
+func ExecutedPlanTools(plan QueryPlan, temporalApplied, enumerated, abstained bool) []string {
+	tools := []string{"search"}
+	add := func(t string) {
+		for _, e := range tools {
+			if e == t {
+				return
+			}
+		}
+		tools = append(tools, t)
+	}
+	if temporalApplied {
+		add("temporal_resolve")
+	}
+	if enumerated {
+		add("enumerate")
+	}
+	if plan.NeedsMultiHop {
+		add("evidence_set")
+	}
+	if abstained {
+		add("abstain")
+	}
+	return tools
 }

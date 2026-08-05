@@ -1,0 +1,21 @@
+# Marketing v2 state machines (program §13.4). Loaded by pack.LoadFile sidecar.
+campaign_status:
+  states: [draft, active, paused, completed, archived]
+  transitions:
+    - { from: draft, to: active }
+    - { from: draft, to: archived }
+    - { from: active, to: paused }
+    - { from: active, to: completed }
+    - { from: active, to: archived }
+    - { from: paused, to: active }
+    - { from: paused, to: completed }
+    - { from: paused, to: archived }
+    - { from: completed, to: archived }
+
+creative_approval:
+  states: [draft, approved, rejected]
+  transitions:
+    - { from: draft, to: approved }
+    - { from: draft, to: rejected }
+    - { from: approved, to: rejected }
+    - { from: rejected, to: draft }
