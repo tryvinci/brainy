@@ -22,11 +22,12 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | --- | --- |
 | **OpMem** (operational) | Brainy **13/13** on staging (Mem0 behind on ops fixtures) |
 | **Marketing / Support vertical** | **17/17** / **4/4** |
-| **LOCOMO smoke** (1×30, planner/packs, async) | **18/30 (60%)** — MH **40%**; ledger **READER_MISS**-dominant (not a SOTA claim) |
-| **Search latency** (same smoke) | p50/p95 ≈ **807 / 1509 ms** |
-| **Next build** | Reader/synthesis over evidence packets — see assessment pack |
+| **LOCOMO smoke** (product `/recall`, 1×30) | **13/30 (43.3%)** — MH **50%**; architect PR1–PR7 closed |
+| **LOCOMO smoke** (LLM over search, prior) | **18/30 (60%)** — directional only |
+| **Search latency** (recall smoke) | p50/p95 ≈ **683 / 1108 ms** |
+| **Next agent** | Reader quality over packets → LME-100 → Mem0 same-pin |
 
-Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [locomo-smoke-planner-packs-20260804.md](../benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md) · [program-execution-status.md](./program-execution-status.md)
+Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) · [program-execution-status.md](./program-execution-status.md)
 
 ---
 

@@ -263,11 +263,32 @@ func stateContains(states []string, want string) bool {
 
 // MachineForLabel maps pack labels onto sidecar FSM names.
 func (p *Pack) MachineForLabel(label string) string {
+	if p == nil {
+		return ""
+	}
 	switch strings.TrimSpace(label) {
 	case "ticket_state":
 		if _, ok := p.StateMachines["ticket_status"]; ok {
 			return "ticket_status"
 		}
+	case "campaign":
+		if _, ok := p.StateMachines["campaign_status"]; ok {
+			return "campaign_status"
+		}
+	case "creative_asset":
+		if _, ok := p.StateMachines["creative_approval"]; ok {
+			return "creative_approval"
+		}
 	}
 	return ""
+}
+
+// StatusFieldForLabel returns which metadata key holds the FSM state value.
+func (p *Pack) StatusFieldForLabel(label string) string {
+	switch strings.TrimSpace(label) {
+	case "creative_asset":
+		return "approval_status"
+	default:
+		return "status"
+	}
 }

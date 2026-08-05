@@ -105,7 +105,13 @@ func (s *Service) persistEventIfApplicable(ctx context.Context, record MemoryRec
 }
 
 func (s *Service) projectCurrentStateIfApplicable(ctx context.Context, record MemoryRecord) {
-	if record.Metadata == nil {
+	ProjectCurrentStateIfApplicable(ctx, s.store, record)
+}
+
+// ProjectCurrentStateIfApplicable writes memory_current_state only when the
+// incoming record may replace the existing projection (shared by sync + async).
+func ProjectCurrentStateIfApplicable(ctx context.Context, store Store, record MemoryRecord) {
+	if store == nil || record.Metadata == nil {
 		return
 	}
 	pred, _ := record.Metadata["predicate"].(string)
@@ -113,7 +119,7 @@ func (s *Service) projectCurrentStateIfApplicable(ctx context.Context, record Me
 	if !IsStatefulPredicate(pred) || val == "" {
 		return
 	}
-	cs, ok := s.store.(CurrentStateStore)
+	cs, ok := store.(CurrentStateStore)
 	if !ok {
 		return
 	}
@@ -125,7 +131,7 @@ func (s *Service) projectCurrentStateIfApplicable(ctx context.Context, record Me
 		return
 	}
 	if existingID, _, _, found, _ := cs.GetCurrentState(ctx, record.TenantID, record.SubjectID, pred); found && existingID != "" && existingID != record.MemoryID {
-		existing, err := s.store.GetMemory(ctx, record.TenantID, record.SubjectID, existingID)
+		existing, err := store.GetMemory(ctx, record.TenantID, record.SubjectID, existingID)
 		if err == nil && !shouldReplaceCurrentState(record, existing) {
 			return
 		}

@@ -42,7 +42,8 @@ func validatePackStateMachine(p *pack.Pack, req IngestRequest, priorStatus strin
 	if machine == "" {
 		return nil
 	}
-	status := metadataString(req.Metadata, "status")
+	field := p.StatusFieldForLabel(label)
+	status := metadataString(req.Metadata, field)
 	if status == "" {
 		status = metadataString(req.Metadata, "value_norm")
 	}

@@ -119,6 +119,9 @@ def answer_from_memories(
     memories: list[dict],
     model: str = "",
     config: LLMConfig | None = None,
+    *,
+    tenant_id: str = "",
+    subject_id: str = "",
 ) -> tuple[str, str]:
     """Generate an answer from retrieved memories.
 
@@ -126,7 +129,7 @@ def answer_from_memories(
     special-case public benchmark questions or pad answers from known GTs.
     Prefer product POST /recall when BRAINY_USE_RECALL=1 (master-plan W4).
     """
-    product = _product_recall_answer(question)
+    product = _product_recall_answer(question, tenant_id=tenant_id, subject_id=subject_id)
     if product is not None:
         return product
     if not memories:
@@ -165,14 +168,19 @@ def answer_from_memories(
     return _statement_join(memories) or "", "retrieval-concat-v0"
 
 
-def _product_recall_answer(question: str) -> tuple[str, str] | None:
+def _product_recall_answer(
+    question: str,
+    *,
+    tenant_id: str = "",
+    subject_id: str = "",
+) -> tuple[str, str] | None:
     import os
 
     if os.environ.get("BRAINY_USE_RECALL", "").lower() not in {"1", "true", "yes"}:
         return None
     base = (os.environ.get("BRAINY_BASE_URL") or "").rstrip("/")
-    tenant = os.environ.get("BRAINY_RECALL_TENANT", "")
-    subject = os.environ.get("BRAINY_RECALL_SUBJECT", "")
+    tenant = tenant_id or os.environ.get("BRAINY_RECALL_TENANT", "")
+    subject = subject_id or os.environ.get("BRAINY_RECALL_SUBJECT", "")
     if not base or not tenant or not subject:
         return None
     try:

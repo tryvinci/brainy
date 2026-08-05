@@ -209,7 +209,12 @@ def run(args: argparse.Namespace) -> UnifiedResult:
             results, latency_ms = backend.recall(user_id, question_text, top_k=args.top_k)
             if llm:
                 answer, gen_model = answer_from_memories(
-                    question_text, results, model=answerer_model, config=llm
+                    question_text,
+                    results,
+                    model=answerer_model,
+                    config=llm,
+                    tenant_id=backend._tenant(user_id),
+                    subject_id=user_id,
                 )
                 jr = llm_judge(answer, gt, question_text, llm)
             else:
