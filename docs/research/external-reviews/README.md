@@ -18,6 +18,13 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 
 > raw evidence → typed semantics → temporal truth → kill scan-heavy retrieval → plan evidence → executable vertical packs
 
+**PR1–PR7 of that sequence are largely landed** (see assessment pack).  
+
+## Default priority after 2026-08-05 LoCoMo ledger
+
+> **reader/synthesis over evidence packets** → finish LME-100 adjudication → Mem0 same-pin → only then revisit residual `RETRIEVAL_MISS` / coverage debts
+
+Evidence: LoCoMo smoke 60% (18/30); failure ledger **12/12 `READER_MISS`** with upstream oracles supported.
 ## Rejected by default (unless new evidence)
 
 - Hand-tuned fusion constants without real lexical ranks
