@@ -128,13 +128,24 @@ func (s *Service) validatePackStateTransition(ctx context.Context, req IngestReq
 }
 
 func (s *Service) lookupPriorPackState(ctx context.Context, req IngestRequest) string {
+	if s.store == nil {
+		return ""
+	}
 	ticketID := metadataString(req.Metadata, "ticket_id")
-	if ticketID == "" || s.store == nil {
+	campaignName := metadataString(req.Metadata, "name")
+	campaignID := metadataString(req.Metadata, "campaign_id")
+	if ticketID == "" && campaignName == "" && campaignID == "" {
 		return ""
 	}
 	listed, err := s.listSubjectCorpus(ctx, req.TenantID, req.SubjectID, true, 200)
 	if err != nil {
 		return ""
+	}
+	field := "status"
+	if s.packs != nil {
+		if p, ok := s.packs.Get(strings.TrimSpace(req.Vertical)); ok {
+			field = p.StatusFieldForLabel(req.Label)
+		}
 	}
 	var best string
 	var bestTime time.Time
@@ -142,10 +153,20 @@ func (s *Service) lookupPriorPackState(ctx context.Context, req IngestRequest) s
 		if strings.TrimSpace(m.Label) != strings.TrimSpace(req.Label) {
 			continue
 		}
-		if metadataString(m.Metadata, "ticket_id") != ticketID {
+		match := false
+		if ticketID != "" && metadataString(m.Metadata, "ticket_id") == ticketID {
+			match = true
+		}
+		if campaignName != "" && metadataString(m.Metadata, "name") == campaignName {
+			match = true
+		}
+		if campaignID != "" && (metadataString(m.Metadata, "campaign_id") == campaignID || metadataString(m.Metadata, "name") == campaignID) {
+			match = true
+		}
+		if !match {
 			continue
 		}
-		status := metadataString(m.Metadata, "status")
+		status := metadataString(m.Metadata, field)
 		if status == "" {
 			status = metadataString(m.Metadata, "value_norm")
 		}

@@ -55,10 +55,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	if strings.TrimSpace(req.TenantID) == "" || strings.TrimSpace(req.SubjectID) == "" || strings.TrimSpace(req.Query) == "" {
 		return RecallResponse{}, errors.New("tenant_id, subject_id, and q are required")
 	}
+	modeExplicit := strings.TrimSpace(req.Mode) != ""
 	mode := strings.ToLower(strings.TrimSpace(req.Mode))
-	if mode == "" {
-		mode = "context"
-	}
 	topK := req.TopK
 	if topK <= 0 {
 		topK = 30
@@ -78,6 +76,12 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 
 	intents := AnalyzeQueryIntents(req.Query)
 	plan := PlanQuery(req.Query, intents)
+	if !modeExplicit {
+		mode = plan.PreferredModeHint
+		if mode == "" {
+			mode = "context"
+		}
+	}
 	out := RecallResponse{
 		Mode:     mode,
 		Memories: search.Results,
@@ -101,6 +105,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	}
 	s.applyTemporalResolution(ctx, req, &out, asOfTime, asOfOK)
+	temporalApplied := false
+	if _, ok := out.Explain["temporal_applied"].(bool); ok {
+		temporalApplied, _ = out.Explain["temporal_applied"].(bool)
+	}
+	if ta, _ := out.Explain["temporal_answer"].(string); ta != "" {
+		temporalApplied = true
+	}
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
 	out.Explain["evidence_packet"] = pkt
 	if out.Coverage == nil && pkt.Coverage != nil {
@@ -132,8 +143,6 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Answer = "oracle_unsupported"
 			return out, nil
 		case "semantic":
-			// Semantic-object-present: prefer atom-indexed memories; fall back to
-			// any active search hit as weak semantic presence.
 			atomCount := 0
 			if indexer, ok := s.store.(AtomIndexer); ok {
 				ids, err := indexer.ListAtomMemoryIDs(ctx, req.TenantID, req.SubjectID, "", "", topK)
@@ -152,9 +161,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Answer = "semantic_absent"
 				return out, nil
 			}
-			out.ContextBlock = assembleContextBlock(search.Results, budget)
+			out.ContextBlock = assembleContextFromPacket(pkt, budget)
 			out.AnswerStatus = AnswerSupported
-			out.Answer = firstStatement(search.Results)
+			out.Answer = firstStatementFromPacket(pkt)
 			return out, nil
 		case "retrieval":
 			out.Explain["oracle_retrieval"] = true
@@ -166,9 +175,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Answer = "retrieval_miss"
 				return out, nil
 			}
-			out.ContextBlock = assembleContextBlock(search.Results, budget)
+			out.ContextBlock = assembleContextFromPacket(pkt, budget)
 			out.AnswerStatus = AnswerSupported
-			out.Answer = firstStatement(search.Results)
+			out.Answer = firstStatementFromPacket(pkt)
 			return out, nil
 		case "coverage":
 			items := s.enumerateFromSearch(ctx, req, search.Results)
@@ -188,10 +197,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Answer = out.ContextBlock
 			return out, nil
 		case "reader":
-			// Reader oracle = product answer path (same as mode=answer) but tagged.
 			out.Explain["oracle_reader"] = true
-			req.Mode = "answer"
 			mode = "answer"
+			out.Mode = mode
 		default:
 			out.Explain["oracle_unsupported"] = true
 			out.AnswerStatus = AnswerInsufficient
@@ -201,8 +209,12 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	}
 
+	enumerated := false
+	packetOK := packetCoverageSatisfied(plan, pkt)
+
 	switch mode {
 	case "enumerate":
+		enumerated = true
 		items := s.enumerateFromSearch(ctx, req, search.Results)
 		out.Items = items
 		out.ContextBlock = formatEnumerateContext(items)
@@ -212,61 +224,106 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.AnswerStatus = AnswerNotFound
 			out.Abstained = true
 		}
-		out.Coverage = map[string]any{"targets": 1, "satisfied": len(items) > 0}
+		out.Coverage = map[string]any{
+			"targets":   len(plan.CoverageTargets),
+			"satisfied": len(items) > 0,
+			"source":    "evidence_packet",
+		}
 	case "answer":
-		items := s.enumerateFromSearch(ctx, req, search.Results)
-		out.Items = items
-		out.ContextBlock = assembleContextBlock(search.Results, budget)
-		if len(items) > 0 {
-			vals := make([]string, 0, len(items))
-			for _, it := range items {
-				vals = append(vals, it.Value)
+		out.ContextBlock = assembleContextFromPacket(pkt, budget)
+		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) {
+			enumerated = true
+			items := s.enumerateFromSearch(ctx, req, search.Results)
+			out.Items = items
+			if len(items) > 0 {
+				vals := make([]string, 0, len(items))
+				for _, it := range items {
+					vals = append(vals, it.Value)
+				}
+				out.Answer = strings.Join(vals, ", ")
+				out.AnswerStatus = AnswerSupported
+				if plan.NeedsMultiHop && !packetOK {
+					out.AnswerStatus = AnswerPartiallySupported
+				}
 			}
-			out.Answer = strings.Join(vals, ", ")
+		}
+		if strings.TrimSpace(out.Answer) == "" && pkt.TemporalAnswer != "" && (plan.NeedsTemporal || temporalApplied) {
+			out.Answer = pkt.TemporalAnswer
 			out.AnswerStatus = AnswerSupported
-			if len(items) == 1 && looksListQuery(tokenize(req.Query)) {
+			out.Coverage = map[string]any{"targets": 1, "satisfied": true, "source": "temporal_resolver"}
+		}
+		if strings.TrimSpace(out.Answer) == "" && out.ContextBlock != "" {
+			out.Answer = firstStatementFromPacket(pkt)
+			if plan.NeedsMultiHop && !packetOK {
+				out.AnswerStatus = AnswerPartiallySupported
+			} else {
 				out.AnswerStatus = AnswerPartiallySupported
 			}
-		} else if out.ContextBlock != "" {
-			// Deterministic extractive fallback: first non-question statement.
-			out.Answer = firstStatement(search.Results)
-			out.AnswerStatus = AnswerPartiallySupported
 		}
-		if strings.TrimSpace(out.Answer) == "" {
+		if strings.TrimSpace(out.Answer) == "" || (!packetOK && plan.NeedsAbstention) || (!packetOK && plan.NeedsMultiHop && strings.TrimSpace(out.Answer) == "") {
 			out.Abstained = true
 			out.Answer = "not in memory"
 			out.AnswerStatus = AnswerInsufficient
 		}
-		out.Coverage = map[string]any{
-			"targets":   1,
-			"satisfied": !out.Abstained,
+		if plan.NeedsMultiHop && !packetOK && !out.Abstained {
+			out.AnswerStatus = AnswerPartiallySupported
+			out.Coverage = map[string]any{
+				"targets":   len(plan.CoverageTargets),
+				"satisfied": false,
+				"source":    "evidence_packet",
+			}
+		} else if out.Coverage == nil {
+			out.Coverage = map[string]any{
+				"targets":   len(plan.CoverageTargets),
+				"satisfied": !out.Abstained && packetOK,
+				"source":    "evidence_packet",
+			}
 		}
 	case "context":
-		out.ContextBlock = assembleContextBlock(search.Results, budget)
+		out.ContextBlock = assembleContextFromPacket(pkt, budget)
+		if out.ContextBlock == "" && pkt.TemporalAnswer != "" {
+			out.ContextBlock = pkt.TemporalAnswer
+		}
 		if out.ContextBlock == "" {
 			out.AnswerStatus = AnswerNotFound
 			out.Abstained = true
 		} else {
 			out.AnswerStatus = AnswerSupported
 		}
+		out.Coverage = map[string]any{
+			"targets":   len(plan.CoverageTargets),
+			"satisfied": !out.Abstained,
+			"source":    "evidence_packet",
+		}
 	default:
 		return RecallResponse{}, fmt.Errorf("unsupported recall mode %q", mode)
 	}
-	out.Explain["memory_count"] = len(search.Results)
-	out.Explain["context_runes"] = utf8.RuneCountInString(out.ContextBlock)
+
+	// Prefer temporal answer when synthesis was empty/weak.
 	if temporalAnswer, _ := out.Explain["temporal_answer"].(string); temporalAnswer != "" {
 		if mode == "answer" && (out.Abstained || out.AnswerStatus == AnswerPartiallySupported || strings.TrimSpace(out.Answer) == "" || strings.TrimSpace(out.Answer) == "not in memory") {
 			out.Answer = temporalAnswer
 			out.Abstained = false
 			out.AnswerStatus = AnswerSupported
 			out.Coverage = map[string]any{"targets": 1, "satisfied": true, "source": "temporal_resolver"}
+			temporalApplied = true
 		}
 		if mode == "context" && out.ContextBlock == "" {
 			out.ContextBlock = temporalAnswer
 			out.Abstained = false
 			out.AnswerStatus = AnswerSupported
+			temporalApplied = true
 		}
 	}
+
+	plan.Tools = ExecutedPlanTools(plan, temporalApplied, enumerated, out.Abstained)
+	out.Explain["query_plan"] = plan
+	out.Explain["tools_executed"] = plan.Tools
+	out.Explain["reader_source"] = "evidence_packet"
+	out.Explain["memory_count"] = len(search.Results)
+	out.Explain["context_runes"] = utf8.RuneCountInString(out.ContextBlock)
+	pkt.Plan = plan
+	out.Explain["evidence_packet"] = pkt
 	return out, nil
 }
 
@@ -506,6 +563,50 @@ func assembleContextBlock(results []SearchResult, budgetTokens int) string {
 		b.WriteString(line)
 	}
 	return strings.TrimSpace(b.String())
+}
+
+func assembleContextFromPacket(pkt EvidencePacket, budgetTokens int) string {
+	if budgetTokens <= 0 {
+		budgetTokens = 4000
+	}
+	budget := budgetTokens * 4
+	var b strings.Builder
+	seen := map[string]struct{}{}
+	if pkt.TemporalAnswer != "" {
+		line := "- " + pkt.TemporalAnswer + "\n"
+		b.WriteString(line)
+		seen[strings.ToLower(pkt.TemporalAnswer)] = struct{}{}
+	}
+	for _, content := range pkt.Contents {
+		content = strings.TrimSpace(content)
+		if content == "" || strings.HasSuffix(content, "?") {
+			continue
+		}
+		key := strings.ToLower(content)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		line := "- " + content + "\n"
+		if b.Len()+len(line) > budget {
+			break
+		}
+		b.WriteString(line)
+	}
+	return strings.TrimSpace(b.String())
+}
+
+func firstStatementFromPacket(pkt EvidencePacket) string {
+	if ta := strings.TrimSpace(pkt.TemporalAnswer); ta != "" {
+		return ta
+	}
+	for _, c := range pkt.Contents {
+		c = strings.TrimSpace(c)
+		if c != "" && !strings.HasSuffix(c, "?") {
+			return c
+		}
+	}
+	return ""
 }
 
 func formatEnumerateContext(items []RecallItem) string {

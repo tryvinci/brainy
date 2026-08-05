@@ -35,3 +35,30 @@ func TestSupportV2SidecarsLoaded(t *testing.T) {
 		t.Fatalf("bootstrap open should be allowed: %v", err)
 	}
 }
+
+func TestMarketingV2StateMachinesLoaded(t *testing.T) {
+	root := filepath.Join("..", "..", "packs")
+	reg, err := LoadRegistryFromDir(root)
+	if err != nil {
+		t.Fatalf("load registry: %v", err)
+	}
+	p, ok := reg.Get("marketing")
+	if !ok {
+		t.Fatal("marketing pack not registered")
+	}
+	if len(p.Entities) < 5 {
+		t.Fatalf("expected marketing entities, got %d", len(p.Entities))
+	}
+	if p.MachineForLabel("campaign") != "campaign_status" {
+		t.Fatalf("campaign machine=%q", p.MachineForLabel("campaign"))
+	}
+	if err := p.ValidateStateTransition("campaign_status", "active", "completed"); err != nil {
+		t.Fatalf("active→completed: %v", err)
+	}
+	if err := p.ValidateStateTransition("campaign_status", "archived", "active"); err == nil {
+		t.Fatal("archived→active should be rejected")
+	}
+	if err := p.ValidateStateTransition("creative_approval", "draft", "approved"); err != nil {
+		t.Fatalf("draft→approved: %v", err)
+	}
+}
