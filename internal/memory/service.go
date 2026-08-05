@@ -329,13 +329,13 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 	trace.LexicalHits = len(memories)
 
-	// Bounded subject corpus for multi-hop / subject-bridge / preference fill.
+	// Bounded subject corpus for multi-hop / list / thin lexical fill.
 	// Prefer ListMemoriesLimited to avoid unbounded hot-path full scans (Phase 1).
+	// Name-like tokens alone must not force a 400-row subject scan.
 	var allMemories []MemoryRecord
 	listQuery := looksListQuery(queryTokens)
 	needCorpus := looksMultiHopQuery(queryTokens) ||
 		(len(memories) < 10 && hasResponseKeyword(queryTokens)) ||
-		len(nameLikeTokens(contentQueryTokens)) > 0 ||
 		listQuery
 	if needCorpus {
 		listed, err := s.listSubjectCorpus(ctx, tenantID, subjectID, includeSuperseded, 400)
@@ -576,21 +576,24 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			hub = hubBoosts[record.MemoryID]
 		}
 		if fusionV2 {
-			// Prefer real FTS rank when available; else token coverage.
+			// Prefer real FTS rank when the ranked searcher returned lexRanks.
+			// Do not pretend token coverage is BM25 when FTS ranks exist.
 			bm25 := 0.0
 			if lexRanks != nil {
 				if r, ok := lexRanks[record.MemoryID]; ok {
 					bm25 = r
 				}
-			}
-			if bm25 <= 0 {
+				if bm25 > 1 {
+					bm25 = NormalizeBM25Sigmoid(bm25, len(contentQueryTokens))
+				}
+				explain["lexical_channel"] = "fts"
+			} else {
 				if cov, ok := explain["coverage"].(float64); ok {
 					bm25 = cov
 				} else if score > 0 {
 					bm25 = math.Min(score/3.0, 1.0)
 				}
-			} else if bm25 > 1 {
-				bm25 = NormalizeBM25Sigmoid(bm25, len(contentQueryTokens))
+				explain["lexical_channel"] = "coverage"
 			}
 			semOnlyFloor := 0.42
 			if len(contentQueryTokens) <= 1 {
@@ -1369,7 +1372,13 @@ func (s *Service) applyIngestSupersession(ctx context.Context, record MemoryReco
 // autoSupersedePriorState marks older same-(subject,predicate) state atoms
 // superseded when a newer atom arrives (master-plan W5).
 func (s *Service) autoSupersedePriorState(ctx context.Context, record MemoryRecord) error {
-	if record.Metadata == nil {
+	return AutoSupersedePriorState(ctx, s.store, record)
+}
+
+// AutoSupersedePriorState marks older same-(subject,predicate) state atoms
+// superseded when a newer atom arrives (shared by sync + async).
+func AutoSupersedePriorState(ctx context.Context, store Store, record MemoryRecord) error {
+	if store == nil || record.Metadata == nil {
 		return nil
 	}
 	pred, _ := record.Metadata["predicate"].(string)
@@ -1381,7 +1390,7 @@ func (s *Service) autoSupersedePriorState(ctx context.Context, record MemoryReco
 	if !IsStatefulPredicate(pred) {
 		return nil
 	}
-	indexer, ok := s.store.(AtomIndexer)
+	indexer, ok := store.(AtomIndexer)
 	if !ok {
 		return nil
 	}
@@ -1393,7 +1402,7 @@ func (s *Service) autoSupersedePriorState(ctx context.Context, record MemoryReco
 		if id == record.MemoryID {
 			continue
 		}
-		prior, err := s.store.GetMemory(ctx, record.TenantID, record.SubjectID, id)
+		prior, err := store.GetMemory(ctx, record.TenantID, record.SubjectID, id)
 		if err != nil {
 			continue
 		}
@@ -1405,7 +1414,7 @@ func (s *Service) autoSupersedePriorState(ctx context.Context, record MemoryReco
 		if prior.ObservedAt != nil && record.ObservedAt != nil && !record.ObservedAt.After(*prior.ObservedAt) {
 			continue
 		}
-		_ = s.store.MarkSuperseded(ctx, record.TenantID, record.SubjectID, id)
+		_ = store.MarkSuperseded(ctx, record.TenantID, record.SubjectID, id)
 		if retirer, ok := indexer.(AtomRetirer); ok {
 			_ = retirer.RetireMemoryAtom(ctx, record.TenantID, record.SubjectID, pred, pval, id, record.ObservedAt)
 		}
