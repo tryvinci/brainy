@@ -20,12 +20,13 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 
 | Axis | Result |
 | --- | --- |
-| **OpMem** (operational) | Brainy **12/12** vs Mem0 **9/12** on staging |
-| **Marketing vertical** | **16/16** (Mem0: no equivalent track) |
-| **LOCOMO smoke** (1×30, gpt-oss, dense emb) | **16/30** — mid score, multi-hop **3/10**; not a SOTA claim |
-| **Search latency** | p50 ~730–890 ms after content-dense ranking (↓ vs ~1.0s) |
+| **OpMem** (operational) | Brainy **13/13** on staging (Mem0 behind on ops fixtures) |
+| **Marketing / Support vertical** | **17/17** / **4/4** |
+| **LOCOMO smoke** (1×30, planner/packs, async) | **18/30 (60%)** — MH **40%**; ledger **READER_MISS**-dominant (not a SOTA claim) |
+| **Search latency** (same smoke) | p50/p95 ≈ **807 / 1509 ms** |
+| **Next build** | Reader/synthesis over evidence packets — see assessment pack |
 
-Details: [locomo-smoke.md](../benchmarks/locomo-smoke.md) · [staging competitive](../benchmarks/staging-competitive-report.md) · [moat](../benchmarks/marketing-moat-report.md)
+Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [locomo-smoke-planner-packs-20260804.md](../benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md) · [program-execution-status.md](./program-execution-status.md)
 
 ---
 
