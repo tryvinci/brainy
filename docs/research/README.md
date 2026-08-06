@@ -26,8 +26,9 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | **LOCOMO smoke** (LLM over search, prior) | **18/30 (60%)** — directional only |
 | **Search latency** (recall smoke) | p50/p95 ≈ **683 / 1108 ms** |
 | **Next agent** | Reader quality over packets → LME-100 → Mem0 same-pin |
+| **Industry stand** | Lead ops + marketing same-pin; mid-pack conversational — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
 
-Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) · [program-execution-status.md](./program-execution-status.md)
+Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) · [program-execution-status.md](./program-execution-status.md) · [competitive positioning](../benchmarks/competitive-positioning-20260806.md)
 
 ---
 
