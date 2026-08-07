@@ -17,6 +17,14 @@ docker compose up --build
 python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
 ```
 
+## Git identity
+
+Use this author for commits:
+
+```text
+Siddhant Singh <s@siddhant.site>
+```
+
 ## Pull requests
 
 1. Branch from `dev`.
