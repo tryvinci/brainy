@@ -24,9 +24,10 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | **Marketing / Support vertical** | **17/17** / **4/4** |
 | **LOCOMO same-pin** (recall-contract) | **Brainy 16/30** vs **Mem0 11/30** ([proof](../benchmarks/artifacts/recall-contract-proof-20260807.md)) |
 | **LOCOMO** (prior deterministic `/recall`) | 13/30 (43.3%) — superseded as primary pin |
+| **Industry stand** | Lead ops + marketing same-pin; conversational improving — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
 | **Next agent** | Multi-hop packet depth → finish LME-100 → multi-seed LoCoMo (recall-contract on `dev`) |
 
-Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [recall-contract proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) · [program-execution-status.md](./program-execution-status.md)
+Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [recall-contract proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) · [program-execution-status.md](./program-execution-status.md) · [competitive positioning](../benchmarks/competitive-positioning-20260806.md)
 
 ---
 
@@ -35,6 +36,7 @@ Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md
 | Piece | Status | Link |
 | --- | --- | --- |
 | Recall-contract proof (LoCoMo same-pin) | Active | [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contract-proof-20260807.md) |
+| Competitive positioning (industry stand) | Active | [competitive-positioning-20260806.md](../benchmarks/competitive-positioning-20260806.md) |
 | OpMem v0 | Live results | [spec](./opmem-spec.md) · [staging vs Mem0](../benchmarks/staging-competitive-report.md) |
 | Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
 | Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |

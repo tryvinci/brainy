@@ -7,6 +7,8 @@ Public evaluation artifacts for Brainy. Two layers:
 
 Honest rule: we do **not** invent scores. Suites without a run are marked **not run**.
 
+**Industry bake-off (honest):** [competitive-positioning-20260806.md](./competitive-positioning-20260806.md) — same-pin leads vs Mem0 on OpMem + marketing; conversational SOTA not yet claimable.
+
 ---
 
 ## Current results (staging, 2026-07-14)
