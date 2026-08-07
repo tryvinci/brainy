@@ -1,15 +1,16 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-05 (architect PR1–PR7 sequence **closed**)  
+**Date:** 2026-08-07 (architect PR1–PR7 **closed**; recall-contract steps 1–5 **landed on `dev`**)  
 **How to use:** Pass this file (plus optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent.
 
 | Related doc | Role |
 | --- | --- |
+| [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md) | **Latest** accepted course correction |
 | [external-reviews/2026-08-04-architecture-verdict.md](./external-reviews/2026-08-04-architecture-verdict.md) | Architecture course correction (accepted; **sequence closed**) |
 | [external-reviews/README.md](./external-reviews/README.md) | Standing intake SOP for future reviews |
-| [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) | **Latest** product `/recall` reader smoke |
-| [locomo-smoke-planner-packs-20260804.md](../benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md) | Prior LLM-over-search smoke (60%) |
+| [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contract-proof-20260807.md) | **Latest** same-pin LoCoMo proof |
+| [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) | Prior deterministic `/recall` smoke |
 | [codebase-graph.md](./codebase-graph.md) | Visual/structural map |
 | [codebase-graph.json](./codebase-graph.json) | Machine-readable graph |
 | [sota-end-to-end-program.md](./sota-end-to-end-program.md) | Program of record |
@@ -29,7 +30,7 @@ The **2026-08-04 architect sequence (PR1–PR7) is complete for that pass.** Bra
 | Evidence | **Raw Evidence Plane v2** (subject-safe dedupe) |
 | Semantic | Text-first + typed extract v3 → atoms (sync + async) |
 | Projection | Guarded `current_state` on **sync + async**; as_of / history reads |
-| Recall | `/recall` **consumes** `evidence_packet` + plan (deterministic reader) |
+| Recall | `/recall` consumes structured `evidence_packet` + plan; optional **hybrid LLM reader** (`BRAINY_RECALL_LLM`) |
 
 ### Accepted sequence — closed (2026-08-05)
 
@@ -43,16 +44,26 @@ The **2026-08-04 architect sequence (PR1–PR7) is complete for that pass.** Bra
 | 6 Typed query planner + evidence packets | **Complete** (reader synthesizes from packet; `tools_executed` honest) |
 | 7 Executable packs v2 | **Complete** for architect finding (entities + state-machines loaded; support + marketing FSMs) |
 
-Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority / procedures / conflict packets; evidence-as-search-primary; hash/128 re-embed residue; LME-100 + Mem0 same-pin proof; Phase-6 multi-seed SOTA gates.
+Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority / procedures / conflict packets; evidence-as-search-primary; hash/128 re-embed residue; finished LME-100 under contract; Phase-6 multi-seed SOTA gates. Fresh LoCoMo same-pin under recall-contract is recorded (Brainy 16/30 vs Mem0 11/30) — re-pin on staging after deploy.
 
 ### Latest measurements
 
 | Pin | Result |
 | --- | ---: |
-| LoCoMo smoke LLM-over-search `c223da3d` | **60% (18/30)** — ledger 12/12 `READER_MISS` with oracles supported |
-| LoCoMo smoke product `/recall` `f722342a` | **43.3% (13/30)** — all answers `brainy-recall+*`; MH **50%**; deterministic reader baseline |
+| LoCoMo same-pin recall-contract `ef197919` | **53.3% (16/30)** vs Mem0 **36.7% (11/30)** — [proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) |
+| LoCoMo smoke product `/recall` `f722342a` (prior) | 43.3% (13/30) — deterministic reader baseline |
+| LoCoMo smoke LLM-over-search `c223da3d` (prior) | 60% (18/30) — directional only |
 
-**Implication for next agent:** Architect sequence is closed. Next work is **reader quality over packets** (composition / optional bounded LLM reader over packet IDs only), LME-100 adjudication, Mem0 same-pin — **not** fusion retune, graph DB, or category dictionaries.
+**Implication for next agent (post recall-contract land on `dev`):** Steps 1–5 of the recall contract are **done**. Do **not** re-open fusion, graph DB, or “reader-only.” Next work:
+
+1. Enable `BRAINY_RECALL_LLM=1` on staging; smoke `/jobs/status` + `/recall`  
+2. **Multi-hop packet depth** (bridge-chain binding / second pass) — Mem0 still leads MH  
+3. Finish **LME-20 → LME-100** with job-completion barriers (scale workers if needed)  
+4. Larger LoCoMo slice → 3-seed full under identical pins  
+5. OpMem + marketing non-reg on staging  
+6. Only then pack authority / procedures / conflict packets  
+
+See [2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md) · [program-execution-status.md](./program-execution-status.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
 ---
 
 ## 0. One-paragraph product definition

@@ -22,6 +22,7 @@ type QueryPlan struct {
 type EvidencePacket struct {
 	MemoryIDs      []string       `json:"memory_ids"`
 	Contents       []string       `json:"contents,omitempty"`
+	Items          []PacketItem   `json:"items,omitempty"`
 	Predicates     []string       `json:"predicates,omitempty"`
 	TemporalAnswer string         `json:"temporal_answer,omitempty"`
 	Coverage       map[string]any `json:"coverage,omitempty"`
@@ -178,13 +179,39 @@ func packetCoverageSatisfied(plan QueryPlan, pkt EvidencePacket) bool {
 	if len(pkt.Contents) == 0 && pkt.TemporalAnswer == "" {
 		return false
 	}
-	if plan.NeedsMultiHop {
-		return len(pkt.Contents) >= 2 || (len(pkt.Contents) >= 1 && pkt.TemporalAnswer != "")
-	}
-	if plan.NeedsTemporal && pkt.TemporalAnswer != "" {
+	if plan.NeedsTemporal && pkt.TemporalAnswer != "" && !plan.NeedsMultiHop {
 		return true
 	}
+	if plan.NeedsMultiHop {
+		// Require either temporal+content or two contents that look like a chain
+		// (share a content-bearing token), not merely any two strings.
+		if len(pkt.Contents) >= 1 && pkt.TemporalAnswer != "" {
+			return true
+		}
+		if len(pkt.Contents) < 2 {
+			return false
+		}
+		return packetLooksLinked(pkt.Contents[0], pkt.Contents[1]) || len(pkt.Items) >= 2
+	}
+	if plan.NeedsEnumeration {
+		return len(pkt.Contents) >= 1
+	}
 	return len(pkt.MemoryIDs) > 0 || pkt.TemporalAnswer != ""
+}
+
+func packetLooksLinked(a, b string) bool {
+	ta := contentBearingTokens(tokenize(a))
+	tb := map[string]struct{}{}
+	for _, t := range contentBearingTokens(tokenize(b)) {
+		tb[t] = struct{}{}
+	}
+	overlap := 0
+	for _, t := range ta {
+		if _, ok := tb[t]; ok {
+			overlap++
+		}
+	}
+	return overlap >= 1
 }
 
 // ExecutedPlanTools returns tools that actually ran for this recall synthesis.

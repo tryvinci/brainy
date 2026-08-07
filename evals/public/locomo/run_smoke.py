@@ -105,8 +105,14 @@ def ingest_conversation(
             if year:
                 probes.append(year)
         batch: list[dict] = []
+        # Preserve speaker identity as stable user/assistant roles (not all-user).
+        # Keep "Speaker: text" content so extract can attribute facts by name.
+        speaker_roles: dict[str, str] = {}
         for speaker, text in session.get("turns") or []:
-            batch.append({"role": "user", "content": f"{speaker}: {text}"})
+            sp = (speaker or "user").strip() or "user"
+            if sp not in speaker_roles:
+                speaker_roles[sp] = "user" if len(speaker_roles) % 2 == 0 else "assistant"
+            batch.append({"role": speaker_roles[sp], "content": f"{sp}: {text}"})
             if len(batch) >= chunk:
                 backend.remember_messages(user_id, batch, metadata=meta, wait=False)
                 probe = _probe_token(batch)
@@ -121,14 +127,26 @@ def ingest_conversation(
                 probes.append(probe)
             remembered += len(batch)
     if backend.async_ingest and remembered:
-        # Cap probes — long unique lists hammer staging search under embed load.
-        uniq: list[str] = []
-        for p in probes:
-            if p and p not in uniq:
-                uniq.append(p)
-            if len(uniq) >= 3:
-                break
-        backend.wait_until_any_searchable(user_id, uniq or ["conversation"])
+        # Prefer job-completion barrier; fall back to capped search settle.
+        if hasattr(backend, "wait_until_jobs_done"):
+            try:
+                backend.wait_until_jobs_done(user_id)
+            except Exception:
+                uniq: list[str] = []
+                for p in probes:
+                    if p and p not in uniq:
+                        uniq.append(p)
+                    if len(uniq) >= 3:
+                        break
+                backend.wait_until_any_searchable(user_id, uniq or ["conversation"])
+        else:
+            uniq = []
+            for p in probes:
+                if p and p not in uniq:
+                    uniq.append(p)
+                if len(uniq) >= 3:
+                    break
+            backend.wait_until_any_searchable(user_id, uniq or ["conversation"])
     return remembered
 
 
@@ -224,12 +242,15 @@ def run(args: argparse.Namespace) -> UnifiedResult:
             group = CATEGORY_NAMES.get(cat_id_int, f"cat-{cat_id}")
 
             results, latency_ms = backend.recall(user_id, qa["question"], top_k=args.top_k)
+            tenant_for_recall = ""
+            if system == "brainy" and hasattr(backend, "_tenant"):
+                tenant_for_recall = backend._tenant(user_id)
             answer, gen_model = answer_from_memories(
                 qa["question"],
                 results,
                 model=answerer_model,
                 config=answerer_cfg,
-                tenant_id=backend._tenant(user_id),
+                tenant_id=tenant_for_recall,
                 subject_id=user_id,
             )
             if use_llm and judge_cfg is not None:
@@ -268,32 +289,49 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 and judged.judgment != "CORRECT"
                 and getattr(args, "failure_ledger", None)
             ):
-                tenant_id = backend._tenant(user_id)
-                primary, flags = probe_failure_stages(
-                    base_url,
-                    tenant_id=tenant_id,
-                    subject_id=user_id,
-                    query=qa["question"],
-                    answer_ok=False,
-                    api_key=os.environ.get("BRAINY_API_KEY")
-                    or (os.environ.get("BRAINY_API_KEYS") or "").split(",")[0].strip(),
-                )
-                write_failure_record(
-                    args.failure_ledger,
-                    dataset="locomo-smoke",
-                    question_id=f"{sample_id}-{qa['id']}",
-                    question=qa["question"],
-                    primary=primary or "READER_MISS",
-                    flags={
-                        **flags,
-                        "group": group,
-                        "category_id": cat_id_int,
-                        "judgment": judged.judgment,
-                        "ground_truth": qa["answer"],
-                        "generated_answer": answer,
-                    },
-                    notes=judged.reason or "",
-                )
+                if judged.judgment == "JUDGE_MISS":
+                    write_failure_record(
+                        args.failure_ledger,
+                        dataset="locomo-smoke",
+                        question_id=f"{sample_id}-{qa['id']}",
+                        question=qa["question"],
+                        primary="JUDGE_MISS",
+                        flags={
+                            "group": group,
+                            "category_id": cat_id_int,
+                            "judgment": judged.judgment,
+                            "ground_truth": qa["answer"],
+                            "generated_answer": answer,
+                        },
+                        notes=judged.reason or "",
+                    )
+                else:
+                    tenant_id = backend._tenant(user_id)
+                    primary, flags = probe_failure_stages(
+                        base_url,
+                        tenant_id=tenant_id,
+                        subject_id=user_id,
+                        query=qa["question"],
+                        answer_ok=False,
+                        api_key=os.environ.get("BRAINY_API_KEY")
+                        or (os.environ.get("BRAINY_API_KEYS") or "").split(",")[0].strip(),
+                    )
+                    write_failure_record(
+                        args.failure_ledger,
+                        dataset="locomo-smoke",
+                        question_id=f"{sample_id}-{qa['id']}",
+                        question=qa["question"],
+                        primary=primary or "READER_MISS",
+                        flags={
+                            **flags,
+                            "group": group,
+                            "category_id": cat_id_int,
+                            "judgment": judged.judgment,
+                            "ground_truth": qa["answer"],
+                            "generated_answer": answer,
+                        },
+                        notes=judged.reason or "",
+                    )
             used_this_conv += 1
             if len(items) % 10 == 0 or judged.judgment == "CORRECT":
                 print(

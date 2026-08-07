@@ -181,7 +181,13 @@ func (p *Processor) persistEvidenceAndEvents(ctx context.Context, record memory.
 		if memory.PredicatePolicy(pred) == memory.PolicyAppendOnlyEvent || pred == memory.PredicateEvent || pred == memory.PredicateActivity {
 			sum := sha256.Sum256([]byte(record.TenantID + pred + val + record.MemoryID))
 			eventID := "evt_" + hex.EncodeToString(sum[:12])
-			_ = writer.UpsertMemoryEvent(ctx, record.TenantID, record.SubjectID, eventID, pred, val, record.Content, record.MemoryID, "", record.ObservedAt, record.Confidence, memory.ExtractEntities(record.Content))
+			evidenceID := ""
+			if record.Metadata != nil {
+				if v, ok := record.Metadata["evidence_id"].(string); ok {
+					evidenceID = v
+				}
+			}
+			_ = writer.UpsertMemoryEvent(ctx, record.TenantID, record.SubjectID, eventID, pred, val, record.Content, record.MemoryID, evidenceID, record.ObservedAt, record.Confidence, memory.ExtractEntities(record.Content))
 		}
 	}
 }

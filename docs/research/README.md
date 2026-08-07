@@ -22,12 +22,11 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | --- | --- |
 | **OpMem** (operational) | Brainy **13/13** on staging (Mem0 behind on ops fixtures) |
 | **Marketing / Support vertical** | **17/17** / **4/4** |
-| **LOCOMO smoke** (product `/recall`, 1×30) | **13/30 (43.3%)** — MH **50%**; architect PR1–PR7 closed |
-| **LOCOMO smoke** (LLM over search, prior) | **18/30 (60%)** — directional only |
-| **Search latency** (recall smoke) | p50/p95 ≈ **683 / 1108 ms** |
-| **Next agent** | Reader quality over packets → LME-100 → Mem0 same-pin |
+| **LOCOMO same-pin** (recall-contract) | **Brainy 16/30** vs **Mem0 11/30** ([proof](../benchmarks/artifacts/recall-contract-proof-20260807.md)) |
+| **LOCOMO** (prior deterministic `/recall`) | 13/30 (43.3%) — superseded as primary pin |
+| **Next agent** | Multi-hop packet depth → finish LME-100 → multi-seed LoCoMo (recall-contract on `dev`) |
 
-Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) · [program-execution-status.md](./program-execution-status.md)
+Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [recall-contract proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) · [program-execution-status.md](./program-execution-status.md)
 
 ---
 
@@ -35,6 +34,7 @@ Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md
 
 | Piece | Status | Link |
 | --- | --- | --- |
+| Recall-contract proof (LoCoMo same-pin) | Active | [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contract-proof-20260807.md) |
 | OpMem v0 | Live results | [spec](./opmem-spec.md) · [staging vs Mem0](../benchmarks/staging-competitive-report.md) |
 | Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
 | Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |

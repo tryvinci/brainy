@@ -305,7 +305,7 @@ flowchart LR
 6. `internal/store/postgres/migrations.go` (v12–v18; evidence v2 + pgvector 768)  
 7. One vertical pack: `packs/support/v2/` and `fixtures/vertical/support/`  
 
-**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; HNSW valid on staging; hash/128 residue still needs re-embed. Packs v2 sidecars + support/marketing FSMs load at registry time. `/recall` **consumes** evidence_packet (deterministic reader). Architect PR1–PR7 closed 2026-08-05; next gap is reader quality + LME/Mem0 proof.
+**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; HNSW valid on staging; hash/128 residue still needs re-embed. Packs v2 sidecars + support/marketing FSMs load at registry time. `/recall` consumes structured evidence packets with optional hybrid LLM reader (`BRAINY_RECALL_LLM`). Architect PR1–PR7 closed 2026-08-05; recall-contract steps 1–5 landed on `dev` 2026-08-07. **Next:** multi-hop packet depth → LME under job barriers → multi-seed LoCoMo.
 ---
 
 ## 10. Non-goals / traps for reviewers

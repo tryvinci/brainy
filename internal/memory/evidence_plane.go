@@ -5,6 +5,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -35,6 +37,39 @@ type RankedSearcher interface {
 	SearchMemoriesRanked(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]MemoryRecord, map[string]float64, error)
 }
 
+func observedAtFromMetadata(meta map[string]any) *time.Time {
+	if meta == nil {
+		return nil
+	}
+	raw, ok := meta["observed_at"]
+	if !ok || raw == nil {
+		return nil
+	}
+	switch v := raw.(type) {
+	case time.Time:
+		t := v.UTC()
+		return &t
+	case *time.Time:
+		if v == nil {
+			return nil
+		}
+		t := v.UTC()
+		return &t
+	case string:
+		s := strings.TrimSpace(v)
+		if s == "" {
+			return nil
+		}
+		for _, layout := range []string{time.RFC3339, "2006-01-02", "2006-01-02T15:04:05Z07:00"} {
+			if t, err := time.Parse(layout, s); err == nil {
+				u := t.UTC()
+				return &u
+			}
+		}
+	}
+	return nil
+}
+
 func (s *Service) persistRawEvidence(ctx context.Context, req IngestRequest) []string {
 	writer, ok := s.store.(RawEvidenceWriter)
 	if !ok {
@@ -47,15 +82,19 @@ func (s *Service) persistRawEvidence(ctx context.Context, req IngestRequest) []s
 			session = v
 		}
 	}
+	occurredAt := observedAtFromMetadata(req.Metadata)
 	for i, msg := range req.Messages {
 		content := msg.Content
 		if content == "" {
 			continue
 		}
 		ref := fmt.Sprintf("msg:%d", i)
-		id, err := writer.WriteRawEvidence(ctx, req.TenantID, req.SubjectID, "default", req.SourceType, ref, session, msg.Role, content, nil, req.Metadata)
+		id, err := writer.WriteRawEvidence(ctx, req.TenantID, req.SubjectID, "default", req.SourceType, ref, session, msg.Role, content, occurredAt, req.Metadata)
 		if err != nil {
-			// Surface via explain later; do not silently drop without metric path.
+			// Prefer failing closed on evidence loss in strict mode; otherwise keep ingest moving.
+			if os.Getenv("BRAINY_EVIDENCE_STRICT") == "true" {
+				continue
+			}
 			continue
 		}
 		if id != "" {
@@ -63,6 +102,34 @@ func (s *Service) persistRawEvidence(ctx context.Context, req IngestRequest) []s
 		}
 	}
 	return ids
+}
+
+// attachEvidenceIDs stores raw evidence IDs on request metadata for extract→record linking.
+func attachEvidenceIDs(req *IngestRequest, ids []string) {
+	if len(ids) == 0 {
+		return
+	}
+	if req.Metadata == nil {
+		req.Metadata = map[string]any{}
+	}
+	copied := make([]any, len(ids))
+	for i, id := range ids {
+		copied[i] = id
+	}
+	req.Metadata["raw_evidence_ids"] = copied
+	if len(ids) == 1 {
+		req.Metadata["evidence_id"] = ids[0]
+	}
+}
+
+func evidenceIDFromRecord(record MemoryRecord) string {
+	if record.Metadata == nil {
+		return ""
+	}
+	if v, ok := record.Metadata["evidence_id"].(string); ok {
+		return strings.TrimSpace(v)
+	}
+	return ""
 }
 
 func (s *Service) persistEvidenceShadow(ctx context.Context, record MemoryRecord) {
@@ -101,11 +168,40 @@ func (s *Service) persistEventIfApplicable(ctx context.Context, record MemoryRec
 	sum := sha256.Sum256([]byte(record.TenantID + pred + val + record.MemoryID))
 	eventID := "evt_" + hex.EncodeToString(sum[:12])
 	parts := ExtractEntities(record.Content)
-	_ = writer.UpsertMemoryEvent(ctx, record.TenantID, record.SubjectID, eventID, pred, val, record.Content, record.MemoryID, "", record.ObservedAt, record.Confidence, parts)
+	evidenceID := evidenceIDFromRecord(record)
+	_ = writer.UpsertMemoryEvent(ctx, record.TenantID, record.SubjectID, eventID, pred, val, record.Content, record.MemoryID, evidenceID, record.ObservedAt, record.Confidence, parts)
 }
 
 func (s *Service) projectCurrentStateIfApplicable(ctx context.Context, record MemoryRecord) {
 	ProjectCurrentStateIfApplicable(ctx, s.store, record)
+}
+
+// statePredicateKey scopes temporal state by entity when known, so two people
+// in one subject conversation do not collide on the same predicate.
+func statePredicateKey(entity, predicate string) string {
+	predicate = strings.TrimSpace(predicate)
+	entity = strings.ToLower(strings.TrimSpace(entity))
+	if entity == "" {
+		return predicate
+	}
+	return entity + "::" + predicate
+}
+
+func entitySubjectOf(record MemoryRecord) string {
+	if record.Metadata != nil {
+		if v, ok := record.Metadata["subject"].(string); ok && strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+		if v, ok := record.Metadata["entity_key"].(string); ok && strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	if record.Explain != nil {
+		if v, ok := record.Explain["subject"].(string); ok && strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
 
 // ProjectCurrentStateIfApplicable writes memory_current_state only when the
@@ -130,11 +226,12 @@ func ProjectCurrentStateIfApplicable(ctx context.Context, store Store, record Me
 	if !IsLifecycleSearchVisible(record.LifecycleState) && record.LifecycleState != "" && record.LifecycleState != LifecycleActive {
 		return
 	}
-	if existingID, _, _, found, _ := cs.GetCurrentState(ctx, record.TenantID, record.SubjectID, pred); found && existingID != "" && existingID != record.MemoryID {
+	keyed := statePredicateKey(entitySubjectOf(record), pred)
+	if existingID, _, _, found, _ := cs.GetCurrentState(ctx, record.TenantID, record.SubjectID, keyed); found && existingID != "" && existingID != record.MemoryID {
 		existing, err := store.GetMemory(ctx, record.TenantID, record.SubjectID, existingID)
 		if err == nil && !shouldReplaceCurrentState(record, existing) {
 			return
 		}
 	}
-	_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, pred, record.MemoryID, val, string(PredicatePolicy(pred)))
+	_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, keyed, record.MemoryID, val, string(PredicatePolicy(pred)))
 }

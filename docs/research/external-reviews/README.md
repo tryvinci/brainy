@@ -22,9 +22,13 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 
 ## Default priority for the next external agent pass
 
-> **Improve reader quality over evidence packets** (composition / optional bounded LLM reader on packet IDs) → finish LME-100 adjudication → Mem0 same-pin → pack authority/procedures/conflict packets → evidence-as-search-primary only if ledger shows retrieval/coverage misses
+**Accepted 2026-08-07:** [2026-08-07-recall-contract-verdict.md](./2026-08-07-recall-contract-verdict.md)  
+**Landed on `dev`:** recall-contract steps 1–5 (PR #88). Same-pin LoCoMo: Brainy 16/30 vs Mem0 11/30.
 
-Baseline pins: LLM-over-search smoke 60% (`c223da3d`); product `/recall` deterministic reader 43.3% (`f722342a`, MH 50%).
+> **Next:** staging `BRAINY_RECALL_LLM=1` → multi-hop packet / bridge-chain depth → finish LME-100 under job barriers → larger / multi-seed LoCoMo → OpMem+marketing non-reg → pack authority/procedures/conflicts
+
+Do **not** default to fusion retune, graph DB, or re-opening architect PR1–PR7.
+
 ## Rejected by default (unless new evidence)
 
 - Hand-tuned fusion constants without real lexical ranks
