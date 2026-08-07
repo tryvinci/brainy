@@ -24,9 +24,14 @@ Artifacts:
 
 ## LongMemEval-S (stratified 20)
 
-Started locally; async job backlog large (~130–180 pending under one worker). First scored item: knowledge-update **WRONG**. Full 20-Q pin deferred until queue drains — do not cite partial as a gate.
+Local run in progress under one worker; queue backs up to 100–200 open jobs per large multi-session item.
 
-Prior absolute LME-100 pin remains **4%** until re-run completes under the new contract.
+Observed so far (incomplete — **not a gate**):
+- Q1 knowledge-update: WRONG
+- Q2 multi-session: WRONG
+- Q3+ still ingesting
+
+Prior absolute LME-100 pin remains **4%** until a completed re-run under the new contract.
 
 ## Reproduce
 
