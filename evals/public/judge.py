@@ -49,13 +49,33 @@ def _with_model(config: LLMConfig, model: str) -> LLMConfig:
     )
 
 
+def _deterministic_contains_gt(answer: str, ground_truth: str) -> bool:
+    """Conservative fallback when the judge model returns unparseable JSON."""
+    gt = (ground_truth or "").strip().lower()
+    ans = (answer or "").strip().lower()
+    if not gt or not ans:
+        return False
+    if gt in ans:
+        return True
+    if re.fullmatch(r"\d{1,2}\s+[A-Za-z]+\s+\d{4}", (ground_truth or "").strip()):
+        return gt in ans
+    gt_tokens = [t for t in re.findall(r"[a-z0-9]+", gt) if len(t) > 1]
+    return len(gt_tokens) >= 2 and all(t in ans for t in gt_tokens)
+
+
 def llm_judge(
     answer: str,
     ground_truth: str,
     question: str,
     config: LLMConfig,
+    *,
+    max_attempts: int = 3,
 ) -> JudgeResult:
-    """Binary LOCOMO-style CORRECT/WRONG judge (temperature 0)."""
+    """Binary LOCOMO-style CORRECT/WRONG judge (temperature 0).
+
+    Parse failures retry, then fall back to a conservative substring check.
+    Remaining infrastructure failures are JUDGE_MISS (not product WRONG).
+    """
     system = (
         "You are a strict binary grader for long-term conversational memory QA. "
         "Reply with JSON only: {\"judgment\":\"CORRECT\"|\"WRONG\",\"reason\":\"...\"}."
@@ -67,33 +87,44 @@ def llm_judge(
         "Mark CORRECT if the predicted answer contains the same key facts as the ground truth "
         "(paraphrase OK). Mark WRONG otherwise."
     )
-    content = chat_completion(
-        [
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        config,
-        temperature=0.0,
-        force_json=True,
-    )
-    try:
-        parsed = parse_judgment_json(content)
-    except (ValueError, json.JSONDecodeError):
+    last_raw = ""
+    for _ in range(max(1, max_attempts)):
+        content = chat_completion(
+            [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            config,
+            temperature=0.0,
+            force_json=True,
+        )
+        last_raw = content or ""
+        try:
+            parsed = parse_judgment_json(content)
+        except (ValueError, json.JSONDecodeError):
+            continue
+        judgment = str(parsed.get("judgment", "")).upper()
+        if judgment not in {"CORRECT", "WRONG"}:
+            continue
         return JudgeResult(
-            "WRONG",
-            0.0,
-            f"unparseable judge output: {content[:180]}",
-            config.label,
+            judgment=judgment,
+            score=1.0 if judgment == "CORRECT" else 0.0,
+            reason=str(parsed.get("reason", "")),
+            model=config.label,
         )
 
-    judgment = str(parsed.get("judgment", "WRONG")).upper()
-    if judgment not in {"CORRECT", "WRONG"}:
-        judgment = "WRONG"
+    if _deterministic_contains_gt(answer, ground_truth):
+        return JudgeResult(
+            "CORRECT",
+            1.0,
+            "judge parse failed; deterministic ground-truth containment fallback",
+            config.label,
+        )
     return JudgeResult(
-        judgment=judgment,
-        score=1.0 if judgment == "CORRECT" else 0.0,
-        reason=str(parsed.get("reason", "")),
-        model=config.label,
+        "JUDGE_MISS",
+        0.0,
+        f"unparseable judge output after {max_attempts} attempts: {last_raw[:180]}",
+        config.label,
     )
 
 

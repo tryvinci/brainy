@@ -113,6 +113,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		temporalApplied = true
 	}
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
+	enrichPacketItems(&pkt, search.Results, req.Query)
+	satisfied := packetCoverageSatisfied(plan, pkt)
+	pkt.Coverage = map[string]any{
+		"targets":   len(plan.CoverageTargets),
+		"satisfied": satisfied,
+		"hit_count": len(pkt.MemoryIDs),
+		"item_count": len(pkt.Items),
+	}
 	out.Explain["evidence_packet"] = pkt
 	if out.Coverage == nil && pkt.Coverage != nil {
 		out.Coverage = pkt.Coverage
@@ -322,6 +330,17 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	out.Explain["reader_source"] = "evidence_packet"
 	out.Explain["memory_count"] = len(search.Results)
 	out.Explain["context_runes"] = utf8.RuneCountInString(out.ContextBlock)
+	// Bounded hybrid LLM reader over the packet when composition is needed.
+	if mode == "answer" {
+		if hybrid, ok := s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt); ok {
+			out.Answer = hybrid
+			out.Abstained = false
+			out.AnswerStatus = AnswerSupported
+			out.Explain["reader_source"] = "hybrid_llm_packet"
+			plan.Tools = append(plan.Tools, "hybrid_reader")
+			out.Explain["tools_executed"] = plan.Tools
+		}
+	}
 	pkt.Plan = plan
 	out.Explain["evidence_packet"] = pkt
 	return out, nil
@@ -342,10 +361,24 @@ func (s *Service) applyTemporalResolution(ctx context.Context, req RecallRequest
 	wantCurrent := view == "current" || view == "" && hasIntent(out.Intents, IntentCurrentState)
 	wantHistory := req.IncludeHistorical || view == "historical" || view == "all" || hasIntent(out.Intents, IntentHistoricalState) || hasIntent(out.Intents, IntentTemporalSequence)
 	preds := predicateHintsFromQuery(req.Query)
+	// Also try entity-scoped keys when the query names people (multi-speaker).
+	entities := nameLikeTokens(contentBearingTokens(tokenize(req.Query)))
+	scoped := make([]string, 0, len(preds)*len(entities))
+	for _, ent := range entities {
+		for _, pred := range preds {
+			scoped = append(scoped, statePredicateKey(ent, pred))
+		}
+	}
+	preds = append(preds, scoped...)
 	resolved := make([]map[string]any, 0, len(preds))
 	var answerParts []string
 
+	seenPred := map[string]struct{}{}
 	for _, pred := range preds {
+		if _, ok := seenPred[pred]; ok {
+			continue
+		}
+		seenPred[pred] = struct{}{}
 		entry := map[string]any{"predicate": pred}
 		switch {
 		case asOfOK && strings.EqualFold(view, "as_known_at"):

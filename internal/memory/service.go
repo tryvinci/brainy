@@ -54,6 +54,7 @@ type Service struct {
 	// Off by default: it regressed same-pin smoke without re-tuning the additive
 	// boost stack. Opt-in for staging experiments.
 	idfRankingEnabled bool
+	hybridReader      HybridReaderConfig
 }
 
 // WithIDFRanking toggles IDF-weighted lexical coverage (default off).
@@ -115,7 +116,8 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 	}
 
 	// Evidence Plane v2: capture raw messages before extraction.
-	_ = s.persistRawEvidence(ctx, req)
+	ids := s.persistRawEvidence(ctx, req)
+	attachEvidenceIDs(&req, ids)
 
 	memories := s.extractOrLabel(req)
 	if len(memories) == 0 && strings.TrimSpace(req.Label) != "performance_outcome" {
@@ -238,7 +240,8 @@ func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncInge
 		Accepted: true,
 	}
 	// Capture raw evidence before async enrichment so source survives extract failure.
-	_ = s.persistRawEvidence(ctx, req)
+	ids := s.persistRawEvidence(ctx, req)
+	attachEvidenceIDs(&req, ids)
 	idempotencyKey := s.idempotencyKey(req)
 	enqueueResult, err := s.store.EnqueueIngestJob(ctx, result.IngestID, result.JobID, idempotencyKey, req)
 	if err != nil {
@@ -252,6 +255,25 @@ func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncInge
 		}, nil
 	}
 	return result, nil
+}
+
+func (s *Service) GetJob(ctx context.Context, jobID string) (JobStatusInfo, bool, error) {
+	q, ok := s.store.(JobQuerier)
+	if !ok {
+		return JobStatusInfo{}, false, errors.New("job status not supported by store")
+	}
+	return q.GetExtractionJob(ctx, jobID)
+}
+
+func (s *Service) SubjectJobCounts(ctx context.Context, tenantID, subjectID string) (SubjectJobCounts, error) {
+	if strings.TrimSpace(tenantID) == "" || strings.TrimSpace(subjectID) == "" {
+		return SubjectJobCounts{}, errors.New("tenant_id and subject_id are required")
+	}
+	q, ok := s.store.(JobQuerier)
+	if !ok {
+		return SubjectJobCounts{}, errors.New("job status not supported by store")
+	}
+	return q.CountSubjectJobs(ctx, tenantID, subjectID)
 }
 
 func (s *Service) idempotencyKey(req IngestRequest) string {

@@ -65,11 +65,15 @@ class BrainyBackend:
         if self.async_ingest:
             response = post_json(self.base_url, "/ingest/async", payload, timeout=60)
             should_wait = self.async_ingest if wait is None else wait
+            job_id = str(response.get("job_id") or "")
             if should_wait:
-                probe = _probe_token(messages)
-                if probe:
-                    self.wait_until_searchable(user_id, probe, min_results=1)
-            return []
+                if job_id:
+                    self.wait_until_jobs_done(user_id, job_ids=[job_id])
+                else:
+                    probe = _probe_token(messages)
+                    if probe:
+                        self.wait_until_searchable(user_id, probe, min_results=1)
+            return [job_id] if job_id else []
 
         response = post_json(self.base_url, "/ingest", payload)
         return [m["memory_id"] for m in response.get("memories", [])]

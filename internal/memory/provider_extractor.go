@@ -153,8 +153,10 @@ CRITICAL RULES:
    - career plans and research topics
 6. Resolve relative time against Observation Date in the user message (yesterday → absolute date).
 7. Skip pure greetings/acks ("Thanks!", "Yeah, Name", "Cool").
-8. When in doubt, EXTRACT — missed atoms destroy multi-attribute recall.
-9. return {"memories":[]} only if nothing durable exists.`
+8. When Prior context is provided: prefer UPDATES/CORRECTIONS over duplicates; set
+   assertion_kind=corrective when revising an older fact; keep subject stable.
+9. When in doubt, EXTRACT — missed atoms destroy multi-attribute recall.
+10. return {"memories":[]} only if nothing durable exists.`
 
 func buildProviderUserPrompt(req IngestRequest) string {
 	var b strings.Builder
@@ -172,6 +174,11 @@ func buildProviderUserPrompt(req IngestRequest) string {
 			b.WriteString(fmt.Sprint(raw))
 			b.WriteString("\n")
 			b.WriteString("Resolve ALL relative time phrases against Observation Date only.\n")
+		}
+		if ctxBlock, ok := req.Metadata["extract_context"].(string); ok && strings.TrimSpace(ctxBlock) != "" {
+			b.WriteString("\nPrior context (do not repeat verbatim; use to link, update, or contradict):\n")
+			b.WriteString(strings.TrimSpace(ctxBlock))
+			b.WriteString("\n")
 		}
 	}
 	b.WriteString("New Messages:\n")

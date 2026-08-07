@@ -22,9 +22,12 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 
 ## Default priority for the next external agent pass
 
-> **Improve reader quality over evidence packets** (composition / optional bounded LLM reader on packet IDs) → finish LME-100 adjudication → Mem0 same-pin → pack authority/procedures/conflict packets → evidence-as-search-primary only if ledger shows retrieval/coverage misses
+**Accepted 2026-08-07:** [2026-08-07-recall-contract-verdict.md](./2026-08-07-recall-contract-verdict.md)
 
-Baseline pins: LLM-over-search smoke 60% (`c223da3d`); product `/recall` deterministic reader 43.3% (`f722342a`, MH 50%).
+> Measurement honesty → evidence provenance → context-aware semantic compile → entity-scoped state → plan/packet/sufficiency/hybrid reader → LME + LoCoMo + Mem0 same-pin proof
+
+Do **not** default to “reader-only” or fusion retune. Baseline pins remain directional until re-measured under the recall contract.
+
 ## Rejected by default (unless new evidence)
 
 - Hand-tuned fusion constants without real lexical ranks

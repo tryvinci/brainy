@@ -26,6 +26,8 @@ func NewRouter(service *memory.Service, metrics *observability.Metrics) http.Han
 	mux.HandleFunc("/ingest/async", router.handleIngestAsync)
 	mux.HandleFunc("/events", router.handleDomainEvent)
 	mux.HandleFunc("/recall", router.handleRecall)
+	mux.HandleFunc("/jobs/status", router.handleJobsStatus)
+	mux.HandleFunc("/jobs/", router.handleJobByID)
 	mux.HandleFunc("/memories/search", router.handleSearch)
 	mux.HandleFunc("/memories/", router.handleMemoryAction)
 	return mux
@@ -219,6 +221,44 @@ func (r *Router) handleSupersede(w http.ResponseWriter, req *http.Request, path 
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (r *Router) handleJobsStatus(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		return
+	}
+	tenantID := req.URL.Query().Get("tenant_id")
+	subjectID := req.URL.Query().Get("subject_id")
+	counts, err := r.service.SubjectJobCounts(req.Context(), tenantID, subjectID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, counts)
+}
+
+func (r *Router) handleJobByID(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		return
+	}
+	jobID := strings.TrimPrefix(req.URL.Path, "/jobs/")
+	jobID = strings.Trim(jobID, "/")
+	if jobID == "" || jobID == "status" {
+		writeError(w, http.StatusBadRequest, "bad_request", "job_id is required")
+		return
+	}
+	info, ok, err := r.service.GetJob(req.Context(), jobID)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found", "job not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, info)
 }
 
 func (r *Router) handleDomainEvent(w http.ResponseWriter, req *http.Request) {

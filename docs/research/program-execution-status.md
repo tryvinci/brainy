@@ -1,178 +1,43 @@
-# Program execution status — SOTA end-to-end (2026-08-05)
+# Program execution status — recall contract (2026-08-07)
 
-**Program of record:** [sota-end-to-end-program.md](./sota-end-to-end-program.md)  
-**Baseline freeze:** [phase0-baseline-and-oracle.md](./phase0-baseline-and-oracle.md)  
-**External handoff:** [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)
+**External handoff:** [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)  
+**Accepted review:** [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md)
 
-## Realistic adjudication of the attached guide
+## Course correction
 
-| Suggestion | Verdict | Action taken |
+Prior default (“reader quality over packets”) replaced by end-to-end **recall contract**:
+
+1. Measurement honesty  
+2. Evidence ↔ semantics provenance  
+3. Context-aware semantic compile  
+4. Entity-scoped state keys  
+5. Plan → packet → sufficiency → hybrid reader  
+6. LME / LoCoMo / Mem0 proof pins  
+
+Architect PR1–PR7 remain **closed**.
+
+## Implementation status (this branch)
+
+| Step | Status | Notes |
 | --- | --- | --- |
-| Keep Postgres; no graph DB | Accept | Unchanged architecture |
-| Fusion necessary but not sufficient | Accept | Fusion V2 default-on (`BRAINY_FUSION_V2`, disable with `false`) |
-| Immutable evidence plane | Accept (shadow) | `memory_evidence` migration 16 + shadow writes |
-| Full bitemporal model | Accept (incremental) | atoms: `valid_from`/`recorded_at`/`retired_at` (mig 15); `valid_to` already existed |
-| Predicate-specific policy (not latest-wins) | Accept | `predicate_policy.go` + stateful auto-supersede gate |
-| Events + participants | Accept (MVP) | `memory_events` + `memory_event_participants` |
-| Query intents + answer statuses | Accept | `AnalyzeQueryIntents`, recall `answer_status` / abstention |
-| Evidence-set selection (not flat top-k) | Accept | `selectEvidenceSet` for list/multi-hop |
-| Remove hot-path full subject scans | Accept (bounded) | `ListMemoriesLimited` + GetMemory admit with status filter |
-| Packs v2 | Accept (scaffold) | `packs/{support,marketing}/v2/` + fixtures |
-| Associative triggers / learned policy / graph DB | Defer | Gated research (Phases 7–8) |
-| Benchmax / tune on convs 4–10 | Reject | Denylist + holdout policy unchanged |
-
-## Code landed this cycle
-
-- Phase 0: search/recall traces, failure taxonomy, oracle helpers, baseline doc
-- Phase 1: Fusion V2, over-fetch, evidence-set selector, limited subject scans
-- Phase 2: evidence shadow, bitemporal atom fields, current_state projection table
-- Phase 3: events MVP + extraction wiring on ingest/worker
-- Phase 4: intent classifier + answer statuses on `/recall`
-- Phase 5: support/marketing pack v2 scaffolds + fixtures
-- Phase 6: OpMem + marketing + support harness green via `go test ./internal/api/`
+| 1 Measurement | **Landed** | Judge retry + `JUDGE_MISS`; LoCoMo speaker roles; `/jobs` + `/jobs/status`; harness job wait; tighter oracle overlap |
+| 2 Provenance | **Landed** | `observed_at` on raw evidence; `evidence_id` / `raw_evidence_ids` on records; events carry evidence_id |
+| 3 Contextual compile | **Landed** | `ContextualExtractor` injects recent + related memories; provider prompt link/update rules |
+| 4 Entity-scoped state | **Landed** | `entity::predicate` keys in `current_state` when subject entity known |
+| 5 Hybrid reader | **Landed** | Packet items + coverage tighten; `BRAINY_RECALL_LLM=1` bounded LLM over packet |
+| 6 Proof pins | **In progress** | Requires deploy + same-pin runs; artifact under `docs/benchmarks/artifacts/` |
 
 ## Flags
 
-| Flag | Default | Meaning |
+| Env | Default | Purpose |
 | --- | --- | --- |
-| `BRAINY_FUSION_V2` | **on** | Mem0-style additive fusion |
-| `BRAINY_ENTITY_RANKING` | off | Prior A/B regressor |
-| `BRAINY_IDF_RANKING` | off | Opt-in IDF lexical |
-| `BRAINY_ENSURE_FTS_INDEX` | off on API | Controlled GIN build |
+| `BRAINY_RECALL_LLM` | off | Enable hybrid LLM reader on `/recall` |
+| `BRAINY_USE_RECALL` | off | Eval harness uses product `/recall` |
+| `BRAINY_EVIDENCE_STRICT` | off | Reserved for fail-closed evidence writes |
 
-## Remaining (measured / ops)
+## Still open (honest)
 
-- Staging LoCoMo multi-seed re-measure under Fusion V2
-- LongMemEval failure adjudication (≥95% labeled sample)
-- Indexed retrieval p50/p95 SLO proof under load
-- Expand OpMem / SupportBench fixture counts per program §13
-- Full bitemporal reads (`as_of`, system-time) end-to-end API
-- Entity aliases / reversible merge (MEM-030/031)
-
-## Phase 6 staging smoke (post-merge to `dev`)
-
-| Run | Result |
-| --- | ---: |
-| LoCoMo smoke 1 conv / 20 Q (async, Fusion V2 live) | **25% (5/20)** |
-| multi-hop (n=8) | **50%** |
-| temporal (n=10) | **10%** |
-| Search p50 / p95 | 1627 / 2867 ms |
-
-Artifact: `docs/benchmarks/artifacts/locomo-smoke-fusionv2-20260804.md`
-
-Interpretation: small-n smoke; multi-hop slice improved vs full-set MH≈26% baseline, but temporal slice is weak and overall is not a publish claim. Full 3-seed re-measure still required before SOTA gates.
-
-## Production push + progress retest (2026-08-04)
-
-- **`main` pushed** (`13d6b3b`) with user approval. Render hosts **staging on `dev`** only (no separate prod service).
-- LoCoMo smoke 2 conv / 30 Q: **50% (15/30)** — temporal **66.7%**, multi-hop **25%**, search p50/p95 ≈ 1.7s / 3.0s  
-  Artifact: `docs/benchmarks/artifacts/locomo-smoke-main-progress-20260804.md`
-- OpMem staging: **13/13**
-- Support vertical: **4/4**; Marketing: **17/17** (after semantic-only isolation fix)
-- vs prior: Fusion V2 first smoke 25% (5/20); publish-stack full LoCoMo mean still ≈49.8% (3-seed) until re-run
-
-## External review course correction (2026-08-04) — execution
-
-Accepted architecture verdict: five-plane **target** approved; implementation remains **record-centric mid-migration**.
-
-Landed this cycle:
-
-- External review archive + intake SOP (`docs/research/external-reviews/`)
-- Assessment pack honesty / maturity matrix refresh
-- Evidence Plane v2: raw message capture before extract; subject-safe dedupe (migration 17)
-- FTS `ts_rank_cd` plumbed into Fusion V2 when available
-- Bounded embedding fallback (no unbounded `LoadEmbeddings` hot path)
-- Stricter multi-hop scan gate (ask + ≥3 bearing tokens)
-- Current-state projection after auto-supersede on sync ingest
-- Oracle modes: `evidence`, `semantic`, `retrieval`, `coverage`, `reader` operational; unknown → `oracle_unsupported`
-- Failure ledger scaffolding under `docs/benchmarks/artifacts/failure-ledger/`
-- LoCoMo smoke `--failure-ledger` stage probes on WRONG/SKIPPED
-
-## PR1 oracles + PR3 typed extract (2026-08-04)
-
-- Provider extract **v3 typed**: optional `subject` / `predicate` / `value` / `assertion_kind` slots → Explain → Metadata → `memory_atoms`
-- Async worker upserts typed atoms (closes LoCoMo/LME default-path gap vs sync ingest)
-- `ListAtomMemoryIDs` empty predicate = any current atoms (semantic oracle)
-- Follow-ups moved: LME adjudication; reader over packets (see 2026-08-05)
-## PR4 temporal resolver (2026-08-04)
-
-- Guarded `memory_current_state` projection: late-arriving older world-valid facts cannot blind-win
-- Typed reads: `GetStateAsOf`, `GetStateAsKnownAt`, `ListStateHistory` on atoms
-- `/recall` wires `view` / `as_of` / `include_historical` into temporal explain + answer when resolvable
-- Still open: pack-defined authority, full conflict packets, LME adjudication
-
-## pgvector 768 ANN pin (2026-08-04)
-
-- Migration **18/19**: additive `embedding_vec_768 vector(768)` (legacy `embedding_vec vector(128)` retained — DROP/rewrite deadlocked staging)
-- Staging: mig 18/19 applied; API live; hosted upsert/search use `embedding_vec_768`
-- `EnsureEmbeddingVecIndex`: batched backfill + CONCURRENTLY HNSW (API background); skips when valid index exists or a concurrent build is already running; CREATE INDEX uses uncancellable context so deploy timeouts cannot leave INVALID indexes
-- API/worker boot retries migrations instead of crash-looping on advisory-lock timeouts
-- Cloud Agent secrets include `BRAINY_EMBEDDING_*` (gateway probe from this pod may still 403)
-
-### What “HNSW / re-embed still catching up” means
-
-Two distinct catch-up jobs after the additive 768 column:
-
-1. **Backfill** — copy already-hosted `embedding real[768]` → `embedding_vec_768`. Staging sample (~2%) shows this is effectively done for 768-d rows.
-2. **HNSW** — `memory_embeddings_vec_768_hnsw` must be `indisvalid=true`. Cancelled/timed-out `CREATE INDEX CONCURRENTLY` leaves an INVALID index (~208 MB placeholder) that ANN cannot use. Fix: drop INVALID + rebuild CONCURRENTLY (hours on ~494k rows on Render basic). Do not SIGTERM the rebuild mid-flight.
-3. **Re-embed residue** — rows that only ever got **hash/128** embeddings have `embedding_vec_768 IS NULL` and need a hosted BGE re-embed of `memory_records.content` (backfill cannot invent 768-d from 128-d). Sample residual ≈ 0.5% of rows.
-
-Staging Render API+worker already stay up for multi-hour LoCoMo/LME runs; no special unlock. Prefer not redeploying during an active HNSW rebuild.
-
-## PR6 planner + PR7 executable packs (2026-08-04)
-
-- `/recall` emits deterministic `explain.query_plan` + `explain.evidence_packet` (intents → tools/coverage targets; does not rewrite SearchOpt)
-- Pack registry loads v2 sidecars `entities.yaml` + `state-machines.yaml`; prefers higher pack version for the same id
-- Support ticket FSM enforced on ingest (`label=ticket_state` + `metadata.status`, prior status from same `ticket_id` or `from_status`)
-
-### Overnight proof (started 2026-08-04)
-
-- Staging Render API+worker auto-deployed `3eb67c4` from `dev` (planner/packs live; `/recall` returns `query_plan` + `evidence_packet`)
-- HNSW `CREATE INDEX CONCURRENTLY` rebuild completed — staging `memory_embeddings_vec_768_hnsw` is **valid** (~1.4 GB)
-- LoCoMo smoke finished same evening (~4 min), not a multi-hour job — see below
-- Stratified LME-100 started; incomplete at last check (async “not searchable” timeouts mid-run)
-- Mem0 key available for later same-pin compare
-- **`main` merged** with user approval (`5d759d6`)
-
-## LoCoMo smoke after planner/packs (2026-08-04 evening)
-
-| Axis | Result |
-| --- | ---: |
-| Overall | **60% (18/30)** |
-| multi-hop | **40%** |
-| temporal | **68.8%** |
-| open-domain | **75%** |
-| Search p50 / p95 | ≈ **807 / 1509 ms** |
-
-- Run: `locomo-smoke-c223da3d` on staging commit `e8ecb82`, async ingest
-- Failure ledger: **12/12 WRONG = `READER_MISS`**; evidence/semantic/retrieval/coverage oracles **supported** on every miss
-- Artifact: `docs/benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md`
-- Ledger: `docs/benchmarks/artifacts/failure-ledger/locomo-smoke.jsonl`
-
-**Next build (do not fusion-retune):** reader/synthesis over `evidence_packet` (enumeration completeness, temporal precision, multi-hop composition) → finish LME-100 adjudication → Mem0 same-pin.
-
-## Architect sequence closeout (2026-08-05)
-
-Closed remaining PR4–PR7 honesty gaps on `dev` (`3725489`):
-
-- Async worker: `AutoSupersedePriorState` + `ProjectCurrentStateIfApplicable` (no blind current_state)
-- `/recall` synthesizes from `evidence_packet`; `tools_executed` / `reader_source=evidence_packet`
-- `needCorpus` no longer fires on name-like alone; FTS `lexRanks` not mixed with coverage-as-bm25
-- Marketing v2 `state-machines.yaml` (campaign_status + creative_approval)
-
-### Product `/recall` LoCoMo smoke (`f722342a`)
-
-| Axis | Result |
-| --- | ---: |
-| Overall | **43.3% (13/30)** |
-| multi-hop | **50%** |
-| temporal | **43.8%** |
-| open-domain | **25%** |
-| Search p50 / p95 | ≈ **683 / 1108 ms** |
-
-- `BRAINY_USE_RECALL=1`, sync ingest; all answers `brainy-recall+*`
-- Artifact: `docs/benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md`
-- Ledger: `docs/benchmarks/artifacts/failure-ledger/locomo-recall-smoke.jsonl`
-
-**Architect PR1–PR7 = complete for that pass.** Next agent: reader quality, LME-100, Mem0 same-pin, pack authority/procedures/conflict packets (not re-opening the 2026-08-04 sequence).
-
+- Pack authority / procedures / conflict packets  
+- Hash/128 re-embed residue  
+- Full multi-seed LoCoMo + finished LME-100 under new contract  
+- Fresh Mem0 same-pin on post-contract stack  

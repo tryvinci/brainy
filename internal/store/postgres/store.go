@@ -805,3 +805,54 @@ WHERE ingest_id = $1
 	}
 	return tx.Commit(ctx)
 }
+
+func (s *Store) GetExtractionJob(ctx context.Context, jobID string) (memory.JobStatusInfo, bool, error) {
+	var info memory.JobStatusInfo
+	err := s.pool.QueryRow(ctx, `
+SELECT j.job_id, j.ingest_id, j.status, COALESCE(j.failure_reason, ''), i.tenant_id, i.subject_id
+FROM extraction_jobs j
+JOIN raw_ingests i ON i.ingest_id = j.ingest_id
+WHERE j.job_id = $1
+`, jobID).Scan(&info.JobID, &info.IngestID, &info.Status, &info.Reason, &info.TenantID, &info.SubjectID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return memory.JobStatusInfo{}, false, nil
+		}
+		return memory.JobStatusInfo{}, false, err
+	}
+	return info, true, nil
+}
+
+func (s *Store) CountSubjectJobs(ctx context.Context, tenantID, subjectID string) (memory.SubjectJobCounts, error) {
+	var c memory.SubjectJobCounts
+	rows, err := s.pool.Query(ctx, `
+SELECT j.status, COUNT(*)
+FROM extraction_jobs j
+JOIN raw_ingests i ON i.ingest_id = j.ingest_id
+WHERE i.tenant_id = $1 AND i.subject_id = $2
+GROUP BY j.status
+`, tenantID, subjectID)
+	if err != nil {
+		return c, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var status string
+		var n int
+		if err := rows.Scan(&status, &n); err != nil {
+			return c, err
+		}
+		switch status {
+		case memory.JobStatusPending:
+			c.Pending = n
+		case memory.JobStatusInProgress:
+			c.InProgress = n
+		case memory.JobStatusFailed:
+			c.Failed = n
+		case memory.JobStatusCompleted:
+			c.Completed = n
+		}
+	}
+	c.Open = c.Pending + c.InProgress
+	return c, rows.Err()
+}

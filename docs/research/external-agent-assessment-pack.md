@@ -1,7 +1,7 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-05 (architect PR1–PR7 sequence **closed**)  
+**Date:** 2026-08-07 (architect PR1–PR7 **closed**; recall-contract sequence **in progress**)  
 **How to use:** Pass this file (plus optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent.
 
 | Related doc | Role |
@@ -52,7 +52,16 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | LoCoMo smoke LLM-over-search `c223da3d` | **60% (18/30)** — ledger 12/12 `READER_MISS` with oracles supported |
 | LoCoMo smoke product `/recall` `f722342a` | **43.3% (13/30)** — all answers `brainy-recall+*`; MH **50%**; deterministic reader baseline |
 
-**Implication for next agent:** Architect sequence is closed. Next work is **reader quality over packets** (composition / optional bounded LLM reader over packet IDs only), LME-100 adjudication, Mem0 same-pin — **not** fusion retune, graph DB, or category dictionaries.
+**Implication for next agent (2026-08-07 course correction):** Architect PR1–PR7 stay closed. Do **not** treat “reader quality alone” as the bottleneck. Execute the **recall contract** sequence:
+
+1. Measurement honesty (judge retry/`JUDGE_MISS`, job-completion wait, LoCoMo roles, tighter oracles)  
+2. Evidence ↔ semantics provenance (`evidence_id`, `observed_at`, no silent drops)  
+3. Context-aware semantic compile (recent window + related memories; updates/links)  
+4. Entity-scoped state keys (minimal ER; multi-person conversations)  
+5. Plan → structured packet → sufficiency → **hybrid** reader  
+6. LME / larger LoCoMo / fresh Mem0 same-pin proof  
+
+See [2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
 ---
 
 ## 0. One-paragraph product definition
