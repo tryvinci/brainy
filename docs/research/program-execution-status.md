@@ -25,7 +25,7 @@ Architect PR1–PR7 remain **closed**.
 | 3 Contextual compile | **Landed** | `ContextualExtractor` injects recent + related memories; provider prompt link/update rules |
 | 4 Entity-scoped state | **Landed** | `entity::predicate` keys in `current_state` when subject entity known |
 | 5 Hybrid reader | **Landed** | Packet items + coverage tighten; `BRAINY_RECALL_LLM=1` bounded LLM over packet |
-| 6 Proof pins | **In progress** | Requires deploy + same-pin runs; artifact under `docs/benchmarks/artifacts/` |
+| 6 Proof pins | **Partial** | Fresh LoCoMo same-pin Brainy 16/30 vs Mem0 11/30; LME-20 still draining async backlog |
 
 ## Flags
 

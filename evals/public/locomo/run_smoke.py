@@ -242,12 +242,15 @@ def run(args: argparse.Namespace) -> UnifiedResult:
             group = CATEGORY_NAMES.get(cat_id_int, f"cat-{cat_id}")
 
             results, latency_ms = backend.recall(user_id, qa["question"], top_k=args.top_k)
+            tenant_for_recall = ""
+            if system == "brainy" and hasattr(backend, "_tenant"):
+                tenant_for_recall = backend._tenant(user_id)
             answer, gen_model = answer_from_memories(
                 qa["question"],
                 results,
                 model=answerer_model,
                 config=answerer_cfg,
-                tenant_id=backend._tenant(user_id),
+                tenant_id=tenant_for_recall,
                 subject_id=user_id,
             )
             if use_llm and judge_cfg is not None:
