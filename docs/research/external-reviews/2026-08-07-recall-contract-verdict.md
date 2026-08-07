@@ -52,4 +52,5 @@ Approve keeping the five-plane architecture and closed architect PR1–PR7. Reje
 
 ## Linked PRs / commits
 
-See branch `pr/recall-contract-v2-a6c7`.
+- https://github.com/tryvinci/brainy/pull/88 — recall-contract sequence (merged to `dev`)
+- Related docs: #85 competitive positioning, #87 AGENTS.md identity note
