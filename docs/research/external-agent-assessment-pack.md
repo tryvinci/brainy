@@ -49,8 +49,9 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 
 | Pin | Result |
 | --- | ---: |
-| LoCoMo smoke LLM-over-search `c223da3d` | **60% (18/30)** — ledger 12/12 `READER_MISS` with oracles supported |
-| LoCoMo smoke product `/recall` `f722342a` | **43.3% (13/30)** — all answers `brainy-recall+*`; MH **50%**; deterministic reader baseline |
+| LoCoMo same-pin recall-contract `ef197919` | **53.3% (16/30)** vs Mem0 **36.7% (11/30)** — [proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) |
+| LoCoMo smoke product `/recall` `f722342a` (prior) | 43.3% (13/30) — deterministic reader baseline |
+| LoCoMo smoke LLM-over-search `c223da3d` (prior) | 60% (18/30) — directional only |
 
 **Implication for next agent (2026-08-07 course correction):** Architect PR1–PR7 stay closed. Do **not** treat “reader quality alone” as the bottleneck. Execute the **recall contract** sequence:
 
