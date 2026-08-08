@@ -323,25 +323,41 @@
     "projection": "guarded_rebuildable_mvp",
     "recall": "temporal_partial_not_planner"
   },
-  "external_review": "docs/research/external-reviews/2026-08-04-architecture-verdict.md",
+  "external_review": "docs/research/external-reviews/2026-08-07-recall-contract-verdict.md",
   "hazards_resolved": [
     "pgvector_ann_was_128_only_now_768_hosted_pin",
     "oracle_modes_mostly_noop",
     "provider_extract_no_typed_slots",
     "async_worker_skipped_atom_upsert",
     "current_state_blind_last_write",
-    "recall_as_of_ignored"
+    "recall_as_of_ignored",
+    "oracle_overlabel_reader_miss_coarse",
+    "judge_parse_forced_wrong",
+    "async_wait_search_settle_only",
+    "evidence_occurred_at_nil",
+    "provider_extract_no_prior_context",
+    "recall_deterministic_only"
   ],
   "hazards_open": [
-    "pack_v2_not_loaded_by_registry",
-    "recall_not_typed_planner",
-    "provider_extract_still_text_first",
-    "current_state_projection_guarded_mvp"
+    "hash_128_reembed_residue",
+    "pack_authority_procedures_conflicts",
+    "multihop_still_trails_mem0_samepin",
+    "lme_under_contract_incomplete",
+    "phase6_multiseed_sota_gates"
   ],
   "next_sequence": [
-    "planner",
-    "packs_v2_executable",
-    "lme_adjudication_100",
-    "retrieval_store_v3_remainder"
-  ]
+    "staging_enable_BRAINY_RECALL_LLM",
+    "multihop_packet_bridge_chains",
+    "lme_100_job_barrier",
+    "locomo_larger_then_3seed",
+    "opmem_marketing_nonreg",
+    "pack_authority_procedures"
+  ],
+  "planes_status": {
+    "source": "live",
+    "evidence": "raw_v2_with_provenance_ids",
+    "semantic": "typed_extract_v3_plus_contextual_compile",
+    "projection": "guarded_entity_scoped_mvp",
+    "recall": "plan_packet_hybrid_optional"
+  }
 }

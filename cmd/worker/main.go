@@ -48,7 +48,7 @@ func main() {
 	// SIGTERMs the loop (~60s). API may ensure the index in the background.
 
 	metrics := observability.NewMetrics()
-	extractor := buildWorkerExtractor(cfg, logger)
+	extractor := buildWorkerExtractor(cfg, logger, store)
 	processor := jobs.NewProcessorWithExtractor(store, metrics, extractor).WithEmbedder(config.BuildEmbedder(cfg, logger))
 	switch cfg.WorkerMode {
 	case "loop":
@@ -67,7 +67,7 @@ func main() {
 	}
 }
 
-func buildWorkerExtractor(cfg config.Config, logger *slog.Logger) memory.Extractor {
+func buildWorkerExtractor(cfg config.Config, logger *slog.Logger, store *postgres.Store) memory.Extractor {
 	providerCfg := memory.ProviderConfig{
 		BaseURL: cfg.ProviderBaseURL,
 		APIKey:  cfg.ProviderAPIKey,
@@ -76,10 +76,11 @@ func buildWorkerExtractor(cfg config.Config, logger *slog.Logger) memory.Extract
 	}
 	if !providerCfg.Configured() {
 		logger.Info("worker using deterministic extractor")
-		return memory.NewDeterministicExtractor()
+		return memory.NewContextualExtractor(memory.NewDeterministicExtractor(), store)
 	}
 	logger.Info("worker using provider extractor", "base_url", providerCfg.BaseURL, "model", providerCfg.Model)
-	return memory.NewProviderExtractor(providerCfg, nil)
+	inner := memory.NewProviderExtractor(providerCfg, nil)
+	return memory.NewContextualExtractor(inner, store)
 }
 
 func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Logger) {

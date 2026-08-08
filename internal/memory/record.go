@@ -71,6 +71,32 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	if record.ObservedAt != nil {
 		record.Content = EnrichRelativeEventTime(record.Content, *record.ObservedAt)
 	}
+	// Link semantic objects to raw evidence captured at ingest.
+	if req.Metadata != nil {
+		if record.Metadata == nil {
+			record.Metadata = map[string]any{}
+		}
+		if eid, ok := req.Metadata["evidence_id"].(string); ok && strings.TrimSpace(eid) != "" {
+			record.Metadata["evidence_id"] = strings.TrimSpace(eid)
+		}
+		if raw, ok := req.Metadata["raw_evidence_ids"]; ok {
+			record.Metadata["raw_evidence_ids"] = raw
+			if _, has := record.Metadata["evidence_id"]; !has {
+				switch ids := raw.(type) {
+				case []string:
+					if len(ids) > 0 {
+						record.Metadata["evidence_id"] = ids[0]
+					}
+				case []any:
+					if len(ids) > 0 {
+						if s, ok := ids[0].(string); ok && s != "" {
+							record.Metadata["evidence_id"] = s
+						}
+					}
+				}
+			}
+		}
+	}
 	if extracted.Explain != nil {
 		if pred, ok := extracted.Explain["predicate"].(string); ok && pred != "" {
 			if record.Metadata == nil {

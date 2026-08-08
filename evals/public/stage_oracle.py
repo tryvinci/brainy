@@ -76,8 +76,23 @@ def post_recall(base_url: str, body: dict[str, Any], *, api_key: str = "", timeo
         return {"error": {"message": str(e)}}
 
 
-def label_from_oracle_response(oracle_mode: str, resp: dict[str, Any]) -> str:
-    """Map a product oracle response into a coarse stage label."""
+def _query_token_overlap(query: str, texts: list[str]) -> float:
+    import re
+
+    q = {t for t in re.findall(r"[a-z0-9]+", (query or "").lower()) if len(t) > 2}
+    if not q:
+        return 1.0
+    blob = " ".join(texts).lower()
+    hit = sum(1 for t in q if t in blob)
+    return hit / max(len(q), 1)
+
+
+def label_from_oracle_response(oracle_mode: str, resp: dict[str, Any], *, query: str = "") -> str:
+    """Map a product oracle response into a stage label.
+
+    Retrieval/coverage require non-empty *and* query-token overlap so unrelated
+    memories are not treated as sufficient evidence.
+    """
     if resp.get("error"):
         return "HARNESS_ERROR"
     explain = resp.get("explain") or {}
@@ -95,13 +110,30 @@ def label_from_oracle_response(oracle_mode: str, resp: dict[str, Any]) -> str:
         return "REPRESENTATION_MISS"
     if mode == "retrieval":
         n = int(explain.get("oracle_memory_count") or 0)
-        return "" if n > 0 else "RETRIEVAL_MISS"
+        if n <= 0:
+            return "RETRIEVAL_MISS"
+        # Prefer packet contents / context when present for overlap check.
+        pkt = explain.get("evidence_packet") or {}
+        texts = list(pkt.get("contents") or [])
+        if not texts and resp.get("context_block"):
+            texts = [str(resp.get("context_block"))]
+        if query and texts and _query_token_overlap(query, texts) < 0.2:
+            return "RETRIEVAL_MISS"
+        return ""
     if mode == "coverage":
         n = int(explain.get("oracle_item_count") or 0)
         cov = resp.get("coverage") or {}
-        if n > 0 or cov.get("satisfied"):
-            return ""
-        return "EVIDENCE_COVERAGE_MISS"
+        if n <= 0 and not cov.get("satisfied"):
+            return "EVIDENCE_COVERAGE_MISS"
+        pkt = explain.get("evidence_packet") or {}
+        texts = list(pkt.get("contents") or [])
+        if resp.get("answer"):
+            texts.append(str(resp.get("answer")))
+        if query and texts and _query_token_overlap(query, texts) < 0.15:
+            return "EVIDENCE_COVERAGE_MISS"
+        if cov.get("satisfied") is False:
+            return "EVIDENCE_COVERAGE_MISS"
+        return ""
     status = (resp.get("answer_status") or "").lower()
     if status in {"not_found", "insufficient_evidence"}:
         return "RETRIEVAL_MISS"
@@ -126,7 +158,7 @@ def probe_failure_stages(
     for mode in order:
         body = oracle_recall_request(tenant_id, subject_id, query, mode)
         resp = post_recall(base_url, body, api_key=api_key)
-        label = label_from_oracle_response(mode, resp)
+        label = label_from_oracle_response(mode, resp, query=query)
         flags[f"oracle_{mode}"] = {
             "label": label,
             "answer_status": resp.get("answer_status"),
