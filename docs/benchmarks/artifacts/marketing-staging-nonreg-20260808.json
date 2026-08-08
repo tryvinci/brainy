@@ -1,0 +1,49 @@
+{
+  "when": "2026-08-08",
+  "passed": true,
+  "parity": {
+    "passed": 4,
+    "total": 4,
+    "mem0_expected": "pass",
+    "results": [
+      {
+        "fixture": "dark_mode_vim_preference",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "factual_context",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "profile_lookup",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": []
+      },
+      {
+        "fixture": "response_style_preference",
+        "ingest_created": 1,
+        "ingest_deduped": 0,
+        "search_result_count": 1,
+        "passed": true,
+        "errors": [],
+        "repeat_deduped": 1,
+        "search_after_suppress_count": 0
+      }
+    ]
+  },
+  "advantage": null,
+  "commit": "db64d02",
+  "base": "staging",
+  "capabilities": "11/11"
+}
