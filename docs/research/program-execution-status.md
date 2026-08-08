@@ -19,7 +19,7 @@ Prior default (“reader quality over packets”) replaced by end-to-end **recal
 | 4 Entity-scoped state | **Landed** | `entity::predicate` keys when subject entity known |
 | 5 Hybrid reader | **Landed + staging on** | Packet items + coverage tighten; staging API `BRAINY_RECALL_LLM=1` (+ provider env for hybrid) |
 | 6 Multi-hop packet depth | **Landed on `dev`** | Bridge/direct binding, second-pass retrieval, deterministic chain compose (PR #89 / `db64d02`) |
-| 7 Proof pins | **Partial** | LoCoMo same-pin Brainy **16/30** vs Mem0 **11/30**; LME under contract still running; multi-convo LoCoMo in flight |
+| 7 Proof pins | **Partial** | LoCoMo after multi-hop: **14/30** overall, **MH 50%** ([pin](../benchmarks/artifacts/locomo-multihop-pin-20260808.md)); prior same-pin 16/30 MH 40%; LME-20 sync in flight |
 
 Proof: [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contract-proof-20260807.md) · staging smoke [staging-postmerge-smoke-20260808.md](../benchmarks/artifacts/staging-postmerge-smoke-20260808.md)
 
@@ -40,7 +40,7 @@ Proof: [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contra
 | OpMem non-reg | **Done** | Staging Brainy **13/13** — [artifact](../benchmarks/artifacts/opmem-staging-nonreg-20260808.md) |
 | Marketing non-reg | **Done** | Staging passed — [artifact](../benchmarks/artifacts/marketing-staging-nonreg-20260808.md) |
 | LME-20 / LME-100 | **In progress** | Prior LME-100 abandoned (queue starvation); LME-20 re-run local under job barriers |
-| Larger LoCoMo | **In progress** | Local multi-convo slice (3×90) under recall flags |
+| Larger LoCoMo | **Partial** | 1×30: 14/30 MH 50%; multi-convo 3×90: **27/90 (30%)** — [pin](../benchmarks/artifacts/locomo-multiconvo-pin-20260808.md) |
 | Deferred | Open | Pack authority / procedures / conflicts; hash/128 re-embed; third vertical |
 
 ## Still open (honest)
