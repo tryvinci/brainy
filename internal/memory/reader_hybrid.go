@@ -13,56 +13,13 @@ import (
 
 // PacketItem is one structured evidence unit for hybrid reading.
 type PacketItem struct {
-	EvidenceID string  `json:"evidence_id,omitempty"`
-	MemoryID   string  `json:"memory_id,omitempty"`
-	Content    string  `json:"content"`
-	Predicate  string  `json:"predicate,omitempty"`
-	Role       string  `json:"role,omitempty"` // direct | bridge | temporal | context
-	Score      float64 `json:"score,omitempty"`
-}
-
-func enrichPacketItems(pkt *EvidencePacket, results []SearchResult, query string) {
-	if pkt == nil {
-		return
-	}
-	items := make([]PacketItem, 0, len(results))
-	qTokens := contentBearingTokens(tokenize(query))
-	for i, r := range results {
-		content := strings.TrimSpace(r.Content)
-		if content == "" || strings.HasSuffix(content, "?") {
-			continue
-		}
-		role := "context"
-		if i < 3 {
-			role = "direct"
-		}
-		overlap := 0
-		lower := strings.ToLower(content)
-		for _, t := range qTokens {
-			if strings.Contains(lower, t) {
-				overlap++
-			}
-		}
-		if overlap >= 2 {
-			role = "direct"
-		} else if overlap == 1 && role != "direct" {
-			role = "bridge"
-		}
-		pred := ""
-		if r.Explain != nil {
-			if p, ok := r.Explain["predicate"].(string); ok {
-				pred = p
-			}
-		}
-		items = append(items, PacketItem{
-			MemoryID:  r.MemoryID,
-			Content:   content,
-			Predicate: pred,
-			Role:      role,
-			Score:     r.Score,
-		})
-	}
-	pkt.Items = items
+	EvidenceID string   `json:"evidence_id,omitempty"`
+	MemoryID   string   `json:"memory_id,omitempty"`
+	Content    string   `json:"content"`
+	Predicate  string   `json:"predicate,omitempty"`
+	Role       string   `json:"role,omitempty"` // direct | bridge | temporal | context
+	Score      float64  `json:"score,omitempty"`
+	Targets    []string `json:"targets,omitempty"`
 }
 
 // HybridReaderConfig enables a bounded LLM reader over EvidencePacket only.

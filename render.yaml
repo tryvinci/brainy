@@ -40,6 +40,9 @@ services:
         sync: false
       - key: BRAINY_EMBEDDING_MODEL
         sync: false
+      # Optional hybrid LLM reader over evidence packets (recall contract).
+      - key: BRAINY_RECALL_LLM
+        value: "1"
 
   - type: worker
     name: brainy-worker-staging
