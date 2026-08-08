@@ -94,7 +94,7 @@ func planTools(plan QueryPlan) []string {
 
 func planCoverageTargets(query string, plan QueryPlan) []string {
 	if plan.NeedsMultiHop {
-		return []string{"bridge", "answer"}
+		return multiHopTargets(query)
 	}
 	if plan.NeedsEnumeration {
 		toks := contentBearingTokens(tokenize(query))
@@ -183,15 +183,19 @@ func packetCoverageSatisfied(plan QueryPlan, pkt EvidencePacket) bool {
 		return true
 	}
 	if plan.NeedsMultiHop {
-		// Require either temporal+content or two contents that look like a chain
-		// (share a content-bearing token), not merely any two strings.
+		// Require a bridge+direct pair (or temporal+content), not merely any two strings.
 		if len(pkt.Contents) >= 1 && pkt.TemporalAnswer != "" {
+			return true
+		}
+		bridges := countRole(pkt.Items, "bridge")
+		directs := countRole(pkt.Items, "direct")
+		if bridges >= 1 && directs >= 1 {
 			return true
 		}
 		if len(pkt.Contents) < 2 {
 			return false
 		}
-		return packetLooksLinked(pkt.Contents[0], pkt.Contents[1]) || len(pkt.Items) >= 2
+		return packetLooksLinked(pkt.Contents[0], pkt.Contents[1])
 	}
 	if plan.NeedsEnumeration {
 		return len(pkt.Contents) >= 1
