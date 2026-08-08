@@ -1,7 +1,7 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-07 (architect PR1–PR7 **closed**; recall-contract steps 1–5 **landed on `dev`**)  
+**Date:** 2026-08-08 (architect PR1–PR7 **closed**; recall-contract + multi-hop packet depth **landed on `dev`**)  
 **How to use:** Pass this file (plus optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent.
 
 | Related doc | Role |
@@ -54,16 +54,15 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | LoCoMo smoke product `/recall` `f722342a` (prior) | 43.3% (13/30) — deterministic reader baseline |
 | LoCoMo smoke LLM-over-search `c223da3d` (prior) | 60% (18/30) — directional only |
 
-**Implication for next agent (post recall-contract land on `dev`):** Steps 1–5 of the recall contract are **done**. Do **not** re-open fusion, graph DB, or “reader-only.” Next work:
+**Implication for next agent (2026-08-08):** Recall-contract steps 1–5 + **multi-hop packet depth** are **on `dev`/staging**. Staging has `BRAINY_RECALL_LLM=1`; OpMem **13/13** and marketing non-reg **passed**. Do **not** re-open fusion, graph DB, or “reader-only.” Next work:
 
-1. Enable `BRAINY_RECALL_LLM=1` on staging; smoke `/jobs/status` + `/recall`  
-2. **Multi-hop packet depth** (bridge-chain binding / second pass) — Mem0 still leads MH  
-3. Finish **LME-20 → LME-100** with job-completion barriers (scale workers if needed)  
-4. Larger LoCoMo slice → 3-seed full under identical pins  
-5. OpMem + marketing non-reg on staging  
-6. Only then pack authority / procedures / conflict packets  
+1. Finish **LME-20 → LME-100** under job barriers (scale workers if backlog starves the queue)  
+2. Complete larger LoCoMo multi-convo slice → 3-seed full under identical pins  
+3. Staging Mem0 same-pin re-measure (esp. multi-hop) after hybrid reader confirmed  
+4. Merge multi-hop to `main` when production cutover is intentional  
+5. Only then pack authority / procedures / conflict packets  
 
-See [2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md) · [program-execution-status.md](./program-execution-status.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
+See [program-execution-status.md](./program-execution-status.md) · [staging-postmerge-smoke-20260808.md](../benchmarks/artifacts/staging-postmerge-smoke-20260808.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
 ---
 
 ## 0. One-paragraph product definition
