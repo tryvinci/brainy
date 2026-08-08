@@ -39,7 +39,7 @@ Proof: [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contra
 | Multi-hop packet depth | **Done on `dev`** | PR #89 merged |
 | OpMem non-reg | **Done** | Staging Brainy **13/13** — [artifact](../benchmarks/artifacts/opmem-staging-nonreg-20260808.md) |
 | Marketing non-reg | **Done** | Staging passed — [artifact](../benchmarks/artifacts/marketing-staging-nonreg-20260808.md) |
-| LME-20 / LME-100 | **In progress** | Prior LME-100 abandoned (queue starvation); LME-20 re-run local under job barriers |
+| LME-20 / LME-100 | **Partial** | LME-20 sync in progress — [partial](../benchmarks/artifacts/lme20-partial-20260808.md); LME-100 deferred (needs worker capacity) |
 | Larger LoCoMo | **Partial** | 1×30: 14/30 MH 50%; multi-convo 3×90: **27/90 (30%)** — [pin](../benchmarks/artifacts/locomo-multiconvo-pin-20260808.md) |
 | Deferred | Open | Pack authority / procedures / conflicts; hash/128 re-embed; third vertical |
 
