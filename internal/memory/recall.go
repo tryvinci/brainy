@@ -113,14 +113,35 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		temporalApplied = true
 	}
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
-	enrichPacketItems(&pkt, search.Results, req.Query)
-	satisfied := packetCoverageSatisfied(plan, pkt)
-	pkt.Coverage = map[string]any{
-		"targets":   len(plan.CoverageTargets),
-		"satisfied": satisfied,
-		"hit_count": len(pkt.MemoryIDs),
-		"item_count": len(pkt.Items),
+	bindPacketToTargets(&pkt, search.Results, req.Query, plan.CoverageTargets)
+	// Bounded second retrieval pass for uncovered multi-hop targets.
+	if plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
+		if unc := uncoveredTargets(pkt); len(unc) > 0 {
+			probe := strings.Join(unc, " ")
+			if probe != "" {
+				if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
+					IncludeHistorical: req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all"),
+					Limit:             topK,
+				}); err == nil && len(second.Results) > 0 {
+					merged := mergeSearchResults(search.Results, second.Results, topK)
+					search.Results = merged
+					out.Memories = merged
+					pkt = BuildEvidencePacket(plan, merged, out.Explain)
+					bindPacketToTargets(&pkt, merged, req.Query, plan.CoverageTargets)
+					out.Explain["second_pass"] = map[string]any{
+						"probe":      probe,
+						"hit_count":  len(second.Results),
+						"merged":     len(merged),
+					}
+					plan.Tools = append(plan.Tools, "second_pass")
+				}
+			}
+		}
 	}
+	satisfied := packetCoverageSatisfied(plan, pkt)
+	pkt.Coverage["satisfied"] = satisfied
+	pkt.Coverage["hit_count"] = len(pkt.MemoryIDs)
+	pkt.Coverage["item_count"] = len(pkt.Items)
 	out.Explain["evidence_packet"] = pkt
 	if out.Coverage == nil && pkt.Coverage != nil {
 		out.Coverage = pkt.Coverage
@@ -260,13 +281,20 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.AnswerStatus = AnswerSupported
 			out.Coverage = map[string]any{"targets": 1, "satisfied": true, "source": "temporal_resolver"}
 		}
+		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop {
+			if composed := composeMultiHopAnswer(pkt); composed != "" {
+				out.Answer = composed
+				if packetOK {
+					out.AnswerStatus = AnswerSupported
+				} else {
+					out.AnswerStatus = AnswerPartiallySupported
+				}
+				out.Explain["reader_source"] = "multihop_bridge_chain"
+			}
+		}
 		if strings.TrimSpace(out.Answer) == "" && out.ContextBlock != "" {
 			out.Answer = firstStatementFromPacket(pkt)
-			if plan.NeedsMultiHop && !packetOK {
-				out.AnswerStatus = AnswerPartiallySupported
-			} else {
-				out.AnswerStatus = AnswerPartiallySupported
-			}
+			out.AnswerStatus = AnswerPartiallySupported
 		}
 		if strings.TrimSpace(out.Answer) == "" || (!packetOK && plan.NeedsAbstention) || (!packetOK && plan.NeedsMultiHop && strings.TrimSpace(out.Answer) == "") {
 			out.Abstained = true
