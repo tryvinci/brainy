@@ -3,7 +3,7 @@
 **External handoff:** [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)  
 **Accepted review:** [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md)  
 **Merged to `dev` (staging):** PR #88 (recall-contract) + PR #89 (multi-hop packet depth)  
-**Also on `main`:** recall-contract merge `175c4fa` (multi-hop still staging-first on `dev`)
+**Also on `main`:** `fc0fd93` — multi-hop packet depth + post-merge pins (production)
 
 ## Course correction (accepted)
 
@@ -49,4 +49,4 @@ Proof: [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contra
 - Hash/128 re-embed residue  
 - Finished LME-100 under new contract + multi-seed LoCoMo  
 - Staging Mem0 same-pin re-measure after hybrid reader confirmed live  
-- Merge multi-hop (`db64d02`) to `main` when ready for production  
+- ~~Merge multi-hop to `main`~~ **done** (`fc0fd93`)  
