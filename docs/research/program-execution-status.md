@@ -44,7 +44,7 @@ Prior default (“reader quality over packets”) replaced by end-to-end **recal
 | B2 Mem0 ops | **Done** | ADD/UPDATE/DELETE/NONE → supersede/suppress |
 | C1 typed hops | **Done** | resolve_entity → fetch_predicate second-pass |
 | C2 concurrency | **Done** | `BRAINY_WORKER_CONCURRENCY` (staging default 4) |
-| D qualify | **Partial** | OpMem 13/13 + marketing passed; 3×90 + LME-20 running |
+| D qualify | **Partial** | Early 16/30; Mem0 12/30; 3×90 **31/90**; OpMem/marketing green; LME deferred |
 
 ## Still open (honest)
 
