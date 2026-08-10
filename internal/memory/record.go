@@ -118,6 +118,15 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 		}
 		record.Metadata["supersedes_memory_id"] = sid
 		record.SupersedesID = sid
+	} else if extracted.Explain != nil {
+		if sid, ok := extracted.Explain["supersedes_memory_id"].(string); ok && strings.TrimSpace(sid) != "" {
+			if record.Metadata == nil {
+				record.Metadata = map[string]any{}
+			}
+			sid = strings.TrimSpace(sid)
+			record.Metadata["supersedes_memory_id"] = sid
+			record.SupersedesID = sid
+		}
 	}
 	return record, nil
 }

@@ -62,6 +62,11 @@ func (c *ContextualExtractor) buildContextBlock(ctx context.Context, req IngestR
 				continue
 			}
 			b.WriteString("- ")
+			if id := strings.TrimSpace(mem.MemoryID); id != "" {
+				b.WriteString("[")
+				b.WriteString(id)
+				b.WriteString("] ")
+			}
 			b.WriteString(truncateRunes(content, 180))
 			b.WriteString("\n")
 			n++

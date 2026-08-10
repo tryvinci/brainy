@@ -68,6 +68,13 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 
 	for _, item := range extracted {
 		p.metrics.RecordExtraction()
+		if memory.MemoryEventOf(item) == memory.MemoryEventDelete {
+			_ = memory.ApplyDeleteMemoryEvent(ctx, p.store, job.Request.TenantID, job.Request.SubjectID, item)
+			continue
+		}
+		if !memory.PrepareExtractedForPersist(&item) {
+			continue
+		}
 		record, err := memory.BuildMemoryRecord(p.id("mem"), p.now(), job.Request, item, p.packs)
 		if err != nil {
 			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
@@ -84,6 +91,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		// Match sync ingest: supersede older state, then project current_state
 		// only when shouldReplaceCurrentState allows (no blind late-older wins).
 		_ = memory.AutoSupersedePriorState(ctx, p.store, upserted.Record)
+		_ = memory.ApplyIngestSupersession(ctx, p.store, upserted.Record)
 		fresh := upserted.Record
 		if got, err := p.store.GetMemory(ctx, fresh.TenantID, fresh.SubjectID, fresh.MemoryID); err == nil {
 			fresh = got
