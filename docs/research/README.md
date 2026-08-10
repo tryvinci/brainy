@@ -5,7 +5,7 @@ vertical governance, latency/cost, and (fairly measured) conversational recall �
 publish that evidence. Not LOCOMO parity alone. Not benchmax.
 
 **Program of record (2026-08): [sota-end-to-end-program.md](./sota-end-to-end-program.md)** — evidence/event/bitemporal architecture, phased execution, SOTA qualification gates.  
-**External review intake:** [external-reviews/](./external-reviews/)  
+**External review intake:** [external-reviews/](./external-reviews/) · **re-review brief:** [2026-08-10-rereview-brief.md](./external-reviews/2026-08-10-rereview-brief.md)  
 **External agent handoff (preferred): [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)** — self-contained assessment brief + review charter.  
 **Codebase graph: [codebase-graph.md](./codebase-graph.md)** · machine-readable [codebase-graph.json](./codebase-graph.json).  
 **Prior master plan: [master-plan.md](./master-plan.md)** — still useful for W1–W7 history; new work follows the end-to-end program.  

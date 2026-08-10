@@ -1,15 +1,17 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-08 (architect PR1–PR7 **closed**; recall-contract + multi-hop packet depth **landed on `dev`**)  
-**How to use:** Pass this file (plus optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent.
+**Date:** 2026-08-10 (architect PR1–PR7 **closed**; recall-contract + multi-hop packet depth **on `main` + `dev`**)  
+**How to use:** Pass this file (plus the dated re-review brief and optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent.
 
 | Related doc | Role |
 | --- | --- |
-| [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md) | **Latest** accepted course correction |
+| [external-reviews/2026-08-10-rereview-brief.md](./external-reviews/2026-08-10-rereview-brief.md) | **Start here for re-review** — current pins + ask |
+| [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md) | Accepted recall-contract course correction |
 | [external-reviews/2026-08-04-architecture-verdict.md](./external-reviews/2026-08-04-architecture-verdict.md) | Architecture course correction (accepted; **sequence closed**) |
 | [external-reviews/README.md](./external-reviews/README.md) | Standing intake SOP for future reviews |
-| [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contract-proof-20260807.md) | **Latest** same-pin LoCoMo proof |
+| [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contract-proof-20260807.md) | Same-pin LoCoMo proof (pre multi-hop depth) |
+| [locomo-multihop-pin-20260808.md](../benchmarks/artifacts/locomo-multihop-pin-20260808.md) | Post multi-hop 1×30 pin |
 | [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) | Prior deterministic `/recall` smoke |
 | [codebase-graph.md](./codebase-graph.md) | Visual/structural map |
 | [codebase-graph.json](./codebase-graph.json) | Machine-readable graph |
@@ -50,19 +52,21 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 
 | Pin | Result |
 | --- | ---: |
-| LoCoMo same-pin recall-contract `ef197919` | **53.3% (16/30)** vs Mem0 **36.7% (11/30)** — [proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) |
-| LoCoMo smoke product `/recall` `f722342a` (prior) | 43.3% (13/30) — deterministic reader baseline |
-| LoCoMo smoke LLM-over-search `c223da3d` (prior) | 60% (18/30) — directional only |
+| LoCoMo 1×30 after multi-hop `86032312` (2026-08-08) | **46.7% (14/30)**, MH **50%** — [pin](../benchmarks/artifacts/locomo-multihop-pin-20260808.md) |
+| LoCoMo multi-convo 3×90 `649419f3` | **30% (27/90)** — [pin](../benchmarks/artifacts/locomo-multiconvo-pin-20260808.md) |
+| LoCoMo same-pin recall-contract `ef197919` (prior) | **53.3% (16/30)** vs Mem0 **36.7% (11/30)** — [proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) |
+| OpMem staging non-reg | **13/13** |
+| Marketing staging non-reg | **passed** |
+| LME-20 / LME-100 | Partial / deferred — not a publishable pin |
 
-**Implication for next agent (2026-08-08):** Recall-contract steps 1–5 + **multi-hop packet depth** are **on `dev`/staging**. Staging has `BRAINY_RECALL_LLM=1`; OpMem **13/13** and marketing non-reg **passed**. Do **not** re-open fusion, graph DB, or “reader-only.” Next work:
+**Implication for next agent (2026-08-10):** Recall-contract + **multi-hop packet depth are on production `main`**. Staging has `BRAINY_RECALL_LLM=1`; OpMem/marketing non-reg green. Do **not** re-open fusion, graph DB, or “reader-only.” Next work:
 
-1. Finish **LME-20 → LME-100** under job barriers (scale workers if backlog starves the queue)  
-2. Complete larger LoCoMo multi-convo slice → 3-seed full under identical pins  
-3. Staging Mem0 same-pin re-measure (esp. multi-hop) after hybrid reader confirmed  
-4. Merge multi-hop to `main` when production cutover is intentional  
-5. Only then pack authority / procedures / conflict packets  
+1. Finish **LME-20 → LME-100** under job barriers (empty queue; scale workers)  
+2. Staging Mem0 same-pin re-measure after hybrid reader confirmed  
+3. Larger / multi-seed LoCoMo under identical pins  
+4. Only then pack authority / procedures / conflict packets  
 
-See [program-execution-status.md](./program-execution-status.md) · [staging-postmerge-smoke-20260808.md](../benchmarks/artifacts/staging-postmerge-smoke-20260808.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
+Start from [2026-08-10-rereview-brief.md](./external-reviews/2026-08-10-rereview-brief.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
 ---
 
 ## 0. One-paragraph product definition
