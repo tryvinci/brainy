@@ -23,9 +23,10 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 ## Default priority for the next external agent pass
 
 **Accepted 2026-08-07:** [2026-08-07-recall-contract-verdict.md](./2026-08-07-recall-contract-verdict.md)  
-**Landed on `dev`:** recall-contract steps 1–5 (PR #88) + multi-hop packet depth (PR #89). Same-pin LoCoMo: Brainy 16/30 vs Mem0 11/30. Staging: `BRAINY_RECALL_LLM=1`; OpMem 13/13 + marketing non-reg passed 2026-08-08.
+**Re-review brief 2026-08-10:** [2026-08-10-rereview-brief.md](./2026-08-10-rereview-brief.md)  
+**Landed on `main` + `dev`:** recall-contract + multi-hop packet depth. Staging: `BRAINY_RECALL_LLM=1`; OpMem 13/13 + marketing non-reg passed; LoCoMo MH 50% on 1×30 after multi-hop.
 
-> **Next:** finish LME-20/100 under job barriers → larger / multi-seed LoCoMo → staging Mem0 same-pin re-measure → merge multi-hop to `main` when intentional → pack authority/procedures/conflicts
+> **Next:** finish LME-20/100 under job barriers → staging Mem0 same-pin re-measure → multi-seed LoCoMo → pack authority/procedures/conflicts
 
 Do **not** default to fusion retune, graph DB, or re-opening architect PR1–PR7.
 
