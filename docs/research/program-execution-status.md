@@ -1,9 +1,9 @@
 # Program execution status — recall contract (2026-08-10)
 
 **External handoff:** [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)  
-**Re-review brief:** [external-reviews/2026-08-10-rereview-brief.md](./external-reviews/2026-08-10-rereview-brief.md)  
+**Re-review brief:** [external-reviews/2026-08-10-v3-rereview-brief.md](./external-reviews/2026-08-10-v3-rereview-brief.md) · prior [2026-08-10-rereview-brief.md](./external-reviews/2026-08-10-rereview-brief.md)  
 **Accepted review:** [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md)  
-**Tips:** `main` `1ac592f` (production) · `dev` `b885038` (staging, synced)
+**Tips:** `main` `6b307a4` (production) · `dev` `590ed2d` (staging = Recall Contract V3)
 
 ## Course correction (accepted)
 

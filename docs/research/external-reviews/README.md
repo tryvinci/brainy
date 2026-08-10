@@ -26,7 +26,9 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 **Re-review brief 2026-08-10:** [2026-08-10-rereview-brief.md](./2026-08-10-rereview-brief.md)  
 **Landed on `main` + `dev`:** recall-contract + multi-hop packet depth. Staging: `BRAINY_RECALL_LLM=1`; OpMem 13/13 + marketing non-reg passed; LoCoMo MH 50% on 1×30 after multi-hop.
 
-> **Next:** finish LME-20/100 under job barriers → staging Mem0 same-pin re-measure → multi-seed LoCoMo → pack authority/procedures/conflicts
+> **Current handoff:** [2026-08-10-v3-rereview-brief.md](./2026-08-10-v3-rereview-brief.md)
+
+**Next:** finish LME-20/100 under job barriers → staging Mem0 same-pin re-measure → multi-seed LoCoMo → pack authority/procedures/conflicts
 
 Do **not** default to fusion retune, graph DB, or re-opening architect PR1–PR7.
 
