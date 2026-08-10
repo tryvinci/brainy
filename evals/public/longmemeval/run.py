@@ -109,7 +109,7 @@ def _parse_date(s: str | None) -> str | None:
     return None
 
 
-def ingest_haystack(backend: BrainyBackend, user_id: str, question: dict, chunk: int = 4) -> int:
+def ingest_haystack(backend: BrainyBackend, user_id: str, question: dict, chunk: int = 2) -> int:
     sessions = question.get("haystack_sessions") or []
     dates = question.get("haystack_dates") or []
     session_ids = question.get("haystack_session_ids") or []
@@ -133,6 +133,7 @@ def ingest_haystack(backend: BrainyBackend, user_id: str, question: dict, chunk:
             if role not in ("user", "assistant", "system"):
                 role = "user"
             batch.append({"role": role, "content": content})
+            # Size-aware flush: BrainyBackend also splits, but keep LME batches small.
             if len(batch) >= chunk:
                 backend.remember_messages(user_id, batch, metadata=meta, wait=False)
                 n += len(batch)
@@ -145,7 +146,12 @@ def ingest_haystack(backend: BrainyBackend, user_id: str, question: dict, chunk:
             if last:
                 probes.append(last[0][:40])
     if n and backend.async_ingest:
-        backend.wait_until_any_searchable(user_id, probes[:3] or ["conversation"], settle_polls=6)
+        try:
+            backend.wait_until_jobs_done(user_id)
+        except Exception:
+            if getattr(backend, "publish_mode", False):
+                raise
+            backend.wait_until_any_searchable(user_id, probes[:3] or ["conversation"], settle_polls=6)
     return n
 
 
@@ -184,6 +190,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         tenant_prefix=f"lme-{nonce}",
         async_ingest=not args.sync_ingest,
         async_timeout_s=float(args.async_timeout),
+        publish_mode=bool(args.publish),
     )
     llm = None if args.lexical_only else resolve_config(
         model=args.judge_model or args.answerer_model or "",
@@ -303,6 +310,7 @@ def main() -> int:
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--top-k", type=int, default=30)
     p.add_argument("--sync-ingest", action="store_true")
+    p.add_argument("--publish", action="store_true", help="Fail closed on job barrier / incomplete runs")
     p.add_argument("--async-timeout", type=float, default=1800.0)
     p.add_argument("--lexical-only", action="store_true")
     p.add_argument("--answerer-model", default="")

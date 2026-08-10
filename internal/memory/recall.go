@@ -115,9 +115,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
 	bindPacketToTargets(&pkt, search.Results, req.Query, plan.CoverageTargets)
 	// Bounded second retrieval pass for uncovered multi-hop targets.
+	// Prefer a single typed hop probe over joining every uncovered token.
 	if plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
 		if unc := uncoveredTargets(pkt); len(unc) > 0 {
-			probe := strings.Join(unc, " ")
+			probe := nextHopProbe(plan, pkt)
 			if probe != "" {
 				if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
 					IncludeHistorical: req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all"),
@@ -132,6 +133,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 						"probe":      probe,
 						"hit_count":  len(second.Results),
 						"merged":     len(merged),
+						"typed_hops": plan.Hops,
 					}
 					plan.Tools = append(plan.Tools, "second_pass")
 				}
@@ -360,8 +362,24 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	out.Explain["context_runes"] = utf8.RuneCountInString(out.ContextBlock)
 	// Bounded hybrid LLM reader over the packet when composition is needed.
 	if mode == "answer" {
-		if hybrid, ok := s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt); ok {
-			out.Answer = hybrid
+		hybrid := s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt)
+		if hybrid.Reason != "" {
+			out.Explain["hybrid_reader_reason"] = hybrid.Reason
+		}
+		if hybrid.Attempted {
+			out.Explain["hybrid_reader_attempted"] = true
+			if hybrid.ParseMode != "" {
+				out.Explain["hybrid_reader_parse_mode"] = hybrid.ParseMode
+			}
+			if len(hybrid.SupportingIDs) > 0 {
+				out.Explain["hybrid_supporting_memory_ids"] = hybrid.SupportingIDs
+			}
+			if len(hybrid.UnresolvedTargets) > 0 {
+				out.Explain["hybrid_unresolved_targets"] = hybrid.UnresolvedTargets
+			}
+		}
+		if hybrid.OK {
+			out.Answer = hybrid.Answer
 			out.Abstained = false
 			out.AnswerStatus = AnswerSupported
 			out.Explain["reader_source"] = "hybrid_llm_packet"

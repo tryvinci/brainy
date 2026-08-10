@@ -1,0 +1,19 @@
+{
+  "tenant": "locomo-d257ca16-conv-26",
+  "commit": "4909832",
+  "overall": "16/30",
+  "reader_source": {
+    "hybrid_llm_packet": 17,
+    "evidence_packet": 13
+  },
+  "mh_reader_source": {
+    "hybrid_llm_packet": 7,
+    "evidence_packet": 3
+  },
+  "hybrid_reasons": {
+    "ok": 13,
+    "json_parse_error": 10,
+    "freeform_accepted": 4,
+    "abstain": 3
+  }
+}

@@ -133,6 +133,13 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 	}
 
 	for _, extracted := range memories {
+		if MemoryEventOf(extracted) == MemoryEventDelete {
+			_ = ApplyDeleteMemoryEvent(ctx, s.store, req.TenantID, req.SubjectID, extracted)
+			continue
+		}
+		if !PrepareExtractedForPersist(&extracted) {
+			continue
+		}
 		record, err := BuildMemoryRecord(s.id("mem"), s.now(), req, extracted, s.packs)
 		if err != nil {
 			return IngestResult{}, err
@@ -1381,14 +1388,7 @@ func (s *Service) matchMemoriesForEvent(ctx context.Context, tenantID, subjectID
 // applyIngestSupersession honors metadata.supersedes_memory_id on a newly
 // written record: mark the prior memory superseded and ensure lineage is set.
 func (s *Service) applyIngestSupersession(ctx context.Context, record MemoryRecord) error {
-	priorID := supersedesMemoryIDFromMetadata(record.Metadata)
-	if priorID == "" {
-		priorID = strings.TrimSpace(record.SupersedesID)
-	}
-	if priorID == "" || priorID == record.MemoryID {
-		return nil
-	}
-	return s.store.MarkSuperseded(ctx, record.TenantID, record.SubjectID, priorID)
+	return ApplyIngestSupersession(ctx, s.store, record)
 }
 
 // autoSupersedePriorState marks older same-(subject,predicate) state atoms

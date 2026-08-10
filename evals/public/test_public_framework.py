@@ -155,6 +155,43 @@ class BackendHelperTests(unittest.TestCase):
         token = _probe_token([{"content": "the and or preference"}])
         self.assertEqual(token, "preference")
 
+    def test_iter_ingest_batches_splits_oversized(self) -> None:
+        from public.backends.brainy import _iter_ingest_batches
+
+        msgs = [
+            {"role": "user", "content": "a" * 100},
+            {"role": "user", "content": "b" * 100},
+            {"role": "user", "content": "c" * 100},
+        ]
+        batches = _iter_ingest_batches(msgs, max_bytes=150)
+        self.assertGreaterEqual(len(batches), 2)
+        self.assertTrue(all(len(b) <= 4 for b in batches))
+
+    def test_wait_until_jobs_done_publish_fail_closed(self) -> None:
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        import threading
+        from public.backends.brainy import BrainyBackend
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, *_args):  # noqa: ANN002
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base = f"http://127.0.0.1:{server.server_port}"
+            backend = BrainyBackend(base, async_ingest=True, publish_mode=True, async_timeout_s=2.0)
+            with self.assertRaises(RuntimeError):
+                backend.wait_until_jobs_done("u1", job_ids=["job_x"], timeout_s=1.0)
+        finally:
+            server.shutdown()
+
 
 if __name__ == "__main__":
     unittest.main()

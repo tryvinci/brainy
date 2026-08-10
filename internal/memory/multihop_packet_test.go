@@ -63,3 +63,21 @@ func TestUncoveredTargetsFromCoverage(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestBuildTypedHopsResolveThenFetch(t *testing.T) {
+	plan := PlanQuery("What is Melanie's occupation according to Caroline?", nil)
+	if !plan.NeedsMultiHop {
+		t.Fatalf("expected multi-hop, intents=%v", plan.Intents)
+	}
+	if len(plan.Hops) == 0 {
+		t.Fatal("expected typed hops")
+	}
+	if plan.Hops[0].Kind != "resolve_entity" {
+		t.Fatalf("first hop=%+v", plan.Hops[0])
+	}
+	probe := nextHopProbe(plan, EvidencePacket{Items: nil, Coverage: map[string]any{"uncovered": []string{"melanie"}}})
+	if probe == "" {
+		t.Fatal("expected probe")
+	}
+}
+

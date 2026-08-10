@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const providerExtractionVersion = "provider-v3-typed"
+const providerExtractionVersion = "provider-v4-ops"
 
 // ProviderConfig configures an OpenAI-compatible chat completions client.
 type ProviderConfig struct {
@@ -123,13 +123,19 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 	return parseProviderMemories(completion.Choices[0].Message.Content)
 }
 
-// Typed extraction v3: flat content (legacy retrieval) + optional typed slots
-// that flow Explain → Metadata → memory_atoms (async + sync).
-// Examples are synthetic (master-plan anti-MemPalace clause).
-const providerSystemPrompt = `You are a Memory Analyzer extracting ADD-only atomic memories from conversation.
+// Typed extraction v4: ADD/UPDATE/DELETE/NONE ops adapted from Mem0's classic
+// extract merge decisions (Apache-2.0 semantics; not a verbatim prompt copy).
+// Flat content remains retrieval-primary; typed slots still flow Explain → Metadata.
+const providerSystemPrompt = `You are a Memory Analyzer extracting atomic memories and deciding how each relates to Prior context.
 
 Return JSON only:
-{"memories":[{"kind":"fact|preference|profile","content":"...","source_text":"...","confidence":0.0,"subject":"optional entity","predicate":"optional taxonomy slot","value":"optional typed value","assertion_kind":"explicit|observed|inferred|corrective|negative","when":"optional absolute date","duration":"optional"}]}
+{"memories":[{"event":"ADD|UPDATE|DELETE|NONE","target_memory_id":"optional id from Prior context","kind":"fact|preference|profile","content":"...","source_text":"...","confidence":0.0,"subject":"optional entity","predicate":"optional taxonomy slot","value":"optional typed value","assertion_kind":"explicit|observed|inferred|corrective|negative","when":"optional absolute date","duration":"optional"}]}
+
+Event rules (Mem0-style):
+- ADD: new durable fact not already covered by Prior context.
+- UPDATE: revises an existing prior memory; set target_memory_id to that [id]; content is the replacement fact; assertion_kind=corrective when contradicting.
+- DELETE: prior memory is obsolete/wrong with no replacement; set target_memory_id; content may briefly state why.
+- NONE: duplicate or non-durable; skip storing (still may list for traceability).
 
 Predicates (use when a typed slot fits; otherwise omit predicate/value):
 identity, relationship_status, origin, residence, occupation, education,
@@ -153,9 +159,8 @@ CRITICAL RULES:
    - career plans and research topics
 6. Resolve relative time against Observation Date in the user message (yesterday → absolute date).
 7. Skip pure greetings/acks ("Thanks!", "Yeah, Name", "Cool").
-8. When Prior context is provided: prefer UPDATES/CORRECTIONS over duplicates; set
-   assertion_kind=corrective when revising an older fact; keep subject stable.
-9. When in doubt, EXTRACT — missed atoms destroy multi-attribute recall.
+8. When Prior context lists [memory_id] lines: prefer UPDATE/DELETE over duplicate ADD for the same subject/predicate; keep subject stable.
+9. When in doubt, EXTRACT as ADD — missed atoms destroy multi-attribute recall.
 10. return {"memories":[]} only if nothing durable exists.`
 
 func buildProviderUserPrompt(req IngestRequest) string {
@@ -201,16 +206,18 @@ type providerMemoryPayload struct {
 }
 
 type providerMemoryItem struct {
-	Kind          string  `json:"kind"`
-	Content       string  `json:"content"`
-	SourceText    string  `json:"source_text"`
-	Confidence    float64 `json:"confidence"`
-	Subject       string  `json:"subject"`
-	Predicate     string  `json:"predicate"`
-	Value         string  `json:"value"`
-	AssertionKind string  `json:"assertion_kind"`
-	When          string  `json:"when"`
-	Duration      string  `json:"duration"`
+	Event           string  `json:"event"`
+	TargetMemoryID  string  `json:"target_memory_id"`
+	Kind            string  `json:"kind"`
+	Content         string  `json:"content"`
+	SourceText      string  `json:"source_text"`
+	Confidence      float64 `json:"confidence"`
+	Subject         string  `json:"subject"`
+	Predicate       string  `json:"predicate"`
+	Value           string  `json:"value"`
+	AssertionKind   string  `json:"assertion_kind"`
+	When            string  `json:"when"`
+	Duration        string  `json:"duration"`
 }
 
 func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
@@ -229,15 +236,34 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 
 	out := make([]ExtractedMemory, 0, len(payload.Memories))
 	for _, item := range payload.Memories {
+		event := normalizeMemoryEvent(item.Event)
+		if event == "" {
+			if strings.EqualFold(strings.TrimSpace(item.AssertionKind), "corrective") && strings.TrimSpace(item.TargetMemoryID) != "" {
+				event = MemoryEventUpdate
+			} else {
+				event = MemoryEventAdd
+			}
+		}
 		kind := strings.ToLower(strings.TrimSpace(item.Kind))
 		switch kind {
-		case KindFact, KindPreference, KindProfile:
+		case KindFact, KindPreference, KindProfile, "":
 		default:
 			return nil, fmt.Errorf("provider extract: invalid kind %q", item.Kind)
 		}
+		if kind == "" {
+			kind = KindFact
+		}
 		content := NormalizeText(item.Content)
 		if content == "" {
-			return nil, fmt.Errorf("provider extract: empty content")
+			if event == MemoryEventDelete || event == MemoryEventNone {
+				content = strings.TrimSpace(item.TargetMemoryID)
+			}
+			if content == "" && event != MemoryEventDelete && event != MemoryEventNone {
+				return nil, fmt.Errorf("provider extract: empty content")
+			}
+			if content == "" {
+				content = "memory_op:" + event
+			}
 		}
 		source := NormalizeText(item.SourceText)
 		if source == "" {
@@ -248,7 +274,11 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 			confidence = 0.8
 		}
 		explain := map[string]any{
-			"rule": "provider_extract",
+			"rule":         "provider_extract",
+			"memory_event": event,
+		}
+		if tid := strings.TrimSpace(item.TargetMemoryID); tid != "" {
+			explain["target_memory_id"] = tid
 		}
 		if subj := strings.TrimSpace(item.Subject); subj != "" {
 			explain["subject"] = subj

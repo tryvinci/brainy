@@ -127,20 +127,14 @@ def ingest_conversation(
                 probes.append(probe)
             remembered += len(batch)
     if backend.async_ingest and remembered:
-        # Prefer job-completion barrier; fall back to capped search settle.
-        if hasattr(backend, "wait_until_jobs_done"):
-            try:
-                backend.wait_until_jobs_done(user_id)
-            except Exception:
-                uniq: list[str] = []
-                for p in probes:
-                    if p and p not in uniq:
-                        uniq.append(p)
-                    if len(uniq) >= 3:
-                        break
-                backend.wait_until_any_searchable(user_id, uniq or ["conversation"])
-        else:
-            uniq = []
+        # Prefer job-completion barrier; fall back to capped search settle
+        # only outside publish mode.
+        try:
+            backend.wait_until_jobs_done(user_id)
+        except Exception:
+            if getattr(backend, "publish_mode", False):
+                raise
+            uniq: list[str] = []
             for p in probes:
                 if p and p not in uniq:
                     uniq.append(p)
