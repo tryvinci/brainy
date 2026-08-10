@@ -237,6 +237,16 @@ Include supporting_memory_ids from the bracketed ids when possible; missing ids 
 				ParseMode: "freeform",
 			}
 		}
+		// Partial JSON salvage: {"answer":"..."} with trailing junk.
+		if ans := salvageJSONAnswer(raw); ans != "" {
+			return hybridReaderResult{
+				Answer:    ans,
+				OK:        true,
+				Attempted: true,
+				Reason:    "json_salvaged",
+				ParseMode: "json_salvage",
+			}
+		}
 		return hybridReaderResult{Attempted: true, Reason: "json_parse_error"}
 	}
 
@@ -283,6 +293,47 @@ func softFreeformAnswer(raw string) string {
 	if ans == "" || strings.HasPrefix(ans, "{") {
 		return ""
 	}
+	if isHybridGarbageAnswer(ans) {
+		return ""
+	}
+	return ans
+}
+
+func salvageJSONAnswer(raw string) string {
+	// Best-effort extract of "answer":"..." when full JSON unmarshal fails.
+	const key = `"answer"`
+	idx := strings.Index(raw, key)
+	if idx < 0 {
+		return ""
+	}
+	rest := raw[idx+len(key):]
+	rest = strings.TrimSpace(rest)
+	if !strings.HasPrefix(rest, ":") {
+		return ""
+	}
+	rest = strings.TrimSpace(rest[1:])
+	if !strings.HasPrefix(rest, `"`) {
+		return ""
+	}
+	rest = rest[1:]
+	var b strings.Builder
+	escaped := false
+	for _, r := range rest {
+		if escaped {
+			b.WriteRune(r)
+			escaped = false
+			continue
+		}
+		if r == '\\' {
+			escaped = true
+			continue
+		}
+		if r == '"' {
+			break
+		}
+		b.WriteRune(r)
+	}
+	ans := strings.TrimSpace(b.String())
 	if isHybridGarbageAnswer(ans) {
 		return ""
 	}
