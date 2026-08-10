@@ -49,10 +49,15 @@ func (c *ContextualExtractor) buildContextBlock(ctx context.Context, req IngestR
 	var b strings.Builder
 	// Recent active memories (write-time continuity).
 	if recent, err := c.store.ListActiveMemories(ctx, req.TenantID, req.SubjectID); err == nil && len(recent) > 0 {
+		// ListActiveMemories returns newest-first (ORDER BY updated_at DESC).
+		// Keep that order so "Recent memories" is actually recent.
 		b.WriteString("Recent memories:\n")
 		n := 0
-		for i := len(recent) - 1; i >= 0 && n < limit; i-- {
-			content := strings.TrimSpace(recent[i].Content)
+		for _, mem := range recent {
+			if n >= limit {
+				break
+			}
+			content := strings.TrimSpace(mem.Content)
 			if content == "" || strings.HasSuffix(content, "?") {
 				continue
 			}
