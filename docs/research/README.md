@@ -22,12 +22,12 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | --- | --- |
 | **OpMem** (operational) | Brainy **13/13** on staging (Mem0 behind on ops fixtures) |
 | **Marketing / Support vertical** | **17/17** / **4/4** |
-| **LOCOMO same-pin** (recall-contract) | **Brainy 16/30** vs **Mem0 11/30** ([proof](../benchmarks/artifacts/recall-contract-proof-20260807.md)) |
-| **LOCOMO** (prior deterministic `/recall`) | 13/30 (43.3%) — superseded as primary pin |
+| **LOCOMO same-pin** (recall-contract) | Prior **16/30** vs Mem0 **11/30**; post multi-hop **14/30 MH 50%** |
+| **LOCOMO multi-convo** | **27/90 (30%)** — harder slice |
 | **Industry stand** | Lead ops + marketing same-pin; conversational improving — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
-| **Next agent** | Multi-hop packet depth → finish LME-100 → multi-seed LoCoMo (recall-contract on `dev`) |
+| **Next agent** | Finish LME under job barriers → Mem0 same-pin re-measure → multi-seed LoCoMo (recall-contract + multi-hop on `main`) |
 
-Details: [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) · [recall-contract proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) · [program-execution-status.md](./program-execution-status.md) · [competitive positioning](../benchmarks/competitive-positioning-20260806.md)
+Details: [2026-08-10 re-review brief](./external-reviews/2026-08-10-rereview-brief.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md) · [competitive positioning](../benchmarks/competitive-positioning-20260806.md)
 
 ---
 
