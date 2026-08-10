@@ -19,7 +19,7 @@ Prior default (“reader quality over packets”) replaced by end-to-end **recal
 | 4 Entity-scoped state | **Landed** | `entity::predicate` keys when subject entity known |
 | 5 Hybrid reader | **Landed + early-qualified (local)** | Soft grounding + observability; local early pin `reader_source=hybrid_llm_packet` 17/30 |
 | 6 Multi-hop packet depth | **Landed on `main` + `dev`** | Bridge/direct binding, second-pass, deterministic compose (PR #89 / `fc0fd93`) |
-| 7 Proof pins | **Partial → V3 early** | 1×30 **16/30 MH 50%** ([pin](../benchmarks/artifacts/locomo-v3-early-pin-20260810.md)); 3×90 + LME-20 in flight; prior 3×90 27/90 |
+| 7 Proof pins | **Partial → V3 early** | 1×30 **16/30 MH 50%** ([pin](../benchmarks/artifacts/locomo-v3-early-pin-20260810.md)); 3×90 **31/90**; Mem0 same-pin 12/30; LME deferred |
 
 ## Post-merge execution
 
