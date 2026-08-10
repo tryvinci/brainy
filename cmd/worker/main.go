@@ -52,7 +52,7 @@ func main() {
 	processor := jobs.NewProcessorWithExtractor(store, metrics, extractor).WithEmbedder(config.BuildEmbedder(cfg, logger))
 	switch cfg.WorkerMode {
 	case "loop":
-		runLoop(processor, cfg.WorkerPollInterval, logger)
+		runLoop(processor, cfg.WorkerPollInterval, cfg.WorkerConcurrency, logger)
 	default:
 		processed, err := processor.ProcessNext(context.Background())
 		if err != nil {
@@ -83,8 +83,11 @@ func buildWorkerExtractor(cfg config.Config, logger *slog.Logger, store *postgre
 	return memory.NewContextualExtractor(inner, store)
 }
 
-func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Logger) {
-	logger.Info("brainy worker entering loop mode", "poll_interval", interval.String())
+func runLoop(processor *jobs.Processor, interval time.Duration, concurrency int, logger *slog.Logger) {
+	if concurrency <= 0 {
+		concurrency = 1
+	}
+	logger.Info("brainy worker entering loop mode", "poll_interval", interval.String(), "concurrency", concurrency)
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -92,11 +95,11 @@ func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Log
 	defer ticker.Stop()
 
 	for {
-		processed, err := processor.ProcessNext(ctx)
+		processed, err := processor.ProcessAvailable(ctx, concurrency)
 		if err != nil {
 			// Job already failed/requeued inside ProcessNext. Keep the loop
 			// alive so a single provider flake cannot stall the queue.
-			logger.Error("processing failed", "error", err)
+			logger.Error("processing failed", "error", err, "processed", processed)
 			select {
 			case <-ctx.Done():
 				logger.Info("brainy worker shutting down")
@@ -105,7 +108,7 @@ func runLoop(processor *jobs.Processor, interval time.Duration, logger *slog.Log
 			}
 			continue
 		}
-		if processed {
+		if processed > 0 {
 			continue
 		}
 

@@ -103,6 +103,18 @@ func bindPacketToTargets(pkt *EvidencePacket, results []SearchResult, query stri
 				pred = p
 			}
 		}
+		// Prefer predicate match as direct evidence when query asks for that slot.
+		if pred != "" {
+			for _, t := range targets {
+				if strings.EqualFold(pred, t) || strings.Contains(strings.ToLower(pred), strings.ToLower(t)) {
+					if !containsFold(covered, t) {
+						covered = append(covered, t)
+						targetHits[t]++
+					}
+					role = "direct"
+				}
+			}
+		}
 		items = append(items, PacketItem{
 			MemoryID:  r.MemoryID,
 			Content:   content,
@@ -148,6 +160,16 @@ func countRole(items []PacketItem, role string) int {
 		}
 	}
 	return n
+}
+
+func containsFold(vals []string, needle string) bool {
+	needle = strings.ToLower(strings.TrimSpace(needle))
+	for _, v := range vals {
+		if strings.ToLower(strings.TrimSpace(v)) == needle {
+			return true
+		}
+	}
+	return false
 }
 
 func orderBridgeChain(items []PacketItem, targets []string) []PacketItem {

@@ -115,9 +115,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
 	bindPacketToTargets(&pkt, search.Results, req.Query, plan.CoverageTargets)
 	// Bounded second retrieval pass for uncovered multi-hop targets.
+	// Prefer a single typed hop probe over joining every uncovered token.
 	if plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
 		if unc := uncoveredTargets(pkt); len(unc) > 0 {
-			probe := strings.Join(unc, " ")
+			probe := nextHopProbe(plan, pkt)
 			if probe != "" {
 				if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
 					IncludeHistorical: req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all"),
@@ -132,6 +133,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 						"probe":      probe,
 						"hit_count":  len(second.Results),
 						"merged":     len(merged),
+						"typed_hops": plan.Hops,
 					}
 					plan.Tools = append(plan.Tools, "second_pass")
 				}

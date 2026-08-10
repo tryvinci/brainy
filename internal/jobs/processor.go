@@ -105,6 +105,41 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// ProcessAvailable runs up to concurrency parallel ProcessNext calls.
+// Used for LME-scale queue drain; concurrency<=1 keeps prior serial behavior.
+func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int, error) {
+	if concurrency <= 1 {
+		ok, err := p.ProcessNext(ctx)
+		if ok {
+			return 1, err
+		}
+		return 0, err
+	}
+	type result struct {
+		ok  bool
+		err error
+	}
+	ch := make(chan result, concurrency)
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			ok, err := p.ProcessNext(ctx)
+			ch <- result{ok: ok, err: err}
+		}()
+	}
+	processed := 0
+	var firstErr error
+	for i := 0; i < concurrency; i++ {
+		r := <-ch
+		if r.ok {
+			processed++
+		}
+		if r.err != nil && firstErr == nil {
+			firstErr = r.err
+		}
+	}
+	return processed, firstErr
+}
+
 type embeddingWriter interface {
 	UpsertEmbedding(ctx context.Context, memoryID, tenantID, subjectID string, values []float32) error
 }
