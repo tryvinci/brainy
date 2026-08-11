@@ -3,6 +3,8 @@ package postgres
 import (
 	"context"
 	"time"
+
+	"brainy/internal/memory"
 )
 
 // LinkMemoryEntities appends memoryID to each entity's linked_memory_ids
@@ -13,6 +15,7 @@ func (s *Store) LinkMemoryEntities(ctx context.Context, tenantID, subjectID, mem
 	}
 	now := time.Now().UTC()
 	for _, entity := range entities {
+		entity = memory.SanitizeUTF8(entity)
 		if entity == "" {
 			continue
 		}

@@ -128,6 +128,16 @@ func scanMemoryRow(row pgx.Row) (memory.MemoryRecord, error) {
 }
 
 func (s *Store) UpsertMemory(ctx context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
+	record.Content = memory.SanitizeUTF8(record.Content)
+	record.SourceText = memory.SanitizeUTF8(record.SourceText)
+	record.Kind = memory.SanitizeUTF8(record.Kind)
+	record.SourceType = memory.SanitizeUTF8(record.SourceType)
+	record.DedupeKey = memory.SanitizeUTF8(record.DedupeKey)
+	record.Vertical = memory.SanitizeUTF8(record.Vertical)
+	record.Primitive = memory.SanitizeUTF8(record.Primitive)
+	record.Label = memory.SanitizeUTF8(record.Label)
+	record.Scope = memory.SanitizeUTF8(record.Scope)
+	record.ExtractionVersion = memory.SanitizeUTF8(record.ExtractionVersion)
 	explain, err := json.Marshal(record.Explain)
 	if err != nil {
 		return memory.StoreUpsertResult{}, err

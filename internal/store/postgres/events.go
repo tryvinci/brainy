@@ -8,13 +8,19 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"brainy/internal/memory"
 )
 
 // WriteRawEvidence persists a source-faithful evidence row (Evidence Plane v2).
 // Dedupe key includes tenant, namespace, subject, source_ref, and content hash
 // so identical text for different subjects cannot collapse.
 func (s *Store) WriteRawEvidence(ctx context.Context, tenantID, subjectID, namespace, sourceType, sourceRef, sessionID, actorRole, content string, occurredAt *time.Time, metadata map[string]any) (evidenceID string, err error) {
-	content = strings.TrimSpace(content)
+	content = memory.SanitizeUTF8(strings.TrimSpace(content))
+	sourceType = memory.SanitizeUTF8(sourceType)
+	sourceRef = memory.SanitizeUTF8(sourceRef)
+	sessionID = memory.SanitizeUTF8(sessionID)
+	actorRole = memory.SanitizeUTF8(actorRole)
 	if tenantID == "" || subjectID == "" || content == "" {
 		return "", nil
 	}
@@ -52,7 +58,10 @@ SET session_id = COALESCE(EXCLUDED.session_id, memory_evidence.session_id),
 // ShadowWriteEvidence is retained for transitional callers; prefers subject-safe dedupe.
 // Prefer WriteRawEvidence for new ingest paths.
 func (s *Store) ShadowWriteEvidence(ctx context.Context, tenantID, subjectID, sourceType, sourceRef, sessionID, content, memoryID string, occurredAt *time.Time, metadata map[string]any) error {
-	content = strings.TrimSpace(content)
+	content = memory.SanitizeUTF8(strings.TrimSpace(content))
+	sourceType = memory.SanitizeUTF8(sourceType)
+	sourceRef = memory.SanitizeUTF8(sourceRef)
+	sessionID = memory.SanitizeUTF8(sessionID)
 	if tenantID == "" || content == "" {
 		return nil
 	}
@@ -122,6 +131,9 @@ func (s *Store) UpsertMemoryEvent(ctx context.Context, tenantID, subjectID, even
 	if tenantID == "" || eventID == "" || eventType == "" {
 		return nil
 	}
+	eventType = memory.SanitizeUTF8(eventType)
+	title = memory.SanitizeUTF8(title)
+	description = memory.SanitizeUTF8(description)
 	if confidence <= 0 {
 		confidence = 0.5
 	}
@@ -141,7 +153,7 @@ SET title = EXCLUDED.title,
 		return err
 	}
 	for _, p := range participants {
-		p = strings.ToLower(strings.TrimSpace(p))
+		p = memory.SanitizeUTF8(strings.ToLower(strings.TrimSpace(p)))
 		if p == "" {
 			continue
 		}
@@ -157,6 +169,9 @@ ON CONFLICT DO NOTHING
 // UpsertCurrentState writes a rebuildable current-state projection row.
 // Callers must ensure the winning assertion is temporally valid before calling.
 func (s *Store) UpsertCurrentState(ctx context.Context, tenantID, subjectID, predicate, memoryID, value, policy string) error {
+	predicate = memory.SanitizeUTF8(strings.TrimSpace(predicate))
+	value = memory.SanitizeUTF8(value)
+	policy = memory.SanitizeUTF8(policy)
 	predicate = strings.TrimSpace(predicate)
 	value = strings.TrimSpace(value)
 	if tenantID == "" || subjectID == "" || predicate == "" || memoryID == "" || value == "" {

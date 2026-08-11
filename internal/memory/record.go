@@ -9,14 +9,17 @@ import (
 	"brainy/internal/pack"
 )
 
-// sanitizeUTF8 strips invalid UTF-8 byte sequences so Postgres TEXT inserts
+// SanitizeUTF8 strips invalid UTF-8 byte sequences so Postgres TEXT inserts
 // cannot fail with SQLSTATE 22021 (invalid_byte_sequence).
-func sanitizeUTF8(value string) string {
+func SanitizeUTF8(value string) string {
 	if value == "" || utf8.ValidString(value) {
 		return value
 	}
 	return strings.ToValidUTF8(value, "")
 }
+
+// sanitizeUTF8 is kept as an unexported alias for local callers/tests.
+func sanitizeUTF8(value string) string { return SanitizeUTF8(value) }
 
 // NormalizeIngestRequest mutates message contents to valid UTF-8.
 func NormalizeIngestRequest(req *IngestRequest) {
@@ -56,6 +59,12 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	if err := ApplyVerticalPack(&record, req, extracted.Kind, extracted.Content, packs); err != nil {
 		return MemoryRecord{}, err
 	}
+	record.Content = sanitizeUTF8(record.Content)
+	record.SourceText = sanitizeUTF8(record.SourceText)
+	record.Label = sanitizeUTF8(record.Label)
+	record.Scope = sanitizeUTF8(record.Scope)
+	record.Primitive = sanitizeUTF8(record.Primitive)
+	record.Vertical = sanitizeUTF8(record.Vertical)
 
 	if rule, _ := extracted.Explain["rule"].(string); rule == "conversation_episode" {
 		record.Primitive = PrimitiveEpisode
@@ -91,6 +100,7 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	record.ObservedAt = ResolveObservedAt(record.Metadata, extracted.When)
 	if record.ObservedAt != nil {
 		record.Content = EnrichRelativeEventTime(record.Content, *record.ObservedAt)
+		record.Content = sanitizeUTF8(record.Content)
 	}
 	// Link semantic objects to raw evidence captured at ingest.
 	if req.Metadata != nil {
@@ -149,6 +159,8 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 			record.SupersedesID = sid
 		}
 	}
+	record.Content = sanitizeUTF8(record.Content)
+	record.SourceText = sanitizeUTF8(record.SourceText)
 	return record, nil
 }
 
