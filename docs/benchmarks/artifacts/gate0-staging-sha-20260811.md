@@ -12,6 +12,8 @@
 | OpMem | **13/13** — [opmem-staging-gate0-20260811.md](./opmem-staging-gate0-20260811.md) |
 | Marketing vertical | **passed** — [marketing-staging-gate0-20260811.md](./marketing-staging-gate0-20260811.md) |
 | LoCoMo 1×30 | **18/30 (60%)**, MH 50%, OD 25%, temporal 75% — [pin](./locomo-staging-gate0-1x30-pin-20260811.md) |
-| LoCoMo 3×90 | running (`locomo-staging-gate0-3x90-20260811`) |
+| LoCoMo 3×90 | **32/90 (35.6%)**, MH 7/36 (19.4%), OD 3/7 (42.9%) — [pin](./locomo-staging-gate0-3x90-pin-20260811.md) |
 
 No code/tuning from Gate 0 outcomes. Baseline for PR6 deltas after hardening merges.
+
+MH and OD are co-equal conversational gaps on staging.
