@@ -678,12 +678,27 @@ func (s *Store) ClaimNextExtractionJob(ctx context.Context) (memory.ExtractionJo
 	}()
 
 	now := time.Now().UTC()
+	// Serialize within (tenant_id, subject_id): do not claim a later job while an
+	// earlier same-subject job is still pending or held under a live lease.
+	// Expired in_progress leases remain reclaimable (they match the outer WHERE).
 	row := tx.QueryRow(ctx, `
 SELECT j.job_id, j.ingest_id, j.attempts, j.max_attempts, j.created_at, i.payload
 FROM extraction_jobs j
 JOIN raw_ingests i ON i.ingest_id = j.ingest_id
 WHERE (j.status = $1 OR (j.status = $2 AND j.lease_expires_at <= $3))
   AND j.attempts < j.max_attempts
+  AND NOT EXISTS (
+    SELECT 1
+    FROM extraction_jobs j2
+    JOIN raw_ingests i2 ON i2.ingest_id = j2.ingest_id
+    WHERE i2.tenant_id = i.tenant_id
+      AND i2.subject_id = i.subject_id
+      AND j2.created_at < j.created_at
+      AND (
+        j2.status = $1
+        OR (j2.status = $2 AND j2.lease_expires_at > $3)
+      )
+  )
 ORDER BY j.created_at ASC
 FOR UPDATE OF j SKIP LOCKED
 LIMIT 1
