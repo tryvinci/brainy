@@ -101,7 +101,7 @@ func shouldAttemptHybrid(plan QueryPlan, pkt EvidencePacket) (bool, string) {
 }
 
 func formatHybridMemoryLines(pkt EvidencePacket) []string {
-	lines := make([]string, 0, len(pkt.Items)+len(pkt.Contents))
+	lines := make([]string, 0, len(pkt.Items)+len(pkt.Contents)+8)
 	seen := map[string]struct{}{}
 	add := func(content, memoryID string) {
 		content = strings.TrimSpace(content)
@@ -120,6 +120,36 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 			lines = append(lines, "- ["+memoryID+"] "+content)
 		} else {
 			lines = append(lines, "- "+content)
+		}
+	}
+	// Structured hop chain when hop executor results are present.
+	if raw, ok := pkt.Coverage["hop_results"]; ok {
+		if hops, ok := raw.([]HopResult); ok && len(hops) > 0 {
+			lines = append(lines, "Hop chain:")
+			for _, h := range hops {
+				dep := ""
+				if len(h.DependsOn) > 0 {
+					dep = " depends_on=" + strings.Join(h.DependsOn, ",")
+				}
+				val := firstNonEmpty(h.Value, "")
+				if val == "" && len(h.Contents) > 0 {
+					val = h.Contents[0]
+				}
+				lines = append(lines,
+					"- hop "+itoa(h.HopIndex)+": "+h.Kind+
+						" target="+firstNonEmpty(h.OutputKey, h.Entity)+
+						dep+
+						" source="+h.Source+
+						" result="+truncateRunes(val, 120),
+				)
+				for i, c := range h.Contents {
+					id := ""
+					if i < len(h.MemoryIDs) {
+						id = h.MemoryIDs[i]
+					}
+					add(c, id)
+				}
+			}
 		}
 	}
 	for _, it := range pkt.Items {

@@ -193,3 +193,47 @@ func TestShouldAttemptHybridMultiHop(t *testing.T) {
 		t.Fatalf("ok=%v reason=%q", ok, reason)
 	}
 }
+
+func TestHybridAnswerStatusTruthful(t *testing.T) {
+	plan := QueryPlan{NeedsMultiHop: true, Hops: []HopStep{{Kind: "resolve_entity"}, {Kind: "fetch_predicate"}}}
+	pktOK := EvidencePacket{Coverage: map[string]any{"hop_join_proven": true, "uncovered": []string{}}}
+	got := hybridAnswerStatus(hybridReaderResult{Answer: "nurse", OK: true}, plan, pktOK, true)
+	if got != AnswerSupported {
+		t.Fatalf("supported got %s", got)
+	}
+	pktPartial := EvidencePacket{Coverage: map[string]any{"hop_join_proven": false, "uncovered": []string{"e1"}}}
+	got = hybridAnswerStatus(hybridReaderResult{Answer: "maybe", OK: true, UnresolvedTargets: []string{"where"}}, plan, pktPartial, false)
+	if got != AnswerPartiallySupported {
+		t.Fatalf("partial got %s", got)
+	}
+	got = hybridAnswerStatus(hybridReaderResult{Abstain: true}, plan, pktOK, true)
+	if got != AnswerInsufficient {
+		t.Fatalf("insufficient got %s", got)
+	}
+	conflictPkt := EvidencePacket{
+		Items: []PacketItem{
+			{Predicate: "occupation", Content: "Jordan is a nurse"},
+			{Predicate: "occupation", Content: "Jordan is a doctor"},
+		},
+	}
+	got = hybridAnswerStatus(hybridReaderResult{Answer: "doctor", OK: true}, plan, conflictPkt, true)
+	if got != AnswerConflicted {
+		t.Fatalf("conflicted got %s", got)
+	}
+}
+
+func TestFormatHybridMemoryLinesIncludesHopChain(t *testing.T) {
+	pkt := EvidencePacket{
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "resolve_entity", OutputKey: "e1", Value: "Melanie", Source: "typed_store", Contents: []string{"Caroline knows Melanie"}, MemoryIDs: []string{"m1"}},
+				{HopIndex: 1, Kind: "fetch_predicate", OutputKey: "ans", DependsOn: []string{"e1"}, Value: "nurse", Source: "typed_store", Contents: []string{"Melanie is a nurse"}, MemoryIDs: []string{"m2"}},
+			},
+		},
+	}
+	lines := formatHybridMemoryLines(pkt)
+	joined := strings.Join(lines, "\n")
+	if !strings.Contains(joined, "Hop chain:") || !strings.Contains(joined, "depends_on=e1") {
+		t.Fatalf("expected hop chain lines, got %q", joined)
+	}
+}
