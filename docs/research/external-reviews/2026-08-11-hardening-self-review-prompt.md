@@ -65,6 +65,14 @@ Production cutover: merge onto `main` at `308d3a1`. Staging Render API+worker li
 | LoCoMo 1×30 | **14/30 (46.7%)** · MH **5/10** · OD **2/4** | `locomo-harden-1x30-pin-20260811.md` |
 | LME-20 `--publish --product-recall` | Path `/recall` proven on first items; run later aborted on extraction job failure — **not publishable accuracy** | `lme20-product-recall-partial-20260811.md` |
 
+### Post-cutover staging (`1f2f26f`)
+
+| Pin | Result | Artifact |
+| --- | ---: | --- |
+| OpMem / marketing | **13/13** / **passed** | `opmem-staging-postcutover-20260811.md`, `marketing-staging-postcutover-20260811.md` |
+| LoCoMo 1×30 | **15/30 (50%)** · MH **50%** · OD **25%** · temporal **56.2%** | `locomo-staging-postcutover-1x30-pin-20260811.md` |
+| LoCoMo 3×90 | in progress at handoff — do not invent | `locomo-staging-postcutover-3x90-*-20260811.md` when present |
+
 ### Context pins (pre this harden cycle)
 
 | Pin | Result |
@@ -73,9 +81,7 @@ Production cutover: merge onto `main` at `308d3a1`. Staging Render API+worker li
 | Mem0 same-pin 1×30 | 12/30 · MH 70% |
 | LoCoMo V3 3×90 | 31/90 |
 
-**Honesty rule for the dip:** harden local 14/30 is **not** an improvement vs Gate 0 18/30. Expected risk from stricter `hop_join_proven` (lexical bridge no longer counts as proven). Treat it as a measured tradeoff, not a win.
-
-Post-merge **staging re-pin** artifacts (if present for deploy `1f2f26f`) supersede local harden numbers for “what staging does now.” If a staging re-pin is still in flight, say so explicitly — do not blend Gate 0 and harden numbers.
+**Honesty rule for the dip:** harden local 14/30 and post-cutover staging 15/30 are **not** improvements vs Gate 0 18/30. Expected risk from stricter `hop_join_proven` (lexical bridge no longer counts as proven). Treat as a measured tradeoff, not a win. Do not blend Gate 0 / harden-local / post-cutover pins.
 
 ---
 

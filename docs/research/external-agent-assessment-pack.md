@@ -54,7 +54,8 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | Staging Gate 0 1×30 (deploy `9bad898`) | **60% (18/30)**, MH **50%**, OD **25%** — [pin](../benchmarks/artifacts/locomo-staging-gate0-1x30-pin-20260811.md) |
 | Staging Gate 0 3×90 | **35.6% (32/90)**, MH **19.4%**, OD **42.9%** — [pin](../benchmarks/artifacts/locomo-staging-gate0-3x90-pin-20260811.md) |
 | Harden local 1×30 (PRs #93–#97) | **46.7% (14/30)**, MH **5/10**, OD **2/4** — [pin](../benchmarks/artifacts/locomo-harden-1x30-pin-20260811.md) |
-| Post-cutover staging OpMem / marketing (`1f2f26f`) | **13/13** / **passed** — reconfirm in progress artifacts |
+| Post-cutover staging 1×30 (`1f2f26f`) | **50% (15/30)**, MH **50%**, OD **25%** — [pin](../benchmarks/artifacts/locomo-staging-postcutover-1x30-pin-20260811.md) |
+| Post-cutover staging OpMem / marketing (`1f2f26f`) | **13/13** / **passed** |
 | LoCoMo 1×30 V3 early `locomo-v3-early-20260810` | **53.3% (16/30)**, MH **50%**, hybrid **17/30** — [pin](../benchmarks/artifacts/locomo-v3-early-pin-20260810.md) |
 | LoCoMo V3 3×90 | **34.4% (31/90)** — [pin](../benchmarks/artifacts/locomo-v3-multiconvo-pin-20260810.md) |
 | OpMem / marketing (Gate 0 + harden) | **13/13** / **passed** |

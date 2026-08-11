@@ -26,9 +26,9 @@
 
 | Pin | Result |
 | --- | --- |
-| OpMem | **13/13** |
-| Marketing | **passed** |
-| LoCoMo 1×30 | in progress / see dated pin when written |
+| OpMem | **13/13** — [pin](./opmem-staging-postcutover-20260811.md) |
+| Marketing | **passed** — [pin](./marketing-staging-postcutover-20260811.md) |
+| LoCoMo 1×30 | **15/30 (50%)** · MH **50%** · OD **25%** · temporal **56.2%** — [pin](./locomo-staging-postcutover-1x30-pin-20260811.md) |
 | LoCoMo 3×90 | in progress / see dated pin when written |
 
 ## Claims discipline

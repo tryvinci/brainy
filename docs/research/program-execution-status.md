@@ -29,10 +29,10 @@ Prior default (“reader quality over packets”) replaced by end-to-end **recal
 | Hardening PRs #93–#98 → `dev` | **Done** | Staging tip `1f2f26f` |
 | Hardening → `main` (production) | **Done** | Explicit ask; tip `308d3a1` |
 | Staging Render deploy | **Live** | API+worker on `1f2f26f` |
-| OpMem non-reg | **Done / reconfirming** | Gate 0 + harden + post-cutover staging pass |
-| Marketing non-reg | **Done / reconfirming** | Gate 0 + harden + post-cutover staging pass |
+| OpMem non-reg | **Done** | Post-cutover staging `1f2f26f` **13/13** |
+| Marketing non-reg | **Done** | Post-cutover staging **passed** |
 | LME-20 / LME-100 | **Blocked / retry** | `--product-recall` path proven; publish run aborted on extraction job failure — not publishable |
-| Larger LoCoMo | **Partial** | Gate 0 done; post-cutover staging 1×30/3×90 re-pin in progress |
+| Larger LoCoMo | **Partial** | Post-cutover 1×30 **15/30**; 3×90 re-pin in progress |
 | External self-review prompt | **Ready** | [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) |
 
 ## Recall Contract V3 (PR #92) — merged
