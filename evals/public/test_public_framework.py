@@ -35,6 +35,34 @@ class ProveabilityTests(unittest.TestCase):
         self.assertTrue(any("dataset_url" in g for g in gaps))
         self.assertTrue(any("judge_model" in g for g in gaps))
 
+    def test_require_pins_product_recall_extras(self) -> None:
+        base = dict(
+            benchmark="longmemeval-s",
+            dataset_url="https://example.com/d.json",
+            dataset_sha256="abc",
+            brainy_url="https://brainy.example",
+            judge_model="gpt-4o-mini",
+            judge_temperature=0.0,
+        )
+        gaps = require_pins(RunManifest(**base, extras={"product_recall": True}))
+        self.assertTrue(any("answer_path" in g for g in gaps))
+        ok = require_pins(
+            RunManifest(
+                **base,
+                extras={
+                    "product_recall": True,
+                    "answer_path": "/recall",
+                    "ingest_mode": "async",
+                    "jobs_expected": 1,
+                    "jobs_completed": 1,
+                    "jobs_failed": 0,
+                    "reader_source": {},
+                    "queue_precheck": "idle",
+                },
+            )
+        )
+        self.assertEqual(ok, [])
+
     def test_sha256_file(self) -> None:
         path = pathlib.Path(__file__).with_name("_tmp_hash.txt")
         path.write_text("hello\n", encoding="utf-8")
