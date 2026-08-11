@@ -153,16 +153,23 @@ def answer_from_memories(
     *,
     tenant_id: str = "",
     subject_id: str = "",
+    require_product_recall: bool = False,
 ) -> tuple[str, str]:
     """Generate an answer from retrieved memories.
 
     This is a *generic* memory-QA client for proveable evals — not a place to
     special-case public benchmark questions or pad answers from known GTs.
     Prefer product POST /recall when BRAINY_USE_RECALL=1 (master-plan W4).
+    When ``require_product_recall`` is set, never fall back to harness answerer.
     """
     product = _product_recall_answer(question, tenant_id=tenant_id, subject_id=subject_id)
     if product is not None:
         return product
+    if require_product_recall:
+        raise RuntimeError(
+            "product-recall required but POST /recall did not return an answer "
+            f"(tenant={tenant_id!r} subject={subject_id!r})"
+        )
     if not memories:
         return "", "empty-context"
     cfg = config or resolve_config(model=model)

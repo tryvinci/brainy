@@ -58,4 +58,15 @@ def require_pins(manifest: RunManifest) -> list[str]:
         gaps.append("judge_model missing")
     if manifest.judge_temperature != 0.0:
         gaps.append("judge_temperature must be 0.0 for proveable public claims")
+    extras = manifest.extras or {}
+    if extras.get("product_recall"):
+        if extras.get("answer_path") != "/recall":
+            gaps.append("answer_path must be /recall for product-recall publish")
+        if extras.get("ingest_mode") != "async":
+            gaps.append("ingest_mode must be async for product-recall publish")
+        for key in ("jobs_expected", "jobs_completed", "jobs_failed", "reader_source"):
+            if key not in extras:
+                gaps.append(f"extras.{key} missing for product-recall publish")
+        if extras.get("queue_precheck") not in {"idle", "assumed_idle"}:
+            gaps.append("queue_precheck must be idle or assumed_idle for product-recall publish")
     return gaps
