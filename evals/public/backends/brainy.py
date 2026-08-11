@@ -116,18 +116,29 @@ class BrainyBackend:
         job_ids: list[str] | None = None,
         *,
         timeout_s: float | None = None,
-    ) -> None:
+    ) -> dict:
         """Block until extraction jobs complete (prefer over search settle).
 
         Polls ``GET /jobs/{id}`` for tracked ids and ``GET /jobs/status`` until
         open==0. In publish mode, missing job APIs or failed jobs raise
         (fail-closed) instead of silently falling back to search settle.
+
+        Returns accounting dict::
+            {
+              "jobs_expected": int,
+              "jobs_completed": int,
+              "jobs_failed": int,
+              "failures": [{"job_id": str, "failure_reason": str, "status": str}],
+            }
         """
         tenant = self._tenant(user_id)
-        tracked = [j for j in (job_ids or list(self._pending_jobs.get(user_id, []))) if j]
+        initial = [j for j in (job_ids or list(self._pending_jobs.get(user_id, []))) if j]
+        tracked = list(initial)
         deadline = time.time() + (self.async_timeout_s if timeout_s is None else timeout_s)
         saw_status_api = False
         terminal_failed: list[str] = []
+        completed: list[str] = []
+        failure_details: dict[str, dict] = {}
 
         while time.time() < deadline:
             unfinished: list[str] = []
@@ -143,9 +154,19 @@ class BrainyBackend:
                     continue
                 status = str(info.get("status") or "").lower()
                 if status in {"completed"}:
+                    if job_id not in completed:
+                        completed.append(job_id)
                     continue
                 if status in {"failed"}:
-                    terminal_failed.append(job_id)
+                    if job_id not in terminal_failed:
+                        terminal_failed.append(job_id)
+                        failure_details[job_id] = {
+                            "job_id": job_id,
+                            "status": status,
+                            "failure_reason": str(
+                                info.get("failure_reason") or info.get("reason") or ""
+                            ),
+                        }
                     continue
                 unfinished.append(job_id)
             tracked = unfinished
@@ -167,24 +188,39 @@ class BrainyBackend:
 
             open_n = int(counts.get("open") or 0)
             if not tracked and (not saw_status_api or open_n == 0):
+                summary = {
+                    "jobs_expected": len(initial),
+                    "jobs_completed": len(completed),
+                    "jobs_failed": len(terminal_failed),
+                    "failures": [failure_details[j] for j in terminal_failed if j in failure_details],
+                }
                 if terminal_failed and self.publish_mode:
+                    parts = []
+                    for job_id in terminal_failed:
+                        reason = (failure_details.get(job_id) or {}).get("failure_reason") or ""
+                        parts.append(f"{job_id} ({reason})" if reason else job_id)
                     raise RuntimeError(
-                        f"publish mode: extraction jobs failed: {terminal_failed}"
+                        "publish mode: extraction jobs failed: "
+                        + "; ".join(parts)
+                        + f" | accounting={summary}"
                     )
                 # Clear completed tracked ids for this user.
                 if user_id in self._pending_jobs:
-                    done = set(job_ids or []) | set(terminal_failed)
+                    done = set(job_ids or []) | set(terminal_failed) | set(completed)
                     if not job_ids:
                         self._pending_jobs[user_id] = []
                     else:
                         self._pending_jobs[user_id] = [
                             j for j in self._pending_jobs[user_id] if j not in done
                         ]
-                return
+                return summary
 
             time.sleep(max(self.async_poll_s, 1.0))
 
-        detail = f"tracked={tracked!r} failed={terminal_failed!r}"
+        detail = (
+            f"tracked={tracked!r} failed={terminal_failed!r} "
+            f"failures={ [failure_details.get(j) for j in terminal_failed]!r}"
+        )
         raise TimeoutError(
             f"jobs not done within timeout for subject={user_id} ({detail}). "
             "Is the worker running?"

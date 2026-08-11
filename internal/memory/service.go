@@ -105,6 +105,7 @@ func (s *Service) WithEmbedder(embedder embedding.Embedder) *Service {
 }
 
 func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, error) {
+	NormalizeIngestRequest(&req)
 	if err := validateIngestRequest(req); err != nil {
 		return IngestResult{}, err
 	}
@@ -231,6 +232,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 }
 
 func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncIngestResult, error) {
+	NormalizeIngestRequest(&req)
 	if err := validateIngestRequest(req); err != nil {
 		return AsyncIngestResult{}, err
 	}

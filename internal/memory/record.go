@@ -4,9 +4,30 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"brainy/internal/pack"
 )
+
+// sanitizeUTF8 strips invalid UTF-8 byte sequences so Postgres TEXT inserts
+// cannot fail with SQLSTATE 22021 (invalid_byte_sequence).
+func sanitizeUTF8(value string) string {
+	if value == "" || utf8.ValidString(value) {
+		return value
+	}
+	return strings.ToValidUTF8(value, "")
+}
+
+// NormalizeIngestRequest mutates message contents to valid UTF-8.
+func NormalizeIngestRequest(req *IngestRequest) {
+	if req == nil {
+		return
+	}
+	for i := range req.Messages {
+		req.Messages[i].Content = sanitizeUTF8(req.Messages[i].Content)
+		req.Messages[i].Role = sanitizeUTF8(req.Messages[i].Role)
+	}
+}
 
 // BuildMemoryRecord materializes an extracted memory into a storeable record.
 // Shared by sync Service ingest and async job Processor so behavior stays aligned.
@@ -21,10 +42,10 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 		TenantID:          req.TenantID,
 		SubjectID:         req.SubjectID,
 		Kind:              extracted.Kind,
-		Content:           extracted.Content,
-		SourceText:        extracted.SourceText,
+		Content:           sanitizeUTF8(extracted.Content),
+		SourceText:        sanitizeUTF8(extracted.SourceText),
 		SourceType:        req.SourceType,
-		DedupeKey:         DedupeKey(req.TenantID, req.SubjectID, extracted.Kind, extracted.Content),
+		DedupeKey:         DedupeKey(req.TenantID, req.SubjectID, extracted.Kind, sanitizeUTF8(extracted.Content)),
 		Status:            StatusActive,
 		Confidence:        extracted.Confidence,
 		ExtractionVersion: version,

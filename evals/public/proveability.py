@@ -67,6 +67,21 @@ def require_pins(manifest: RunManifest) -> list[str]:
         for key in ("jobs_expected", "jobs_completed", "jobs_failed", "reader_source"):
             if key not in extras:
                 gaps.append(f"extras.{key} missing for product-recall publish")
+        try:
+            expected = int(extras.get("jobs_expected") or 0)
+            completed = int(extras.get("jobs_completed") or 0)
+            failed = int(extras.get("jobs_failed") or 0)
+        except (TypeError, ValueError):
+            gaps.append("extras jobs_* must be integers for product-recall publish")
+        else:
+            if expected <= 0:
+                gaps.append("extras.jobs_expected must be > 0 for product-recall publish")
+            if failed != 0:
+                gaps.append(f"extras.jobs_failed must be 0 (got {failed})")
+            if completed != expected:
+                gaps.append(
+                    f"extras.jobs_completed ({completed}) must equal jobs_expected ({expected})"
+                )
         if extras.get("queue_precheck") not in {"idle", "assumed_idle"}:
             gaps.append("queue_precheck must be idle or assumed_idle for product-recall publish")
     return gaps

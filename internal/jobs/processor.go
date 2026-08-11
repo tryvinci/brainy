@@ -58,6 +58,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		return ok, err
 	}
 
+	memory.NormalizeIngestRequest(&job.Request)
 	extracted, err := p.extractor.Extract(ctx, job.Request)
 	if err != nil {
 		// Fail before any upserts so a provider error cannot leave partial
