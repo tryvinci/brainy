@@ -320,8 +320,19 @@ func mergeProviderAndBaseline(baseline, provider []ExtractedMemory) []ExtractedM
 	if len(provider) == 0 {
 		return baseline
 	}
-	out := make([]ExtractedMemory, 0, len(provider)+len(baseline))
-	seen := make(map[string]struct{}, len(provider)+len(baseline))
+	// Provider NONE/DELETE/UPDATE are authoritative for their semantic key /
+	// source span — drop matching baseline items before content-key merge.
+	suppressKeys, suppressSources, suppressContents := providerSuppressSets(provider)
+	filteredBaseline := make([]ExtractedMemory, 0, len(baseline))
+	for _, item := range baseline {
+		if baselineSuppressedByProvider(item, suppressKeys, suppressSources, suppressContents) {
+			continue
+		}
+		filteredBaseline = append(filteredBaseline, item)
+	}
+
+	out := make([]ExtractedMemory, 0, len(provider)+len(filteredBaseline))
+	seen := make(map[string]struct{}, len(provider)+len(filteredBaseline))
 	for _, item := range provider {
 		key := NormalizeText(item.Content)
 		if key == "" {
@@ -333,7 +344,7 @@ func mergeProviderAndBaseline(baseline, provider []ExtractedMemory) []ExtractedM
 		seen[key] = struct{}{}
 		out = append(out, item)
 	}
-	for _, item := range baseline {
+	for _, item := range filteredBaseline {
 		key := NormalizeText(item.Content)
 		if key == "" {
 			continue
@@ -345,6 +356,106 @@ func mergeProviderAndBaseline(baseline, provider []ExtractedMemory) []ExtractedM
 		out = append(out, item)
 	}
 	return out
+}
+
+func providerSuppressSets(provider []ExtractedMemory) (keys, sources, contents map[string]struct{}) {
+	keys = make(map[string]struct{})
+	sources = make(map[string]struct{})
+	contents = make(map[string]struct{})
+	for _, item := range provider {
+		switch MemoryEventOf(item) {
+		case MemoryEventNone, MemoryEventDelete, MemoryEventUpdate:
+		default:
+			continue
+		}
+		if sk := semanticSlotKey(item); sk != "" {
+			keys[sk] = struct{}{}
+		}
+		if src := NormalizeText(item.SourceText); src != "" {
+			sources[src] = struct{}{}
+		}
+		if c := NormalizeText(item.Content); c != "" {
+			contents[c] = struct{}{}
+		}
+	}
+	return keys, sources, contents
+}
+
+func semanticSlotKey(item ExtractedMemory) string {
+	subj, _ := item.Explain["subject"].(string)
+	pred, _ := item.Explain["predicate"].(string)
+	subj = strings.ToLower(NormalizeText(subj))
+	pred = strings.ToLower(NormalizeText(pred))
+	if subj == "" || pred == "" {
+		return ""
+	}
+	return subj + "|" + pred
+}
+
+func baselineSuppressedByProvider(item ExtractedMemory, keys, sources, contents map[string]struct{}) bool {
+	if sk := semanticSlotKey(item); sk != "" {
+		if _, ok := keys[sk]; ok {
+			return true
+		}
+	}
+	src := NormalizeText(item.SourceText)
+	content := NormalizeText(item.Content)
+	if src != "" {
+		if _, ok := sources[src]; ok {
+			return true
+		}
+		for psrc := range sources {
+			if sourceSpanOverlap(src, psrc) {
+				return true
+			}
+		}
+	}
+	if content != "" {
+		if _, ok := contents[content]; ok {
+			return true
+		}
+		// UPDATE/NONE paraphrases: baseline content overlapping provider content.
+		for pc := range contents {
+			if sourceSpanOverlap(content, pc) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// sourceSpanOverlap is true when one normalized span contains the other
+// (or they share a long enough token run) so paraphrases of the same utterance match.
+func sourceSpanOverlap(a, b string) bool {
+	if a == "" || b == "" {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	if strings.Contains(a, b) || strings.Contains(b, a) {
+		return true
+	}
+	aToks := strings.Fields(a)
+	bToks := strings.Fields(b)
+	if len(aToks) < 3 || len(bToks) < 3 {
+		return false
+	}
+	set := make(map[string]struct{}, len(bToks))
+	for _, t := range bToks {
+		set[t] = struct{}{}
+	}
+	shared := 0
+	for _, t := range aToks {
+		if _, ok := set[t]; ok {
+			shared++
+		}
+	}
+	minLen := len(aToks)
+	if len(bToks) < minLen {
+		minLen = len(bToks)
+	}
+	return shared*2 >= minLen && shared >= 3 // >= ~50% of shorter, at least 3 tokens
 }
 
 func truncate(s string, n int) string {

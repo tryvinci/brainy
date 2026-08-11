@@ -160,3 +160,66 @@ func TestParseProviderMemoriesEvents(t *testing.T) {
 		t.Fatalf("event1=%s", MemoryEventOf(memories[1]))
 	}
 }
+
+func TestMergeProviderSuppressesBaselineForNoneDeleteUpdate(t *testing.T) {
+	baseline := []ExtractedMemory{
+		{
+			Kind: KindFact, Content: "Alex lives in Austin Texas",
+			SourceText: "Alex: I live in Austin",
+			Explain:    map[string]any{"rule": "deterministic", "subject": "Alex", "predicate": PredicateResidence},
+		},
+		{
+			Kind: KindFact, Content: "Alex likes hiking on weekends",
+			SourceText: "Alex: I like hiking",
+			Explain:    map[string]any{"rule": "deterministic", "subject": "Alex", "predicate": PredicatePreference},
+		},
+		{
+			Kind: KindFact, Content: "Sam keeps a pet snake named Noodle",
+			SourceText: "Sam keeps a pet snake named Noodle",
+			Explain:    map[string]any{"rule": "deterministic"},
+		},
+	}
+	provider := []ExtractedMemory{
+		{
+			Kind: KindFact, Content: "duplicate austin residence",
+			SourceText: "Alex: I live in Austin",
+			Explain: map[string]any{
+				"rule": "provider_extract", "memory_event": MemoryEventNone,
+				"subject": "Alex", "predicate": PredicateResidence,
+			},
+		},
+		{
+			Kind: KindFact, Content: "Sam rehomed the snake",
+			SourceText: "Sam keeps a pet snake named Noodle",
+			Explain: map[string]any{
+				"rule": "provider_extract", "memory_event": MemoryEventDelete,
+				"target_memory_id": "mem_snake",
+			},
+		},
+		{
+			Kind: KindFact, Content: "Alex prefers trail running",
+			SourceText: "Alex: I like trail running now",
+			Explain: map[string]any{
+				"rule": "provider_extract", "memory_event": MemoryEventUpdate,
+				"subject": "Alex", "predicate": PredicatePreference, "target_memory_id": "mem_hike",
+			},
+		},
+	}
+	merged := mergeProviderAndBaseline(baseline, provider)
+	joined := ""
+	for _, m := range merged {
+		joined += " | " + m.Content
+		if MemoryEventOf(m) == MemoryEventAdd && strings.Contains(strings.ToLower(m.Content), "hiking") {
+			t.Fatalf("baseline preference should be suppressed by UPDATE: %#v", merged)
+		}
+		if strings.Contains(strings.ToLower(m.Content), "austin texas") {
+			t.Fatalf("baseline residence should be suppressed by NONE: %#v", merged)
+		}
+		if strings.Contains(strings.ToLower(m.Content), "noodle") && MemoryEventOf(m) == MemoryEventAdd {
+			t.Fatalf("baseline snake fact should be suppressed by DELETE: %#v", merged)
+		}
+	}
+	if !strings.Contains(joined, "trail running") {
+		t.Fatalf("expected UPDATE content kept, got %q", joined)
+	}
+}
