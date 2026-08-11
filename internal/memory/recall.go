@@ -114,14 +114,67 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	}
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
 	bindPacketToTargets(&pkt, search.Results, req.Query, plan.CoverageTargets)
-	// Bounded second retrieval pass for uncovered multi-hop targets.
-	// Prefer a single typed hop probe over joining every uncovered token.
-	if plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
+	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all")
+	// Typed hop executor: bind packet from hop joins when hops exist.
+	if plan.NeedsMultiHop && len(plan.Hops) > 0 {
+		hopResults, byKey := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+		bindPacketFromHopResults(&pkt, hopResults, byKey)
+		out.Explain["hop_results"] = hopResults
+		out.Explain["hop_join_proven"] = hopJoinProven(hopResults)
+		// Merge hop memory hits into the search pool for synthesis context.
+		extra := make([]SearchResult, 0)
+		for _, hr := range hopResults {
+			for i, id := range hr.MemoryIDs {
+				content := ""
+				if i < len(hr.Contents) {
+					content = hr.Contents[i]
+				} else if len(hr.Contents) > 0 {
+					content = hr.Contents[0]
+				}
+				extra = append(extra, SearchResult{MemoryID: id, Content: content, Score: 0.85})
+			}
+		}
+		if len(extra) > 0 {
+			merged := mergeSearchResults(search.Results, extra, topK)
+			search.Results = merged
+			out.Memories = merged
+		}
+		// Second pass only when join not yet proven — single unresolved hop probe.
+		if plan.BudgetPasses >= 2 && !hopJoinProven(hopResults) {
+			if unc := uncoveredTargets(pkt); len(unc) > 0 {
+				probe := nextHopProbe(plan, pkt)
+				if probe != "" {
+					if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
+						IncludeHistorical: hist,
+						Limit:             topK,
+					}); err == nil && len(second.Results) > 0 {
+						merged := mergeSearchResults(search.Results, second.Results, topK)
+						search.Results = merged
+						out.Memories = merged
+						// Re-run hops with richer corpus via search fallback path already used.
+						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+						pkt = BuildEvidencePacket(plan, merged, out.Explain)
+						bindPacketFromHopResults(&pkt, hopResults2, byKey2)
+						out.Explain["second_pass"] = map[string]any{
+							"probe":           probe,
+							"hit_count":       len(second.Results),
+							"merged":          len(merged),
+							"typed_hops":      plan.Hops,
+							"hop_join_proven": hopJoinProven(hopResults2),
+						}
+						out.Explain["hop_results"] = hopResults2
+						plan.Tools = append(plan.Tools, "second_pass")
+					}
+				}
+			}
+		}
+	} else if plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
+		// Legacy lexical second pass when no typed hops were planned.
 		if unc := uncoveredTargets(pkt); len(unc) > 0 {
 			probe := nextHopProbe(plan, pkt)
 			if probe != "" {
 				if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
-					IncludeHistorical: req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all"),
+					IncludeHistorical: hist,
 					Limit:             topK,
 				}); err == nil && len(second.Results) > 0 {
 					merged := mergeSearchResults(search.Results, second.Results, topK)
