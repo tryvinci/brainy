@@ -1,12 +1,15 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-11 (architect PR1–PR7 **closed**; V3 hardening #93–#98 **on `main` + `dev`**)  
-**How to use:** For the current external pass, prefer the dedicated self-review prompt first. Use this pack for architecture context + reproduce commands.
+**Date:** 2026-08-11 (architect PR1–PR7 **closed**; V3 hardening **landed**; **competitive program accepted**)  
+**How to use:** Start from the competitive verdict + gap matrix. Use this pack for architecture context + reproduce commands.
 
 | Related doc | Role |
 | --- | --- |
-| [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) | **Start here** — dedicated self-review prompt for the hardening cutover |
+| [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md) | **Start here** — accepted competitive program (KEEP V3; adjust next sequence) |
+| [competitive/README.md](./competitive/README.md) | Competitive archaeology SOP |
+| [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md) | Living Mem0/Graphiti/Brainy gap matrix |
+| [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) | Hardening cutover self-review prompt (historical) |
 | [external-reviews/README.md](./external-reviews/README.md) | Standing intake SOP + current priority |
 | [external-reviews/2026-08-10-v3-rereview-brief.md](./external-reviews/2026-08-10-v3-rereview-brief.md) | Prior V3 re-review brief (historical) |
 | [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md) | Accepted recall-contract course correction |
@@ -14,7 +17,7 @@
 | [recall-contract-v3-hardening-qualification-20260811.md](../benchmarks/artifacts/recall-contract-v3-hardening-qualification-20260811.md) | Hardening qualification + pins |
 | [codebase-graph.md](./codebase-graph.md) | Visual/structural map |
 | [codebase-graph.json](./codebase-graph.json) | Machine-readable graph |
-| [sota-end-to-end-program.md](./sota-end-to-end-program.md) | Program of record |
+| [sota-end-to-end-program.md](./sota-end-to-end-program.md) | Prior program of record (superseded for next sequence by competitive verdict) |
 | [program-execution-status.md](./program-execution-status.md) | Execution + measurement notes |
 
 ---
@@ -62,9 +65,7 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | OpMem / marketing (Gate 0 + harden) | **13/13** / **passed** |
 | LME-20 product-recall | Path `/recall` proven; publish run aborted on job failure — **not publishable** — [note](../benchmarks/artifacts/lme20-product-recall-partial-20260811.md) |
 
-**Implication for next agent (2026-08-11):** Hardening #93–#98 is **merged** to `dev` (`1f2f26f`) and `main` (`308d3a1`). Gate 0 baseline remains the pre-harden staging pin. Post-cutover 1×30 **15/30** (dip vs Gate 0 18/30); 3×90 **33/90** roughly flat. Do **not** re-open fusion/graph/category dicts. Next: clean LME-20 publish, Mem0 same-pin, multi-seed LoCoMo, then external adjudication via the self-review prompt.
-
-Start from [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) + [recall-contract-v3-hardening-qualification-20260811.md](../benchmarks/artifacts/recall-contract-v3-hardening-qualification-20260811.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
+**Implication for next agent (2026-08-11):** Competitive architecture verdict **accepted with modifications**. Hardening #93–#98 remains landed. Do **not** reopen fusion/graph/category dicts or invent hop heuristics as the primary next move. Execute PR1 (LME integrity) → PR2–PR10 per [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) and [gap matrix](./competitive/competitive-gap-matrix.md). Still reject: fusion retune, graph DB default, category dictionaries, conversational SOTA claims.
 ---
 
 ## 0. One-paragraph product definition
@@ -280,12 +281,13 @@ Program detail: [sota-end-to-end-program.md](./sota-end-to-end-program.md) §24.
 | 6 Neutral proof | SOTA qualification | Smoke only; full multi-seed + LME pending |
 | 7–8 Associative / learned policy | Research gates | Deferred |
 
-**Active priority (post V3 hardening cutover):**  
-1. Clean isolated LME-20 `--publish --product-recall` (then LME-100)  
-2. Finish staging re-pin on deploy `1f2f26f` + Mem0 same-pin  
-3. Multi-seed LoCoMo under recall-contract honesty  
-4. Pack authority / procedures / conflict packets  
-5. Evidence-as-search-primary only if ledger shows retrieval/coverage misses
+**Active priority (competitive program):**  
+1. PR1 — LME-20 measurement integrity (`failure_reason` + job accounting + isolated publish)  
+2. PR2 — Conversational append-only vs governed mutation  
+3. PR3 — Temporal features V1 + `temporal_score`  
+4. PR4 — Retrieval V4 candidate/context/proof budgets  
+5. PR5–PR8 — Context/proof split → entities → relations → hop V3  
+6. PR9–PR10 — Assistant memories → frozen competitive qualification  
 
 ---
 

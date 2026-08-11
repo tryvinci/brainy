@@ -34,7 +34,13 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 **Accepted course:** KEEP V3, harden — then merge.  
 **Landed:** PRs #93–#98 on `dev` (`1f2f26f`) and production `main` (`308d3a1`). Staging Render live on `1f2f26f`.
 
-**Current handoff / self-review prompt:**  
+## Default priority after competitive architecture verdict (2026-08-11)
+
+**Accepted:** [2026-08-11-competitive-architecture-verdict.md](./2026-08-11-competitive-architecture-verdict.md) — KEEP V3; **adjust** next program to competitive parity (Mem0 recall + Graphiti relations + Brainy governed truth).
+
+**Competitive SOP:** [../competitive/README.md](../competitive/README.md) · [gap matrix](../competitive/competitive-gap-matrix.md)
+
+**Prior handoff / self-review prompt:**  
 [2026-08-11-hardening-self-review-prompt.md](./2026-08-11-hardening-self-review-prompt.md)
 
 **Prior briefs (historical):**  
@@ -42,13 +48,15 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 
 **Next work (in order):**
 
-1. Finish isolated LME-20 `--publish --product-recall` (no publishable LME accuracy until a clean full run)
-2. Mem0 same-pin re-measure under identical budget
-3. Multi-seed LoCoMo
-4. Pack authority / procedures / conflict packets
-5. Adjudicate hop-join tradeoff (1×30 dip vs roughly flat 3×90) via self-review prompt
+1. **PR1** — LME-20 measurement integrity (`failure_reason` + job accounting + isolated `--publish --product-recall`)
+2. **PR2** — Conversational append-only vs governed mutation policy
+3. **PR3** — Temporal features V1 + `temporal_score` ranking
+4. **PR4** — Retrieval V4 candidate/context/proof budgets
+5. **PR5** — ContextEvidence vs ProofChain
+6. **PR6–PR8** — Canonical entities → relation memory → hop executor V3
+7. **PR9–PR10** — Assistant memories → frozen competitive qualification
 
-Do **not** default to fusion retune, graph DB, category dictionaries, or re-opening architect PR1–PR7.
+Do **not** default to fusion retune, graph DB, category dictionaries, hop-heuristic sprawl, or re-opening architect PR1–PR7.
 
 ## Pin honesty (binding for reviewers and agents)
 

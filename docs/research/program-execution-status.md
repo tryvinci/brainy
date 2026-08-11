@@ -1,76 +1,52 @@
-# Program execution status — recall contract (2026-08-11)
+# Program execution status — competitive program (2026-08-11)
 
 **External handoff:** [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)  
-**Self-review prompt (give to reviewer):** [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)  
+**Accepted competitive verdict:** [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md)  
+**Competitive SOP / gap matrix:** [competitive/README.md](./competitive/README.md) · [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md)  
+**Hardening self-review prompt (historical):** [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)  
 **Intake SOP:** [external-reviews/README.md](./external-reviews/README.md)  
-**Accepted review:** [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md)  
 **Tips:** `main` `308d3a1` (production = V3 hardening cutover) · `dev` `1f2f26f` (staging Render live)
 
 ## Course correction (accepted)
 
-Prior default (“reader quality over packets”) replaced by end-to-end **recall contract**. Architect PR1–PR7 remain **closed**. Multi-hop packet depth is on **production**. External re-review: **KEEP V3, harden** (ordered writes → semantic hops → truthful sufficiency) — **executed and merged**.
+1. Architect PR1–PR7 remain **closed**.
+2. Recall-contract + V3 hardening (#93–#98) **landed** on `dev` + `main`.
+3. **New PoR (2026-08-11):** competitive architecture program — Mem0-quality conversational recall + Graphiti-quality relations + Brainy governed truth. Principle: **recall broadly → represent explicitly → prove narrowly → answer truthfully.**
 
-## Implementation status
+## Hardening cycle — closed
 
-| Step | Status | Notes |
-| --- | --- | --- |
-| 1 Measurement | **Landed** | Judge retry + `JUDGE_MISS`; LoCoMo speaker roles; `/jobs` + `/jobs/status`; harness job wait; tighter oracle overlap |
-| 2 Provenance | **Landed** | `observed_at` on raw evidence; `evidence_id` on records/events |
-| 3 Contextual compile | **Landed** | `ContextualExtractor` injects recent + related memories |
-| 4 Entity-scoped state | **Landed** | `entity::predicate` keys when subject entity known |
-| 5 Hybrid reader | **Landed** | Soft grounding + truthful AnswerStatus + hop-chain prompt (#97) |
-| 6 Multi-hop packet depth | **Landed on `main` + `dev`** | Plus hop executor V2 / `hop_join_proven` (#96) |
-| 7 Proof pins | **Partial** | Gate 0 staging 18/30 + 32/90; harden local 14/30 (honest dip); LME path proven, full publish incomplete |
-
-## Post-merge execution
-
-| Step | Status | Notes |
-| --- | --- | --- |
-| Hardening PRs #93–#98 → `dev` | **Done** | Staging tip `1f2f26f` |
-| Hardening → `main` (production) | **Done** | Explicit ask; tip `308d3a1` |
-| Staging Render deploy | **Live** | API+worker on `1f2f26f` |
-| OpMem non-reg | **Done** | Post-cutover staging `1f2f26f` **13/13** |
-| Marketing non-reg | **Done** | Post-cutover staging **passed** |
-| LME-20 / LME-100 | **Blocked / retry** | `--product-recall` path proven; publish run aborted on extraction job failure — not publishable |
-| Larger LoCoMo | **Done (post-cutover)** | 1×30 **15/30**; 3×90 **33/90** (MH 22.2%, OD 42.9%) |
-| External self-review prompt | **Ready** | [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) |
-
-## Recall Contract V3 (PR #92) — merged
-
-| Wave | Status | Notes |
-| --- | --- | --- |
-| A1–C2 | **Done** | Merged via #92 |
-| D qualify | **Superseded by hardening qualify** | See Gate 0 + harden pins |
-
-## V3 hardening cycle — closed (merged)
-
-| PR | Status | Notes |
-| --- | --- | --- |
-| Gate 0 staging re-pin | **Done** | SHA `9bad898`; OpMem/marketing green; 1×30 **18/30**; 3×90 **32/90** (MH 19.4%, OD 42.9%) |
-| #93 subject-ordered claims | **Merged** | Serialize extraction per `(tenant,subject)` |
-| #94 authoritative ops | **Merged** | Provider NONE/DELETE/UPDATE filter-before-merge |
-| #95 LME product-recall | **Merged** | `--product-recall` + publish pins; path proven `/recall` |
-| #96 hop executor V2 | **Merged** | Typed hops + `hop_join_proven` |
-| #97 sufficiency status | **Merged** | Truthful hybrid AnswerStatus + hop-chain prompt |
-| #98 qualify umbrella | **Merged** | Gate 0 + harden docs |
-
-### Post-hardening local (combined #93–#97)
-
-| Pin | Result |
+| Item | Status |
 | --- | --- |
-| OpMem / marketing | 13/13 / passed |
-| LoCoMo 1×30 | **14/30** (MH 5/10, OD 2/4) — dip vs Gate 0; expected from stricter hop join |
-| LME-20 | product-recall path proven; full publish aborted (job failure) — not an accuracy claim |
+| #93–#98 | **Merged** |
+| Post-cutover OpMem / marketing | **13/13** / **passed** |
+| Post-cutover LoCoMo 1×30 | **15/30** (MH 50%, OD 25%) — dip vs Gate 0 18/30 |
+| Post-cutover LoCoMo 3×90 | **33/90** (MH **22.2%**, OD 42.9%) |
+| LME-20 | Path `/recall` proven; publish aborted — **not publishable** |
+
+## Competitive program — accepted sequence
+
+| PR | Failure class | Status | Notes |
+| --- | --- | --- | --- |
+| PR1 LME-20 measurement integrity | MEASUREMENT / WRITE_PIPELINE | **In progress** | Surface `failure_reason` + job accounting; isolated `--publish --product-recall` |
+| PR2 Conversational vs governed write policy | REPRESENTATION_MISS | Queued | ADAPT Mem0 ADD-only; keep #94 for governed |
+| PR3 Temporal features V1 | TEMPORAL_RETRIEVAL_MISS | Queued | Reuse mig-16; add `temporal_score` |
+| PR4 Retrieval V4 budgets | RETRIEVAL_MISS | Queued | Extend fusion_v2; candidate matrix @ fixed tokens |
+| PR5 Context vs proof split | EVIDENCE_COVERAGE_MISS | Queued | `ContextEvidence` + `ProofChain` |
+| PR6 Canonical entity store V2 | ENTITY_RESOLUTION_MISS | Queued | mig 20+ |
+| PR7 Relation memory V1 | MULTIHOP_REPRESENTATION_MISS | Queued | Postgres SPO |
+| PR8 Hop executor V3 | MULTIHOP_PLANNING_MISS | Queued | Relation traversal invariant |
+| PR9 Assistant-generated memories | EXTRACTION_COVERAGE_MISS | Queued | Stage metrics |
+| PR10 Frozen competitive qualification | — | Blocked on PR1–PR9 | Fresh Mem0 same-pin + multi-seed + LME |
 
 ## Still open (honest)
 
-- Clean isolated LME-20 `--publish --product-recall` score; LME-100 only after that  
-- Mem0 same-pin + multi-seed LoCoMo  
-- Pack authority / procedures / conflict packets  
+- Clean isolated LME-20 publish pin (gates LME-100)  
+- PR2–PR10 execution  
+- Mem0 same-pin under post-harden stack  
+- Pack authority / procedures / conflict packets (deferred behind conversational parity)  
 - Hash/128 re-embed residue  
-- External adjudication of this hardening cutover via the self-review prompt  
 
 ## Claims discipline
 
-- Allowed: Gate 0 staging 18/30 and 32/90; harden local 14/30 and post-cutover 15/30 / 33/90 with honesty (1×30 dipped vs Gate 0; 3×90 roughly flat); OpMem/marketing non-reg; product-recall path proven; hardening on `dev`+`main`.  
-- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; LME accuracy before a clean full `--publish --product-recall` completes; calling harden/post-cutover 1×30 an improvement; calling 3×90 MH 50% (Gate 0 MH is 19.4%; post-cutover MH is 22.2%).
+- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; OpMem/marketing non-reg; `/recall` path proven; competitive program adopted with modifications (PR1 narrower; PR3/PR4 reuse existing).  
+- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; LME accuracy before clean full `--publish --product-recall`; calling post-cutover 1×30 an improvement vs Gate 0; calling 3×90 MH 50%.
