@@ -23,7 +23,7 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | **OpMem** (operational) | Brainy **13/13** on staging (Gate 0 + post-cutover `1f2f26f`) |
 | **Marketing / Support vertical** | Marketing **passed** post-cutover; support prior **4/4** |
 | **LOCOMO Gate 0 staging** | **18/30** (MH 50%, OD 25%); 3×90 **32/90** (MH 19.4%) |
-| **LOCOMO post-cutover staging** | **15/30** on `1f2f26f` (MH 50%, OD 25%) — not a win vs Gate 0 |
+| **LOCOMO post-cutover staging** | **15/30** / **33/90** on `1f2f26f` (1×30 dipped vs Gate 0; 3×90 roughly flat, MH 22.2%) |
 | **LOCOMO harden local** | **14/30** — honest dip vs Gate 0 after stricter hop-join |
 | **Industry stand** | Lead ops + marketing; conversational improving but not SOTA — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
 | **Next agent** | Clean LME-20 product-recall publish → finish staging LoCoMo re-pin → Mem0 same-pin → external self-review |

@@ -43,10 +43,10 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 **Next work (in order):**
 
 1. Finish isolated LME-20 `--publish --product-recall` (no publishable LME accuracy until a clean full run)
-2. Complete / record staging re-pin on deploy `1f2f26f` (OpMem, marketing, LoCoMo 1×30 + 3×90)
-3. Mem0 same-pin re-measure under identical budget
-4. Multi-seed LoCoMo
-5. Pack authority / procedures / conflict packets
+2. Mem0 same-pin re-measure under identical budget
+3. Multi-seed LoCoMo
+4. Pack authority / procedures / conflict packets
+5. Adjudicate hop-join tradeoff (1×30 dip vs roughly flat 3×90) via self-review prompt
 
 Do **not** default to fusion retune, graph DB, category dictionaries, or re-opening architect PR1–PR7.
 
@@ -56,6 +56,7 @@ Do **not** default to fusion retune, graph DB, category dictionaries, or re-open
 | --- | --- |
 | Gate 0 staging (`9bad898`) | 1×30 **18/30**; 3×90 **32/90** with MH **19.4%** (not 50%) |
 | Harden local (#93–#97) | 1×30 **14/30** — **dip**, not a win vs Gate 0 |
+| Post-cutover staging (`1f2f26f`) | 1×30 **15/30**; 3×90 **33/90** with MH **22.2%** |
 | LME | Path `/recall` proven; aborted/partial runs are **not** accuracy claims |
 | Production | `main` `308d3a1` holds the hardening cutover — still no conversational SOTA language |
 

@@ -29,7 +29,7 @@
 | OpMem | **13/13** — [pin](./opmem-staging-postcutover-20260811.md) |
 | Marketing | **passed** — [pin](./marketing-staging-postcutover-20260811.md) |
 | LoCoMo 1×30 | **15/30 (50%)** · MH **50%** · OD **25%** · temporal **56.2%** — [pin](./locomo-staging-postcutover-1x30-pin-20260811.md) |
-| LoCoMo 3×90 | in progress / see dated pin when written |
+| LoCoMo 3×90 | **33/90 (36.7%)** · MH **22.2%** · OD **42.9%** — [pin](./locomo-staging-postcutover-3x90-pin-20260811.md) |
 
 ## Claims discipline
 
@@ -39,6 +39,6 @@
 ## Follow-ups
 
 1. Clean isolated LME-20 `--publish --product-recall`.
-2. Finish staging LoCoMo re-pin on `1f2f26f` and record pins.
-3. Mem0 same-pin + multi-seed LoCoMo.
-4. External adjudication via the self-review prompt.
+2. Mem0 same-pin + multi-seed LoCoMo.
+3. External adjudication via the self-review prompt.
+4. Investigate whether hop-join strictness is overshooting on 1×30 (15/30 vs Gate 0 18/30) while 3×90 stayed roughly flat.

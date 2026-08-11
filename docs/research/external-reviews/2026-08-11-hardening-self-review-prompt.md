@@ -71,7 +71,7 @@ Production cutover: merge onto `main` at `308d3a1`. Staging Render API+worker li
 | --- | ---: | --- |
 | OpMem / marketing | **13/13** / **passed** | `opmem-staging-postcutover-20260811.md`, `marketing-staging-postcutover-20260811.md` |
 | LoCoMo 1×30 | **15/30 (50%)** · MH **50%** · OD **25%** · temporal **56.2%** | `locomo-staging-postcutover-1x30-pin-20260811.md` |
-| LoCoMo 3×90 | in progress at handoff — do not invent | `locomo-staging-postcutover-3x90-*-20260811.md` when present |
+| LoCoMo 3×90 | **33/90 (36.7%)** · MH **22.2%** · OD **42.9%** | `locomo-staging-postcutover-3x90-pin-20260811.md` |
 
 ### Context pins (pre this harden cycle)
 

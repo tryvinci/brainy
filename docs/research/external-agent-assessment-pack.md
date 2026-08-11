@@ -55,13 +55,14 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | Staging Gate 0 3×90 | **35.6% (32/90)**, MH **19.4%**, OD **42.9%** — [pin](../benchmarks/artifacts/locomo-staging-gate0-3x90-pin-20260811.md) |
 | Harden local 1×30 (PRs #93–#97) | **46.7% (14/30)**, MH **5/10**, OD **2/4** — [pin](../benchmarks/artifacts/locomo-harden-1x30-pin-20260811.md) |
 | Post-cutover staging 1×30 (`1f2f26f`) | **50% (15/30)**, MH **50%**, OD **25%** — [pin](../benchmarks/artifacts/locomo-staging-postcutover-1x30-pin-20260811.md) |
+| Post-cutover staging 3×90 (`1f2f26f`) | **36.7% (33/90)**, MH **22.2%**, OD **42.9%** — [pin](../benchmarks/artifacts/locomo-staging-postcutover-3x90-pin-20260811.md) |
 | Post-cutover staging OpMem / marketing (`1f2f26f`) | **13/13** / **passed** |
 | LoCoMo 1×30 V3 early `locomo-v3-early-20260810` | **53.3% (16/30)**, MH **50%**, hybrid **17/30** — [pin](../benchmarks/artifacts/locomo-v3-early-pin-20260810.md) |
 | LoCoMo V3 3×90 | **34.4% (31/90)** — [pin](../benchmarks/artifacts/locomo-v3-multiconvo-pin-20260810.md) |
 | OpMem / marketing (Gate 0 + harden) | **13/13** / **passed** |
 | LME-20 product-recall | Path `/recall` proven; publish run aborted on job failure — **not publishable** — [note](../benchmarks/artifacts/lme20-product-recall-partial-20260811.md) |
 
-**Implication for next agent (2026-08-11):** Hardening #93–#98 is **merged** to `dev` (`1f2f26f`) and `main` (`308d3a1`). Gate 0 baseline remains the pre-harden staging pin. Harden local 1×30 **dipped** vs Gate 0 (expected stricter `hop_join_proven`) — not a win. Do **not** re-open fusion/graph/category dicts. Next: clean LME-20 publish, finish staging re-pin on `1f2f26f`, Mem0 same-pin, multi-seed LoCoMo, then external adjudication via the self-review prompt.
+**Implication for next agent (2026-08-11):** Hardening #93–#98 is **merged** to `dev` (`1f2f26f`) and `main` (`308d3a1`). Gate 0 baseline remains the pre-harden staging pin. Post-cutover 1×30 **15/30** (dip vs Gate 0 18/30); 3×90 **33/90** roughly flat. Do **not** re-open fusion/graph/category dicts. Next: clean LME-20 publish, Mem0 same-pin, multi-seed LoCoMo, then external adjudication via the self-review prompt.
 
 Start from [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) + [recall-contract-v3-hardening-qualification-20260811.md](../benchmarks/artifacts/recall-contract-v3-hardening-qualification-20260811.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
 ---

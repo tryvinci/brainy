@@ -32,7 +32,7 @@ Prior default (“reader quality over packets”) replaced by end-to-end **recal
 | OpMem non-reg | **Done** | Post-cutover staging `1f2f26f` **13/13** |
 | Marketing non-reg | **Done** | Post-cutover staging **passed** |
 | LME-20 / LME-100 | **Blocked / retry** | `--product-recall` path proven; publish run aborted on extraction job failure — not publishable |
-| Larger LoCoMo | **Partial** | Post-cutover 1×30 **15/30**; 3×90 re-pin in progress |
+| Larger LoCoMo | **Done (post-cutover)** | 1×30 **15/30**; 3×90 **33/90** (MH 22.2%, OD 42.9%) |
 | External self-review prompt | **Ready** | [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) |
 
 ## Recall Contract V3 (PR #92) — merged
@@ -65,7 +65,6 @@ Prior default (“reader quality over packets”) replaced by end-to-end **recal
 ## Still open (honest)
 
 - Clean isolated LME-20 `--publish --product-recall` score; LME-100 only after that  
-- Finish / publish post-cutover staging re-pin on `1f2f26f`  
 - Mem0 same-pin + multi-seed LoCoMo  
 - Pack authority / procedures / conflict packets  
 - Hash/128 re-embed residue  
@@ -73,5 +72,5 @@ Prior default (“reader quality over packets”) replaced by end-to-end **recal
 
 ## Claims discipline
 
-- Allowed: Gate 0 staging 18/30 and 32/90; harden local 14/30 with honesty about the dip; OpMem/marketing non-reg; product-recall path proven; hardening on `dev`+`main`.  
-- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; LME accuracy before a clean full `--publish --product-recall` completes; calling harden 1×30 an improvement; calling 3×90 MH 50% (Gate 0 MH is 19.4%).
+- Allowed: Gate 0 staging 18/30 and 32/90; harden local 14/30 and post-cutover 15/30 / 33/90 with honesty (1×30 dipped vs Gate 0; 3×90 roughly flat); OpMem/marketing non-reg; product-recall path proven; hardening on `dev`+`main`.  
+- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; LME accuracy before a clean full `--publish --product-recall` completes; calling harden/post-cutover 1×30 an improvement; calling 3×90 MH 50% (Gate 0 MH is 19.4%; post-cutover MH is 22.2%).
