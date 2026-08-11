@@ -434,15 +434,65 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if hybrid.OK {
 			out.Answer = hybrid.Answer
 			out.Abstained = false
-			out.AnswerStatus = AnswerSupported
+			out.AnswerStatus = hybridAnswerStatus(hybrid, plan, pkt, packetOK)
 			out.Explain["reader_source"] = "hybrid_llm_packet"
 			plan.Tools = append(plan.Tools, "hybrid_reader")
+			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
+		} else if hybrid.Abstain {
+			out.Abstained = true
+			out.Answer = "not in memory"
+			out.AnswerStatus = AnswerInsufficient
+			out.Explain["reader_source"] = "hybrid_llm_packet"
 		}
 	}
 	pkt.Plan = plan
 	out.Explain["evidence_packet"] = pkt
 	return out, nil
+}
+
+// hybridAnswerStatus maps hybrid outcomes to truthful AnswerStatus values.
+func hybridAnswerStatus(hybrid hybridReaderResult, plan QueryPlan, pkt EvidencePacket, packetOK bool) string {
+	if hybrid.Abstain || strings.TrimSpace(hybrid.Answer) == "" {
+		return AnswerInsufficient
+	}
+	if evidenceConflicted(pkt) {
+		return AnswerConflicted
+	}
+	unresolved := len(hybrid.UnresolvedTargets) > 0
+	if unc, ok := pkt.Coverage["uncovered"].([]string); ok && len(unc) > 0 {
+		unresolved = true
+	}
+	hopMissing := false
+	if plan.NeedsMultiHop && len(plan.Hops) > 0 {
+		if proven, _ := pkt.Coverage["hop_join_proven"].(bool); !proven {
+			hopMissing = true
+		}
+	}
+	if unresolved || hopMissing || (plan.NeedsMultiHop && !packetOK) {
+		return AnswerPartiallySupported
+	}
+	return AnswerSupported
+}
+
+func evidenceConflicted(pkt EvidencePacket) bool {
+	// Same predicate with distinct values across packet items → conflicted.
+	byPred := map[string]string{}
+	for _, it := range pkt.Items {
+		pred := strings.ToLower(strings.TrimSpace(it.Predicate))
+		if pred == "" {
+			continue
+		}
+		val := strings.ToLower(NormalizeText(it.Content))
+		if val == "" {
+			continue
+		}
+		if prev, ok := byPred[pred]; ok && prev != val && !strings.Contains(prev, val) && !strings.Contains(val, prev) {
+			return true
+		}
+		byPred[pred] = val
+	}
+	return false
 }
 
 // applyTemporalResolution fills explain + optional temporal_answer from typed
