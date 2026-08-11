@@ -21,10 +21,12 @@ type QueryPlan struct {
 
 // HopStep is a typed multi-hop subgoal (resolve entity, then fetch predicate).
 type HopStep struct {
-	Kind      string `json:"kind"` // resolve_entity | fetch_predicate
-	Entity    string `json:"entity,omitempty"`
-	Predicate string `json:"predicate,omitempty"`
-	Probe     string `json:"probe,omitempty"`
+	Kind      string   `json:"kind"` // resolve_entity | fetch_predicate | follow_relation | answer_slot
+	Entity    string   `json:"entity,omitempty"`
+	Predicate string   `json:"predicate,omitempty"`
+	Probe     string   `json:"probe,omitempty"`
+	Output    string   `json:"output,omitempty"`
+	DependsOn []string `json:"depends_on,omitempty"`
 }
 
 // EvidencePacket is the bounded evidence set handed to synthesis/oracles.
@@ -84,7 +86,7 @@ func buildTypedHops(query string) []HopStep {
 	toks := contentBearingTokens(tokenize(query))
 	names := nameLikeTokens(toks)
 	preds := predicateHintsFromQuery(query)
-	hops := make([]HopStep, 0, 2)
+	hops := make([]HopStep, 0, 3)
 	entity := ""
 	if len(names) > 0 {
 		entity = names[0]
@@ -92,6 +94,7 @@ func buildTypedHops(query string) []HopStep {
 			Kind:   "resolve_entity",
 			Entity: entity,
 			Probe:  entity,
+			Output: "e1",
 		})
 	}
 	pred := ""
@@ -122,14 +125,33 @@ func buildTypedHops(query string) []HopStep {
 		}
 	}
 	if len(probeParts) > 0 {
-		hops = append(hops, HopStep{
+		fetch := HopStep{
 			Kind:      "fetch_predicate",
 			Entity:    firstNonEmpty(bridge, entity),
 			Predicate: pred,
 			Probe:     strings.Join(probeParts, " "),
-		})
+			Output:    "ans",
+		}
+		if entity != "" {
+			fetch.DependsOn = []string{"e1"}
+		}
+		// answer_slot encodes expected answer type without adding regex cases.
+		if looksPlaceOrPersonSlot(query) {
+			fetch.Kind = "answer_slot"
+		}
+		hops = append(hops, fetch)
 	}
 	return hops
+}
+
+func looksPlaceOrPersonSlot(query string) bool {
+	q := strings.ToLower(query)
+	for _, cue := range []string{"where ", "who ", "when ", "which "} {
+		if strings.Contains(q, cue) {
+			return true
+		}
+	}
+	return false
 }
 
 func firstNonEmpty(vals ...string) string {
@@ -289,7 +311,15 @@ func packetCoverageSatisfied(plan QueryPlan, pkt EvidencePacket) bool {
 		return true
 	}
 	if plan.NeedsMultiHop {
-		// Require a bridge+direct pair (or temporal+content), not merely any two strings.
+		// Typed hop join is the only proven MH coverage path when hops exist.
+		if proven, _ := pkt.Coverage["hop_join_proven"].(bool); proven {
+			return true
+		}
+		if len(plan.Hops) > 0 {
+			// Lexical bridge/direct is context only — not a proven chain.
+			return len(pkt.Contents) >= 1 && pkt.TemporalAnswer != ""
+		}
+		// Legacy (no typed hops): require bridge+direct or temporal+content.
 		if len(pkt.Contents) >= 1 && pkt.TemporalAnswer != "" {
 			return true
 		}
