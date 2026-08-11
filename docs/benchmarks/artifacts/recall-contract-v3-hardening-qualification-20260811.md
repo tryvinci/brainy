@@ -1,7 +1,8 @@
 # Recall Contract V3 Hardening — qualification — 2026-08-11
 
-**Umbrella branch:** `pr/v3-hardening-qualify-a6c7` · PR #98  
-**Component PRs:** #93 subject-order · #94 authoritative ops · #95 LME product-recall · #96 hop executor · #97 sufficiency
+**Umbrella:** PRs #93–#98 merged → `dev` `1f2f26f` → production `main` `308d3a1`  
+**Component PRs:** #93 subject-order · #94 authoritative ops · #95 LME product-recall · #96 hop executor · #97 sufficiency · #98 qualify docs  
+**External self-review prompt:** [../../research/external-reviews/2026-08-11-hardening-self-review-prompt.md](../../research/external-reviews/2026-08-11-hardening-self-review-prompt.md)
 
 ## Gate 0 staging baseline (`9bad898`)
 
@@ -18,17 +19,26 @@
 | --- | --- |
 | OpMem | 13/13 |
 | Marketing | passed |
-| LoCoMo 1×30 | **14/30** (MH 5/10, OD 2/4) |
-| LME-20 product-recall | Path proven (`answer_path=/recall`); full score resume |
+| LoCoMo 1×30 | **14/30** (MH 5/10, OD 2/4) — honest dip vs Gate 0 |
+| LME-20 product-recall | Path proven (`answer_path=/recall`); later publish run aborted on extraction job failure — **not publishable** |
+
+## Post-cutover staging (`1f2f26f`) full pass
+
+| Pin | Result |
+| --- | --- |
+| OpMem | **13/13** |
+| Marketing | **passed** |
+| LoCoMo 1×30 | in progress / see dated pin when written |
+| LoCoMo 3×90 | in progress / see dated pin when written |
 
 ## Claims discipline
 
-- Allowed: Gate 0 staging 18/30 and 32/90; product-recall path proven; OpMem/marketing non-reg green on harden.
-- Forbidden: “beats Mem0”; SOTA; “MH solved”; publishable LME accuracy before full `--publish --product-recall` run completes; calling harden 1×30 an improvement (it is not).
+- Allowed: Gate 0 staging 18/30 and 32/90; harden local 14/30 with dip honesty; OpMem/marketing non-reg; product-recall path proven; hardening on `dev`+`main`.
+- Forbidden: “beats Mem0”; SOTA; “MH solved”; publishable LME accuracy before a clean full `--publish --product-recall` run; calling harden 1×30 an improvement; calling 3×90 MH 50%.
 
 ## Follow-ups
 
-1. Merge #93→#97 to `dev` (staging), re-pin staging.
-2. Finish isolated LME-20; LME-100 only after that.
-3. Mem0 same-pin + multi-seed LoCoMo after staging re-pin.
-4. Do **not** merge to `main` without explicit ask.
+1. Clean isolated LME-20 `--publish --product-recall`.
+2. Finish staging LoCoMo re-pin on `1f2f26f` and record pins.
+3. Mem0 same-pin + multi-seed LoCoMo.
+4. External adjudication via the self-review prompt.

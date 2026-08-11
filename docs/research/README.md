@@ -5,8 +5,8 @@ vertical governance, latency/cost, and (fairly measured) conversational recall �
 publish that evidence. Not LOCOMO parity alone. Not benchmax.
 
 **Program of record (2026-08): [sota-end-to-end-program.md](./sota-end-to-end-program.md)** — evidence/event/bitemporal architecture, phased execution, SOTA qualification gates.  
-**External review intake:** [external-reviews/](./external-reviews/) · **re-review brief:** [2026-08-10-rereview-brief.md](./external-reviews/2026-08-10-rereview-brief.md)  
-**External agent handoff (preferred): [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)** — self-contained assessment brief + review charter.  
+**External review intake:** [external-reviews/](./external-reviews/) · **self-review prompt:** [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)  
+**External agent handoff (preferred): [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)** — architecture context; start the current pass from the self-review prompt.  
 **Codebase graph: [codebase-graph.md](./codebase-graph.md)** · machine-readable [codebase-graph.json](./codebase-graph.json).  
 **Prior master plan: [master-plan.md](./master-plan.md)** — still useful for W1–W7 history; new work follows the end-to-end program.  
 **Earlier external briefing: [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md)** — seeded the program; prefer the assessment pack for new agents.  
@@ -20,14 +20,14 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 
 | Axis | Result |
 | --- | --- |
-| **OpMem** (operational) | Brainy **13/13** on staging (Mem0 behind on ops fixtures) |
-| **Marketing / Support vertical** | **17/17** / **4/4** |
-| **LOCOMO same-pin** (recall-contract) | Prior **16/30** vs Mem0 **11/30**; post multi-hop **14/30 MH 50%** |
-| **LOCOMO multi-convo** | **27/90 (30%)** — harder slice |
-| **Industry stand** | Lead ops + marketing same-pin; conversational improving — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
-| **Next agent** | Finish LME under job barriers → Mem0 same-pin re-measure → multi-seed LoCoMo (recall-contract + multi-hop on `main`) |
+| **OpMem** (operational) | Brainy **13/13** on staging (Gate 0 + post-cutover `1f2f26f`) |
+| **Marketing / Support vertical** | Marketing **passed** post-cutover; support prior **4/4** |
+| **LOCOMO Gate 0 staging** | **18/30** (MH 50%, OD 25%); 3×90 **32/90** (MH 19.4%) |
+| **LOCOMO harden local** | **14/30** — honest dip vs Gate 0 after stricter hop-join |
+| **Industry stand** | Lead ops + marketing; conversational improving but not SOTA — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
+| **Next agent** | Clean LME-20 product-recall publish → finish staging LoCoMo re-pin → Mem0 same-pin → external self-review |
 
-Details: [2026-08-10 re-review brief](./external-reviews/2026-08-10-rereview-brief.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md) · [competitive positioning](../benchmarks/competitive-positioning-20260806.md)
+Details: [2026-08-11 self-review prompt](./external-reviews/2026-08-11-hardening-self-review-prompt.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md) · [competitive positioning](../benchmarks/competitive-positioning-20260806.md)
 
 ---
 

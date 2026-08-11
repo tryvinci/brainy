@@ -1,15 +1,17 @@
-# LME-20 product-recall — partial proof — 2026-08-11
+# LME-20 product-recall — partial / aborted — 2026-08-11
 
-**Harness:** `--publish --product-recall` on `pr/v3-hardening-qualify-a6c7` / PR #95  
-**Queue precheck:** idle (DB)  
-**Host:** local API+worker (hardening build)
+**Harness:** `--publish --product-recall` on hardening build (local API+worker)  
+**Run id:** `lme20-product-recall-20260811`  
+**Queue precheck:** idle at start
 
 ## Proof observed
 
 | Item | Type | Result | answer_path |
 | --- | --- | --- | --- |
 | 7a87bd0c | knowledge-update | WRONG | **`/recall`** |
+| 00ca467f | multi-session | WRONG | **`/recall`** |
+| 4388e9dd | single-session-assistant | **ABORT** | publish mode: extraction job `job_1786417826467002375` failed |
 
-Product `/recall` path is fail-closed and recorded. Full 20-item score deferred while LoCoMo harden 1×30 uses the worker; LME-20 resume after that pin (subject-ordered claims serialize large same-subject haystacks — expected slow drain).
+Product `/recall` path is fail-closed and recorded on scored items. Run did **not** complete 20/20 under publish mode.
 
-**Not a publishable LME accuracy claim.**
+**Not a publishable LME accuracy claim.** Retry isolated on an idle queue after worker/error root-cause check.
