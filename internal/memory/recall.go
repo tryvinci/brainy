@@ -114,13 +114,67 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	}
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
 	bindPacketToTargets(&pkt, search.Results, req.Query, plan.CoverageTargets)
-	// Bounded second retrieval pass for uncovered multi-hop targets.
-	if plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
+	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all")
+	// Typed hop executor: bind packet from hop joins when hops exist.
+	if plan.NeedsMultiHop && len(plan.Hops) > 0 {
+		hopResults, byKey := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+		bindPacketFromHopResults(&pkt, hopResults, byKey)
+		out.Explain["hop_results"] = hopResults
+		out.Explain["hop_join_proven"] = hopJoinProven(hopResults)
+		// Merge hop memory hits into the search pool for synthesis context.
+		extra := make([]SearchResult, 0)
+		for _, hr := range hopResults {
+			for i, id := range hr.MemoryIDs {
+				content := ""
+				if i < len(hr.Contents) {
+					content = hr.Contents[i]
+				} else if len(hr.Contents) > 0 {
+					content = hr.Contents[0]
+				}
+				extra = append(extra, SearchResult{MemoryID: id, Content: content, Score: 0.85})
+			}
+		}
+		if len(extra) > 0 {
+			merged := mergeSearchResults(search.Results, extra, topK)
+			search.Results = merged
+			out.Memories = merged
+		}
+		// Second pass only when join not yet proven — single unresolved hop probe.
+		if plan.BudgetPasses >= 2 && !hopJoinProven(hopResults) {
+			if unc := uncoveredTargets(pkt); len(unc) > 0 {
+				probe := nextHopProbe(plan, pkt)
+				if probe != "" {
+					if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
+						IncludeHistorical: hist,
+						Limit:             topK,
+					}); err == nil && len(second.Results) > 0 {
+						merged := mergeSearchResults(search.Results, second.Results, topK)
+						search.Results = merged
+						out.Memories = merged
+						// Re-run hops with richer corpus via search fallback path already used.
+						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+						pkt = BuildEvidencePacket(plan, merged, out.Explain)
+						bindPacketFromHopResults(&pkt, hopResults2, byKey2)
+						out.Explain["second_pass"] = map[string]any{
+							"probe":           probe,
+							"hit_count":       len(second.Results),
+							"merged":          len(merged),
+							"typed_hops":      plan.Hops,
+							"hop_join_proven": hopJoinProven(hopResults2),
+						}
+						out.Explain["hop_results"] = hopResults2
+						plan.Tools = append(plan.Tools, "second_pass")
+					}
+				}
+			}
+		}
+	} else if plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
+		// Legacy lexical second pass when no typed hops were planned.
 		if unc := uncoveredTargets(pkt); len(unc) > 0 {
-			probe := strings.Join(unc, " ")
+			probe := nextHopProbe(plan, pkt)
 			if probe != "" {
 				if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
-					IncludeHistorical: req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all"),
+					IncludeHistorical: hist,
 					Limit:             topK,
 				}); err == nil && len(second.Results) > 0 {
 					merged := mergeSearchResults(search.Results, second.Results, topK)
@@ -132,6 +186,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 						"probe":      probe,
 						"hit_count":  len(second.Results),
 						"merged":     len(merged),
+						"typed_hops": plan.Hops,
 					}
 					plan.Tools = append(plan.Tools, "second_pass")
 				}
@@ -360,18 +415,84 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	out.Explain["context_runes"] = utf8.RuneCountInString(out.ContextBlock)
 	// Bounded hybrid LLM reader over the packet when composition is needed.
 	if mode == "answer" {
-		if hybrid, ok := s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt); ok {
-			out.Answer = hybrid
+		hybrid := s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt)
+		if hybrid.Reason != "" {
+			out.Explain["hybrid_reader_reason"] = hybrid.Reason
+		}
+		if hybrid.Attempted {
+			out.Explain["hybrid_reader_attempted"] = true
+			if hybrid.ParseMode != "" {
+				out.Explain["hybrid_reader_parse_mode"] = hybrid.ParseMode
+			}
+			if len(hybrid.SupportingIDs) > 0 {
+				out.Explain["hybrid_supporting_memory_ids"] = hybrid.SupportingIDs
+			}
+			if len(hybrid.UnresolvedTargets) > 0 {
+				out.Explain["hybrid_unresolved_targets"] = hybrid.UnresolvedTargets
+			}
+		}
+		if hybrid.OK {
+			out.Answer = hybrid.Answer
 			out.Abstained = false
-			out.AnswerStatus = AnswerSupported
+			out.AnswerStatus = hybridAnswerStatus(hybrid, plan, pkt, packetOK)
 			out.Explain["reader_source"] = "hybrid_llm_packet"
 			plan.Tools = append(plan.Tools, "hybrid_reader")
+			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
+		} else if hybrid.Abstain {
+			out.Abstained = true
+			out.Answer = "not in memory"
+			out.AnswerStatus = AnswerInsufficient
+			out.Explain["reader_source"] = "hybrid_llm_packet"
 		}
 	}
 	pkt.Plan = plan
 	out.Explain["evidence_packet"] = pkt
 	return out, nil
+}
+
+// hybridAnswerStatus maps hybrid outcomes to truthful AnswerStatus values.
+func hybridAnswerStatus(hybrid hybridReaderResult, plan QueryPlan, pkt EvidencePacket, packetOK bool) string {
+	if hybrid.Abstain || strings.TrimSpace(hybrid.Answer) == "" {
+		return AnswerInsufficient
+	}
+	if evidenceConflicted(pkt) {
+		return AnswerConflicted
+	}
+	unresolved := len(hybrid.UnresolvedTargets) > 0
+	if unc, ok := pkt.Coverage["uncovered"].([]string); ok && len(unc) > 0 {
+		unresolved = true
+	}
+	hopMissing := false
+	if plan.NeedsMultiHop && len(plan.Hops) > 0 {
+		if proven, _ := pkt.Coverage["hop_join_proven"].(bool); !proven {
+			hopMissing = true
+		}
+	}
+	if unresolved || hopMissing || (plan.NeedsMultiHop && !packetOK) {
+		return AnswerPartiallySupported
+	}
+	return AnswerSupported
+}
+
+func evidenceConflicted(pkt EvidencePacket) bool {
+	// Same predicate with distinct values across packet items → conflicted.
+	byPred := map[string]string{}
+	for _, it := range pkt.Items {
+		pred := strings.ToLower(strings.TrimSpace(it.Predicate))
+		if pred == "" {
+			continue
+		}
+		val := strings.ToLower(NormalizeText(it.Content))
+		if val == "" {
+			continue
+		}
+		if prev, ok := byPred[pred]; ok && prev != val && !strings.Contains(prev, val) && !strings.Contains(val, prev) {
+			return true
+		}
+		byPred[pred] = val
+	}
+	return false
 }
 
 // applyTemporalResolution fills explain + optional temporal_answer from typed

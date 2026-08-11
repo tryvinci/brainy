@@ -33,12 +33,48 @@ func TestBindPacketToTargetsBridgeDirect(t *testing.T) {
 	if countRole(pkt.Items, "bridge") < 1 && countRole(pkt.Items, "direct") < 1 {
 		t.Fatalf("expected bridge/direct roles, items=%+v", pkt.Items)
 	}
-	if !packetCoverageSatisfied(plan, pkt) {
-		t.Fatalf("expected coverage satisfied, coverage=%v items=%+v", pkt.Coverage, pkt.Items)
+	// Lexical bridge/direct is context only when typed hops exist — not proven.
+	if packetCoverageSatisfied(plan, pkt) {
+		t.Fatalf("lexical bridge must not satisfy coverage when hops exist, coverage=%v", pkt.Coverage)
 	}
 	ans := composeMultiHopAnswer(pkt)
 	if ans == "" {
 		t.Fatal("expected composed answer")
+	}
+}
+
+func TestHopJoinBindingSatisfiesCoverage(t *testing.T) {
+	plan := PlanQuery("What is Melanie's occupation according to Caroline?", nil)
+	if len(plan.Hops) == 0 {
+		t.Fatal("expected hops")
+	}
+	pkt := EvidencePacket{Plan: plan, Coverage: map[string]any{}}
+	hops := []HopResult{
+		{HopIndex: 0, Kind: "resolve_entity", OutputKey: "e1", Value: "Melanie", MemoryIDs: []string{"m1"}, Contents: []string{"Caroline knows Melanie"}, Source: "typed_store"},
+		{HopIndex: 1, Kind: "fetch_predicate", OutputKey: "ans", Entity: "Melanie", Predicate: "occupation", Value: "nurse", MemoryIDs: []string{"m2"}, Contents: []string{"Melanie works as a nurse"}, Source: "typed_store", DependsOn: []string{"e1"}},
+	}
+	bindPacketFromHopResults(&pkt, hops, map[string]HopResult{"e1": hops[0], "ans": hops[1]})
+	if !hopJoinProven(hops) {
+		t.Fatal("expected hop join proven")
+	}
+	if !packetCoverageSatisfied(plan, pkt) {
+		t.Fatalf("expected join coverage, coverage=%v items=%+v", pkt.Coverage, pkt.Items)
+	}
+	if countRole(pkt.Items, "bridge") < 1 || countRole(pkt.Items, "direct") < 1 {
+		t.Fatalf("expected bridge+direct from hops, items=%+v", pkt.Items)
+	}
+}
+
+func TestLexicalOverlapWithoutJoinStaysUnsatisfied(t *testing.T) {
+	plan := PlanQuery("What is Melanie's occupation according to Caroline?", nil)
+	results := []SearchResult{
+		{MemoryID: "x", Content: "Melanie and Caroline and occupation were mentioned vaguely", Score: 0.9},
+	}
+	pkt := BuildEvidencePacket(plan, results, nil)
+	bindPacketToTargets(&pkt, results, "What is Melanie's occupation according to Caroline?", plan.CoverageTargets)
+	// Even if lexical roles fire, without hop_join_proven coverage stays open → second pass.
+	if packetCoverageSatisfied(plan, pkt) {
+		t.Fatalf("expected unsatisfied without hop join, coverage=%v", pkt.Coverage)
 	}
 }
 
@@ -63,3 +99,27 @@ func TestUncoveredTargetsFromCoverage(t *testing.T) {
 		t.Fatalf("got %v", got)
 	}
 }
+
+func TestBuildTypedHopsResolveThenFetch(t *testing.T) {
+	plan := PlanQuery("What is Melanie's occupation according to Caroline?", nil)
+	if !plan.NeedsMultiHop {
+		t.Fatalf("expected multi-hop, intents=%v", plan.Intents)
+	}
+	if len(plan.Hops) == 0 {
+		t.Fatal("expected typed hops")
+	}
+	if plan.Hops[0].Kind != "resolve_entity" {
+		t.Fatalf("first hop=%+v", plan.Hops[0])
+	}
+	if plan.Hops[0].Output != "e1" {
+		t.Fatalf("expected e1 output, got %+v", plan.Hops[0])
+	}
+	if len(plan.Hops) > 1 && (len(plan.Hops[1].DependsOn) == 0 || plan.Hops[1].DependsOn[0] != "e1") {
+		t.Fatalf("expected fetch DependsOn e1, got %+v", plan.Hops[1])
+	}
+	probe := nextHopProbe(plan, EvidencePacket{Items: nil, Coverage: map[string]any{"uncovered": []string{"melanie"}}})
+	if probe == "" {
+		t.Fatal("expected probe")
+	}
+}
+

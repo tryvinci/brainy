@@ -109,7 +109,7 @@ func TestProviderExtractorParsesTypedSlotsV3(t *testing.T) {
 	if providerFact.Explain["subject"] != "Jordan" {
 		t.Fatalf("subject=%v", providerFact.Explain["subject"])
 	}
-	if providerExtractionVersion != "provider-v3-typed" {
+	if providerExtractionVersion != "provider-v4-ops" {
 		t.Fatalf("version=%s", providerExtractionVersion)
 	}
 }

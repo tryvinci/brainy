@@ -68,6 +68,13 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 
 	for _, item := range extracted {
 		p.metrics.RecordExtraction()
+		if memory.MemoryEventOf(item) == memory.MemoryEventDelete {
+			_ = memory.ApplyDeleteMemoryEvent(ctx, p.store, job.Request.TenantID, job.Request.SubjectID, item)
+			continue
+		}
+		if !memory.PrepareExtractedForPersist(&item) {
+			continue
+		}
 		record, err := memory.BuildMemoryRecord(p.id("mem"), p.now(), job.Request, item, p.packs)
 		if err != nil {
 			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
@@ -84,6 +91,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		// Match sync ingest: supersede older state, then project current_state
 		// only when shouldReplaceCurrentState allows (no blind late-older wins).
 		_ = memory.AutoSupersedePriorState(ctx, p.store, upserted.Record)
+		_ = memory.ApplyIngestSupersession(ctx, p.store, upserted.Record)
 		fresh := upserted.Record
 		if got, err := p.store.GetMemory(ctx, fresh.TenantID, fresh.SubjectID, fresh.MemoryID); err == nil {
 			fresh = got
@@ -95,6 +103,41 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		return true, err
 	}
 	return true, nil
+}
+
+// ProcessAvailable runs up to concurrency parallel ProcessNext calls.
+// Used for LME-scale queue drain; concurrency<=1 keeps prior serial behavior.
+func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int, error) {
+	if concurrency <= 1 {
+		ok, err := p.ProcessNext(ctx)
+		if ok {
+			return 1, err
+		}
+		return 0, err
+	}
+	type result struct {
+		ok  bool
+		err error
+	}
+	ch := make(chan result, concurrency)
+	for i := 0; i < concurrency; i++ {
+		go func() {
+			ok, err := p.ProcessNext(ctx)
+			ch <- result{ok: ok, err: err}
+		}()
+	}
+	processed := 0
+	var firstErr error
+	for i := 0; i < concurrency; i++ {
+		r := <-ch
+		if r.ok {
+			processed++
+		}
+		if r.err != nil && firstErr == nil {
+			firstErr = r.err
+		}
+	}
+	return processed, firstErr
 }
 
 type embeddingWriter interface {

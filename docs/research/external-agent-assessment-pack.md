@@ -52,21 +52,17 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 
 | Pin | Result |
 | --- | ---: |
-| LoCoMo 1×30 after multi-hop `86032312` (2026-08-08) | **46.7% (14/30)**, MH **50%** — [pin](../benchmarks/artifacts/locomo-multihop-pin-20260808.md) |
-| LoCoMo multi-convo 3×90 `649419f3` | **30% (27/90)** — [pin](../benchmarks/artifacts/locomo-multiconvo-pin-20260808.md) |
-| LoCoMo same-pin recall-contract `ef197919` (prior) | **53.3% (16/30)** vs Mem0 **36.7% (11/30)** — [proof](../benchmarks/artifacts/recall-contract-proof-20260807.md) |
-| OpMem staging non-reg | **13/13** |
-| Marketing staging non-reg | **passed** |
-| LME-20 / LME-100 | Partial / deferred — not a publishable pin |
+| Staging Gate 0 1×30 (deploy `9bad898`) | **60% (18/30)**, MH **50%**, OD **25%** — [pin](../benchmarks/artifacts/locomo-staging-gate0-1x30-pin-20260811.md) |
+| Staging Gate 0 3×90 | **35.6% (32/90)**, MH **19.4%**, OD **42.9%** — [pin](../benchmarks/artifacts/locomo-staging-gate0-3x90-pin-20260811.md) |
+| Harden local 1×30 (PRs #93–#97) | **46.7% (14/30)**, MH **50%**, OD **50%** — [pin](../benchmarks/artifacts/locomo-harden-1x30-pin-20260811.md) |
+| LoCoMo 1×30 V3 early `locomo-v3-early-20260810` | **53.3% (16/30)**, MH **50%**, hybrid **17/30** — [pin](../benchmarks/artifacts/locomo-v3-early-pin-20260810.md) |
+| LoCoMo V3 3×90 | **34.4% (31/90)** — [pin](../benchmarks/artifacts/locomo-v3-multiconvo-pin-20260810.md) |
+| OpMem / marketing (Gate 0 + harden) | **13/13** / **passed** |
+| LME-20 product-recall | Path `/recall` proven; full publish score in progress — [note](../benchmarks/artifacts/lme20-product-recall-partial-20260811.md) |
 
-**Implication for next agent (2026-08-10):** Recall-contract + **multi-hop packet depth are on production `main`**. Staging has `BRAINY_RECALL_LLM=1`; OpMem/marketing non-reg green. Do **not** re-open fusion, graph DB, or “reader-only.” Next work:
+**Implication for next agent (2026-08-11):** V3 hardening PRs #93–#97 are open (ordered claims, authoritative ops, LME product-recall, hop executor, truthful status). Gate 0 staging baseline is recorded. Harden local 1×30 **dipped** vs Gate 0 (expected stricter `hop_join_proven`). Do **not** re-open fusion/graph/category dicts. Next: merge #93→#97 → `dev`, finish LME-20 publish, staging re-pin, Mem0 same-pin. Never `main` without ask.
 
-1. Finish **LME-20 → LME-100** under job barriers (empty queue; scale workers)  
-2. Staging Mem0 same-pin re-measure after hybrid reader confirmed  
-3. Larger / multi-seed LoCoMo under identical pins  
-4. Only then pack authority / procedures / conflict packets  
-
-Start from [2026-08-10-rereview-brief.md](./external-reviews/2026-08-10-rereview-brief.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
+Start from [2026-08-10-v3-rereview-brief.md](./external-reviews/2026-08-10-v3-rereview-brief.md) + [recall-contract-v3-hardening-qualification-20260811.md](../benchmarks/artifacts/recall-contract-v3-hardening-qualification-20260811.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
 ---
 
 ## 0. One-paragraph product definition

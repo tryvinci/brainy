@@ -12,6 +12,7 @@ type Config struct {
 	DatabaseURL        string
 	WorkerMode         string
 	WorkerPollInterval time.Duration
+	WorkerConcurrency  int
 	APIKeys            string
 	RequireAPIKey      bool
 	// Provider extract (async worker). Empty BaseURL/Model => deterministic only.
@@ -44,6 +45,7 @@ func Load() Config {
 		DatabaseURL:        getenv("BRAINY_DATABASE_URL", "postgres://brainy:brainy@localhost:5432/brainy?sslmode=disable"),
 		WorkerMode:         getenv("BRAINY_WORKER_MODE", "once"),
 		WorkerPollInterval: getenvDuration("BRAINY_WORKER_POLL_INTERVAL", 2*time.Second),
+		WorkerConcurrency:  getenvInt("BRAINY_WORKER_CONCURRENCY", 1),
 		APIKeys:            os.Getenv("BRAINY_API_KEYS"),
 		RequireAPIKey:      requireKey,
 		ProviderBaseURL:    providerBase,
@@ -90,4 +92,25 @@ func getenvDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return parsed
+}
+
+func getenvInt(key string, fallback int) int {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	n := 0
+	for _, ch := range value {
+		if ch < '0' || ch > '9' {
+			return fallback
+		}
+		n = n*10 + int(ch-'0')
+	}
+	if n <= 0 {
+		return fallback
+	}
+	if n > 32 {
+		return 32
+	}
+	return n
 }

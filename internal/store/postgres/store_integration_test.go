@@ -544,3 +544,182 @@ func TestClaimNextExtractionJobReclaimsExpiredInProgressJob(t *testing.T) {
 		t.Fatalf("expected reclaimed job_1, got %s", reclaimed.JobID)
 	}
 }
+
+func TestClaimNextExtractionJobSerializesSameSubject(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	root := t.TempDir()
+	port := randomPort(607)
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() {
+		_ = postgres.Stop()
+	}()
+
+	baseStore, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baseStore.Close()
+	if err := baseStore.ApplyMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	store := &Store{pool: baseStore.pool, jobLease: 30 * time.Second}
+
+	reqA := memory.IngestRequest{
+		TenantID: "t1", SubjectID: "alice", SourceType: "conversation",
+		Messages: []memory.Message{{Role: "user", Content: "Alice turn 1"}},
+	}
+	reqB := memory.IngestRequest{
+		TenantID: "t1", SubjectID: "bob", SourceType: "conversation",
+		Messages: []memory.Message{{Role: "user", Content: "Bob turn 1"}},
+	}
+	for _, item := range []struct {
+		ingest, job, idem string
+		req               memory.IngestRequest
+	}{
+		{"ing_a1", "job_a1", "idem_a1", reqA},
+		{"ing_a2", "job_a2", "idem_a2", reqA},
+		{"ing_b1", "job_b1", "idem_b1", reqB},
+	} {
+		if _, err := store.EnqueueIngestJob(ctx, item.ingest, item.job, item.idem, item.req); err != nil {
+			t.Fatal(err)
+		}
+		// Ensure created_at ordering is strict across inserts.
+		time.Sleep(2 * time.Millisecond)
+	}
+
+	first, ok, err := store.ClaimNextExtractionJob(ctx)
+	if err != nil || !ok {
+		t.Fatalf("first claim: ok=%v err=%v", ok, err)
+	}
+	if first.JobID != "job_a1" {
+		t.Fatalf("expected job_a1 first, got %s", first.JobID)
+	}
+
+	second, ok, err := store.ClaimNextExtractionJob(ctx)
+	if err != nil || !ok {
+		t.Fatalf("second claim should take other subject: ok=%v err=%v", ok, err)
+	}
+	if second.JobID != "job_b1" {
+		t.Fatalf("expected job_b1 while alice job_a1 is live, got %s", second.JobID)
+	}
+
+	third, ok, err := store.ClaimNextExtractionJob(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok {
+		t.Fatalf("expected no claim while alice earlier job is live, got %s", third.JobID)
+	}
+
+	if err := store.CompleteExtractionJob(ctx, first.JobID, first.IngestID); err != nil {
+		t.Fatal(err)
+	}
+	next, ok, err := store.ClaimNextExtractionJob(ctx)
+	if err != nil || !ok {
+		t.Fatalf("after complete: ok=%v err=%v", ok, err)
+	}
+	if next.JobID != "job_a2" {
+		t.Fatalf("expected job_a2 after job_a1 completed, got %s", next.JobID)
+	}
+}
+
+func TestClaimNextExtractionJobConcurrentSameSubject(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	root := t.TempDir()
+	port := randomPort(608)
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() {
+		_ = postgres.Stop()
+	}()
+
+	baseStore, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baseStore.Close()
+	if err := baseStore.ApplyMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+	store := &Store{pool: baseStore.pool, jobLease: 30 * time.Second}
+
+	req := memory.IngestRequest{
+		TenantID: "t1", SubjectID: "same", SourceType: "conversation",
+		Messages: []memory.Message{{Role: "user", Content: "turn"}},
+	}
+	for i := 1; i <= 4; i++ {
+		n := strconv.Itoa(i)
+		if _, err := store.EnqueueIngestJob(ctx, "ing_"+n, "job_"+n, "idem_"+n, req); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(2 * time.Millisecond)
+	}
+
+	type claimResult struct {
+		id string
+		ok bool
+	}
+	ch := make(chan claimResult, 4)
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			job, ok, err := store.ClaimNextExtractionJob(ctx)
+			if err != nil {
+				t.Errorf("claim error: %v", err)
+				ch <- claimResult{}
+				return
+			}
+			if ok {
+				ch <- claimResult{id: job.JobID, ok: true}
+				return
+			}
+			ch <- claimResult{}
+		}()
+	}
+	wg.Wait()
+	close(ch)
+
+	claimed := make([]string, 0, 4)
+	for r := range ch {
+		if r.ok {
+			claimed = append(claimed, r.id)
+		}
+	}
+	if len(claimed) != 1 {
+		t.Fatalf("expected exactly one same-subject claim under concurrency=4, got %v", claimed)
+	}
+	if claimed[0] != "job_1" {
+		t.Fatalf("expected earliest job_1, got %s", claimed[0])
+	}
+}

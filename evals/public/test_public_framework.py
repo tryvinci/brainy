@@ -35,6 +35,34 @@ class ProveabilityTests(unittest.TestCase):
         self.assertTrue(any("dataset_url" in g for g in gaps))
         self.assertTrue(any("judge_model" in g for g in gaps))
 
+    def test_require_pins_product_recall_extras(self) -> None:
+        base = dict(
+            benchmark="longmemeval-s",
+            dataset_url="https://example.com/d.json",
+            dataset_sha256="abc",
+            brainy_url="https://brainy.example",
+            judge_model="gpt-4o-mini",
+            judge_temperature=0.0,
+        )
+        gaps = require_pins(RunManifest(**base, extras={"product_recall": True}))
+        self.assertTrue(any("answer_path" in g for g in gaps))
+        ok = require_pins(
+            RunManifest(
+                **base,
+                extras={
+                    "product_recall": True,
+                    "answer_path": "/recall",
+                    "ingest_mode": "async",
+                    "jobs_expected": 1,
+                    "jobs_completed": 1,
+                    "jobs_failed": 0,
+                    "reader_source": {},
+                    "queue_precheck": "idle",
+                },
+            )
+        )
+        self.assertEqual(ok, [])
+
     def test_sha256_file(self) -> None:
         path = pathlib.Path(__file__).with_name("_tmp_hash.txt")
         path.write_text("hello\n", encoding="utf-8")
@@ -154,6 +182,43 @@ class BackendHelperTests(unittest.TestCase):
 
         token = _probe_token([{"content": "the and or preference"}])
         self.assertEqual(token, "preference")
+
+    def test_iter_ingest_batches_splits_oversized(self) -> None:
+        from public.backends.brainy import _iter_ingest_batches
+
+        msgs = [
+            {"role": "user", "content": "a" * 100},
+            {"role": "user", "content": "b" * 100},
+            {"role": "user", "content": "c" * 100},
+        ]
+        batches = _iter_ingest_batches(msgs, max_bytes=150)
+        self.assertGreaterEqual(len(batches), 2)
+        self.assertTrue(all(len(b) <= 4 for b in batches))
+
+    def test_wait_until_jobs_done_publish_fail_closed(self) -> None:
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        import threading
+        from public.backends.brainy import BrainyBackend
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(b"{}")
+
+            def log_message(self, *_args):  # noqa: ANN002
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base = f"http://127.0.0.1:{server.server_port}"
+            backend = BrainyBackend(base, async_ingest=True, publish_mode=True, async_timeout_s=2.0)
+            with self.assertRaises(RuntimeError):
+                backend.wait_until_jobs_done("u1", job_ids=["job_x"], timeout_s=1.0)
+        finally:
+            server.shutdown()
 
 
 if __name__ == "__main__":
