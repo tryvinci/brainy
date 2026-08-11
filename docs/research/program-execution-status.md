@@ -21,13 +21,13 @@
 | Post-cutover OpMem / marketing | **13/13** / **passed** |
 | Post-cutover LoCoMo 1×30 | **15/30** (MH 50%, OD 25%) — dip vs Gate 0 18/30 |
 | Post-cutover LoCoMo 3×90 | **33/90** (MH **22.2%**, OD 42.9%) |
-| LME-20 | Path `/recall` proven; publish aborted — **not publishable** |
+| LME-20 | 20/20 scored `/recall` on PR1 attempt 2; **not publishable** (jobs off-by-one) — see attempt-2 pin |
 
 ## Competitive program — accepted sequence
 
 | PR | Failure class | Status | Notes |
 | --- | --- | --- | --- |
-| PR1 LME-20 measurement integrity | MEASUREMENT / WRITE_PIPELINE | **In progress** | Surface `failure_reason` + job accounting; isolated `--publish --product-recall` |
+| PR1 LME-20 measurement integrity | MEASUREMENT / WRITE_PIPELINE | **Landed (docs+code); pin fail-closed** | Harness `failure_reason` + accounting; UTF-8 sanitize; attempt2 20/20 `/recall` blocked on job-id dedupe off-by-one (fix shipped) |
 | PR2 Conversational vs governed write policy | REPRESENTATION_MISS | Queued | ADAPT Mem0 ADD-only; keep #94 for governed |
 | PR3 Temporal features V1 | TEMPORAL_RETRIEVAL_MISS | Queued | Reuse mig-16; add `temporal_score` |
 | PR4 Retrieval V4 budgets | RETRIEVAL_MISS | Queued | Extend fusion_v2; candidate matrix @ fixed tokens |
@@ -40,7 +40,7 @@
 
 ## Still open (honest)
 
-- Clean isolated LME-20 publish pin (gates LME-100)  
+- Clean **publishable** LME-20 pin after job-id dedupe (gates LME-100)  
 - PR2–PR10 execution  
 - Mem0 same-pin under post-harden stack  
 - Pack authority / procedures / conflict packets (deferred behind conversational parity)  
@@ -48,5 +48,5 @@
 
 ## Claims discipline
 
-- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; OpMem/marketing non-reg; `/recall` path proven; competitive program adopted with modifications (PR1 narrower; PR3/PR4 reuse existing).  
-- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; LME accuracy before clean full `--publish --product-recall`; calling post-cutover 1×30 an improvement vs Gate 0; calling 3×90 MH 50%.
+- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; OpMem/marketing non-reg; `/recall` path proven; competitive program adopted with modifications (PR1 narrower; PR3/PR4 reuse existing); PR1 integrity work (UTF-8 + accounting) with fail-closed LME pins.  
+- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy from non-publishable / proveability-blocked runs; calling post-cutover 1×30 an improvement vs Gate 0; calling 3×90 MH 50%.

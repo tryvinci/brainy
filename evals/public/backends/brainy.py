@@ -93,7 +93,11 @@ class BrainyBackend:
             should_wait = self.async_ingest if wait is None else wait
             job_id = str(response.get("job_id") or "")
             if job_id:
-                self._pending_jobs.setdefault(user_id, []).append(job_id)
+                pending = self._pending_jobs.setdefault(user_id, [])
+                # Idempotent /ingest/async may return an existing job_id; do not
+                # double-count it in jobs_expected accounting.
+                if job_id not in pending:
+                    pending.append(job_id)
             if should_wait:
                 if job_id:
                     self.wait_until_jobs_done(user_id, job_ids=[job_id])
@@ -132,7 +136,14 @@ class BrainyBackend:
             }
         """
         tenant = self._tenant(user_id)
-        initial = [j for j in (job_ids or list(self._pending_jobs.get(user_id, []))) if j]
+        raw = job_ids if job_ids is not None else list(self._pending_jobs.get(user_id, []))
+        initial: list[str] = []
+        seen: set[str] = set()
+        for job_id in raw:
+            if not job_id or job_id in seen:
+                continue
+            seen.add(job_id)
+            initial.append(job_id)
         tracked = list(initial)
         deadline = time.time() + (self.async_timeout_s if timeout_s is None else timeout_s)
         saw_status_api = False

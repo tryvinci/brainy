@@ -220,6 +220,47 @@ class BackendHelperTests(unittest.TestCase):
         finally:
             server.shutdown()
 
+    def test_wait_until_jobs_done_dedupes_job_ids(self) -> None:
+        from http.server import BaseHTTPRequestHandler, HTTPServer
+        import json
+        import threading
+        from public.backends.brainy import BrainyBackend
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802
+                if self.path.startswith("/jobs/job_dup"):
+                    body = b'{"job_id":"job_dup","status":"completed"}'
+                elif self.path.startswith("/jobs/status"):
+                    body = b'{"pending":0,"in_progress":0,"failed":0,"completed":1,"open":0}'
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):  # noqa: ANN002
+                return
+
+        server = HTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            base = f"http://127.0.0.1:{server.server_port}"
+            backend = BrainyBackend(base, async_ingest=True, publish_mode=True, async_timeout_s=2.0)
+            summary = backend.wait_until_jobs_done(
+                "u1",
+                job_ids=["job_dup", "job_dup", "job_dup"],
+                timeout_s=2.0,
+            )
+            self.assertEqual(summary["jobs_expected"], 1)
+            self.assertEqual(summary["jobs_completed"], 1)
+            self.assertEqual(summary["jobs_failed"], 0)
+        finally:
+            server.shutdown()
+
     def test_wait_until_jobs_done_surfaces_failure_reason(self) -> None:
         from http.server import BaseHTTPRequestHandler, HTTPServer
         import json

@@ -20,3 +20,5 @@ Postgres rejected a TEXT insert during async extraction persist. The harness pre
 ## Follow-up
 
 Isolated LME-20 `--publish --product-recall` rerun after rebuild; pin publishable score or explicit failure artifact.
+
+**Update (same day):** store write-boundary sanitize + attempt 2 (`lme20-product-recall-pr1-20260811b`) cleared UTF-8 subject `4388e9dd` and completed 20/20 `/recall` scores, but proveability blocked on jobs_expected/completed off-by-one (duplicate async `job_id`). See [lme20-product-recall-pr1-attempt2-20260811.md](./lme20-product-recall-pr1-attempt2-20260811.md).
