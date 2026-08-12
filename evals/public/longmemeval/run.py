@@ -467,8 +467,6 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         extras=extras,
     )
     gaps = require_pins(manifest)
-    if publish and gaps:
-        raise SystemExit("proveability gaps: " + "; ".join(gaps))
 
     out_dir = pathlib.Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -484,6 +482,8 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     )
     if gaps:
         print("proveability gaps:", "; ".join(gaps), flush=True)
+    if publish and gaps:
+        raise SystemExit("proveability gaps: " + "; ".join(gaps))
     return result
 
 
