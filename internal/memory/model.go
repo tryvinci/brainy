@@ -158,6 +158,9 @@ type SearchOptions struct {
 	IncludeHistorical bool // when true, include lifecycle=superseded rows
 	// Limit caps returned results (0 = unlimited / caller truncates).
 	Limit int
+	// CandidateLimit is the explicit retrieval pool size before the context
+	// token budget. 0 uses CandidateOverfetch(Limit), still capped at 200.
+	CandidateLimit int
 }
 
 type SearchResponse struct {

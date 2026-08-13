@@ -328,7 +328,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	includeSuperseded := opts.IncludeHistorical
 	fusionV2 := FusionV2Enabled()
 	intents := AnalyzeQueryIntents(query)
-	overfetch := CandidateOverfetch(opts.Limit)
+	overfetch := CandidatePoolSize(opts)
 	trace := &SearchTrace{
 		CandidateOverfetch: overfetch,
 		FusionV2:           fusionV2,
@@ -1606,8 +1606,8 @@ func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights 
 				explain["dense_overlap_boost"] = 0.2
 			}
 			if record.Primitive == PrimitiveEpisode {
-				score += 0.1
-				explain["episode_boost"] = 0.1
+				score -= 0.15
+				explain["episode_penalty"] = -0.15
 			}
 		}
 	}

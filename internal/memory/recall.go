@@ -24,6 +24,7 @@ type RecallRequest struct {
 	AsOf               string `json:"as_of,omitempty"`
 	IncludeProvenance  bool   `json:"include_provenance,omitempty"`
 	MaxEvidenceTokens  int    `json:"max_evidence_tokens,omitempty"`
+	CandidateLimit     int    `json:"candidate_limit,omitempty"`
 	OracleMode         string `json:"oracle_mode,omitempty"` // reader | evidence | semantic | ""
 }
 
@@ -62,13 +63,16 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		topK = 30
 	}
 	budget := req.BudgetTokens
-	if budget <= 0 {
+	if req.MaxEvidenceTokens > 0 {
+		budget = req.MaxEvidenceTokens
+	} else if budget <= 0 {
 		budget = 4000
 	}
 
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
 		IncludeHistorical: req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all"),
 		Limit:             topK,
+		CandidateLimit:    req.CandidateLimit,
 	})
 	if err != nil {
 		return RecallResponse{}, err

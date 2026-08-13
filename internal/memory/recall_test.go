@@ -90,3 +90,43 @@ func itemHas(items []RecallItem, needle string) bool {
 	}
 	return false
 }
+
+func TestAssembleContextHonorsMaxEvidenceTokens(t *testing.T) {
+	pkt := EvidencePacket{
+		Contents: []string{
+			"Alex lives in Austin Texas now",
+			"Alex used to live in New York",
+			"Alex likes hiking on weekends",
+		},
+	}
+	wide := assembleContextFromPacket(pkt, 4000)
+	narrow := assembleContextFromPacket(pkt, 20)
+	if narrow == "" {
+		t.Fatal("small budget should still keep the first line")
+	}
+	if len(narrow) >= len(wide) {
+		t.Fatalf("max evidence tokens must truncate, narrow=%d wide=%d", len(narrow), len(wide))
+	}
+}
+
+func TestRecallUsesMaxEvidenceTokensBudget(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-budget", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{{Role: "user", Content: "Alex lives in Austin and used to live in New York and likes hiking"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-budget", SubjectID: "u1", Query: "where does Alex live",
+		Mode: "context", TopK: 10, MaxEvidenceTokens: 12,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Explain["budget_tokens"] != 12 {
+		t.Fatalf("expected max_evidence_tokens to win budget, explain=%v", out.Explain)
+	}
+}

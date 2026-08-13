@@ -608,7 +608,7 @@ func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 	if !strings.Contains(top, "7 may 2023") && !strings.Contains(top, "support group") {
 		t.Fatalf("expected dated fact to outrank topical preference neighbor, top=%q", search.Results[0].Content)
 	}
-	if search.Results[0].Explain["date_token_boost"] == nil && search.Results[0].Explain["exact_span_boost"] == nil && search.Results[0].Explain["episode_boost"] == nil {
+	if search.Results[0].Explain["date_token_boost"] == nil && search.Results[0].Explain["exact_span_boost"] == nil && search.Results[0].Explain["episode_penalty"] == nil {
 		t.Fatalf("expected ranking explain boosts, got %#v", search.Results[0].Explain)
 	}
 }
@@ -651,6 +651,53 @@ func TestExactSpanOutranksTopicalNeighbor(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(search.Results[0].Content), "7 may 2023") {
 		t.Fatalf("expected dated fact first, got %q", search.Results[0].Content)
+	}
+}
+
+func TestEpisodePenaltyPrefersTypedFact(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content: "Congratulations on sticking to your daily tidying routine for 3 weeks",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["fact"] = MemoryRecord{
+		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact,
+		Content: "Alex has been sticking to a daily tidying routine for 4 weeks",
+		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "how long have I been sticking to my daily tidying routine")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected hits")
+	}
+	if !strings.Contains(search.Results[0].Content, "4 weeks") {
+		t.Fatalf("typed fact should outrank congratulation episode, top=%q", search.Results[0].Content)
+	}
+}
+
+func TestCandidateLimitRecordedOnTrace(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	_, err := service.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-pool", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{{Role: "user", Content: "Alex lives in Austin"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := service.SearchOpt(context.Background(), "t-pool", "u1", "", "", "where does Alex live", SearchOptions{Limit: 10, CandidateLimit: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Trace == nil || out.Trace.CandidateOverfetch != 50 {
+		t.Fatalf("expected candidate pool 50, trace=%+v", out.Trace)
 	}
 }
 
