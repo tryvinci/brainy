@@ -72,6 +72,65 @@ func TestExtractorRetainsFreeDialogueEpisodes(t *testing.T) {
 	}
 }
 
+func TestExtractorSkipsAssistantBoilerplateEpisodes(t *testing.T) {
+	extractor := NewExtractor()
+	req := IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "I've been sticking to my daily tidying routine for 4 weeks"},
+			{Role: "assistant", Content: "Congratulations on sticking to your daily tidying routine! That's a great accomplishment."},
+		},
+	}
+	memories, err := extractor.Extract(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range memories {
+		if isPhaticAssistantText(m.Content) {
+			t.Fatalf("phatic assistant must not persist as recall memory: %+v", m)
+		}
+		if rule, _ := m.Explain["rule"].(string); rule == "conversation_episode" && strings.Contains(strings.ToLower(m.Content), "congratulations") {
+			t.Fatalf("assistant boilerplate episode leaked: %+v", m)
+		}
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "4 weeks") && !strings.Contains(joined, "tidying") {
+		t.Fatalf("user fact must still extract, got %s", joined)
+	}
+}
+
+func TestExtractorKeepsAssistantStatedFacts(t *testing.T) {
+	extractor := NewExtractor()
+	req := IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Remind me what refining process you described"},
+			{Role: "assistant", Content: "Lake Charles uses atmospheric distillation and fluid catalytic cracking"},
+		},
+	}
+	memories, err := extractor.Extract(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "fluid catalytic") && !strings.Contains(joined, "atmospheric distillation") {
+		t.Fatalf("assistant-stated fact missing, got %s", joined)
+	}
+	for _, m := range memories {
+		if strings.Contains(strings.ToLower(m.Content), "fluid catalytic") || strings.Contains(strings.ToLower(m.Content), "atmospheric") {
+			if rule, _ := m.Explain["rule"].(string); rule == "conversation_episode" {
+				t.Fatalf("assistant factual turn must not be a recall-primary episode: %+v", m)
+			}
+		}
+	}
+}
+
 func TestSplitUtterancesKeepsNewlinesAtomic(t *testing.T) {
 	units := splitUtterances("Caroline: went on 7 May 2023\nMelanie: cool show about LGBTQ")
 	if len(units) != 2 {
