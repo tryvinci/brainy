@@ -64,6 +64,21 @@ func TestCandidateOverfetch(t *testing.T) {
 	}
 }
 
+func TestCandidatePoolSizeMatrix(t *testing.T) {
+	for _, n := range []int{30, 50, 100, 200} {
+		got := CandidatePoolSize(SearchOptions{Limit: 10, CandidateLimit: n})
+		if got != n {
+			t.Fatalf("candidate_limit %d got %d", n, got)
+		}
+	}
+	if CandidatePoolSize(SearchOptions{CandidateLimit: 500}) != 200 {
+		t.Fatal("pool must stay capped at 200")
+	}
+	if CandidatePoolSize(SearchOptions{Limit: 10}) != CandidateOverfetch(10) {
+		t.Fatal("default pool is overfetch")
+	}
+}
+
 func TestPredicatePolicyStateful(t *testing.T) {
 	if !IsStatefulPredicate(PredicateResidence) {
 		t.Fatal("residence should be stateful")

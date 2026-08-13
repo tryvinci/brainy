@@ -142,3 +142,16 @@ func CandidateOverfetch(limit int) int {
 	}
 	return n
 }
+
+// CandidatePoolSize is the retrieval candidate pool at a fixed context budget.
+// Explicit CandidateLimit is qualified at 30/50/100/200; default stays overfetch.
+func CandidatePoolSize(opts SearchOptions) int {
+	if opts.CandidateLimit > 0 {
+		n := opts.CandidateLimit
+		if n > 200 {
+			n = 200
+		}
+		return n
+	}
+	return CandidateOverfetch(opts.Limit)
+}
