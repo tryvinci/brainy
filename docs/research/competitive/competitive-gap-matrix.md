@@ -24,7 +24,7 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Vertical packs | no equivalent | ontology | **strong** | **strong** | keep |
 | Operational state machines | weak | weak | **strong** | **strong** | keep |
 | Context token discipline | strong | strong | moderate (`BudgetTokens`; `MaxEvidenceTokens` unused) | **strong** | PR4 |
-| LME publish integrity | n/a | n/a | path proven; aborted publish | **clean LME-20 pin** | PR1 |
+| LME publish integrity | n/a | n/a | path proven; aborted publish | **publishable LME-20 0/20** (jobs 4829=4829) | PR1 **done** |
 | Assistant-generated memories | strong | strong | partial | **qualified** | PR9 |
 
 ## Current conversational pins (honesty)
@@ -35,4 +35,4 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Post-cutover staging 1×30 (`1f2f26f`) | 15/30 · MH 50% · OD 25% |
 | Post-cutover staging 3×90 (`1f2f26f`) | 33/90 · MH **22.2%** · OD 42.9% |
 | OpMem / marketing post-cutover | 13/13 / passed |
-| LME-20 | `/recall` proven; publish aborted — not publishable |
+| LME-20 | **Publishable 0/20** `/recall` — [pin](../../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |

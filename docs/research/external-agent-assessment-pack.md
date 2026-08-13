@@ -63,7 +63,7 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | LoCoMo 1×30 V3 early `locomo-v3-early-20260810` | **53.3% (16/30)**, MH **50%**, hybrid **17/30** — [pin](../benchmarks/artifacts/locomo-v3-early-pin-20260810.md) |
 | LoCoMo V3 3×90 | **34.4% (31/90)** — [pin](../benchmarks/artifacts/locomo-v3-multiconvo-pin-20260810.md) |
 | OpMem / marketing (Gate 0 + harden) | **13/13** / **passed** |
-| LME-20 product-recall | Path `/recall` proven; publish run aborted on job failure — **not publishable** — [note](../benchmarks/artifacts/lme20-product-recall-partial-20260811.md) |
+| LME-20 product-recall | **Publishable** 0/20 `/recall`, jobs 4829=4829 failed=0 — [pin](../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |
 
 **Implication for next agent (2026-08-11):** Competitive architecture verdict **accepted with modifications**. Hardening #93–#98 remains landed. Do **not** reopen fusion/graph/category dicts or invent hop heuristics as the primary next move. Execute PR1 (LME integrity) → PR2–PR10 per [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) and [gap matrix](./competitive/competitive-gap-matrix.md). Still reject: fusion retune, graph DB default, category dictionaries, conversational SOTA claims.
 ---
