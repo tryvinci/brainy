@@ -86,6 +86,53 @@ func worldValidTime(record MemoryRecord) *time.Time {
 	return nil
 }
 
+// TemporalScore is a [0,1] fusion channel for world-valid history vs current state.
+// It is not a recency tie-break. Superseded rows score high only on historical intent.
+func TemporalScore(record MemoryRecord, intents []string, includeHistorical bool) float64 {
+	hist := includeHistorical || WantsHistoricalRetrieval(intents)
+	current := false
+	for _, intent := range intents {
+		if intent == IntentCurrentState {
+			current = true
+		}
+	}
+	superseded := record.LifecycleState == LifecycleSuperseded
+	memType := memoryTypeOf(record)
+	switch {
+	case hist && superseded:
+		return 1.0
+	case current && superseded:
+		return 0
+	case current && !superseded && memType == "state":
+		return 0.7
+	case hist && memType == "state":
+		return 0.55
+	case hist && record.ObservedAt != nil:
+		return 0.45
+	default:
+		return 0
+	}
+}
+
+func memoryTypeOf(record MemoryRecord) string {
+	if record.Metadata != nil {
+		if v, ok := record.Metadata["memory_type"].(string); ok && strings.TrimSpace(v) != "" {
+			return strings.TrimSpace(v)
+		}
+	}
+	if record.Primitive == PrimitiveEpisode {
+		return "episode"
+	}
+	pred := ""
+	if record.Metadata != nil {
+		pred, _ = record.Metadata["predicate"].(string)
+	}
+	if IsStatefulPredicate(pred) {
+		return "state"
+	}
+	return "event"
+}
+
 // ParseAsOf parses RFC3339 / date-only as_of strings.
 func ParseAsOf(raw string) (time.Time, bool) {
 	raw = strings.TrimSpace(raw)

@@ -2,6 +2,21 @@ package memory
 
 import "testing"
 
+func TestScoreAndRankV2TemporalAddsChannel(t *testing.T) {
+	base, _ := ScoreAndRankV2(0.8, 0.6, 0.25, 0.12, 0.42)
+	withT, parts := ScoreAndRankV2Temporal(0.8, 0.6, 0.25, 1.0, 0.12, 0.42)
+	if withT <= 0 || withT > 1 {
+		t.Fatalf("combined=%v", withT)
+	}
+	if parts["temporal"] != 1 {
+		t.Fatalf("temporal=%v", parts["temporal"])
+	}
+	zero, zparts := ScoreAndRankV2Temporal(0.8, 0.6, 0.25, 0, 0.12, 0.42)
+	if zero != base {
+		t.Fatalf("zero temporal must not change fusion, got %v want %v %#v", zero, base, zparts)
+	}
+}
+
 func TestScoreAndRankV2Additive(t *testing.T) {
 	combined, parts := ScoreAndRankV2(0.8, 0.6, 0.25, 0.12, 0.42)
 	if combined <= 0 || combined > 1 {
@@ -69,6 +84,15 @@ func TestAnalyzeQueryIntents(t *testing.T) {
 	}
 	if !found[IntentCurrentState] && !found[IntentEnumeration] && !found[IntentPointFact] {
 		t.Fatalf("expected useful intents, got %v", ints)
+	}
+	if !WantsHistoricalRetrieval(AnalyzeQueryIntents("where did they live before")) {
+		t.Fatal("before should request historical retrieval")
+	}
+	if WantsHistoricalRetrieval(AnalyzeQueryIntents("where do they currently live")) {
+		t.Fatal("current-state should not force historical")
+	}
+	if !WantsHistoricalRetrieval(AnalyzeQueryIntents("how long have I been doing this")) {
+		t.Fatal("how long should be temporal")
 	}
 }
 

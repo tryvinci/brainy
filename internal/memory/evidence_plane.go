@@ -26,6 +26,11 @@ type EventWriter interface {
 	UpsertMemoryEvent(ctx context.Context, tenantID, subjectID, eventID, eventType, title, description, memoryID, evidenceID string, startsAt *time.Time, confidence float64, participants []string) error
 }
 
+// EventEnder closes world-valid event intervals on supersede (mig-16 ends_at).
+type EventEnder interface {
+	EndMemoryEventsByMemoryID(ctx context.Context, tenantID, subjectID, memoryID string, endedAt *time.Time) error
+}
+
 // CurrentStateStore is the rebuildable projection for stateful predicates.
 type CurrentStateStore interface {
 	UpsertCurrentState(ctx context.Context, tenantID, subjectID, predicate, memoryID, value, policy string) error

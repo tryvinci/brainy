@@ -107,6 +107,27 @@ func ScoreAndRankV2(semantic, bm25, entityBoost, semanticThreshold, semanticOnly
 	return combined, details
 }
 
+// ScoreAndRankV2Temporal is ScoreAndRankV2 plus a [0,1] temporal_score channel.
+// Zero temporal does not change max_possible (not a recency tie-break).
+func ScoreAndRankV2Temporal(semantic, bm25, entityBoost, temporal, semanticThreshold, semanticOnlyFloor float64) (combined float64, details map[string]float64) {
+	combined, details = ScoreAndRankV2(semantic, bm25, entityBoost, semanticThreshold, semanticOnlyFloor)
+	if temporal <= 0 || combined <= 0 {
+		details["temporal"] = temporal
+		return combined, details
+	}
+	maxPossible := details["max_possible"]
+	if maxPossible <= 0 {
+		maxPossible = 1
+	}
+	raw := combined*maxPossible + temporal
+	maxPossible += 1.0
+	combined = math.Min(raw/maxPossible, 1.0)
+	details["temporal"] = temporal
+	details["combined"] = combined
+	details["max_possible"] = maxPossible
+	return combined, details
+}
+
 // CandidateOverfetch returns Mem0-style internal limit: max(limit*4, 60).
 func CandidateOverfetch(limit int) int {
 	if limit <= 0 {

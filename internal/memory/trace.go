@@ -80,7 +80,8 @@ func AnalyzeQueryIntents(query string) []string {
 	}
 	if strings.Contains(lower, "when") || strings.Contains(lower, "before") ||
 		strings.Contains(lower, "after") || strings.Contains(lower, "ago") ||
-		strings.Contains(lower, "last year") || strings.Contains(lower, "yesterday") {
+		strings.Contains(lower, "last year") || strings.Contains(lower, "yesterday") ||
+		strings.Contains(lower, "how long") || strings.Contains(lower, "how old") {
 		add(IntentTemporalSequence)
 	}
 	if strings.Contains(lower, "prefer") || strings.Contains(lower, "favorite") ||
@@ -103,4 +104,14 @@ func AnalyzeQueryIntents(query string) []string {
 		add(IntentPointFact)
 	}
 	return out
+}
+
+// WantsHistoricalRetrieval is true for before/after/when/used-to style intents.
+func WantsHistoricalRetrieval(intents []string) bool {
+	for _, intent := range intents {
+		if intent == IntentHistoricalState || intent == IntentTemporalSequence {
+			return true
+		}
+	}
+	return false
 }

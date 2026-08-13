@@ -166,6 +166,24 @@ ON CONFLICT DO NOTHING
 	return nil
 }
 
+// EndMemoryEventsByMemoryID sets ends_at on events tied to a superseded memory.
+func (s *Store) EndMemoryEventsByMemoryID(ctx context.Context, tenantID, subjectID, memoryID string, endedAt *time.Time) error {
+	if tenantID == "" || memoryID == "" {
+		return nil
+	}
+	end := time.Now().UTC()
+	if endedAt != nil {
+		end = endedAt.UTC()
+	}
+	_, err := s.pool.Exec(ctx, `
+UPDATE memory_events
+SET ends_at = COALESCE(ends_at, $4)
+WHERE tenant_id = $1 AND subject_id = $2 AND memory_id = $3
+  AND ends_at IS NULL
+`, tenantID, subjectID, memoryID, end)
+	return err
+}
+
 // UpsertCurrentState writes a rebuildable current-state projection row.
 // Callers must ensure the winning assertion is temporally valid before calling.
 func (s *Store) UpsertCurrentState(ctx context.Context, tenantID, subjectID, predicate, memoryID, value, policy string) error {

@@ -314,6 +314,11 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	queryTokens := tokenize(query)
 	contentQueryTokens := contentBearingTokens(queryTokens)
 
+	intents := AnalyzeQueryIntents(query)
+	if !opts.IncludeHistorical && WantsHistoricalRetrieval(intents) {
+		opts.IncludeHistorical = true
+	}
+
 	patterns := make([]string, 0, len(contentQueryTokens)+len(queryTokens))
 	for _, t := range contentQueryTokens {
 		patterns = append(patterns, "%"+t+"%")
@@ -327,7 +332,6 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 
 	includeSuperseded := opts.IncludeHistorical
 	fusionV2 := FusionV2Enabled()
-	intents := AnalyzeQueryIntents(query)
 	overfetch := CandidateOverfetch(opts.Limit)
 	trace := &SearchTrace{
 		CandidateOverfetch: overfetch,
@@ -634,7 +638,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 				// Short entity-probe queries: block template false-friends.
 				semOnlyFloor = 0.78
 			}
-			combined, parts := ScoreAndRankV2(embedScore, bm25, hub, 0.12, semOnlyFloor)
+			combined, parts := ScoreAndRankV2Temporal(embedScore, bm25, hub, TemporalScore(record, intents, includeSuperseded), 0.12, semOnlyFloor)
 			if combined <= 0 && score <= 0 {
 				continue
 			}
@@ -1444,6 +1448,9 @@ func AutoSupersedePriorState(ctx context.Context, store Store, record MemoryReco
 		_ = store.MarkSuperseded(ctx, record.TenantID, record.SubjectID, id)
 		if retirer, ok := indexer.(AtomRetirer); ok {
 			_ = retirer.RetireMemoryAtom(ctx, record.TenantID, record.SubjectID, pred, pval, id, record.ObservedAt)
+		}
+		if ender, ok := store.(EventEnder); ok {
+			_ = ender.EndMemoryEventsByMemoryID(ctx, record.TenantID, record.SubjectID, id, record.ObservedAt)
 		}
 	}
 	return nil

@@ -160,3 +160,22 @@ func TestPredicateHintsFromQuery(t *testing.T) {
 		t.Fatalf("expected residence hint, got %#v", h)
 	}
 }
+
+func TestTemporalScorePrefersSupersededOnHistorical(t *testing.T) {
+	ny := MemoryRecord{
+		LifecycleState: LifecycleSuperseded,
+		Metadata:       map[string]any{"memory_type": "state", "predicate": PredicateResidence},
+	}
+	austin := MemoryRecord{
+		LifecycleState: LifecycleActive,
+		Metadata:       map[string]any{"memory_type": "state", "predicate": PredicateResidence},
+	}
+	hist := []string{IntentHistoricalState}
+	if TemporalScore(ny, hist, true) <= TemporalScore(austin, hist, true) {
+		t.Fatal("superseded prior should outrank current on historical intent")
+	}
+	cur := []string{IntentCurrentState}
+	if TemporalScore(austin, cur, false) <= TemporalScore(ny, cur, false) {
+		t.Fatal("current-state should prefer active over superseded")
+	}
+}

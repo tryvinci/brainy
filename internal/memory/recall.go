@@ -66,15 +66,16 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		budget = 4000
 	}
 
+	intents := AnalyzeQueryIntents(req.Query)
+	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all") || WantsHistoricalRetrieval(intents)
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
-		IncludeHistorical: req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all"),
+		IncludeHistorical: hist,
 		Limit:             topK,
 	})
 	if err != nil {
 		return RecallResponse{}, err
 	}
 
-	intents := AnalyzeQueryIntents(req.Query)
 	plan := PlanQuery(req.Query, intents)
 	if !modeExplicit {
 		mode = plan.PreferredModeHint
@@ -88,9 +89,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		Intents:  intents,
 		Trace:    search.Trace,
 		Explain: map[string]any{
-			"top_k":         topK,
-			"budget_tokens": budget,
-			"query_plan":    plan,
+			"top_k":               topK,
+			"budget_tokens":       budget,
+			"query_plan":          plan,
+			"include_historical":  hist,
 		},
 	}
 	if req.View != "" {
@@ -114,7 +116,6 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	}
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
 	bindPacketToTargets(&pkt, search.Results, req.Query, plan.CoverageTargets)
-	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all")
 	// Typed hop executor: bind packet from hop joins when hops exist.
 	if plan.NeedsMultiHop && len(plan.Hops) > 0 {
 		hopResults, byKey := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)

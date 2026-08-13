@@ -830,6 +830,55 @@ func TestSupersedeHidesPriorFromDefaultSearch(t *testing.T) {
 	}
 }
 
+func TestHistoricalIntentRetrievesPriorResidence(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["ny"] = MemoryRecord{
+		MemoryID: "mem_ny", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex lives in New York",
+		DedupeKey: "ny", Status: StatusActive, LifecycleState: LifecycleSuperseded,
+		Metadata:  map[string]any{"predicate": PredicateResidence, "value_norm": "new york", "memory_type": "state"},
+		CreatedAt: now, UpdatedAt: now,
+	}
+	store.records["au"] = MemoryRecord{
+		MemoryID: "mem_au", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex lives in Austin",
+		DedupeKey: "au", Status: StatusActive, LifecycleState: LifecycleActive,
+		Metadata:  map[string]any{"predicate": PredicateResidence, "value_norm": "austin", "memory_type": "state"},
+		CreatedAt: now, UpdatedAt: now,
+	}
+
+	cur, err := service.SearchOpt(context.Background(), "t1", "u1", "", "", "where does Alex currently live", SearchOptions{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, r := range cur.Results {
+		joined += " " + r.Content
+		if strings.Contains(r.Content, "New York") {
+			t.Fatalf("current-state search leaked superseded NY: %q", r.Content)
+		}
+	}
+	if !strings.Contains(joined, "Austin") {
+		t.Fatalf("current-state should prefer Austin, got %q", joined)
+	}
+
+	hist, err := service.SearchOpt(context.Background(), "t1", "u1", "", "", "where did Alex live before", SearchOptions{Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundNY := false
+	for _, r := range hist.Results {
+		if strings.Contains(r.Content, "New York") {
+			foundNY = true
+		}
+	}
+	if !foundNY {
+		t.Fatalf("historical intent should retrieve NY, results=%+v", hist.Results)
+	}
+}
+
 func TestListQueryDiversifiesThemes(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

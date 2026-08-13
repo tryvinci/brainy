@@ -161,6 +161,12 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	}
 	record.Content = sanitizeUTF8(record.Content)
 	record.SourceText = sanitizeUTF8(record.SourceText)
+	if record.Metadata == nil {
+		record.Metadata = map[string]any{}
+	}
+	if v, ok := record.Metadata["memory_type"].(string); !ok || strings.TrimSpace(v) == "" {
+		record.Metadata["memory_type"] = memoryTypeOf(record)
+	}
 	return record, nil
 }
 
