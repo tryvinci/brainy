@@ -72,4 +72,10 @@ Kill list unchanged: no fusion-constant fishing, no graph DB, no category dictio
 
 ## LoCoMo 1×30 remasure
 
-Run `locomo-pr2-dev-1x30-20260813` against the merged PR2 local stack (commit `24be5ab`), dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`, `BRAINY_USE_RECALL=1`. Pin honestly when the json lands (even if it dips vs post-cutover 15/30). Do not blend with Gate 0 18/30.
+**Done (honest):** run `locomo-pr2-dev-1x30-20260813` on merged PR2 local stack (`24be5ab`), dataset SHA `79fa87e…`, `BRAINY_USE_RECALL=1`.
+
+**6/30 (20%)** — MH 4/10, OD 1/4, temporal 1/16. Failure ledger: **24/24 `READER_MISS`** with evidence/semantic/retrieval/coverage oracles **supported**. Pin: [locomo-pr2-dev-1x30-20260813.md](../locomo-pr2-dev-1x30-20260813.md).
+
+This is a **dip** vs post-cutover staging 15/30 and Gate 0 18/30. Do not blend. Same-day Mem0 same-pin is **12/30** (MH 7/10). Mem0 leads. No SOTA / beats-Mem0 language.
+
+The 1×30 ledger agrees with LME-20: gold is in the store; the reader emits continuation. That keeps **PR5 / PR4 / PR9 / PR3** ahead of PR6–PR8.

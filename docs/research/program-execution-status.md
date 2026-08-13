@@ -47,7 +47,17 @@ Item ledger: [lme20-product-recall-pr1-20260812-failure-ledger.md](../benchmarks
 | Assistant turns stored as recall-primary `conversation_episode` | **PR9 indicated** (drop boilerplate episodes; keep assistant-stated facts) |
 | LME single-session fails without missing edges | **Do not start PR6–PR8** as the first move |
 
-LoCoMo 1×30 remasure on merged PR2 (`24be5ab`): run id `locomo-pr2-dev-1x30-20260813`. Pin when the json lands; do not invent lift vs 15/30.
+### PR6–PR8 deferral (measured)
+
+Wave 1 does **not** start with canonical entities / Postgres SPO / hop V3:
+
+- LME-20 single-session-user is 0/3 with search hits present.
+- LoCoMo 1×30 WRONG items are **24/24 `READER_MISS`** with coverage oracles supported.
+- Mem0 still leads MH on the same pin (7/10 vs 4/10), but Brainy’s oracles say the facts are already in the packet. That is PR5/PR4/PR9, not a graph DB.
+
+Revisit PR6–PR8 only after Wave 1 remasure shows **coverage** (not reader-parse) as the remaining MH driver on 3×90.
+
+LoCoMo 1×30 remasure on merged PR2 (`24be5ab`): **6/30** (MH 4/10, temporal 1/16). Ledger **24/24 READER_MISS** with oracles supported. Pin: [locomo-pr2-dev-1x30-20260813.md](../benchmarks/artifacts/locomo-pr2-dev-1x30-20260813.md). Dip vs staging 15/30; do not invent lift.
 
 ## Competitive program — accepted sequence
 
@@ -55,27 +65,25 @@ LoCoMo 1×30 remasure on merged PR2 (`24be5ab`): run id `locomo-pr2-dev-1x30-202
 | --- | --- | --- | --- |
 | PR1 LME-20 measurement integrity | MEASUREMENT / WRITE_PIPELINE | **Done** | Publishable pin: 20/20 `/recall`, jobs 4829=4829 failed=0; accuracy **0/20** |
 | PR2 Conversational vs governed write policy | REPRESENTATION_MISS | **Merged to `dev`** (#100) | Core/conversation append-only; non-core verticals keep #94 ops. Local OpMem **13/13** + marketing **passed**. Auto-supersede still runs on conversational ingest. |
-| PR3 Temporal features V1 | TEMPORAL_RETRIEVAL_MISS | **Wave D: after PR5** | Reuse mig-16; intent → `IncludeHistorical`; `temporal_score` |
-| PR4 Retrieval V4 budgets | RETRIEVAL_MISS | Queued after PR3 | Wire `MaxEvidenceTokens`; candidate matrix 30/50/100/200 @ fixed tokens; episode penalty |
-| PR5 Context vs proof split | EVIDENCE_COVERAGE_MISS | **Wave D: first** | `ContextEvidence` + `ProofChain`; stop hop packet replacement |
-| PR6 Canonical entity store V2 | ENTITY_RESOLUTION_MISS | **Deferred** | Not the LME driver (single-session 0 without missing edges) |
-| PR7 Relation memory V1 | MULTIHOP_REPRESENTATION_MISS | **Deferred** | Postgres SPO only after Wave 1 shows MH coverage as the remaining driver |
-| PR8 Hop executor V3 | MULTIHOP_PLANNING_MISS | **Deferred** | `follow_relation` after PR7 |
-| PR9 Assistant-generated memories | EXTRACTION_COVERAGE_MISS | **Indicated (inverted)** | Do not persist assistant boilerplate as recall-primary episodes |
-| PR10 Frozen competitive qualification | — | Blocked on Wave 1 pins | Fresh Mem0 same-pin + publishable LME-20 quality; **no SOTA / beats-Mem0 until that pin** |
+| PR3 Temporal features V1 | TEMPORAL_RETRIEVAL_MISS | **Opened** #103 | Reuse mig-16; intent → `IncludeHistorical`; `temporal_score` |
+| PR4 Retrieval V4 budgets | RETRIEVAL_MISS | **Opened** #104 | Wire `MaxEvidenceTokens`; candidate matrix 30/50/100/200 @ fixed tokens; episode penalty |
+| PR5 Context vs proof split | EVIDENCE_COVERAGE_MISS | **Opened** #102 | `ContextEvidence` + `ProofChain`; stop hop packet replacement |
+| PR6 Canonical entity store V2 | ENTITY_RESOLUTION_MISS | **Deferred** | Wave D + 1×30: oracles supported / READER_MISS. Not missing edges. |
+| PR7 Relation memory V1 | MULTIHOP_REPRESENTATION_MISS | **Deferred** | 1×30 MH 4/10 vs Mem0 7/10 but 24/24 failures are READER_MISS with coverage supported — not an SPO-table first move |
+| PR8 Hop executor V3 | MULTIHOP_PLANNING_MISS | **Deferred** | `follow_relation` after PR7, only if Wave 1 pins show coverage (not reader) as the MH driver |
+| PR9 Assistant-generated memories | EXTRACTION_COVERAGE_MISS | **Opened** #105 | Do not persist assistant boilerplate as recall-primary episodes |
+| PR10 Frozen competitive qualification | — | **Measured; not claimed** | Fresh Mem0 **12/30** (MH 70%) vs Brainy local **6/30**. LME-20 quality still **0/20**. **No SOTA / beats-Mem0.** |
 
 ## Still open (honest)
 
-- Conversational quality (LME-20 **0/20** publishable; LoCoMo post-cutover 15/30 / 33/90)
-- Wave D LoCoMo 1×30 remasure in flight (`locomo-pr2-dev-1x30-20260813`)
-- PR3–PR5–PR4–PR9 follow-up branches off `dev` `24be5ab`
-- PR6–PR8 deferred pending Wave 1 MH coverage evidence
-- Mem0 same-pin under post-harden / PR2 stack (old V3 pin is not this stack)
-- LME-100 (measurement gate open; quality not ready)
+- Conversational quality (LME-20 **0/20** publishable; LoCoMo staging 15/30 / 33/90; **local PR2 remasure 6/30**)
+- Merge Wave 1 PRs #102–#105 to `dev` and remasure (do not invent lift beforehand)
+- PR6–PR8 still deferred: 1×30 failures are READER_MISS with oracles supported
+- PR10: Mem0 **12/30** same-pin done; Brainy does **not** win; LME-20 quality still 0/20 so LME-100 is not a quality run
 - Pack authority / procedures / conflict packets (deferred behind conversational parity)
 - Hash/128 re-embed residue
 
 ## Claims discipline
 
-- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); #100 merged to `dev` only; Wave D histogram above.
-- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME.
+- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; local PR2 remasure **6/30**; fresh Mem0 **12/30** (MH 7/10); OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); #100 merged to `dev` only; Wave D histogram; Wave 1 PRs opened against `dev`.
+- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30 or local 6/30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME.
