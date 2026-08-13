@@ -35,4 +35,5 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Post-cutover staging 1×30 (`1f2f26f`) | 15/30 · MH 50% · OD 25% |
 | Post-cutover staging 3×90 (`1f2f26f`) | 33/90 · MH **22.2%** · OD 42.9% |
 | OpMem / marketing post-cutover | 13/13 / passed |
+| OpMem / marketing PR2 local (`10a31e3`) | 13/13 / passed — [opmem](../../benchmarks/artifacts/opmem-pr2-local-20260813.md) · [marketing](../../benchmarks/artifacts/marketing-pr2-local-20260813.md) |
 | LME-20 | **Publishable 0/20** `/recall` — [pin](../../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |
