@@ -237,3 +237,21 @@ func TestFormatHybridMemoryLinesIncludesHopChain(t *testing.T) {
 		t.Fatalf("expected hop chain lines, got %q", joined)
 	}
 }
+
+func TestFormatHybridMemoryLinesLeadsWithContext(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []string{"Alex lives in New York", "Alex later moved to Austin"},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "fetch_predicate", Value: "Austin", Source: "typed_store", Contents: []string{"Alex lives in Austin"}},
+			},
+		},
+	}
+	lines := formatHybridMemoryLines(pkt)
+	if len(lines) < 2 {
+		t.Fatalf("lines=%v", lines)
+	}
+	if !strings.Contains(lines[0], "New York") {
+		t.Fatalf("context must lead, first=%q", lines[0])
+	}
+}

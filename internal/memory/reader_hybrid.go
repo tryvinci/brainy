@@ -122,7 +122,16 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 			lines = append(lines, "- "+content)
 		}
 	}
-	// Structured hop chain when hop executor results are present.
+	// Broad search context first — hops must not starve the reader.
+	for _, c := range pkt.ContextEvidence {
+		add(c, "")
+	}
+	if len(pkt.ContextEvidence) == 0 {
+		for _, c := range pkt.Contents {
+			add(c, "")
+		}
+	}
+	// Structured hop chain is proof, not a replacement for context.
 	if raw, ok := pkt.Coverage["hop_results"]; ok {
 		if hops, ok := raw.([]HopResult); ok && len(hops) > 0 {
 			lines = append(lines, "Hop chain:")
@@ -152,13 +161,11 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 			}
 		}
 	}
-	for _, it := range pkt.Items {
+	for _, it := range pkt.ProofChain {
 		add(it.Content, it.MemoryID)
 	}
-	if len(lines) == 0 {
-		for _, c := range pkt.Contents {
-			add(c, "")
-		}
+	for _, it := range pkt.Items {
+		add(it.Content, it.MemoryID)
 	}
 	if pkt.TemporalAnswer != "" {
 		add(pkt.TemporalAnswer, "")
