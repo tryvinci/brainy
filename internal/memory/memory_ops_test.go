@@ -154,7 +154,7 @@ func TestIngestUpdateSupersedesPriorGoverned(t *testing.T) {
 	store := newMemoryStoreStub()
 	svc := NewService(store)
 	created, err := svc.Ingest(context.Background(), IngestRequest{
-		TenantID: "t-gov", SubjectID: "u1", SourceType: "crm", Vertical: "support",
+		TenantID: "t-gov", SubjectID: "u1", SourceType: "conversation", Vertical: "support",
 		Messages: []Message{{Role: "user", Content: "Jordan: I work as a nurse"}},
 	})
 	if err != nil || len(created.Memories) == 0 {
@@ -179,7 +179,7 @@ func TestIngestUpdateSupersedesPriorGoverned(t *testing.T) {
 	}, server.Client()), store))
 
 	out, err := svc.Ingest(context.Background(), IngestRequest{
-		TenantID: "t-gov", SubjectID: "u1", SourceType: "crm", Vertical: "support",
+		TenantID: "t-gov", SubjectID: "u1", SourceType: "conversation", Vertical: "support",
 		Messages: []Message{{Role: "user", Content: "Jordan: I am a doctor now"}},
 	})
 	if err != nil {
@@ -257,7 +257,7 @@ func TestIngestDeleteSuppressesTargetGoverned(t *testing.T) {
 	store := newMemoryStoreStub()
 	svc := NewService(store)
 	created, err := svc.Ingest(context.Background(), IngestRequest{
-		TenantID: "t-del-gov", SubjectID: "u1", SourceType: "crm", Vertical: "support",
+		TenantID: "t-del-gov", SubjectID: "u1", SourceType: "conversation", Vertical: "support",
 		Messages: []Message{{Role: "user", Content: "Sam keeps a pet snake named Noodle"}},
 	})
 	if err != nil || len(created.Memories) == 0 {
@@ -280,7 +280,7 @@ func TestIngestDeleteSuppressesTargetGoverned(t *testing.T) {
 	}, server.Client()))
 
 	_, err = svc.Ingest(context.Background(), IngestRequest{
-		TenantID: "t-del-gov", SubjectID: "u1", SourceType: "crm", Vertical: "support",
+		TenantID: "t-del-gov", SubjectID: "u1", SourceType: "conversation", Vertical: "support",
 		Messages: []Message{{Role: "user", Content: "Sam: I rehomed Noodle, no more snake"}},
 	})
 	if err != nil {
