@@ -10,8 +10,8 @@ import (
 
 // UpsertMemoryAtom indexes a typed (predicate, value) atom for enumeration scans.
 func (s *Store) UpsertMemoryAtom(ctx context.Context, tenantID, subjectID, predicate, value, memoryID string, observedAt *time.Time) error {
-	predicate = strings.TrimSpace(predicate)
-	valueNorm := strings.ToLower(strings.TrimSpace(value))
+	predicate = memory.SanitizeUTF8(strings.TrimSpace(predicate))
+	valueNorm := memory.SanitizeUTF8(strings.ToLower(strings.TrimSpace(value)))
 	if tenantID == "" || subjectID == "" || predicate == "" || valueNorm == "" || memoryID == "" {
 		return nil
 	}

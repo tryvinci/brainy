@@ -58,6 +58,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		return ok, err
 	}
 
+	memory.NormalizeIngestRequest(&job.Request)
 	extracted, err := p.extractor.Extract(ctx, job.Request)
 	if err != nil {
 		// Fail before any upserts so a provider error cannot leave partial
@@ -66,13 +67,16 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		return true, err
 	}
 
+	mode := memory.WriteMutationModeOf(job.Request)
 	for _, item := range extracted {
 		p.metrics.RecordExtraction()
 		if memory.MemoryEventOf(item) == memory.MemoryEventDelete {
-			_ = memory.ApplyDeleteMemoryEvent(ctx, p.store, job.Request.TenantID, job.Request.SubjectID, item)
-			continue
+			_ = memory.ApplyDeleteMemoryEvent(ctx, p.store, job.Request.TenantID, job.Request.SubjectID, item, mode)
+			if mode == memory.WriteModeGoverned {
+				continue
+			}
 		}
-		if !memory.PrepareExtractedForPersist(&item) {
+		if !memory.PrepareExtractedForPersist(&item, mode) {
 			continue
 		}
 		record, err := memory.BuildMemoryRecord(p.id("mem"), p.now(), job.Request, item, p.packs)

@@ -105,6 +105,7 @@ func (s *Service) WithEmbedder(embedder embedding.Embedder) *Service {
 }
 
 func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, error) {
+	NormalizeIngestRequest(&req)
 	if err := validateIngestRequest(req); err != nil {
 		return IngestResult{}, err
 	}
@@ -132,12 +133,15 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		Accepted: true,
 	}
 
+	mode := WriteMutationModeOf(req)
 	for _, extracted := range memories {
 		if MemoryEventOf(extracted) == MemoryEventDelete {
-			_ = ApplyDeleteMemoryEvent(ctx, s.store, req.TenantID, req.SubjectID, extracted)
-			continue
+			_ = ApplyDeleteMemoryEvent(ctx, s.store, req.TenantID, req.SubjectID, extracted, mode)
+			if mode == WriteModeGoverned {
+				continue
+			}
 		}
-		if !PrepareExtractedForPersist(&extracted) {
+		if !PrepareExtractedForPersist(&extracted, mode) {
 			continue
 		}
 		record, err := BuildMemoryRecord(s.id("mem"), s.now(), req, extracted, s.packs)
@@ -231,6 +235,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 }
 
 func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncIngestResult, error) {
+	NormalizeIngestRequest(&req)
 	if err := validateIngestRequest(req); err != nil {
 		return AsyncIngestResult{}, err
 	}

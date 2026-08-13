@@ -65,7 +65,7 @@ func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]E
 		}
 		return nil, err
 	}
-	return mergeProviderAndBaseline(baseline, providerMemories), nil
+	return mergeProviderAndBaseline(baseline, providerMemories, WriteMutationModeOf(req)), nil
 }
 
 func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
@@ -316,19 +316,22 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 	return out, nil
 }
 
-func mergeProviderAndBaseline(baseline, provider []ExtractedMemory) []ExtractedMemory {
+func mergeProviderAndBaseline(baseline, provider []ExtractedMemory, mode WriteMutationMode) []ExtractedMemory {
 	if len(provider) == 0 {
 		return baseline
 	}
-	// Provider NONE/DELETE/UPDATE are authoritative for their semantic key /
-	// source span — drop matching baseline items before content-key merge.
-	suppressKeys, suppressSources, suppressContents := providerSuppressSets(provider)
-	filteredBaseline := make([]ExtractedMemory, 0, len(baseline))
-	for _, item := range baseline {
-		if baselineSuppressedByProvider(item, suppressKeys, suppressSources, suppressContents) {
-			continue
+	filteredBaseline := baseline
+	if mode == WriteModeGoverned {
+		// Provider NONE/DELETE/UPDATE are authoritative for their semantic key /
+		// source span — drop matching baseline items before content-key merge.
+		suppressKeys, suppressSources, suppressContents := providerSuppressSets(provider)
+		filteredBaseline = make([]ExtractedMemory, 0, len(baseline))
+		for _, item := range baseline {
+			if baselineSuppressedByProvider(item, suppressKeys, suppressSources, suppressContents) {
+				continue
+			}
+			filteredBaseline = append(filteredBaseline, item)
 		}
-		filteredBaseline = append(filteredBaseline, item)
 	}
 
 	out := make([]ExtractedMemory, 0, len(provider)+len(filteredBaseline))

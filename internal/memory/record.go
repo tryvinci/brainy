@@ -4,9 +4,33 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"brainy/internal/pack"
 )
+
+// SanitizeUTF8 strips invalid UTF-8 byte sequences so Postgres TEXT inserts
+// cannot fail with SQLSTATE 22021 (invalid_byte_sequence).
+func SanitizeUTF8(value string) string {
+	if value == "" || utf8.ValidString(value) {
+		return value
+	}
+	return strings.ToValidUTF8(value, "")
+}
+
+// sanitizeUTF8 is kept as an unexported alias for local callers/tests.
+func sanitizeUTF8(value string) string { return SanitizeUTF8(value) }
+
+// NormalizeIngestRequest mutates message contents to valid UTF-8.
+func NormalizeIngestRequest(req *IngestRequest) {
+	if req == nil {
+		return
+	}
+	for i := range req.Messages {
+		req.Messages[i].Content = sanitizeUTF8(req.Messages[i].Content)
+		req.Messages[i].Role = sanitizeUTF8(req.Messages[i].Role)
+	}
+}
 
 // BuildMemoryRecord materializes an extracted memory into a storeable record.
 // Shared by sync Service ingest and async job Processor so behavior stays aligned.
@@ -21,10 +45,10 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 		TenantID:          req.TenantID,
 		SubjectID:         req.SubjectID,
 		Kind:              extracted.Kind,
-		Content:           extracted.Content,
-		SourceText:        extracted.SourceText,
+		Content:           sanitizeUTF8(extracted.Content),
+		SourceText:        sanitizeUTF8(extracted.SourceText),
 		SourceType:        req.SourceType,
-		DedupeKey:         DedupeKey(req.TenantID, req.SubjectID, extracted.Kind, extracted.Content),
+		DedupeKey:         DedupeKey(req.TenantID, req.SubjectID, extracted.Kind, sanitizeUTF8(extracted.Content)),
 		Status:            StatusActive,
 		Confidence:        extracted.Confidence,
 		ExtractionVersion: version,
@@ -35,6 +59,12 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	if err := ApplyVerticalPack(&record, req, extracted.Kind, extracted.Content, packs); err != nil {
 		return MemoryRecord{}, err
 	}
+	record.Content = sanitizeUTF8(record.Content)
+	record.SourceText = sanitizeUTF8(record.SourceText)
+	record.Label = sanitizeUTF8(record.Label)
+	record.Scope = sanitizeUTF8(record.Scope)
+	record.Primitive = sanitizeUTF8(record.Primitive)
+	record.Vertical = sanitizeUTF8(record.Vertical)
 
 	if rule, _ := extracted.Explain["rule"].(string); rule == "conversation_episode" {
 		record.Primitive = PrimitiveEpisode
@@ -70,6 +100,7 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	record.ObservedAt = ResolveObservedAt(record.Metadata, extracted.When)
 	if record.ObservedAt != nil {
 		record.Content = EnrichRelativeEventTime(record.Content, *record.ObservedAt)
+		record.Content = sanitizeUTF8(record.Content)
 	}
 	// Link semantic objects to raw evidence captured at ingest.
 	if req.Metadata != nil {
@@ -128,6 +159,8 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 			record.SupersedesID = sid
 		}
 	}
+	record.Content = sanitizeUTF8(record.Content)
+	record.SourceText = sanitizeUTF8(record.SourceText)
 	return record, nil
 }
 

@@ -14,23 +14,59 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 5. **Queue work** in the accepted priority order (do not default to fusion retune).
 6. **Link** the archive from `docs/research/README.md`.
 
+## How to commission the next external pass
+
+1. Hand the reviewer the **dedicated self-review prompt** (not a chat dump):  
+   **[2026-08-11-hardening-self-review-prompt.md](./2026-08-11-hardening-self-review-prompt.md)**
+2. Attach the assessment pack only as architecture context:  
+   [external-agent-assessment-pack.md](../external-agent-assessment-pack.md)
+3. Require the [TEMPLATE.md](./TEMPLATE.md) return shape (verdict + findings table + next sequence + kill list).
+4. Adjudicate findings with code evidence before queueing PRs.
+
 ## Default priority after 2026-08-04 architecture verdict
 
 > raw evidence → typed semantics → temporal truth → kill scan-heavy retrieval → plan evidence → executable vertical packs
 
 **PR1–PR7 of that sequence are CLOSED** (2026-08-05 closeout). Do not re-queue them unless a new review reopens a finding.
 
-## Default priority for the next external agent pass
+## Default priority after V3 hardening cutover (2026-08-11)
 
-**Accepted 2026-08-07:** [2026-08-07-recall-contract-verdict.md](./2026-08-07-recall-contract-verdict.md)  
-**Re-review brief 2026-08-10:** [2026-08-10-rereview-brief.md](./2026-08-10-rereview-brief.md)  
-**Landed on `main` + `dev`:** recall-contract + multi-hop packet depth. Staging: `BRAINY_RECALL_LLM=1`; OpMem 13/13 + marketing non-reg passed; LoCoMo MH 50% on 1×30 after multi-hop.
+**Accepted course:** KEEP V3, harden — then merge.  
+**Landed:** PRs #93–#98 on `dev` (`1f2f26f`) and production `main` (`308d3a1`). Staging Render live on `1f2f26f`.
 
-> **Current handoff:** [2026-08-10-v3-rereview-brief.md](./2026-08-10-v3-rereview-brief.md)
+## Default priority after competitive architecture verdict (2026-08-11)
 
-**Next:** finish LME-20/100 under job barriers → staging Mem0 same-pin re-measure → multi-seed LoCoMo → pack authority/procedures/conflicts
+**Accepted:** [2026-08-11-competitive-architecture-verdict.md](./2026-08-11-competitive-architecture-verdict.md) — KEEP V3; **adjust** next program to competitive parity (Mem0 recall + Graphiti relations + Brainy governed truth).
 
-Do **not** default to fusion retune, graph DB, or re-opening architect PR1–PR7.
+**Competitive SOP:** [../competitive/README.md](../competitive/README.md) · [gap matrix](../competitive/competitive-gap-matrix.md)
+
+**Prior handoff / self-review prompt:**  
+[2026-08-11-hardening-self-review-prompt.md](./2026-08-11-hardening-self-review-prompt.md)
+
+**Prior briefs (historical):**  
+[2026-08-10-v3-rereview-brief.md](./2026-08-10-v3-rereview-brief.md) · [2026-08-10-rereview-brief.md](./2026-08-10-rereview-brief.md) · [2026-08-07-recall-contract-verdict.md](./2026-08-07-recall-contract-verdict.md)
+
+**Next work (in order):**
+
+1. **PR1** — LME-20 measurement integrity — **done** (publishable 0/20)
+2. **PR2** — Conversational append-only vs governed mutation policy — **code landed**
+3. **PR3** — Temporal features V1 + `temporal_score` ranking
+4. **PR4** — Retrieval V4 candidate/context/proof budgets
+5. **PR5** — ContextEvidence vs ProofChain
+6. **PR6–PR8** — Canonical entities → relation memory → hop executor V3
+7. **PR9–PR10** — Assistant memories → frozen competitive qualification
+
+Do **not** default to fusion retune, graph DB, category dictionaries, hop-heuristic sprawl, or re-opening architect PR1–PR7.
+
+## Pin honesty (binding for reviewers and agents)
+
+| Pin family | Rule |
+| --- | --- |
+| Gate 0 staging (`9bad898`) | 1×30 **18/30**; 3×90 **32/90** with MH **19.4%** (not 50%) |
+| Harden local (#93–#97) | 1×30 **14/30** — **dip**, not a win vs Gate 0 |
+| Post-cutover staging (`1f2f26f`) | 1×30 **15/30**; 3×90 **33/90** with MH **22.2%** |
+| LME | Path `/recall` proven; aborted/partial runs are **not** accuracy claims |
+| Production | `main` `308d3a1` holds the hardening cutover — still no conversational SOTA language |
 
 ## Rejected by default (unless new evidence)
 
@@ -40,3 +76,5 @@ Do **not** default to fusion retune, graph DB, or re-opening architect PR1–PR7
 - Treating `memory_current_state` as canonical truth
 - Ungrounded rolling profiles
 - Top-k inflation as architecture substitute
+- Calling harden scores an improvement when they dipped
+- Publishable LME / SOTA / “beats Mem0” without matching artifacts

@@ -1,21 +1,23 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-10 (architect PR1–PR7 **closed**; recall-contract + multi-hop packet depth **on `main` + `dev`**)  
-**How to use:** Pass this file (plus the dated re-review brief and optional [codebase-graph.md](./codebase-graph.md) / [codebase-graph.json](./codebase-graph.json)) to an external coding or research agent.
+**Date:** 2026-08-11 (architect PR1–PR7 **closed**; V3 hardening **landed**; **competitive program accepted**)  
+**How to use:** Start from the competitive verdict + gap matrix. Use this pack for architecture context + reproduce commands.
 
 | Related doc | Role |
 | --- | --- |
-| [external-reviews/2026-08-10-rereview-brief.md](./external-reviews/2026-08-10-rereview-brief.md) | **Start here for re-review** — current pins + ask |
+| [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md) | **Start here** — accepted competitive program (KEEP V3; adjust next sequence) |
+| [competitive/README.md](./competitive/README.md) | Competitive archaeology SOP |
+| [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md) | Living Mem0/Graphiti/Brainy gap matrix |
+| [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) | Hardening cutover self-review prompt (historical) |
+| [external-reviews/README.md](./external-reviews/README.md) | Standing intake SOP + current priority |
+| [external-reviews/2026-08-10-v3-rereview-brief.md](./external-reviews/2026-08-10-v3-rereview-brief.md) | Prior V3 re-review brief (historical) |
 | [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md) | Accepted recall-contract course correction |
 | [external-reviews/2026-08-04-architecture-verdict.md](./external-reviews/2026-08-04-architecture-verdict.md) | Architecture course correction (accepted; **sequence closed**) |
-| [external-reviews/README.md](./external-reviews/README.md) | Standing intake SOP for future reviews |
-| [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contract-proof-20260807.md) | Same-pin LoCoMo proof (pre multi-hop depth) |
-| [locomo-multihop-pin-20260808.md](../benchmarks/artifacts/locomo-multihop-pin-20260808.md) | Post multi-hop 1×30 pin |
-| [locomo-smoke-recall-reader-20260805.md](../benchmarks/artifacts/locomo-smoke-recall-reader-20260805.md) | Prior deterministic `/recall` smoke |
+| [recall-contract-v3-hardening-qualification-20260811.md](../benchmarks/artifacts/recall-contract-v3-hardening-qualification-20260811.md) | Hardening qualification + pins |
 | [codebase-graph.md](./codebase-graph.md) | Visual/structural map |
 | [codebase-graph.json](./codebase-graph.json) | Machine-readable graph |
-| [sota-end-to-end-program.md](./sota-end-to-end-program.md) | Program of record |
+| [sota-end-to-end-program.md](./sota-end-to-end-program.md) | Prior program of record (superseded for next sequence by competitive verdict) |
 | [program-execution-status.md](./program-execution-status.md) | Execution + measurement notes |
 
 ---
@@ -54,15 +56,16 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | --- | ---: |
 | Staging Gate 0 1×30 (deploy `9bad898`) | **60% (18/30)**, MH **50%**, OD **25%** — [pin](../benchmarks/artifacts/locomo-staging-gate0-1x30-pin-20260811.md) |
 | Staging Gate 0 3×90 | **35.6% (32/90)**, MH **19.4%**, OD **42.9%** — [pin](../benchmarks/artifacts/locomo-staging-gate0-3x90-pin-20260811.md) |
-| Harden local 1×30 (PRs #93–#97) | **46.7% (14/30)**, MH **50%**, OD **50%** — [pin](../benchmarks/artifacts/locomo-harden-1x30-pin-20260811.md) |
+| Harden local 1×30 (PRs #93–#97) | **46.7% (14/30)**, MH **5/10**, OD **2/4** — [pin](../benchmarks/artifacts/locomo-harden-1x30-pin-20260811.md) |
+| Post-cutover staging 1×30 (`1f2f26f`) | **50% (15/30)**, MH **50%**, OD **25%** — [pin](../benchmarks/artifacts/locomo-staging-postcutover-1x30-pin-20260811.md) |
+| Post-cutover staging 3×90 (`1f2f26f`) | **36.7% (33/90)**, MH **22.2%**, OD **42.9%** — [pin](../benchmarks/artifacts/locomo-staging-postcutover-3x90-pin-20260811.md) |
+| Post-cutover staging OpMem / marketing (`1f2f26f`) | **13/13** / **passed** |
 | LoCoMo 1×30 V3 early `locomo-v3-early-20260810` | **53.3% (16/30)**, MH **50%**, hybrid **17/30** — [pin](../benchmarks/artifacts/locomo-v3-early-pin-20260810.md) |
 | LoCoMo V3 3×90 | **34.4% (31/90)** — [pin](../benchmarks/artifacts/locomo-v3-multiconvo-pin-20260810.md) |
 | OpMem / marketing (Gate 0 + harden) | **13/13** / **passed** |
-| LME-20 product-recall | Path `/recall` proven; full publish score in progress — [note](../benchmarks/artifacts/lme20-product-recall-partial-20260811.md) |
+| LME-20 product-recall | **Publishable** 0/20 `/recall`, jobs 4829=4829 failed=0 — [pin](../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |
 
-**Implication for next agent (2026-08-11):** V3 hardening PRs #93–#97 are open (ordered claims, authoritative ops, LME product-recall, hop executor, truthful status). Gate 0 staging baseline is recorded. Harden local 1×30 **dipped** vs Gate 0 (expected stricter `hop_join_proven`). Do **not** re-open fusion/graph/category dicts. Next: merge #93→#97 → `dev`, finish LME-20 publish, staging re-pin, Mem0 same-pin. Never `main` without ask.
-
-Start from [2026-08-10-v3-rereview-brief.md](./external-reviews/2026-08-10-v3-rereview-brief.md) + [recall-contract-v3-hardening-qualification-20260811.md](../benchmarks/artifacts/recall-contract-v3-hardening-qualification-20260811.md). Still reject: fusion retune, graph DB, category dictionaries, conversational SOTA claims.
+**Implication for next agent (2026-08-11):** Competitive architecture verdict **accepted with modifications**. Hardening #93–#98 remains landed. Do **not** reopen fusion/graph/category dicts or invent hop heuristics as the primary next move. Execute PR1 (LME integrity) → PR2–PR10 per [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) and [gap matrix](./competitive/competitive-gap-matrix.md). Still reject: fusion retune, graph DB default, category dictionaries, conversational SOTA claims.
 ---
 
 ## 0. One-paragraph product definition
@@ -278,12 +281,13 @@ Program detail: [sota-end-to-end-program.md](./sota-end-to-end-program.md) §24.
 | 6 Neutral proof | SOTA qualification | Smoke only; full multi-seed + LME pending |
 | 7–8 Associative / learned policy | Research gates | Deferred |
 
-**Active priority (post architect closeout):**  
-1. Improve reader quality over packets (composition / optional bounded LLM reader on packet IDs)  
-2. Finish LME-100 adjudication + drain async worker backlog  
-3. Mem0 same-pin compare (`MEM0_API_KEY` available)  
-4. Pack authority / procedures / conflict packets  
-5. Evidence-as-search-primary only if ledger shows retrieval/coverage misses
+**Active priority (competitive program):**  
+1. PR1 — LME-20 measurement integrity — **done** (publishable 0/20)  
+2. PR2 — Conversational append-only vs governed mutation — **code landed** (no quality pin yet)  
+3. PR3 — Temporal features V1 + `temporal_score`  
+4. PR4 — Retrieval V4 candidate/context/proof budgets  
+5. PR5–PR8 — Context/proof split → entities → relations → hop V3  
+6. PR9–PR10 — Assistant memories → frozen competitive qualification  
 
 ---
 
@@ -314,7 +318,7 @@ go test ./internal/memory/ ./internal/api/ ./internal/store/postgres/ ./internal
 
 Pins: Brainy commit SHA, dataset hash, answerer/judge models, top-k, Fusion flags — see manifests under `docs/benchmarks/runs/` and `docs/benchmarks/artifacts/`.
 
-**Git lines:** staging Render auto-deploys from **`dev`**; **`main`** is the production git line (merged through planner/packs as of `5d759d6`).
+**Git lines:** staging Render auto-deploys from **`dev`** (live `1f2f26f`); **`main`** is production (hardening cutover `308d3a1`).
 
 ---
 
@@ -333,14 +337,13 @@ Pins: Brainy commit SHA, dataset hash, answerer/judge models, top-k, Fusion flag
 
 ## 11. Handoff checklist for the receiving agent
 
+- [ ] Read [2026-08-11 hardening self-review prompt](./external-reviews/2026-08-11-hardening-self-review-prompt.md) first  
 - [ ] Read **Architecture verdict** + latest measurement shift (§ top)  
-- [ ] Read [2026-08-04 architecture verdict](./external-reviews/2026-08-04-architecture-verdict.md)  
-- [ ] Read [locomo-smoke-planner-packs-20260804.md](../benchmarks/artifacts/locomo-smoke-planner-packs-20260804.md) + skim failure ledger JSONL  
+- [ ] Read Gate 0 + harden pins under `docs/benchmarks/artifacts/*20260811*`  
 - [ ] Skim [codebase-graph.md](./codebase-graph.md) diagrams  
-- [ ] Inspect `Recall` + `planner.go` + `evidence_set.go` + `temporal.go`  
-- [ ] Skim migrations v17–v19 and `packs/support/v2/`  
+- [ ] Inspect `hop_executor.go`, `reader_hybrid.go`, `provider_extractor.go`, claim serialization in `store.go`  
 - [ ] Review latest artifacts in `docs/benchmarks/artifacts/` and `docs/benchmarks/runs/`  
-- [ ] Produce: architecture verdict, gap diagnosis, prioritized PR list, rejected ideas  
+- [ ] Produce TEMPLATE verdict + findings table + next 3–7 PRs + kill list  
 
 ---
 
@@ -364,4 +367,4 @@ docs/research/adr/           architecture decisions
 
 ---
 
-*Prepared so an external agent can assess Brainy without tribal knowledge. Prefer citing SHAs and artifacts over vibes. Latest conversational signal is the 2026-08-04 planner/packs smoke (60%, READER_MISS-dominant) — treat as directional, not publishable SOTA.*
+*Prepared so an external agent can assess Brainy without tribal knowledge. Prefer citing SHAs and artifacts over vibes. Latest conversational signal for this cutover: Gate 0 staging 18/30 + harden local 14/30 (honest dip) — not publishable SOTA.*

@@ -154,12 +154,18 @@ def answer_path_for_model(gen_model: str) -> str:
     return "/memories/search+harness"
 
 
-def ingest_haystack(backend: BrainyBackend, user_id: str, question: dict, chunk: int = 2) -> int:
+def ingest_haystack(backend: BrainyBackend, user_id: str, question: dict, chunk: int = 2) -> tuple[int, dict]:
     sessions = question.get("haystack_sessions") or []
     dates = question.get("haystack_dates") or []
     session_ids = question.get("haystack_session_ids") or []
     n = 0
     probes: list[str] = []
+    job_summary: dict = {
+        "jobs_expected": 0,
+        "jobs_completed": 0,
+        "jobs_failed": 0,
+        "failures": [],
+    }
     for idx, session in enumerate(sessions):
         if not session:
             continue
@@ -192,12 +198,12 @@ def ingest_haystack(backend: BrainyBackend, user_id: str, question: dict, chunk:
                 probes.append(last[0][:40])
     if n and backend.async_ingest:
         try:
-            backend.wait_until_jobs_done(user_id)
+            job_summary = backend.wait_until_jobs_done(user_id) or job_summary
         except Exception:
             if getattr(backend, "publish_mode", False):
                 raise
             backend.wait_until_any_searchable(user_id, probes[:3] or ["conversation"], settle_polls=6)
-    return n
+    return n, job_summary
 
 
 def write_report(
@@ -294,15 +300,17 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         gt = str(q.get("answer") or "")
         print(f"[{i+1}/{len(selected)}] {qid} type={qtype} ingest…", flush=True)
         try:
-            before_jobs = list(backend._pending_jobs.get(user_id, []))
-            n_ing = ingest_haystack(backend, user_id, q)
-            after_jobs = list(backend._pending_jobs.get(user_id, []))
-            # Tracked ids are cleared after wait; count from ingest side-effect length.
-            enqueued = max(0, len(after_jobs) - len(before_jobs))
-            # Prefer counting all jobs ever tracked for this subject during ingest.
-            # wait_until_jobs_done clears the list; approximate via n_ing batches.
-            jobs_expected += max(enqueued, 1 if n_ing and backend.async_ingest else 0)
-            print(f"  ingested ~{n_ing} msgs", flush=True)
+            n_ing, job_summary = ingest_haystack(backend, user_id, q)
+            jobs_expected += int(job_summary.get("jobs_expected") or 0)
+            jobs_completed += int(job_summary.get("jobs_completed") or 0)
+            jobs_failed += int(job_summary.get("jobs_failed") or 0)
+            print(
+                f"  ingested ~{n_ing} msgs "
+                f"jobs_expected={job_summary.get('jobs_expected')} "
+                f"completed={job_summary.get('jobs_completed')} "
+                f"failed={job_summary.get('jobs_failed')}",
+                flush=True,
+            )
             results, latency_ms = backend.recall(user_id, question_text, top_k=args.top_k)
             for r in results:
                 src = str((r.get("explain") or {}).get("reader_source") or r.get("reader_source") or "")
@@ -331,21 +339,6 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 gen_model = "lexical"
                 answer_paths.append(answer_path_for_model(gen_model))
                 jr = lexical_judge(answer, gt)
-            # Job outcome sampling via subject status after ingest wait.
-            try:
-                from httputil import get_json
-
-                counts = get_json(
-                    base_url,
-                    "/jobs/status",
-                    {"tenant_id": backend._tenant(user_id), "subject_id": user_id},
-                    timeout=30,
-                )
-                jobs_completed += int(counts.get("completed") or 0)
-                jobs_failed += int(counts.get("failed") or 0)
-            except Exception:
-                if publish:
-                    raise
             items.append(
                 EvalItem(
                     id=qid,
@@ -474,8 +467,6 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         extras=extras,
     )
     gaps = require_pins(manifest)
-    if publish and gaps:
-        raise SystemExit("proveability gaps: " + "; ".join(gaps))
 
     out_dir = pathlib.Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -491,6 +482,8 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     )
     if gaps:
         print("proveability gaps:", "; ".join(gaps), flush=True)
+    if publish and gaps:
+        raise SystemExit("proveability gaps: " + "; ".join(gaps))
     return result
 
 
