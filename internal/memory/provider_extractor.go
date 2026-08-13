@@ -65,7 +65,7 @@ func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]E
 		}
 		return nil, err
 	}
-	return mergeProviderAndBaseline(baseline, providerMemories, WriteMutationModeOf(req)), nil
+	return filterAssistantRecallEpisodes(req, mergeProviderAndBaseline(baseline, providerMemories, WriteMutationModeOf(req))), nil
 }
 
 func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {

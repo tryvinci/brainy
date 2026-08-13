@@ -37,6 +37,7 @@ func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]E
 	retainEpisodes := shouldRetainConversationEpisodes(req)
 	var allUtterances []string
 	for _, message := range req.Messages {
+		assistant := isAssistantRole(message.Role)
 		for _, utterance := range splitUtterances(message.Content) {
 			allUtterances = append(allUtterances, utterance)
 			if memory, ok := classifySentence(utterance); ok {
@@ -45,10 +46,20 @@ func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]E
 			}
 			// Keep free dialogue searchable without breaking labeled pack ingest
 			// (campaign / creative / analytics still fall through to pack_label_direct).
-			if retainEpisodes {
-				if episode, ok := conversationEpisode(utterance); ok {
-					extracted = append(extracted, episode)
+			if !retainEpisodes {
+				continue
+			}
+			if assistant {
+				if isPhaticAssistantText(utterance) {
+					continue
 				}
+				if fact, ok := assistantStatedMemory(utterance); ok {
+					extracted = append(extracted, fact)
+				}
+				continue
+			}
+			if episode, ok := conversationEpisode(utterance); ok {
+				extracted = append(extracted, episode)
 			}
 		}
 	}
@@ -57,7 +68,7 @@ func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]E
 	if retainEpisodes {
 		extracted = append(extracted, extractAttributeAtoms(allUtterances)...)
 	}
-	return extracted, nil
+	return filterAssistantRecallEpisodes(req, extracted), nil
 }
 
 func shouldRetainConversationEpisodes(req IngestRequest) bool {
@@ -87,6 +98,106 @@ func conversationEpisode(utterance string) (ExtractedMemory, bool) {
 			"primitive": PrimitiveEpisode,
 		},
 	}, true
+}
+
+func assistantStatedMemory(utterance string) (ExtractedMemory, bool) {
+	text := NormalizeText(utterance)
+	if text == "" || utf8.RuneCountInString(text) < minEpisodeRunes {
+		return ExtractedMemory{}, false
+	}
+	return ExtractedMemory{
+		Kind:       KindFact,
+		Content:    text,
+		SourceText: utterance,
+		Confidence: 0.7,
+		Explain: map[string]any{
+			"rule": "assistant_stated",
+		},
+	}, true
+}
+
+func isAssistantRole(role string) bool {
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "assistant", "system":
+		return true
+	default:
+		return false
+	}
+}
+
+func isPhaticAssistantText(text string) bool {
+	lower := strings.ToLower(text)
+	cues := []string{
+		"congratulations",
+		"you're welcome",
+		"you are welcome",
+		"happy to help",
+		"glad i could help",
+		"let me know if",
+		"that's a great",
+		"that's great",
+		"that's awesome",
+		"that's wonderful",
+		"fantastic idea",
+	}
+	for _, cue := range cues {
+		if strings.Contains(lower, cue) {
+			return true
+		}
+	}
+	return false
+}
+
+func isEpisodeLike(m ExtractedMemory) bool {
+	if m.Explain == nil {
+		return false
+	}
+	if r, _ := m.Explain["rule"].(string); r == "conversation_episode" {
+		return true
+	}
+	if p, _ := m.Explain["primitive"].(string); p == PrimitiveEpisode {
+		return true
+	}
+	return false
+}
+
+func actorRoleForText(req IngestRequest, text string) string {
+	n := strings.ToLower(NormalizeText(text))
+	if n == "" {
+		return ""
+	}
+	for _, m := range req.Messages {
+		mc := strings.ToLower(NormalizeText(m.Content))
+		if mc == "" {
+			continue
+		}
+		if mc == n || strings.Contains(mc, n) || strings.Contains(n, mc) {
+			return strings.ToLower(strings.TrimSpace(m.Role))
+		}
+	}
+	return ""
+}
+
+func filterAssistantRecallEpisodes(req IngestRequest, extracted []ExtractedMemory) []ExtractedMemory {
+	out := make([]ExtractedMemory, 0, len(extracted))
+	for _, m := range extracted {
+		role := actorRoleForText(req, firstNonEmpty(m.SourceText, m.Content))
+		phatic := isPhaticAssistantText(m.Content) || isPhaticAssistantText(m.SourceText)
+		if isAssistantRole(role) || (role == "" && phatic && isEpisodeLike(m)) {
+			if phatic {
+				continue
+			}
+			if isEpisodeLike(m) {
+				if m.Explain == nil {
+					m.Explain = map[string]any{}
+				}
+				m.Explain["rule"] = "assistant_stated"
+				delete(m.Explain, "primitive")
+			}
+		}
+		out = append(out, m)
+	}
+	return out
 }
 
 func NormalizeText(text string) string {
