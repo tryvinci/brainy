@@ -78,4 +78,12 @@ Kill list unchanged: no fusion-constant fishing, no graph DB, no category dictio
 
 This is a **dip** vs post-cutover staging 15/30 and Gate 0 18/30. Do not blend. Same-day Mem0 same-pin is **12/30** (MH 7/10). Mem0 leads. No SOTA / beats-Mem0 language.
 
-The 1×30 ledger agrees with LME-20: gold is in the store; the reader emits continuation. That keeps **PR5 / PR4 / PR9 / PR3** ahead of PR6–PR8.
+The 1×30 ledger agrees with LME-20: gold is in the store; the reader emits continuation. That kept **PR5 / PR4 / PR9 / PR3** ahead of PR6–PR8.
+
+## Wave 1 remasure (2026-08-13)
+
+**Done:** merge-commit #101–#105 onto `dev` (`a7a5184`); rebuild local API+worker; OpMem 13/13; marketing 17/17; LoCoMo `locomo-wave1-dev-1x30-20260813`.
+
+**14/30 (46.7%)** — MH **3/10**, OD 2/4, temporal **9/16**. Ledger **16/16 `READER_MISS`**, all four oracles **supported**. Pin: [locomo-wave1-dev-1x30-20260813.md](../locomo-wave1-dev-1x30-20260813.md).
+
+**Confound:** Wave 1 run had API `BRAINY_RECALL_LLM=1`; PR2 local 6/30 did not. Temporal moved; MH did not. Not an improvement vs Gate 0. **Do not start PR6–PR8.** Next is reader/enumerate emitting the fact, not chat continuation.

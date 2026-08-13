@@ -64,8 +64,10 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | LoCoMo V3 3×90 | **34.4% (31/90)** — [pin](../benchmarks/artifacts/locomo-v3-multiconvo-pin-20260810.md) |
 | OpMem / marketing (Gate 0 + harden) | **13/13** / **passed** |
 | LME-20 product-recall | **Publishable** 0/20 `/recall`, jobs 4829=4829 failed=0 — [pin](../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |
+| Local PR2 LoCoMo 1×30 (`24be5ab`) | **6/30**, MH 4/10 — [pin](../benchmarks/artifacts/locomo-pr2-dev-1x30-20260813.md) |
+| Wave 1 local LoCoMo 1×30 (`a7a5184`) | **14/30**, MH **3/10**, temporal **9/16** — [pin](../benchmarks/artifacts/locomo-wave1-dev-1x30-20260813.md) |
 
-**Implication for next agent (2026-08-11):** Competitive architecture verdict **accepted with modifications**. Hardening #93–#98 remains landed. Do **not** reopen fusion/graph/category dicts or invent hop heuristics as the primary next move. Execute PR1 (LME integrity) → PR2–PR10 per [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) and [gap matrix](./competitive/competitive-gap-matrix.md). Still reject: fusion retune, graph DB default, category dictionaries, conversational SOTA claims.
+**Implication for next agent (2026-08-13):** Wave 1 is **on `dev`**. Failures are still **READER_MISS** with coverage oracles supported. Do **not** start PR6–PR8. Do **not** claim beats-Mem0 / SOTA. Next is `/recall` answer/enumerate quality, optional staging 1×30 after deploy. Still reject: fusion retune, graph DB default, category dictionaries.
 ---
 
 ## 0. One-paragraph product definition

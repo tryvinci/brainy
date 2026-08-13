@@ -27,8 +27,9 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | **LOCOMO Gate 0 staging** | **18/30** (MH 50%, OD 25%); 3×90 **32/90** (MH 19.4%) |
 | **LOCOMO post-cutover staging** | **15/30** / **33/90** on `1f2f26f` (1×30 dipped vs Gate 0; 3×90 roughly flat, MH 22.2%) |
 | **LOCOMO harden local** | **14/30** — honest dip vs Gate 0 after stricter hop-join |
+| **LOCOMO Wave 1 local** | **14/30** on `a7a5184` (MH **3/10**, temporal **9/16**); not vs Gate 0; hybrid-reader confound vs local 6/30 |
 | **Industry stand** | Lead ops + marketing; conversational improving but not SOTA — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
-| **Next agent** | Competitive PR2 write policy landed (no quality pin); PR3–PR10 (see verdict) |
+| **Next agent** | Wave 1 landed on `dev`. Reader still the driver (16/16 READER_MISS). Do **not** start PR6–PR8. |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [gap matrix](./competitive/competitive-gap-matrix.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
 
@@ -84,7 +85,7 @@ Empty / TBD cells beat invented numbers.
 
 ## Next engineering step
 
-1. ~~ENG-86 temporal supersession v1~~ — [supersession-v1.md](./supersession-v1.md)  
-2. Multi-hop product path (graph re-tune off 30-Q smoke)  
-3. Paper 1 (OpMem) multi-system matrix + public post  
-4. Fair full LOCOMO under identical pins before any “beat Mem0 on LOCOMO” claim  
+1. `/recall` reader/enumerate: emit the fact, not chat continuation (Wave 1 ledger still 16/16 READER_MISS).  
+2. Do **not** start PR6–PR8 / graph DB from this pin.  
+3. Optional staging 1×30 after `dev` deploy vs post-cutover 15/30.  
+4. Fair full LOCOMO under identical pins before any “beat Mem0 on LOCOMO” claim.  
