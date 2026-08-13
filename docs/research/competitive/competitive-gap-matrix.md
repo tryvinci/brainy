@@ -8,7 +8,7 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Capability | Mem0 | Graphiti/Zep | Brainy now | Brainy target | Program PR |
 | --- | --- | --- | --- | --- | --- |
 | Durable conversational facts | strong | strong | strong | strong | — |
-| ADD-only conversational history | yes | effectively | mixed (#94 applies ops to all provider extracts) | **yes (policy split)** | PR2 |
+| ADD-only conversational history | yes | effectively | **policy split** (core append-only; verticals keep #94) | **yes (policy split)** | PR2 **landed** |
 | Operational mutation semantics | limited | temporal invalidation | **strong** | **strong** | keep |
 | Raw provenance | partial | strong | **strong** | **strong** | keep |
 | Typed operational state | weak | relation state | **strong** | **strong** | keep |

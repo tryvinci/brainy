@@ -28,7 +28,7 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | **LOCOMO post-cutover staging** | **15/30** / **33/90** on `1f2f26f` (1×30 dipped vs Gate 0; 3×90 roughly flat, MH 22.2%) |
 | **LOCOMO harden local** | **14/30** — honest dip vs Gate 0 after stricter hop-join |
 | **Industry stand** | Lead ops + marketing; conversational improving but not SOTA — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
-| **Next agent** | Competitive PR1 LME integrity → PR2–PR10 (see verdict) |
+| **Next agent** | Competitive PR2 write policy landed (no quality pin); PR3–PR10 (see verdict) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [gap matrix](./competitive/competitive-gap-matrix.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
 

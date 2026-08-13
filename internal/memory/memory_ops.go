@@ -52,10 +52,23 @@ func TargetMemoryIDOf(extracted ExtractedMemory) string {
 
 // PrepareExtractedForPersist mutates UPDATE extracts so BuildMemoryRecord
 // carries supersedes_memory_id lineage. Returns false when the extract should
-// not be upserted (NONE, or DELETE handled separately).
-func PrepareExtractedForPersist(extracted *ExtractedMemory) (persist bool) {
+// not be upserted (NONE, or governed DELETE handled separately).
+// Append-only mode rewrites UPDATE/DELETE to ADD so conversational history is
+// retained; governed mode keeps #94 supersession / skip-delete behavior.
+func PrepareExtractedForPersist(extracted *ExtractedMemory, mode WriteMutationMode) (persist bool) {
 	if extracted == nil {
 		return false
+	}
+	if mode == WriteModeAppendOnly {
+		switch MemoryEventOf(*extracted) {
+		case MemoryEventNone:
+			return false
+		case MemoryEventDelete, MemoryEventUpdate:
+			rewriteProviderEventAsAdd(extracted)
+			return true
+		default:
+			return true
+		}
 	}
 	switch MemoryEventOf(*extracted) {
 	case MemoryEventNone, MemoryEventDelete:
@@ -77,8 +90,9 @@ func PrepareExtractedForPersist(extracted *ExtractedMemory) (persist bool) {
 }
 
 // ApplyDeleteMemoryEvent suppresses the targeted prior memory.
-func ApplyDeleteMemoryEvent(ctx context.Context, store Store, tenantID, subjectID string, extracted ExtractedMemory) error {
-	if store == nil || MemoryEventOf(extracted) != MemoryEventDelete {
+// No-op in append-only mode: conversational DELETE is persisted as ADD instead.
+func ApplyDeleteMemoryEvent(ctx context.Context, store Store, tenantID, subjectID string, extracted ExtractedMemory, mode WriteMutationMode) error {
+	if mode != WriteModeGoverned || store == nil || MemoryEventOf(extracted) != MemoryEventDelete {
 		return nil
 	}
 	tid := TargetMemoryIDOf(extracted)

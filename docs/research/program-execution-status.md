@@ -28,7 +28,7 @@
 | PR | Failure class | Status | Notes |
 | --- | --- | --- | --- |
 | PR1 LME-20 measurement integrity | MEASUREMENT / WRITE_PIPELINE | **Done** | Publishable pin `lme20-product-recall-pr1-20260812`: 20/20 `/recall`, jobs 4829=4829 failed=0; accuracy **0/20** (honest, not a quality win) |
-| PR2 Conversational vs governed write policy | REPRESENTATION_MISS | Queued | ADAPT Mem0 ADD-only; keep #94 for governed |
+| PR2 Conversational vs governed write policy | REPRESENTATION_MISS | **Landed (code)** | Core/conversation append-only; non-core verticals keep #94 ops. No quality pin yet. |
 | PR3 Temporal features V1 | TEMPORAL_RETRIEVAL_MISS | Queued | Reuse mig-16; add `temporal_score` |
 | PR4 Retrieval V4 budgets | RETRIEVAL_MISS | Queued | Extend fusion_v2; candidate matrix @ fixed tokens |
 | PR5 Context vs proof split | EVIDENCE_COVERAGE_MISS | Queued | `ContextEvidence` + `ProofChain` |
@@ -41,7 +41,8 @@
 ## Still open (honest)
 
 - Conversational quality (LME-20 **0/20** publishable; LoCoMo post-cutover 15/30 / 33/90)  
-- PR2–PR10 execution  
+- PR2 write-policy code landed; remeasure LoCoMo/LME only after a dedicated pin (do not invent lift)  
+- PR3–PR10 execution  
 - Mem0 same-pin under post-harden stack  
 - LME-100 (measurement gate open; quality not ready)  
 - Pack authority / procedures / conflict packets (deferred behind conversational parity)  

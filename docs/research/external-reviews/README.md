@@ -48,8 +48,8 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 
 **Next work (in order):**
 
-1. **PR1** — LME-20 measurement integrity (`failure_reason` + job accounting + isolated `--publish --product-recall`)
-2. **PR2** — Conversational append-only vs governed mutation policy
+1. **PR1** — LME-20 measurement integrity — **done** (publishable 0/20)
+2. **PR2** — Conversational append-only vs governed mutation policy — **code landed**
 3. **PR3** — Temporal features V1 + `temporal_score` ranking
 4. **PR4** — Retrieval V4 candidate/context/proof budgets
 5. **PR5** — ContextEvidence vs ProofChain

@@ -282,8 +282,8 @@ Program detail: [sota-end-to-end-program.md](./sota-end-to-end-program.md) §24.
 | 7–8 Associative / learned policy | Research gates | Deferred |
 
 **Active priority (competitive program):**  
-1. PR1 — LME-20 measurement integrity (`failure_reason` + job accounting + isolated publish)  
-2. PR2 — Conversational append-only vs governed mutation  
+1. PR1 — LME-20 measurement integrity — **done** (publishable 0/20)  
+2. PR2 — Conversational append-only vs governed mutation — **code landed** (no quality pin yet)  
 3. PR3 — Temporal features V1 + `temporal_score`  
 4. PR4 — Retrieval V4 candidate/context/proof budgets  
 5. PR5–PR8 — Context/proof split → entities → relations → hop V3  

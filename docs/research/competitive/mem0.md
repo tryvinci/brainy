@@ -13,7 +13,7 @@
 
 | Mechanism | Stance | Program PR |
 | --- | --- | --- |
-| ADD-only conversational facts + retain history | **ADAPT** (keep governed ops for operational/vertical) | PR2 |
+| ADD-only conversational facts + retain history | **ADAPT** (keep governed ops for operational/vertical) | PR2 **landed** |
 | Temporal metadata + temporal ranking signal | **ADAPT** (reuse Brainy event/atom windows) | PR3 |
 | Dense + BM25 + entity scoring | **ADAPT** (extend `fusion_v2`) | PR4 |
 | Large candidate pool / fixed context tokens | **ADAPT** (explicit budgets; no blind top-k inflate) | PR4 |
