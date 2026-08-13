@@ -1,6 +1,9 @@
 package memory
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestMultiHopTargetsPreferNames(t *testing.T) {
 	targets := multiHopTargets("What activities does Melanie partake in?")
@@ -62,6 +65,40 @@ func TestHopJoinBindingSatisfiesCoverage(t *testing.T) {
 	}
 	if countRole(pkt.Items, "bridge") < 1 || countRole(pkt.Items, "direct") < 1 {
 		t.Fatalf("expected bridge+direct from hops, items=%+v", pkt.Items)
+	}
+}
+
+func TestHopBindKeepsContextEvidence(t *testing.T) {
+	plan := PlanQuery("What is Melanie's occupation according to Caroline?", nil)
+	pkt := EvidencePacket{
+		Plan:     plan,
+		Contents: []string{"Caroline mentioned Melanie last week", "Weather was nice in Seattle"},
+		MemoryIDs: []string{"c1", "c2"},
+		Coverage: map[string]any{},
+	}
+	hops := []HopResult{
+		{HopIndex: 0, Kind: "resolve_entity", OutputKey: "e1", Value: "Melanie", MemoryIDs: []string{"m1"}, Contents: []string{"Caroline knows Melanie"}, Source: "typed_store"},
+		{HopIndex: 1, Kind: "fetch_predicate", OutputKey: "ans", Entity: "Melanie", Predicate: "occupation", Value: "nurse", MemoryIDs: []string{"m2"}, Contents: []string{"Melanie works as a nurse"}, Source: "typed_store", DependsOn: []string{"e1"}},
+	}
+	bindPacketFromHopResults(&pkt, hops, nil)
+	if len(pkt.ContextEvidence) != 2 {
+		t.Fatalf("context_evidence=%v", pkt.ContextEvidence)
+	}
+	joined := strings.Join(pkt.Contents, " | ")
+	if !strings.Contains(joined, "Weather was nice") {
+		t.Fatalf("hops must not replace search context, contents=%q", joined)
+	}
+	if !strings.Contains(joined, "Melanie works as a nurse") {
+		t.Fatalf("proof should still be present, contents=%q", joined)
+	}
+	if len(pkt.ProofChain) < 2 {
+		t.Fatalf("proof_chain=%+v", pkt.ProofChain)
+	}
+	if proven, _ := pkt.Coverage["hop_join_proven"].(bool); !proven {
+		t.Fatalf("expected hop_join_proven, coverage=%v", pkt.Coverage)
+	}
+	if !packetCoverageSatisfied(plan, pkt) {
+		t.Fatalf("coverage should stay hop-proven, coverage=%v", pkt.Coverage)
 	}
 }
 

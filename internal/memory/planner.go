@@ -30,14 +30,19 @@ type HopStep struct {
 }
 
 // EvidencePacket is the bounded evidence set handed to synthesis/oracles.
+// ContextEvidence is the broad SearchOpt hit set (reader/context assembly).
+// ProofChain is hop join evidence (answer-status / hop_join_proven). Hops must
+// not replace context.
 type EvidencePacket struct {
-	MemoryIDs      []string       `json:"memory_ids"`
-	Contents       []string       `json:"contents,omitempty"`
-	Items          []PacketItem   `json:"items,omitempty"`
-	Predicates     []string       `json:"predicates,omitempty"`
-	TemporalAnswer string         `json:"temporal_answer,omitempty"`
-	Coverage       map[string]any `json:"coverage,omitempty"`
-	Plan           QueryPlan      `json:"plan"`
+	MemoryIDs       []string       `json:"memory_ids"`
+	Contents        []string       `json:"contents,omitempty"`
+	ContextEvidence []string       `json:"context_evidence,omitempty"`
+	ProofChain      []PacketItem   `json:"proof_chain,omitempty"`
+	Items           []PacketItem   `json:"items,omitempty"`
+	Predicates      []string       `json:"predicates,omitempty"`
+	TemporalAnswer  string         `json:"temporal_answer,omitempty"`
+	Coverage        map[string]any `json:"coverage,omitempty"`
+	Plan            QueryPlan      `json:"plan"`
 }
 
 // PlanQuery builds a typed plan from the deterministic intent classifier.

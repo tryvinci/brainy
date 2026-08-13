@@ -301,9 +301,13 @@ func hopJoinProven(results []HopResult) bool {
 
 // bindPacketFromHopResults assigns bridge/direct roles from hop bindings.
 // Lexical CoverageTargets are not used for MH coverage when hops exist.
+// ContextEvidence (broad search hits) is preserved; hops become ProofChain only.
 func bindPacketFromHopResults(pkt *EvidencePacket, hopResults []HopResult, byKey map[string]HopResult) {
 	if pkt == nil || len(hopResults) == 0 {
 		return
+	}
+	if len(pkt.ContextEvidence) == 0 {
+		pkt.ContextEvidence = append([]string{}, pkt.Contents...)
 	}
 	items := make([]PacketItem, 0, len(hopResults)*2)
 	seen := map[string]struct{}{}
@@ -348,17 +352,55 @@ func bindPacketFromHopResults(pkt *EvidencePacket, hopResults []HopResult, byKey
 	if len(items) == 0 {
 		return
 	}
-	pkt.Items = items
-	pkt.Contents = make([]string, 0, len(items))
-	pkt.MemoryIDs = make([]string, 0, len(items))
+	pkt.ProofChain = items
+	// Keep broad context contents; append proof text that is not already present.
+	seenContent := map[string]struct{}{}
+	contents := make([]string, 0, len(pkt.ContextEvidence)+len(items))
+	for _, c := range pkt.ContextEvidence {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			continue
+		}
+		key := strings.ToLower(c)
+		if _, ok := seenContent[key]; ok {
+			continue
+		}
+		seenContent[key] = struct{}{}
+		contents = append(contents, c)
+	}
+	seenID := map[string]struct{}{}
+	ids := make([]string, 0, len(pkt.MemoryIDs)+len(items))
+	for _, id := range pkt.MemoryIDs {
+		if id == "" {
+			continue
+		}
+		if _, ok := seenID[id]; ok {
+			continue
+		}
+		seenID[id] = struct{}{}
+		ids = append(ids, id)
+	}
 	for _, it := range items {
-		if it.Content != "" {
-			pkt.Contents = append(pkt.Contents, it.Content)
+		if c := strings.TrimSpace(it.Content); c != "" {
+			key := strings.ToLower(c)
+			if _, ok := seenContent[key]; !ok {
+				seenContent[key] = struct{}{}
+				contents = append(contents, c)
+			}
 		}
 		if it.MemoryID != "" {
-			pkt.MemoryIDs = append(pkt.MemoryIDs, it.MemoryID)
+			if _, ok := seenID[it.MemoryID]; !ok {
+				seenID[it.MemoryID] = struct{}{}
+				ids = append(ids, it.MemoryID)
+			}
 		}
 	}
+	pkt.Contents = contents
+	pkt.MemoryIDs = ids
+	merged := make([]PacketItem, 0, len(pkt.Items)+len(items))
+	merged = append(merged, pkt.Items...)
+	merged = append(merged, items...)
+	pkt.Items = merged
 	proven := hopJoinProven(hopResults)
 	if pkt.Coverage == nil {
 		pkt.Coverage = map[string]any{}
@@ -367,6 +409,8 @@ func bindPacketFromHopResults(pkt *EvidencePacket, hopResults []HopResult, byKey
 	pkt.Coverage["hop_results"] = hopResults
 	pkt.Coverage["bridge_count"] = countRole(items, "bridge")
 	pkt.Coverage["direct_count"] = countRole(items, "direct")
+	pkt.Coverage["context_count"] = len(pkt.ContextEvidence)
+	pkt.Coverage["proof_count"] = len(pkt.ProofChain)
 	if proven {
 		pkt.Coverage["uncovered"] = []string{}
 	} else {
