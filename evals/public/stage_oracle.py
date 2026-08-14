@@ -113,10 +113,12 @@ def label_from_oracle_response(
     if mode == "evidence":
         n = int(explain.get("oracle_evidence_count") or 0)
         blob = str(resp.get("context_block") or "")
-        if gold and blob and not gold_in_texts(gold, blob) and n > 0:
-            # Evidence rows exist but do not contain the required span.
-            return "SOURCE_MISS"
-        return "" if n > 0 or gold_in_texts(gold, blob) else "SOURCE_MISS"
+        # Rows present means source entered Brainy. Gold missing from a
+        # truncated evidence dump is not SOURCE_MISS — later stages decide
+        # WRITE vs RETRIEVAL vs READER.
+        if n > 0 or gold_in_texts(gold, blob):
+            return ""
+        return "SOURCE_MISS"
     if mode in {"semantic", "representation"}:
         facts = int(explain.get("oracle_fact_count") or 0)
         atoms = int(explain.get("oracle_atom_count") or 0)

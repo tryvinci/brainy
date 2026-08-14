@@ -308,6 +308,30 @@ class BackendHelperTests(unittest.TestCase):
 
 
 class StageOracleTests(unittest.TestCase):
+    def test_evidence_rows_are_not_source_miss_when_gold_absent_from_dump(self) -> None:
+        from public.stage_oracle import label_from_oracle_response
+
+        resp = {
+            "answer_status": "supported",
+            "context_block": "- Yeah, hello\n",
+            "explain": {"oracle_evidence_count": 12},
+        }
+        label = label_from_oracle_response(
+            "evidence", resp, query="Where is Dana from", gold="Portugal"
+        )
+        self.assertEqual(label, "")
+
+    def test_empty_evidence_is_source_miss(self) -> None:
+        from public.stage_oracle import label_from_oracle_response
+
+        resp = {
+            "answer_status": "not_found",
+            "context_block": "",
+            "explain": {"oracle_evidence_count": 0},
+        }
+        label = label_from_oracle_response("evidence", resp, query="q", gold="Portugal")
+        self.assertEqual(label, "SOURCE_MISS")
+
     def test_gold_in_episode_is_write_miss(self) -> None:
         from public.stage_oracle import label_from_oracle_response
 
