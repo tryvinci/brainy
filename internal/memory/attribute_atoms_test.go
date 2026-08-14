@@ -28,6 +28,15 @@ func TestAttributeAtomsIdentityAndOrigin(t *testing.T) {
 	if !strings.Contains(joined, "alex moved from canada") {
 		t.Fatalf("expected origin atom, got %q", joined)
 	}
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		if p, _ := m.Explain["primitive"].(string); p == PrimitiveEpisode {
+			t.Fatalf("attribute atoms must not be provenance episodes: %+v", m)
+		}
+	}
 }
 
 func TestAttributeAtomsTitlesAndActivities(t *testing.T) {

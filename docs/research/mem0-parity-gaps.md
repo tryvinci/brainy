@@ -112,7 +112,7 @@ See [gap-crush-checklist.md](./gap-crush-checklist.md).
 
 ## Crush order (this cycle)
 
-1. **GAP-C1** attribute extraction (code)  
+1. **GAP-C1** attribute extraction — now R1b of [sota-representation-path.md](./sota-representation-path.md) (structured atomic facts, not episode tagging)  
 2. **GAP-M1** fair Mem0 LOCOMO adapter (measure)  
 3. **GAP-C4** multi-span synthesis  
 4. Wire issues to Linear ENG-* when authenticated  

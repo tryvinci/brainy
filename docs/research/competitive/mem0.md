@@ -5,16 +5,18 @@
 
 ## What to treat as true
 
-- Mem0 OSS is a useful blueprint (Apache-2.0).
-- Published benchmark scores often reflect the **managed platform**, including proprietary optimizations not in OSS.
-- Documented strengths relevant to Brainy: ADD-only conversational extraction, hybrid multi-signal retrieval, entity matching in ranking, temporal features at construction + query-time ranking, broader candidate budgets with bounded final context.
+- **Mem0 OSS is not Mem0 Platform.** OSS is the inspectable blueprint (Apache-2.0). Published managed benchmark numbers include proprietary optimizations not present in OSS.
+- Copying the repo does **not** reproduce platform scores. Ignoring OSS because the platform is proprietary is also wrong.
+- Documented strengths relevant to Brainy: ADD-only conversational extraction, hybrid multi-signal retrieval (semantic + BM25 + entity + temporal), durable **assistant-generated** facts, temporal features at construction + query-time ranking, broader candidate budgets with bounded final context.
 
 ## Brainy borrow stance
 
 | Mechanism | Stance | Program PR |
 | --- | --- | --- |
 | ADD-only conversational facts + retain history | **ADAPT** (keep governed ops for operational/vertical) | PR2 **landed** |
-| Temporal metadata + temporal ranking signal | **ADAPT** (reuse Brainy event/atom windows) | PR3 |
+| Facts as retrieval unit; utterances as provenance + fallback | **ADAPT** | R1a–R1c |
+| Durable assistant-generated facts (not phatic) | **ADAPT** | R1b / PR9 |
+| Temporal metadata + temporal ranking signal | **ADAPT** (reuse Brainy event/atom windows) | PR3 **landed** |
 | Dense + BM25 + entity scoring | **ADAPT** (extend `fusion_v2`) | PR4 |
 | Large candidate pool / fixed context tokens | **ADAPT** (explicit budgets; no blind top-k inflate) | PR4 |
 | Abandon governed current_state | **REJECT** | — |

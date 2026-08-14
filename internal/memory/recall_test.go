@@ -82,6 +82,90 @@ func TestRecallAbstainsWhenPacketEmpty(t *testing.T) {
 	}
 }
 
+func TestRecallEnumerateSkipsProvenanceEpisodes(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Yeah, Caroline, Yep, Melanie",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"primitive": PrimitiveEpisode},
+	}
+	store.records["fact"] = MemoryRecord{
+		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Dana enjoys hiking",
+		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t1", SubjectID: "u1", Query: "What activities does Dana enjoy?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.ToLower(out.ContextBlock + " " + out.Answer)
+	for _, it := range out.Items {
+		joined += " " + strings.ToLower(it.Value)
+	}
+	if strings.Contains(joined, "yeah") {
+		t.Fatalf("enumerate leaked provenance episode: %#v", out.Items)
+	}
+	if !strings.Contains(joined, "hik") {
+		t.Fatalf("expected fact value, got %#v answer=%q", out.Items, out.Answer)
+	}
+}
+
+func TestRecallRepresentationOracleIgnoresEpisodes(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Yeah, Caroline is from Sweden, Yep",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"primitive": PrimitiveEpisode},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t1", SubjectID: "u1", Query: "Where is Caroline from?", Mode: "answer",
+		OracleMode: "representation", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Explain["oracle_fact_count"] != 0 {
+		t.Fatalf("episodes must not count as representation, explain=%v", out.Explain)
+	}
+	if out.Explain["oracle_episode_count"] != 1 {
+		t.Fatalf("expected one episode, explain=%v", out.Explain)
+	}
+	if out.AnswerStatus != AnswerNotFound {
+		t.Fatalf("expected representation_absent, status=%q answer=%q", out.AnswerStatus, out.Answer)
+	}
+
+	store.records["fact"] = MemoryRecord{
+		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline is from Sweden",
+		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
+	}
+	out, err = svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t1", SubjectID: "u1", Query: "Where is Caroline from?", Mode: "answer",
+		OracleMode: "representation", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := out.Explain["oracle_fact_count"].(int); n < 1 {
+		t.Fatalf("expected stored fact counted, explain=%v", out.Explain)
+	}
+	blob, _ := out.Explain["oracle_fact_blob"].(string)
+	if !strings.Contains(strings.ToLower(blob), "sweden") {
+		t.Fatalf("expected Sweden in fact blob, blob=%q", blob)
+	}
+}
+
 func itemHas(items []RecallItem, needle string) bool {
 	for _, it := range items {
 		if strings.Contains(strings.ToLower(it.Value), needle) {

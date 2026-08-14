@@ -70,8 +70,8 @@ func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]E
 
 func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
 	body, err := json.Marshal(map[string]any{
-		"model":       p.cfg.Model,
-		"temperature": 0,
+		"model":           p.cfg.Model,
+		"temperature":     0,
 		"response_format": map[string]string{"type": "json_object"},
 		"messages": []map[string]string{
 			{"role": "system", "content": providerSystemPrompt},
@@ -206,18 +206,18 @@ type providerMemoryPayload struct {
 }
 
 type providerMemoryItem struct {
-	Event           string  `json:"event"`
-	TargetMemoryID  string  `json:"target_memory_id"`
-	Kind            string  `json:"kind"`
-	Content         string  `json:"content"`
-	SourceText      string  `json:"source_text"`
-	Confidence      float64 `json:"confidence"`
-	Subject         string  `json:"subject"`
-	Predicate       string  `json:"predicate"`
-	Value           string  `json:"value"`
-	AssertionKind   string  `json:"assertion_kind"`
-	When            string  `json:"when"`
-	Duration        string  `json:"duration"`
+	Event          string  `json:"event"`
+	TargetMemoryID string  `json:"target_memory_id"`
+	Kind           string  `json:"kind"`
+	Content        string  `json:"content"`
+	SourceText     string  `json:"source_text"`
+	Confidence     float64 `json:"confidence"`
+	Subject        string  `json:"subject"`
+	Predicate      string  `json:"predicate"`
+	Value          string  `json:"value"`
+	AssertionKind  string  `json:"assertion_kind"`
+	When           string  `json:"when"`
+	Duration       string  `json:"duration"`
 }
 
 func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
@@ -296,9 +296,6 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 		}
 		if when := strings.TrimSpace(item.When); when != "" {
 			explain["when"] = when
-			if kind == KindFact {
-				explain["primitive"] = PrimitiveEpisode
-			}
 		}
 		if duration := strings.TrimSpace(item.Duration); duration != "" {
 			explain["duration"] = duration

@@ -582,6 +582,11 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	dropped, fallback, status := applyFactPrimaryRecall(candidates, query, opts.IncludeEpisodes)
+	trace.EpisodesDropped = dropped
+	trace.EpisodeFallback = fallback
+	trace.RepresentationStatus = status
+
 	ranked := make([]rankedSearchResult, 0, len(candidates))
 	entitiesByID := make(map[string][]string, len(candidates))
 	for _, record := range candidates {
@@ -759,6 +764,138 @@ func admitRecord(candidates map[string]MemoryRecord, record MemoryRecord, includ
 	}
 	candidates[record.MemoryID] = record
 	return true
+}
+
+// IsProvenanceEpisode is a conversation turn stored for evidence, not a
+// recall-primary fact (Graphiti episode vs entity/edge).
+func IsProvenanceEpisode(record MemoryRecord) bool {
+	return record.Primitive == PrimitiveEpisode
+}
+
+const episodeFallbackCap = 8
+
+// applyFactPrimaryRecall ranks facts as primary evidence and keeps episodes as
+// provenance + fallback. Standalone episodes are suppressed from the candidate
+// pool only when structured coverage of the query looks complete. Incomplete
+// coverage (partial/empty, or multi-hop until relations exist) keeps a bounded
+// episode fallback so WRITE_MISS does not look like RETRIEVAL_MISS.
+func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, includeEpisodes bool) (dropped int, fallback bool, status string) {
+	if len(candidates) == 0 {
+		return 0, false, RepresentationEmpty
+	}
+	facts := make([]MemoryRecord, 0, len(candidates))
+	episodes := make([]MemoryRecord, 0, len(candidates))
+	for _, rec := range candidates {
+		if IsProvenanceEpisode(rec) {
+			episodes = append(episodes, rec)
+		} else {
+			facts = append(facts, rec)
+		}
+	}
+	sort.Slice(episodes, func(i, j int) bool { return episodes[i].MemoryID < episodes[j].MemoryID })
+	status, uncovered := assessRepresentationCoverage(facts, query)
+	if includeEpisodes {
+		return 0, status != RepresentationComplete && len(episodes) > 0, status
+	}
+	if status == RepresentationEmpty {
+		return 0, len(episodes) > 0, status
+	}
+	if status == RepresentationComplete {
+		for _, ep := range episodes {
+			delete(candidates, ep.MemoryID)
+			dropped++
+		}
+		return dropped, false, status
+	}
+	keep := selectEpisodeFallback(episodes, uncovered, episodeFallbackCap)
+	keepIDs := make(map[string]struct{}, len(keep))
+	for _, ep := range keep {
+		keepIDs[ep.MemoryID] = struct{}{}
+	}
+	for _, ep := range episodes {
+		if _, ok := keepIDs[ep.MemoryID]; ok {
+			continue
+		}
+		delete(candidates, ep.MemoryID)
+		dropped++
+	}
+	return dropped, true, status
+}
+
+func assessRepresentationCoverage(facts []MemoryRecord, query string) (status string, uncovered []string) {
+	tokens := tokenize(query)
+	bearing := contentBearingTokens(tokens)
+	if len(facts) == 0 {
+		return RepresentationEmpty, bearing
+	}
+	covered := map[string]struct{}{}
+	for _, rec := range facts {
+		contentTokens := tokenize(rec.Content)
+		for _, q := range bearing {
+			if recordTokensCover(contentTokens, q) {
+				covered[q] = struct{}{}
+			}
+		}
+	}
+	for _, q := range bearing {
+		if _, ok := covered[q]; !ok {
+			uncovered = append(uncovered, q)
+		}
+	}
+	// Multi-hop needs relation joins; lexical fact coverage is not enough to
+	// drop provenance (partial extractor coverage of a two-claim query).
+	if looksMultiHopQuery(tokens) {
+		return RepresentationPartial, uncovered
+	}
+	if len(uncovered) == 0 && len(bearing) >= 2 {
+		return RepresentationComplete, nil
+	}
+	return RepresentationPartial, uncovered
+}
+
+func recordTokensCover(contentTokens []string, queryToken string) bool {
+	for _, c := range contentTokens {
+		if tokensMatch(queryToken, c) {
+			return true
+		}
+	}
+	return false
+}
+
+func selectEpisodeFallback(episodes []MemoryRecord, uncovered []string, capN int) []MemoryRecord {
+	if capN <= 0 || len(episodes) == 0 {
+		return nil
+	}
+	if len(episodes) <= capN {
+		return episodes
+	}
+	picked := make([]MemoryRecord, 0, capN)
+	seen := map[string]struct{}{}
+	for _, tok := range uncovered {
+		for _, ep := range episodes {
+			if len(picked) >= capN {
+				return picked
+			}
+			if _, ok := seen[ep.MemoryID]; ok {
+				continue
+			}
+			if recordTokensCover(tokenize(ep.Content), tok) {
+				picked = append(picked, ep)
+				seen[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	for _, ep := range episodes {
+		if len(picked) >= capN {
+			break
+		}
+		if _, ok := seen[ep.MemoryID]; ok {
+			continue
+		}
+		picked = append(picked, ep)
+		seen[ep.MemoryID] = struct{}{}
+	}
+	return picked
 }
 
 func indexMemoriesByID(records []MemoryRecord) map[string]MemoryRecord {
@@ -1129,21 +1266,21 @@ func relatedIntentTokens(token string) []string {
 		return []string{"single", "married", "partner", "dating", "relationship"}
 	case "career", "path", "pursue", "persue":
 		return []string{"career", "job", "profession", "work"}
-		case "activities", "activity", "hobby", "hobbies":
-			return []string{"hobby", "hobbies", "activity", "activities"}
-		case "camping", "camp":
-			return []string{"camp", "camping", "camped"}
-		case "books", "read", "reading":
-			return []string{"reading", "book", "books", "library"}
-		case "stress", "relax":
-			return []string{"stress", "relax", "unwind"}
-		case "moved":
-			return []string{"moved", "move", "relocated"}
-		case "kids", "children":
-			return []string{"kids", "children", "child"}
-		default:
-			return nil
-		}
+	case "activities", "activity", "hobby", "hobbies":
+		return []string{"hobby", "hobbies", "activity", "activities"}
+	case "camping", "camp":
+		return []string{"camp", "camping", "camped"}
+	case "books", "read", "reading":
+		return []string{"reading", "book", "books", "library"}
+	case "stress", "relax":
+		return []string{"stress", "relax", "unwind"}
+	case "moved":
+		return []string{"moved", "move", "relocated"}
+	case "kids", "children":
+		return []string{"kids", "children", "child"}
+	default:
+		return nil
+	}
 }
 
 // topicAlignmentBoost rewards memories whose content matches the topical intent

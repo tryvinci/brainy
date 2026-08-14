@@ -330,7 +330,7 @@ func TestVerticalPackPrincipleRanksAbovePreference(t *testing.T) {
 		t.Fatalf("principle ingest: %v", err)
 	}
 
-search, err := service.Search(context.Background(), "t1", "brand", "marketing", "", "copy")
+	search, err := service.Search(context.Background(), "t1", "brand", "marketing", "", "copy")
 	if err != nil {
 		t.Fatalf("search: %v", err)
 	}
@@ -563,7 +563,7 @@ func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 		},
 		Messages: []Message{
 			{Role: "user", Content: "Alex: I went to the community support group on 7 May 2023"},
-			{Role: "user", Content: "Sam: Can't wait to see your show - the community needs more platforms like this"},
+			{Role: "user", Content: "Sam: Can't wait to see your show - the community needs more platforms"},
 		},
 	})
 	if err != nil {
@@ -623,7 +623,6 @@ func TestExactSpanOutranksTopicalNeighbor(t *testing.T) {
 		TenantID:  "t1",
 		SubjectID: "u1",
 		Kind:      KindFact,
-		Primitive: PrimitiveEpisode,
 		Content:   "Alex went to the community support group on 7 May 2023",
 		DedupeKey: "dated",
 		Status:    StatusActive,
@@ -661,13 +660,13 @@ func TestEpisodePenaltyPrefersTypedFact(t *testing.T) {
 	store.records["ep"] = MemoryRecord{
 		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
 		Kind: KindFact, Primitive: PrimitiveEpisode,
-		Content: "Congratulations on sticking to your daily tidying routine for 3 weeks",
+		Content:   "Congratulations on sticking to your daily tidying routine for 3 weeks",
 		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
 	}
 	store.records["fact"] = MemoryRecord{
 		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
-		Kind: KindFact,
-		Content: "Alex has been sticking to a daily tidying routine for 4 weeks",
+		Kind:      KindFact,
+		Content:   "Alex has been sticking to a daily tidying routine for 4 weeks",
 		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
 	}
 	search, err := service.Search(context.Background(), "t1", "u1", "", "", "how long have I been sticking to my daily tidying routine")
@@ -679,6 +678,129 @@ func TestEpisodePenaltyPrefersTypedFact(t *testing.T) {
 	}
 	if !strings.Contains(search.Results[0].Content, "4 weeks") {
 		t.Fatalf("typed fact should outrank congratulation episode, top=%q", search.Results[0].Content)
+	}
+}
+
+func TestFactPrimaryDropsEpisodesWhenCoverageComplete(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Yeah, Caroline, Yep, Melanie, Hey Caroline",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["fact"] = MemoryRecord{
+		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Caroline is from Sweden",
+		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "Is Caroline from Sweden")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if search.Trace == nil || search.Trace.RepresentationStatus != RepresentationComplete {
+		t.Fatalf("expected complete representation, trace=%+v", search.Trace)
+	}
+	if search.Trace.EpisodeFallback {
+		t.Fatalf("complete coverage must not fall back to episodes, trace=%+v", search.Trace)
+	}
+	if search.Trace.EpisodesDropped < 1 {
+		t.Fatalf("expected standalone episodes dropped when coverage is complete, trace=%+v", search.Trace)
+	}
+	for _, r := range search.Results {
+		if strings.Contains(strings.ToLower(r.Content), "yeah") {
+			t.Fatalf("provenance episode leaked into complete-coverage search: %q", r.Content)
+		}
+	}
+	if len(search.Results) == 0 || !strings.Contains(strings.ToLower(search.Results[0].Content), "sweden") {
+		t.Fatalf("expected fact hit, got %#v", search.Results)
+	}
+
+	withEp, err := service.SearchOpt(context.Background(), "t1", "u1", "", "", "Is Caroline from Sweden", SearchOptions{IncludeEpisodes: true, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sawEp := false
+	for _, r := range withEp.Results {
+		if strings.Contains(strings.ToLower(r.Content), "yeah") {
+			sawEp = true
+		}
+	}
+	if !sawEp {
+		t.Fatal("IncludeEpisodes should keep provenance turns")
+	}
+}
+
+func TestFactPrimaryKeepsEpisodesWhenCoveragePartial(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["sweden"] = MemoryRecord{
+		MemoryID: "mem_ep_sweden", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Caroline is from Sweden",
+		DedupeKey: "sweden", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["fact"] = MemoryRecord{
+		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Caroline likes pottery",
+		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "Where is Caroline originally from")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if search.Trace == nil || search.Trace.RepresentationStatus != RepresentationPartial {
+		t.Fatalf("expected partial representation, trace=%+v", search.Trace)
+	}
+	if !search.Trace.EpisodeFallback {
+		t.Fatalf("incomplete compiler coverage must keep episode fallback, trace=%+v", search.Trace)
+	}
+	sawSweden := false
+	sawPottery := false
+	for _, r := range search.Results {
+		lower := strings.ToLower(r.Content)
+		if strings.Contains(lower, "sweden") {
+			sawSweden = true
+		}
+		if strings.Contains(lower, "pottery") {
+			sawPottery = true
+		}
+	}
+	if !sawSweden {
+		t.Fatal("WRITE_MISS must not be converted into a retrieval miss: Sweden episode should remain")
+	}
+	if !sawPottery {
+		t.Fatal("expected pottery fact to remain recall-primary")
+	}
+}
+
+func TestEpisodeOnlyPoolFallsBack(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Alex went to the community support group on 7 May 2023",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Alex go to the community support group")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if search.Trace == nil || !search.Trace.EpisodeFallback {
+		t.Fatalf("expected episode fallback when no facts exist, trace=%+v", search.Trace)
+	}
+	if search.Trace.RepresentationStatus != RepresentationEmpty {
+		t.Fatalf("expected empty representation_status, trace=%+v", search.Trace)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("fallback must not empty the pool")
 	}
 }
 
@@ -730,7 +852,6 @@ func TestSessionNeighborExpansion(t *testing.T) {
 		t.Fatalf("expected session content in results, got %q", joined)
 	}
 }
-
 
 func TestQuestionMemoriesDownrankedForFactQueries(t *testing.T) {
 	store := newMemoryStoreStub()
@@ -1048,4 +1169,3 @@ func TestDomainEventBatchSupersede(t *testing.T) {
 		t.Fatalf("expected empty search after batch supersede, got %#v", search.Results)
 	}
 }
-

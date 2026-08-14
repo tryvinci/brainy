@@ -70,12 +70,12 @@ type SupersedeRequest struct {
 // DomainEventRequest batch-invalidates memories (campaign end, fact revision).
 // Prefer explicit IDs when known; or Match to select by label/metadata (v2).
 type DomainEventRequest struct {
-	TenantID           string             `json:"tenant_id"`
-	SubjectID          string             `json:"subject_id"`
-	EventType          string             `json:"event_type"`
-	SupersedeMemoryIDs []string           `json:"supersede_memory_ids,omitempty"`
-	Match              *DomainEventMatch  `json:"match,omitempty"`
-	Metadata           map[string]any     `json:"metadata,omitempty"`
+	TenantID           string            `json:"tenant_id"`
+	SubjectID          string            `json:"subject_id"`
+	EventType          string            `json:"event_type"`
+	SupersedeMemoryIDs []string          `json:"supersede_memory_ids,omitempty"`
+	Match              *DomainEventMatch `json:"match,omitempty"`
+	Metadata           map[string]any    `json:"metadata,omitempty"`
 }
 
 // DomainEventMatch selects memories to supersede without listing IDs.
@@ -156,6 +156,11 @@ type SearchResult struct {
 // archived / suppressed lifecycle states (production default).
 type SearchOptions struct {
 	IncludeHistorical bool // when true, include lifecycle=superseded rows
+	// IncludeEpisodes keeps conversation_episode rows even when structured
+	// coverage is complete. Off by default: facts/edges are recall-primary;
+	// episodes stay as bounded fallback while representation_status is
+	// empty or partial (R1c). view=all sets this so provenance remains visible.
+	IncludeEpisodes bool
 	// Limit caps returned results (0 = unlimited / caller truncates).
 	Limit int
 	// CandidateLimit is the explicit retrieval pool size before the context
@@ -186,12 +191,12 @@ type ExtractedMemory struct {
 }
 
 type ExtractionJob struct {
-	JobID        string
-	IngestID     string
-	Request      IngestRequest
-	Attempts     int
-	MaxAttempts  int
-	CreatedAt    time.Time
+	JobID       string
+	IngestID    string
+	Request     IngestRequest
+	Attempts    int
+	MaxAttempts int
+	CreatedAt   time.Time
 }
 
 type EnqueueResult struct {

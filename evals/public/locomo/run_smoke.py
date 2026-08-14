@@ -309,13 +309,14 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                         answer_ok=False,
                         api_key=os.environ.get("BRAINY_API_KEY")
                         or (os.environ.get("BRAINY_API_KEYS") or "").split(",")[0].strip(),
+                        gold=qa.get("answer") or "",
                     )
                     write_failure_record(
                         args.failure_ledger,
                         dataset="locomo-smoke",
                         question_id=f"{sample_id}-{qa['id']}",
                         question=qa["question"],
-                        primary=primary or "READER_MISS",
+                        primary=primary or "WRITE_MISS",
                         flags={
                             **flags,
                             "group": group,

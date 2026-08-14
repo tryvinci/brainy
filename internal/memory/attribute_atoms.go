@@ -235,8 +235,7 @@ func attributeAtomsFromUtterance(who, body, source string) []ExtractedMemory {
 func atomFact(content, source string, confidence float64, rule string) ExtractedMemory {
 	pred := predicateForAttributeRule(rule, content)
 	explain := map[string]any{
-		"rule":      rule,
-		"primitive": PrimitiveEpisode,
+		"rule": rule,
 	}
 	if pred != "" {
 		explain["predicate"] = pred

@@ -4,7 +4,7 @@
   "repo": "tryvinci/brainy",
   "language": "Go",
   "storage": "PostgreSQL",
-  "program_of_record": "docs/research/sota-end-to-end-program.md",
+  "program_of_record": "docs/research/sota-representation-path.md",
   "assessment_pack": "docs/research/external-agent-assessment-pack.md",
   "processes": [
     {
@@ -346,12 +346,16 @@
     "phase6_multiseed_sota_gates"
   ],
   "next_sequence": [
-    "staging_enable_BRAINY_RECALL_LLM",
-    "multihop_packet_bridge_chains",
-    "lme_100_job_barrier",
-    "locomo_larger_then_3seed",
-    "opmem_marketing_nonreg",
-    "pack_authority_procedures"
+    "r0_representation_coverage_oracle",
+    "r1a_primitive_semantics",
+    "r1b_atomic_semantic_compiler",
+    "r1c_fact_primary_episode_fallback",
+    "r2_canonical_entities",
+    "r3_relation_projection",
+    "r4_entity_id_hops",
+    "r5_structured_first_answer",
+    "r6_freeze_qualify_after_representation_gates",
+    "opmem_marketing_nonreg"
   ],
   "planes_status": {
     "source": "live",

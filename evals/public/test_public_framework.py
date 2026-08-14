@@ -307,5 +307,87 @@ class BackendHelperTests(unittest.TestCase):
             server.shutdown()
 
 
+class StageOracleTests(unittest.TestCase):
+    def test_gold_in_episode_is_write_miss(self) -> None:
+        from public.stage_oracle import label_from_oracle_response
+
+        resp = {
+            "answer_status": "supported",
+            "explain": {
+                "oracle_fact_count": 1,
+                "oracle_atom_count": 0,
+                "oracle_fact_blob": "Caroline likes pottery",
+                "oracle_episode_blob": "Caroline is from Sweden",
+            },
+        }
+        label = label_from_oracle_response(
+            "representation", resp, query="Where is Caroline from", gold="Sweden"
+        )
+        self.assertEqual(label, "WRITE_MISS")
+
+    def test_gold_in_facts_is_not_reader(self) -> None:
+        from public.stage_oracle import label_from_oracle_response
+
+        resp = {
+            "answer_status": "supported",
+            "explain": {
+                "oracle_fact_count": 1,
+                "oracle_atom_count": 0,
+                "oracle_fact_blob": "Caroline is from Sweden",
+                "oracle_episode_blob": "Yeah Caroline",
+            },
+        }
+        label = label_from_oracle_response(
+            "representation", resp, query="Where is Caroline from", gold="Sweden"
+        )
+        self.assertEqual(label, "")
+
+    def test_episode_only_store_is_write_miss(self) -> None:
+        from public.stage_oracle import label_from_oracle_response
+
+        resp = {
+            "answer_status": "not_found",
+            "explain": {
+                "oracle_fact_count": 0,
+                "oracle_atom_count": 0,
+                "oracle_episode_count": 2,
+                "oracle_fact_blob": "",
+                "oracle_episode_blob": "Yeah, Caroline, Yep",
+            },
+        }
+        label = label_from_oracle_response("representation", resp, query="q")
+        self.assertEqual(label, "WRITE_MISS")
+
+    def test_classify_failure_does_not_call_reader_on_chat_gold(self) -> None:
+        from public.oracle import classify_failure
+
+        self.assertEqual(
+            classify_failure(
+                source_present=True,
+                semantic_present=True,
+                retrieved=True,
+                coverage_ok=True,
+                answer_ok=False,
+                abstained=False,
+                gold_in_facts=False,
+                gold_in_episodes=True,
+            ),
+            "WRITE_MISS",
+        )
+        self.assertEqual(
+            classify_failure(
+                source_present=True,
+                semantic_present=True,
+                retrieved=True,
+                coverage_ok=True,
+                answer_ok=False,
+                abstained=False,
+                gold_in_facts=True,
+                gold_in_episodes=True,
+            ),
+            "READER_MISS",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

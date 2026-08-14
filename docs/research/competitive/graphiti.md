@@ -5,8 +5,8 @@
 
 ## What to treat as true
 
-- Graphiti is the open temporal graph engine associated with Zep's public architecture story.
-- Production Zep may use a proprietary Context Graph Engine for large-scale retrieval — do not assume Graphiti == managed Zep scores.
+- **Graphiti is not Zep Platform.** Graphiti is the inspectable temporal graph engine. Zep describes a proprietary production Context Graph Engine behind the managed system.
+- Do not assume Graphiti OSS == managed Zep scores. Do not ignore Graphiti because Zep is proprietary.
 - Documented strengths: episodes as provenance, entities as nodes, facts/relations as edges, validity windows, relation-aware search recipes (BM25, vector, BFS, RRF, MMR, etc.).
 
 ## Brainy borrow stance
@@ -15,7 +15,7 @@
 | --- | --- | --- |
 | Episode / immutable source + provenance | **ADAPT** (Brainy evidence plane already strong) | keep / deepen |
 | Entity + alias canonicalization | **ADAPT** (Postgres) | PR6 |
-| Relation edges with validity windows | **ADAPT** (Postgres `relations`) | PR7 |
+| Relation edges with validity windows | **ADAPT** as a **projection of entity-valued atomic facts** (Postgres) | R3 / PR7 |
 | Relation traversal for multi-hop | **ADAPT** (hop executor V3) | PR8 |
 | Neo4j / FalkorDB as required substrate | **REJECT** | — |
 

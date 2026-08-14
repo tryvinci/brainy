@@ -1,4 +1,4 @@
-"""Stage-oracle helpers and failure ledger writer (external review PR1)."""
+"""Stage-oracle helpers and failure ledger writer (external review PR1 / R0)."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from oracle import FAILURE_LABELS, classify_failure, recall_body
+    from oracle import FAILURE_LABELS, classify_failure, gold_in_texts, recall_body
 except ImportError:  # package import (python -m public...)
-    from public.oracle import FAILURE_LABELS, classify_failure, recall_body
+    from public.oracle import FAILURE_LABELS, classify_failure, gold_in_texts, recall_body
 
 
 def write_failure_record(
@@ -87,52 +87,88 @@ def _query_token_overlap(query: str, texts: list[str]) -> float:
     return hit / max(len(q), 1)
 
 
-def label_from_oracle_response(oracle_mode: str, resp: dict[str, Any], *, query: str = "") -> str:
+def _explain(resp: dict[str, Any]) -> dict[str, Any]:
+    return resp.get("explain") or {}
+
+
+def label_from_oracle_response(
+    oracle_mode: str,
+    resp: dict[str, Any],
+    *,
+    query: str = "",
+    gold: Any = "",
+) -> str:
     """Map a product oracle response into a stage label.
 
-    Retrieval/coverage require non-empty *and* query-token overlap so unrelated
-    memories are not treated as sufficient evidence.
+    Representation requires non-episode facts (or atoms). Gold in a chat
+    transcript is WRITE_MISS, not a pass. READER_MISS is assigned only by
+    probe_failure_stages after structured representation reached the packet.
     """
     if resp.get("error"):
         return "HARNESS_ERROR"
-    explain = resp.get("explain") or {}
+    explain = _explain(resp)
     if explain.get("oracle_unsupported"):
         return "HARNESS_ERROR"
     mode = (oracle_mode or "").lower()
     if mode == "evidence":
         n = int(explain.get("oracle_evidence_count") or 0)
-        return "" if n > 0 else "SOURCE_MISS"
-    if mode == "semantic":
+        blob = str(resp.get("context_block") or "")
+        if gold and blob and not gold_in_texts(gold, blob) and n > 0:
+            # Evidence rows exist but do not contain the required span.
+            return "SOURCE_MISS"
+        return "" if n > 0 or gold_in_texts(gold, blob) else "SOURCE_MISS"
+    if mode in {"semantic", "representation"}:
+        facts = int(explain.get("oracle_fact_count") or 0)
         atoms = int(explain.get("oracle_atom_count") or 0)
-        mems = int(explain.get("oracle_memory_count") or 0)
-        if atoms > 0 or mems > 0:
+        fact_blob = str(explain.get("oracle_fact_blob") or "")
+        episode_blob = str(explain.get("oracle_episode_blob") or "")
+        if gold:
+            if gold_in_texts(gold, fact_blob):
+                return ""
+            if gold_in_texts(gold, episode_blob) or (facts == 0 and atoms == 0):
+                return "WRITE_MISS"
+            if facts > 0 or atoms > 0:
+                # Compiler stored something else; required claim is missing.
+                return "WRITE_MISS"
+            return "WRITE_MISS"
+        if facts > 0 or atoms > 0:
             return ""
-        return "REPRESENTATION_MISS"
+        return "WRITE_MISS"
     if mode == "retrieval":
         n = int(explain.get("oracle_memory_count") or 0)
+        facts = int(explain.get("oracle_fact_count") or 0)
         if n <= 0:
             return "RETRIEVAL_MISS"
-        # Prefer packet contents / context when present for overlap check.
+        if facts <= 0 and explain.get("oracle_representation_status") != "empty":
+            return "RETRIEVAL_MISS"
         pkt = explain.get("evidence_packet") or {}
         texts = list(pkt.get("contents") or [])
         if not texts and resp.get("context_block"):
             texts = [str(resp.get("context_block"))]
+        if gold and texts and not gold_in_texts(gold, texts):
+            return "RETRIEVAL_MISS"
         if query and texts and _query_token_overlap(query, texts) < 0.2:
             return "RETRIEVAL_MISS"
         return ""
     if mode == "coverage":
         n = int(explain.get("oracle_item_count") or 0)
         cov = resp.get("coverage") or {}
-        if n <= 0 and not cov.get("satisfied"):
-            return "EVIDENCE_COVERAGE_MISS"
         pkt = explain.get("evidence_packet") or {}
+        pkt_cov = pkt.get("coverage") or {}
+        hop_proven = pkt_cov.get("hop_join_proven")
+        if hop_proven is False:
+            return "PROOF_MISS"
+        if n <= 0 and not cov.get("satisfied"):
+            return "PROOF_MISS"
         texts = list(pkt.get("contents") or [])
         if resp.get("answer"):
             texts.append(str(resp.get("answer")))
+        if gold and texts and not gold_in_texts(gold, texts) and not cov.get("satisfied"):
+            return "PROOF_MISS"
         if query and texts and _query_token_overlap(query, texts) < 0.15:
-            return "EVIDENCE_COVERAGE_MISS"
+            return "PROOF_MISS"
         if cov.get("satisfied") is False:
-            return "EVIDENCE_COVERAGE_MISS"
+            return "PROOF_MISS"
         return ""
     status = (resp.get("answer_status") or "").lower()
     if status in {"not_found", "insufficient_evidence"}:
@@ -148,35 +184,57 @@ def probe_failure_stages(
     query: str,
     answer_ok: bool,
     api_key: str = "",
+    gold: Any = "",
 ) -> tuple[str, dict[str, Any]]:
     """
-    Run evidence → semantic → retrieval → coverage probes and return
-    (primary_label, flags). Empty primary means no diagnosed miss (reader/judge).
+    Run evidence → representation → retrieval → coverage probes and return
+    (primary_label, flags). Empty primary means no diagnosed miss.
+
+    READER_MISS only if structured facts that contain gold (when provided)
+    reached the packet and synthesis still failed.
     """
-    flags: dict[str, Any] = {"answer_ok": answer_ok}
-    order = ("evidence", "semantic", "retrieval", "coverage")
+    flags: dict[str, Any] = {"answer_ok": answer_ok, "gold": gold or ""}
+    order = ("evidence", "representation", "retrieval", "coverage")
     for mode in order:
         body = oracle_recall_request(tenant_id, subject_id, query, mode)
         resp = post_recall(base_url, body, api_key=api_key)
-        label = label_from_oracle_response(mode, resp, query=query)
+        label = label_from_oracle_response(mode, resp, query=query, gold=gold)
+        explain = _explain(resp)
         flags[f"oracle_{mode}"] = {
             "label": label,
             "answer_status": resp.get("answer_status"),
             "explain": {
-                k: (resp.get("explain") or {}).get(k)
+                k: explain.get(k)
                 for k in (
                     "oracle_evidence_count",
                     "oracle_atom_count",
+                    "oracle_fact_count",
+                    "oracle_episode_count",
                     "oracle_memory_count",
                     "oracle_item_count",
+                    "oracle_representation_status",
                     "oracle_unsupported",
                 )
-                if (resp.get("explain") or {}).get(k) is not None
+                if explain.get(k) is not None
             },
         }
+        if gold:
+            flags[f"oracle_{mode}"]["gold_in_facts"] = gold_in_texts(
+                gold, str(explain.get("oracle_fact_blob") or "")
+            )
+            flags[f"oracle_{mode}"]["gold_in_episodes"] = gold_in_texts(
+                gold, str(explain.get("oracle_episode_blob") or "")
+            )
         if label:
             return label, flags
     if not answer_ok:
+        rep = flags.get("oracle_representation") or {}
+        gold_in_facts = bool(rep.get("gold_in_facts"))
+        if gold and not gold_in_facts:
+            return "WRITE_MISS", flags
+        fact_n = int((rep.get("explain") or {}).get("oracle_fact_count") or 0)
+        if fact_n <= 0:
+            return "WRITE_MISS", flags
         return "READER_MISS", flags
     return "", flags
 
@@ -184,6 +242,7 @@ def probe_failure_stages(
 __all__ = [
     "FAILURE_LABELS",
     "classify_failure",
+    "gold_in_texts",
     "write_failure_record",
     "oracle_recall_request",
     "label_from_oracle_response",
