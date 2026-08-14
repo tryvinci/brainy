@@ -2,19 +2,28 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
 
 type Config struct {
-	Environment        string
-	HTTPAddr           string
-	DatabaseURL        string
-	WorkerMode         string
-	WorkerPollInterval time.Duration
-	WorkerConcurrency  int
-	APIKeys            string
-	RequireAPIKey      bool
+	Environment string
+	HTTPAddr    string
+	DatabaseURL string
+	// MaxBodyBytes caps the size of request bodies read by the API (ingest,
+	// recall, events, correct, supersede). 0 disables the limit.
+	MaxBodyBytes int64
+	// HTTP server timeouts (0 disables the corresponding timeout).
+	HTTPReadHeaderTimeout time.Duration
+	HTTPReadTimeout       time.Duration
+	HTTPWriteTimeout      time.Duration
+	HTTPIdleTimeout       time.Duration
+	WorkerMode            string
+	WorkerPollInterval    time.Duration
+	WorkerConcurrency     int
+	APIKeys               string
+	RequireAPIKey         bool
 	// Provider extract (async worker). Empty BaseURL/Model => deterministic only.
 	ProviderBaseURL string
 	ProviderAPIKey  string
@@ -40,25 +49,42 @@ func Load() Config {
 	providerBase := getenv("BRAINY_PROVIDER_BASE_URL", os.Getenv("LLM_BASE_URL"))
 	providerKey := getenv("BRAINY_PROVIDER_API_KEY", os.Getenv("LLM_API_KEY"))
 	return Config{
-		Environment:        env,
-		HTTPAddr:           getenv("BRAINY_HTTP_ADDR", ":8080"),
-		DatabaseURL:        getenv("BRAINY_DATABASE_URL", "postgres://brainy:brainy@localhost:5432/brainy?sslmode=disable"),
-		WorkerMode:         getenv("BRAINY_WORKER_MODE", "once"),
-		WorkerPollInterval: getenvDuration("BRAINY_WORKER_POLL_INTERVAL", 2*time.Second),
-		WorkerConcurrency:  getenvInt("BRAINY_WORKER_CONCURRENCY", 1),
-		APIKeys:            os.Getenv("BRAINY_API_KEYS"),
-		RequireAPIKey:      requireKey,
-		ProviderBaseURL:    providerBase,
-		ProviderAPIKey:     providerKey,
-		ProviderModel:      getenv("BRAINY_PROVIDER_MODEL", os.Getenv("LLM_MODEL")),
-		ProviderTimeout:    getenvDuration("BRAINY_PROVIDER_TIMEOUT", 45*time.Second),
-		EmbeddingBaseURL:   getenv("BRAINY_EMBEDDING_BASE_URL", providerBase),
-		EmbeddingAPIKey:    getenv("BRAINY_EMBEDDING_API_KEY", providerKey),
-		EmbeddingModel:     getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL")),
-		EmbeddingTimeout:   getenvDuration("BRAINY_EMBEDDING_TIMEOUT", 30*time.Second),
-		EntityRanking:      entityRankingDefault(),
-		IDFRanking:         getenv("BRAINY_IDF_RANKING", "") == "true",
+		Environment:           env,
+		HTTPAddr:              getenv("BRAINY_HTTP_ADDR", ":8080"),
+		DatabaseURL:           getenv("BRAINY_DATABASE_URL", "postgres://brainy:brainy@localhost:5432/brainy?sslmode=disable"),
+		MaxBodyBytes:          getenvInt64("BRAINY_MAX_BODY_BYTES", 5<<20),
+		HTTPReadHeaderTimeout: getenvDuration("BRAINY_HTTP_READ_HEADER_TIMEOUT", 10*time.Second),
+		HTTPReadTimeout:       getenvDuration("BRAINY_HTTP_READ_TIMEOUT", 30*time.Second),
+		HTTPWriteTimeout:      getenvDuration("BRAINY_HTTP_WRITE_TIMEOUT", 60*time.Second),
+		HTTPIdleTimeout:       getenvDuration("BRAINY_HTTP_IDLE_TIMEOUT", 120*time.Second),
+		WorkerMode:            getenv("BRAINY_WORKER_MODE", "once"),
+		WorkerPollInterval:    getenvDuration("BRAINY_WORKER_POLL_INTERVAL", 2*time.Second),
+		WorkerConcurrency:     getenvInt("BRAINY_WORKER_CONCURRENCY", 1),
+		APIKeys:               os.Getenv("BRAINY_API_KEYS"),
+		RequireAPIKey:         requireKey,
+		ProviderBaseURL:       providerBase,
+		ProviderAPIKey:        providerKey,
+		ProviderModel:         getenv("BRAINY_PROVIDER_MODEL", os.Getenv("LLM_MODEL")),
+		ProviderTimeout:       getenvDuration("BRAINY_PROVIDER_TIMEOUT", 45*time.Second),
+		EmbeddingBaseURL:      getenv("BRAINY_EMBEDDING_BASE_URL", providerBase),
+		EmbeddingAPIKey:       getenv("BRAINY_EMBEDDING_API_KEY", providerKey),
+		EmbeddingModel:        getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL")),
+		EmbeddingTimeout:      getenvDuration("BRAINY_EMBEDDING_TIMEOUT", 30*time.Second),
+		EntityRanking:         entityRankingDefault(),
+		IDFRanking:            getenv("BRAINY_IDF_RANKING", "") == "true",
 	}
+}
+
+func getenvInt64(key string, fallback int64) int64 {
+	value := strings.TrimSpace(os.Getenv(key))
+	if value == "" {
+		return fallback
+	}
+	n, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || n < 0 {
+		return fallback
+	}
+	return n
 }
 
 // entityRankingDefault: entity/graph reranking stays OFF unless explicitly

@@ -82,10 +82,16 @@ func main() {
 	router = api.APIKeyMiddleware(keyRing, cfg.RequireAPIKey)(router)
 	router = observability.TraceIDMiddleware(router)
 	router = observability.LoggingMiddleware(logger)(router)
+	// Outermost so the body cap applies before auth's tenant_id scan reads it.
+	router = api.MaxBytesMiddleware(cfg.MaxBodyBytes)(router)
 
 	server := &http.Server{
-		Addr:    cfg.HTTPAddr,
-		Handler: router,
+		Addr:              cfg.HTTPAddr,
+		Handler:           router,
+		ReadHeaderTimeout: cfg.HTTPReadHeaderTimeout,
+		ReadTimeout:       cfg.HTTPReadTimeout,
+		WriteTimeout:      cfg.HTTPWriteTimeout,
+		IdleTimeout:       cfg.HTTPIdleTimeout,
 	}
 
 	logger.Info("brainy api listening", "addr", cfg.HTTPAddr)
