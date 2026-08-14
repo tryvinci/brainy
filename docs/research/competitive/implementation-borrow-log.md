@@ -11,7 +11,8 @@ Track BORROW / ADAPT / REJECT decisions before inventing Brainy mechanisms.
 | 2026-08-11 | Broad multi-signal candidates | Mem0 multi-signal + top-200 docs | **ADAPT** | Extend fusion_v2; fixed context token budget; no bare top-k inflation | PR4 (queued) |
 | 2026-08-11 | Relation-native multi-hop | Graphiti entities/edges/BFS recipes | **ADAPT** | Postgres relations + hop V3; **REJECT** Neo4j default | PR7–PR8 (queued) |
 | 2026-08-14 | Fact-primary vs transcript index | Mem0 ADD facts + Graphiti episode/entity split | **ADAPT** | Default search drops `conversation_episode` when facts exist; episodes remain provenance. Do not copy Mem0 prompts. | R1 / this PR |
-| 2026-08-14 | Attribute atoms tagged episode | (bug) | **REJECT** as design | Atoms and dated provider facts are recall-primary facts | R1 |
+| 2026-08-14 | R1b held-out compiler coverage | Mem0 ADD-only atoms | **ADAPT** | Generic linguistic extractors + relative-date stamps; no LoCoMo names | `571cc1a` |
+| 2026-08-14 | Relation edges from facts | Graphiti entity/edge projection | **ADAPT** into Postgres | `memory_relations` + `follow_relation`; **REJECT** Neo4j | `5c5f561` |
 
 ## How to append
 

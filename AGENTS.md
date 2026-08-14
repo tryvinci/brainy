@@ -91,6 +91,6 @@ Every remasure, merge, or “where we landed” cycle must report **in this orde
    - For each trailing axis: the product mechanism and the PoR step that closes it. For each leading axis: what we must not regress.
    - Graphiti/Zep: write **no pin** unless we ran them. Published headlines are **context**, never scoreboard rows. Do not invent a Graphiti/Zep LoCoMo number.
 4. **Why the delta** — product mechanism (compiler coverage, provenance crowding, reader). Not vibes.
-5. **Next** — one step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md), mapped to the largest competitor gap (today: MH 2/10 vs Mem0 7/10 → R1b coverage, then entities/relations). Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA / beats-Mem0 claims.
+5. **Next** — one step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md), mapped to the largest competitor gap (today: MH 6/10 vs Mem0 7/10 → R4 ID hops + leftover WRITE_MISS). Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA / beats-Mem0 claims.
 
 `dev` is staging. `main` is production — only fast-forward `main` with explicit user approval.

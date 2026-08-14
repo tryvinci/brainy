@@ -29,6 +29,7 @@
 ## Local Brainy counterparts
 
 - Evidence / raw ingest: `memory_evidence`, `raw_ingests`  
-- Entity hub only today: `memory_entity_links`  
-- Hop executor: `internal/memory/hop_executor.go`  
+- Entity hub: `memory_entity_links` + subject/value identity on atoms  
+- Relation projection: `memory_relations` (mig v20) — edges from compiler facts, not a second extractor  
+- Hop executor: `internal/memory/hop_executor.go` (`follow_relation`)  
 - Events: `memory_events` (+ participants)

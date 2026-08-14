@@ -1,7 +1,7 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` after 2026-08-14 production FF (compiler-quality gate `4010d30`). Local remasure **11/30** (MH 2/10) vs Mem0 same-pin **12/30** (MH 7/10) — trail overall and MH; lead temporal 9/16 vs 2/16. Next is **R1b coverage**. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
+**Tips:** `main` = `dev` after 2026-08-14 production FF (compiler-quality gate `4010d30`). Local remasure **R1b 15/30 (50.0%)** (MH **6/10 (60.0%)**) vs Mem0 same-pin **12/30 (40.0%)** (MH **7/10 (70.0%)**) — **lead overall this pin; trail MH by 1**. Next is **R4 ID hops** on facts that exist + leftover WRITE_MISS. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
 **Does not claim:** SOTA, beats-Mem0, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md)
 
@@ -235,6 +235,8 @@ Inspect Mem0 OSS `mem0/configs/prompts.py` (ADD-only fact sentences) as **ADAPT*
 
 **Quality gate (landed):** malformed compiler templates are not semantic memory. Light-verb `has done going at …`, failed gerund stems (`participates in runn`), and broken quote shards must not persist, must not complete coverage, and must not outrank provenance. Local remasure **11/30** vs R1c **10/30** (q10 recovered; packet junk 45→6). Remaining LoCoMo misses on that pin are mostly **WRITE_MISS** — the compiler still does not emit the durable claim.
 
+**Coverage slice (landed, not complete):** held-out Jordan/Riley audit is green. Local remasure **15/30 (50.0%)**, MH **6/10 (60.0%)**, WRITE_MISS **15→10**. Episodes stay as fallback while 10 WRITE_MISS remain. See [locomo-r1b-dev-1x30-20260814.md](../benchmarks/artifacts/locomo-r1b-dev-1x30-20260814.md).
+
 ### R1c — Fact-primary recall (not unconditional transcript suppression)
 
 **Landed in #113** with coverage-gated fallback (trace: `representation_status`, `episode_fallback`, `episodes_dropped`). Local 1×30 remasure **10/30** (MH 2/10, OD 0/4, temporal 8/16) vs Wave 1 **14/30** — a **dip**, expected while the compiler is thin. See [locomo-r1c-dev-1x30-20260814.md](../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md).
@@ -286,6 +288,8 @@ Not: mention → matching memories → first memory ID → inferred entity.
 
 Identity remains tenant/subject scoped unless an explicit cross-scope policy exists. **REJECT** Neo4j.
 
+**First slice (landed):** compiler `subject` / `value_norm` are copied onto record metadata and entity links. Not yet canonical IDs + aliases + ranked resolution.
+
 ### R3 — Relation projection (not a second extractor)
 
 Do not build `fact extractor + separate relation extractor` unless measurement later proves it necessary.
@@ -308,6 +312,8 @@ Caroline currently lives in London.  fact_type=state  valid_from=2025-07
 ```
 
 Keep `temporal_score`, `IncludeHistorical`, and current-state resolution — score **dated semantic records**, not conversational prose.
+
+**First slice (landed):** `memory_relations` (mig v20) + `follow_relation` hops. Edges are projected from compiler facts. q11 origin still `READER_MISS` with `gold_in_facts=true` — R4 ID join is the remaining MH point vs Mem0 7/10.
 
 ### R4 — Relation-aware hops (actual joins)
 

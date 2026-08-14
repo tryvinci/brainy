@@ -16,9 +16,9 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Temporal retrieval scoring | strong | strong | **intent → IncludeHistorical + temporal_score** | **strong** | PR3 **landed on `dev`** |
 | BM25 + dense | yes | yes | yes (`fusion_v2`) | yes | PR4 extend |
 | Entity retrieval | strong | strong | partial (hub boosts) | **strong** | PR4/PR6 |
-| Canonical entities | graph-backed | native | partial (`memory_entity_links` only) | **native Postgres identity (IDs, aliases, ranked resolution)** | R2 / PR6 after R1b |
-| Relation memory | platform graph | **core** | weak | **projection of entity-valued atomic facts** | R3 / PR7 |
-| Multi-hop traversal | entity graph | **native** | early (hop V2) | **entity-ID dependency joins** | R4 / PR8 after R3 |
+| Canonical entities | graph-backed | native | partial (`memory_entity_links` + subject/value identity on atoms) | **native Postgres identity (IDs, aliases, ranked resolution)** | R2 first slice landed; IDs still next |
+| Relation memory | platform graph | **core** | **partial** (`memory_relations` projection + `follow_relation`) | **projection of entity-valued atomic facts** | R3 first slice landed |
+| Multi-hop traversal | entity graph | **native** | early (`follow_relation` + hop V2) | **entity-ID dependency joins** | R4 after R3 |
 | Governed answer sufficiency | limited | not core | **strong** | **strong** | keep |
 | Evidence proof chain | limited | provenance | **context + proof split on `dev`** | **context + proof split** | PR5 **landed on `dev`** |
 | Vertical packs | no equivalent | ontology | **strong** | **strong** | keep |
@@ -41,5 +41,6 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Wave 1 local OpMem / marketing (`a7a5184`) | 13/13 / passed — [opmem](../../benchmarks/artifacts/opmem-wave1-local-20260813.md) · [marketing](../../benchmarks/artifacts/marketing-wave1-local-20260813.md) |
 | R1c local LoCoMo 1×30 (`21a632b`) | **10/30** · MH **2/10** · OD **0/4** · temporal **8/16** — [pin](../../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md) (honest dip vs Wave 1; not a compiler win) |
 | R1c local OpMem / marketing (`21a632b`) | 13/13 / 17/17 — [opmem](../../benchmarks/artifacts/opmem-r1c-local-20260814.md) · [marketing](../../benchmarks/artifacts/marketing-r1c-local-20260814.md) |
-| Compiler-quality local LoCoMo 1×30 (`d82f7d6`) | **11/30** · MH **2/10** · OD **0/4** · temporal **9/16** — [pin](../../benchmarks/artifacts/locomo-atomq-dev-1x30-20260814.md) (q10 recovered; junk 45→6; still a dip vs Wave 1) |
+| Compiler-quality local LoCoMo 1×30 (`d82f7d6`) | **11/30 (36.7%)** · MH **2/10 (20.0%)** · OD **0/4** · temporal **9/16 (56.2%)** — [pin](../../benchmarks/artifacts/locomo-atomq-dev-1x30-20260814.md) (q10 recovered; junk 45→6; still a dip vs Wave 1) |
+| R1b local LoCoMo 1×30 (`5c5f561`) | **15/30 (50.0%)** · MH **6/10 (60.0%)** · OD **0/4** · temporal **9/16 (56.2%)** — [pin](../../benchmarks/artifacts/locomo-r1b-dev-1x30-20260814.md) (lead Mem0 same-pin overall 15 vs 12; trail MH 6 vs 7; not SOTA) |
 | LME-20 | **Publishable 0/20** `/recall` — [pin](../../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |

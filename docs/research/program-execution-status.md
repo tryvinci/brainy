@@ -23,6 +23,7 @@
 9. **2026-08-14 later:** PR #113 merge-committed onto `dev` + `main` (`21a632b`): R0 fact-aware oracles, R1a primitive semantics, coverage-gated R1c. Local remasure: OpMem **13/13**, marketing **17/17**, LoCoMo 1×30 **10/30** (MH **2/10**, OD **0/4**, temporal **8/16**) — [pin](../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md). Dip vs Wave 1 14/30. Next real milestone is **R1b** (atomic compiler + held-out coverage). The 19 `SOURCE_MISS` labels on that ledger were an evidence-dump over-label, not a write outage.
 10. **2026-08-14 later:** Compiler quality gate (malformed `has done going at` / failed gerund stems are not recall-primary). Local remasure **11/30** (temporal **9/16**, q10 recovered). Packet junk templates 45→6. Ledger **15 WRITE_MISS + 4 READER_MISS**. [pin](../benchmarks/artifacts/locomo-atomq-dev-1x30-20260814.md).
 11. **2026-08-14 later:** `dev` fast-forwarded onto **`main`** with explicit approval (compiler-quality + cycle-closeout SOP). Competitor compare is required every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
+12. **2026-08-14 later:** R1b coverage + R3 relation projection. Held-out audit green. Local remasure LoCoMo **15/30 (50.0%)**, MH **6/10 (60.0%)**, OD **0/4**, temporal **9/16 (56.2%)** vs Mem0 same-pin **12/30 (40.0%) / 7/10 (70.0%) / 3/4 (75.0%) / 2/16 (12.5%)**. OpMem **13/13**, marketing **17/17**. Lead overall this pin; trail MH by 1. **Not SOTA.** Next: R4 ID hops. [pin](../benchmarks/artifacts/locomo-r1b-dev-1x30-20260814.md).
 
 ## Hardening cycle — closed
 
@@ -80,15 +81,15 @@ LoCoMo 1×30 remasure on merged Wave 1 (`a7a5184`): **14/30** (MH **3/10**, OD 2
 | PR3 Temporal features V1 | TEMPORAL_RETRIEVAL_MISS | **Merged to `dev`** (#103) | Intent → `IncludeHistorical`; `temporal_score`. Local 1×30 temporal **9/16** (was 1/16 on PR2 local; hybrid-reader confound). |
 | PR4 Retrieval V4 budgets | RETRIEVAL_MISS | **Merged to `dev`** (#104) | `MaxEvidenceTokens`; candidate pools 30/50/100/200 cap 200; episode −0.15 |
 | PR5 Context vs proof split | EVIDENCE_COVERAGE_MISS | **Merged to `dev`** (#102) | `ContextEvidence` + `ProofChain`. Failures still READER_MISS with coverage supported. |
-| PR6 Canonical entity store V2 | ENTITY_LINK_MISS | **R2 — after R1b** | Identity semantics (IDs, aliases, ranked resolution), not a name table / first memory ID |
-| PR7 Relation memory V1 | RELATION_MISS | **R3 — projection of entity-valued atomic facts** | Not a second extractor. MH 3/10 vs Mem0 7/10 is missing edges/facts, not a graph DB |
-| PR8 Hop executor V3 | PROOF_MISS / PLANNING_MISS | **R4 after R3** | `hop[i].output_entity_id == hop[i+1].input_entity_id` |
+| PR6 Canonical entity store V2 | ENTITY_LINK_MISS | **R2 first slice** | subject/value on atoms + entity links. Canonical IDs still next |
+| PR7 Relation memory V1 | RELATION_MISS | **R3 first slice** | `memory_relations` projection; MH 6/10 vs Mem0 7/10 |
+| PR8 Hop executor V3 | PROOF_MISS / PLANNING_MISS | **R4 next** | q11 origin is READER_MISS with gold in facts |
 | PR9 Assistant-generated memories | EXTRACTION_COVERAGE_MISS | **Merged to `dev`** (#105) | Skip phatic assistant `conversation_episode`; keep `assistant_stated` |
 | PR10 Frozen competitive qualification | — | **Measured; not claimed** | Fresh Mem0 **12/30** (MH 70%) vs Wave 1 local **14/30** (MH **30%**). Mem0 still leads MH. LME-20 quality still **0/20**. **No SOTA / beats-Mem0.** |
 
 ## Still open (honest)
 
-- Conversational quality (LME-20 **0/20** publishable; LoCoMo staging 15/30 / 33/90; local PR2 **6/30**; Wave 1 local **14/30**, MH **3/10**; R1c local **10/30**; **compiler-quality local 11/30**, MH **2/10**)
+- Conversational quality (LME-20 **0/20** publishable; LoCoMo staging 15/30 / 33/90; local PR2 **6/30**; Wave 1 local **14/30**, MH **3/10**; R1c local **10/30**; compiler-quality local **11/30**, MH **2/10**; **R1b local 15/30 (50.0%)**, MH **6/10 (60.0%)** — lead Mem0 same-pin overall, trail MH 6 vs 7)
 - Reader-only as the SOTA bet is **rejected**. Remaining conversational gap is **representation** (compiler coverage, then entities/edges). Hard episode-drop before R1b is also **rejected**. See [sota-representation-path.md](./sota-representation-path.md).
 - Optional cleaner compare: staging 1×30 vs post-cutover 15/30 after `main` deploy
 - PR10: Mem0 **12/30** same-pin; Wave 1 local **14/30** is not a qualification (MH 3/10 vs 7/10)
@@ -97,5 +98,5 @@ LoCoMo 1×30 remasure on merged Wave 1 (`a7a5184`): **14/30** (MH **3/10**, OD 2
 
 ## Claims discipline
 
-- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; local PR2 remasure **6/30**; Wave 1 local **14/30** (MH 3/10, temporal 9/16) with hybrid-reader confound vs 6/30; R1c local **10/30** (MH 2/10, OD 0/4, temporal 8/16) as an honest dip after PR #113; compiler-quality local **11/30** (q10 recovered; junk 45→6; still a dip vs Wave 1); fresh Mem0 **12/30** (MH 7/10); OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); PR #113 on `dev`+`main` (`21a632b`); Wave D histogram.
-- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30, local 6/30, Wave 1 14/30, R1c 10/30, or compiler-quality 11/30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME; treating Wave 1 ranking PRs as the SOTA architecture; treating R1c’s 19 `SOURCE_MISS` ledger labels as a write-pipeline outage.
+- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; local PR2 remasure **6/30**; Wave 1 local **14/30** (MH 3/10, temporal 9/16) with hybrid-reader confound vs 6/30; R1c local **10/30** (MH 2/10, OD 0/4, temporal 8/16) as an honest dip after PR #113; compiler-quality local **11/30** (q10 recovered; junk 45→6; still a dip vs Wave 1); R1b local **15/30 (50.0%)** (MH 6/10, OD 0/4, temporal 9/16) as **lead this Mem0 freeze overall** and **trail MH 6 vs 7** — not SOTA / not qualification; fresh Mem0 **12/30 (40.0%)** (MH 7/10); OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); PR #113 on `dev`+`main` (`21a632b`); Wave D histogram.
+- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30, local 6/30, Wave 1 14/30, R1c 10/30, compiler-quality 11/30, or R1b 15/30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME; treating Wave 1 ranking PRs as the SOTA architecture; treating R1c’s 19 `SOURCE_MISS` ledger labels as a write-pipeline outage.
