@@ -839,6 +839,31 @@ func TestSelectEpisodeFallbackPrefersDistinctiveProvenance(t *testing.T) {
 	}
 }
 
+func TestStaleFactPrefersNewerDate(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["may"] = MemoryRecord{
+		MemoryID: "mem_may", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "The launch date is May 12.",
+		DedupeKey: "may", Status: StatusActive, UpdatedAt: now.Add(-time.Minute),
+	}
+	store.records["june"] = MemoryRecord{
+		MemoryID: "mem_june", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "The launch date is June 3.",
+		DedupeKey: "june", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "launch date")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) == 0 || !strings.Contains(strings.ToLower(search.Results[0].Content), "june") {
+		t.Fatalf("newer June fact must rank first, got %#v", search.Results)
+	}
+}
+
 func TestMalformedAtomsDoNotOutrankProvenance(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

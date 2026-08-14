@@ -413,7 +413,10 @@ func malformedCompilerFact(content string) bool {
 	}
 	last := strings.Trim(fields[len(fields)-1], `."'`)
 	if utf8.RuneCountInString(last) == 1 {
-		return true
+		r, _ := utf8.DecodeRuneInString(last)
+		if r >= 'a' && r <= 'z' {
+			return true
+		}
 	}
 	return false
 }

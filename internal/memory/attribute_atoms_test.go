@@ -167,6 +167,7 @@ func TestMalformedCompilerFactDetector(t *testing.T) {
 		"Alex has done hiking at mountains",
 		"Alex mentioned \"The Little Prince\"",
 		"Alex is from Canada",
+		"The launch date is June 3.",
 	}
 	for _, c := range good {
 		if malformedCompilerFact(c) {
