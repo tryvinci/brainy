@@ -29,7 +29,7 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | **LOCOMO harden local** | **14/30** — honest dip vs Gate 0 after stricter hop-join |
 | **LOCOMO Wave 1 local** | **14/30** on `a7a5184` (MH **3/10**, temporal **9/16**); not vs Gate 0; hybrid-reader confound vs local 6/30 |
 | **Industry stand** | Lead ops + marketing; conversational improving but not SOTA — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
-| **Next agent** | Fact-primary recall → entities → relations. Not more ranking efficiency. [sota-representation-path.md](./sota-representation-path.md) |
+| **Next agent** | R0 coverage oracle → R1a/R1b compiler → R1c facts-first with episode fallback → entities → relation projection. Not hard episode-drop, not more ranking efficiency. [sota-representation-path.md](./sota-representation-path.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [gap matrix](./competitive/competitive-gap-matrix.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
 
@@ -51,6 +51,7 @@ Details: [competitive verdict](./external-reviews/2026-08-11-competitive-archite
 | External agent assessment pack | **Preferred handoff** | [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) |
 | Competitive architecture verdict | **Accepted PoR (2026-08-11)** | [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md) |
 | Representation path (execute now) | **Active** | [sota-representation-path.md](./sota-representation-path.md) |
+| Representation-path review (2026-08-14) | **Accepted amendment** | [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) |
 | Competitive archaeology | Active | [competitive/README.md](./competitive/README.md) · [gap matrix](./competitive/competitive-gap-matrix.md) |
 | Codebase graph (mermaid + JSON) | Active | [codebase-graph.md](./codebase-graph.md) · [codebase-graph.json](./codebase-graph.json) |
 | SOTA end-to-end program (prior PoR) | Historical | [sota-end-to-end-program.md](./sota-end-to-end-program.md) |
@@ -86,9 +87,10 @@ Empty / TBD cells beat invented numbers.
 
 ## Next engineering step
 
-1. **R1** fact-primary recall (episodes = provenance).  
-2. **R1b** atomic fact extract (GAP-C1) measured on a held-out conversation.  
-3. **R2–R4** canonical entities → relation edges → relation hops (Postgres, ADR-004).  
-4. Fair LoCoMo 3×90 + LME-20 quality under identical pins before any “beat Mem0” claim.  
+1. **R0** representation coverage oracle (do not call chat-substring hits `READER_MISS`).  
+2. **R1a/R1b** primitive semantics + atomic compiler; held-out **semantic coverage** is the milestone.  
+3. **R1c** facts first; bounded episode fallback until coverage is complete.  
+4. **R2–R5** canonical entities → relation **projection** → entity-ID hops → structured-first answers.  
+5. Fair LoCoMo 3×90 + LME-20 quality under identical pins before any “beat Mem0” claim. Representation audit gates merge before those scores.  
 
 Details: [sota-representation-path.md](./sota-representation-path.md)  

@@ -7,7 +7,7 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 
 | Capability | Mem0 | Graphiti/Zep | Brainy now | Brainy target | Program PR |
 | --- | --- | --- | --- | --- | --- |
-| Durable conversational facts | strong | strong | **mixed** (facts + recall-primary episodes) | **facts recall-primary; episodes provenance** | R1 |
+| Durable conversational facts | strong | strong | **mixed** (facts + still-needed episode fallback) | **facts recall-primary; episodes provenance + fallback until compiler coverage** | R1a–R1c |
 | ADD-only conversational history | yes | effectively | **policy split** (core append-only; verticals keep #94) | **yes (policy split)** | PR2 **landed** |
 | Operational mutation semantics | limited | temporal invalidation | **strong** | **strong** | keep |
 | Raw provenance | partial | strong | **strong** | **strong** | keep |
@@ -16,9 +16,9 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Temporal retrieval scoring | strong | strong | **intent → IncludeHistorical + temporal_score** | **strong** | PR3 **landed on `dev`** |
 | BM25 + dense | yes | yes | yes (`fusion_v2`) | yes | PR4 extend |
 | Entity retrieval | strong | strong | partial (hub boosts) | **strong** | PR4/PR6 |
-| Canonical entities | graph-backed | native | partial (`memory_entity_links` only) | **native Postgres** | PR6 **next after R1** |
-| Relation memory | platform graph | **core** | weak | **first-class** | PR7 **un-deferred** |
-| Multi-hop traversal | entity graph | **native** | early (hop V2) | **typed relation hops** | PR8 **after PR7** |
+| Canonical entities | graph-backed | native | partial (`memory_entity_links` only) | **native Postgres identity (IDs, aliases, ranked resolution)** | R2 / PR6 after R1b |
+| Relation memory | platform graph | **core** | weak | **projection of entity-valued atomic facts** | R3 / PR7 |
+| Multi-hop traversal | entity graph | **native** | early (hop V2) | **entity-ID dependency joins** | R4 / PR8 after R3 |
 | Governed answer sufficiency | limited | not core | **strong** | **strong** | keep |
 | Evidence proof chain | limited | provenance | **context + proof split on `dev`** | **context + proof split** | PR5 **landed on `dev`** |
 | Vertical packs | no equivalent | ontology | **strong** | **strong** | keep |

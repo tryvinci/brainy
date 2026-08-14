@@ -46,15 +46,17 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 **Prior briefs (historical):**  
 [2026-08-10-v3-rereview-brief.md](./2026-08-10-v3-rereview-brief.md) · [2026-08-10-rereview-brief.md](./2026-08-10-rereview-brief.md) · [2026-08-07-recall-contract-verdict.md](./2026-08-07-recall-contract-verdict.md)
 
+**Representation-path amendment (2026-08-14):** [2026-08-14-representation-path-additions.md](./2026-08-14-representation-path-additions.md) — accepted. Execution: [sota-representation-path.md](../sota-representation-path.md).
+
 **Next work (in order):**
 
-1. **PR1** — LME-20 measurement integrity — **done** (publishable 0/20)
-2. **PR2** — Conversational append-only vs governed mutation policy — **code landed**
-3. **PR3** — Temporal features V1 + `temporal_score` ranking
-4. **PR4** — Retrieval V4 candidate/context/proof budgets
-5. **PR5** — ContextEvidence vs ProofChain
-6. **PR6–PR8** — Canonical entities → relation memory → hop executor V3
-7. **PR9–PR10** — Assistant memories → frozen competitive qualification
+1. **R0** — Representation coverage oracle + earliest-stage taxonomy (before another LoCoMo category read)
+2. **R1a** — Stop tagging real facts/atoms as episodes
+3. **R1b** — Atomic semantic compiler; held-out coverage audit is the milestone
+4. **R1c** — Fact-primary recall with episode fallback on incomplete coverage (**not** hard drop)
+5. **R2–R5** — Canonical entities → relation projection → entity-ID hops → structured-first answers
+6. **R6** — 1×30 diagnostic → 3×90 → LME-20 quality (after representation gates)
+7. Wave 1 PR1–PR5/PR9 — **landed**; keep temporal_score on the new representation rather than ripping it out
 
 Do **not** default to fusion retune, graph DB, category dictionaries, hop-heuristic sprawl, or re-opening architect PR1–PR7.
 

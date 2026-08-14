@@ -2,7 +2,7 @@
 
 Standing process for inspecting Mem0 / Graphiti (and peers) before inventing Brainy memory mechanisms.
 
-**Program of record (execution):** [sota-representation-path.md](./sota-representation-path.md) — fact-primary recall, then entities/relations. Wave 1 ranking PRs are not the SOTA bet.  
+**Program of record (execution):** [sota-representation-path.md](./sota-representation-path.md) — compile interactions into facts/entities/relations; retrieve those; keep episodes as provenance + fallback. Wave 1 ranking PRs are not the SOTA bet. **Mem0 OSS ≠ Mem0 Platform; Graphiti ≠ Zep Platform.**  
 **Gap matrix:** [competitive-gap-matrix.md](./competitive-gap-matrix.md)  
 **Borrow log:** [implementation-borrow-log.md](./implementation-borrow-log.md)
 
@@ -11,6 +11,15 @@ Standing process for inspecting Mem0 / Graphiti (and peers) before inventing Bra
 > Before inventing a new memory mechanism, inspect current Mem0 and Graphiti OSS implementations for the same problem. Reuse or adapt proven OSS ideas when compatible with Brainy's five-plane architecture. Deviate only when Brainy's evidence, operational, temporal, or vertical requirements provide a concrete reason.
 
 Competitor repos are **reference implementations / architectural blueprints**, not exact copies of managed platforms that publish benchmark scores.
+
+Track four surfaces separately:
+
+| Track | Use |
+| --- | --- |
+| Mem0 OSS | Mechanisms we can inspect and reproduce |
+| Mem0 Platform | Product quality we need to match (published numbers include proprietary opts) |
+| Graphiti | Entity / relation / episode / validity architecture we can inspect |
+| Zep Platform | What that architecture becomes in production |
 
 ## Per-gap workflow
 
