@@ -1045,7 +1045,8 @@ func looksListQuery(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "books", "book",
-			"places", "place", "stress", "camping", "camped":
+			"places", "place", "stress", "camping", "camped",
+			"kids", "children", "likes":
 			return true
 		}
 	}
@@ -1055,13 +1056,12 @@ func looksListQuery(tokens []string) bool {
 func predicateFromListQuery(tokens []string) string {
 	for _, token := range tokens {
 		switch token {
-		case "activities", "activity", "hobbies", "hobby", "stress":
+		case "activities", "activity", "hobbies", "hobby", "stress",
+			"camped", "camping", "places", "place":
 			return PredicateActivity
 		case "books", "book", "read", "reading":
 			return PredicateMediaConsumed
-		case "camped", "camping", "places", "place":
-			return PredicateEvent
-		case "kids", "children":
+		case "kids", "children", "likes":
 			return PredicateFamilyMember
 		}
 	}
@@ -1301,8 +1301,8 @@ func relatedIntentTokens(token string) []string {
 		return []string{"gender", "identity"}
 	case "relationship", "status":
 		return []string{"single", "married", "partner", "dating", "relationship"}
-	case "career", "path", "pursue", "persue":
-		return []string{"career", "job", "profession", "work"}
+	case "career", "path", "pursue", "persue", "educat", "education", "fields":
+		return []string{"career", "job", "profession", "work", "study", "studying"}
 	case "activities", "activity", "hobby", "hobbies":
 		return []string{"hobby", "hobbies", "activity", "activities"}
 	case "camping", "camp":
@@ -1925,7 +1925,7 @@ func attributeAtomBoost(record MemoryRecord) float64 {
 	}
 	rule, _ := record.Explain["rule"].(string)
 	switch {
-	case rule == "attribute_identity" || rule == "attribute_relationship" || rule == "attribute_origin":
+	case rule == "attribute_identity" || rule == "attribute_relationship" || rule == "attribute_origin" || rule == "attribute_occupation":
 		return 0.4
 	case strings.HasPrefix(rule, "attribute_"):
 		return 0.28
@@ -1974,12 +1974,20 @@ func queryAttributeIntentBoost(queryTokens []string, record MemoryRecord) float6
 		return 0.55
 	case rule == "attribute_identity" && has("identity", "who", "gender"):
 		return 0.45
+	case rule == "attribute_occupation" && has("career", "path", "pursue", "persue", "job", "educat", "fields"):
+		return 0.5
+	case rule == "attribute_plan" && has("planning", "going", "when"):
+		return 0.45
 	case (rule == "attribute_activity" || rule == "attribute_place_activity") &&
 		has("activities", "activity", "hobbies", "hobby", "camping", "camped", "stress"):
 		return 0.45
 	case rule == "attribute_titled_work" && has("books", "book", "read", "reading"):
 		return 0.5
 	case rule == "attribute_preference" && has("kids", "children", "like", "likes"):
+		return 0.5
+	case rule == "attribute_possession" && has("book", "books", "collect", "bookshelf"):
+		return 0.45
+	case rule == "attribute_duration" && has("long", "years", "how"):
 		return 0.5
 	}
 	// Content fallback when explain.rule missing (older rows / provider atoms).

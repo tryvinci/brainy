@@ -129,14 +129,17 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 		}
 	}
 	if extracted.Explain != nil {
+		if record.Metadata == nil {
+			record.Metadata = map[string]any{}
+		}
 		if pred, ok := extracted.Explain["predicate"].(string); ok && pred != "" {
-			if record.Metadata == nil {
-				record.Metadata = map[string]any{}
-			}
 			record.Metadata["predicate"] = pred
 			if vn, ok := extracted.Explain["value_norm"].(string); ok {
 				record.Metadata["value_norm"] = vn
 			}
+		}
+		if subj, ok := extracted.Explain["subject"].(string); ok && strings.TrimSpace(subj) != "" {
+			record.Metadata["subject"] = strings.TrimSpace(subj)
 		}
 	}
 	// Lineage: ingest metadata.supersedes_memory_id → new.supersedes_id; prior
@@ -170,83 +173,126 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	return record, nil
 }
 
+type relativeKind string
+
+const (
+	relKindDay     relativeKind = "day"
+	relKindWeek    relativeKind = "week"
+	relKindWeekday relativeKind = "weekday"
+	relKindWeekend relativeKind = "weekend"
+	relKindMonth   relativeKind = "month"
+	relKindYears   relativeKind = "years"
+	relKindOther   relativeKind = "other"
+)
+
+type relativeResolution struct {
+	event      time.Time
+	kind       relativeKind
+	weekendSun time.Time
+}
+
 // EnrichRelativeEventTime appends an absolute date when dialogue uses relative
 // time words ("yesterday", "last Saturday", "10 years ago") so search/answer
-// can resolve event time against session observed_at.
+// can resolve event time against session observed_at. Last-weekday / last-week
+// also keep the session-relative phrase ("the Friday before 15 July 2023").
 func EnrichRelativeEventTime(content string, at time.Time) string {
 	lower := strings.ToLower(content)
-	var event time.Time
-	switch {
-	case strings.Contains(lower, "day before yesterday"):
-		event = at.AddDate(0, 0, -2)
-	case strings.Contains(lower, "two days ago"), strings.Contains(lower, "2 days ago"):
-		event = at.AddDate(0, 0, -2)
-	case strings.Contains(lower, "three days ago"), strings.Contains(lower, "3 days ago"):
-		event = at.AddDate(0, 0, -3)
-	case strings.Contains(lower, "a few days ago"), strings.Contains(lower, "couple days ago"), strings.Contains(lower, "couple of days ago"):
-		event = at.AddDate(0, 0, -3)
-	case strings.Contains(lower, "yesterday"):
-		event = at.AddDate(0, 0, -1)
-	case strings.Contains(lower, "tomorrow"):
-		event = at.AddDate(0, 0, 1)
-	case strings.Contains(lower, "last week"), strings.Contains(lower, "a week ago"), strings.Contains(lower, "1 week ago"):
-		event = at.AddDate(0, 0, -7)
-	case strings.Contains(lower, "two weeks ago"), strings.Contains(lower, "2 weeks ago"):
-		event = at.AddDate(0, 0, -14)
-	case strings.Contains(lower, "next week"):
-		event = at.AddDate(0, 0, 7)
-	case strings.Contains(lower, "last month"), strings.Contains(lower, "a month ago"):
-		event = at.AddDate(0, -1, 0)
-	case strings.Contains(lower, "next month"):
-		event = at.AddDate(0, 1, 0)
-	case strings.Contains(lower, "last year"), strings.Contains(lower, "a year ago"), strings.Contains(lower, "1 year ago"):
-		event = at.AddDate(-1, 0, 0)
-	case strings.Contains(lower, "next year"):
-		event = at.AddDate(1, 0, 0)
-	case strings.Contains(lower, "this weekend"), strings.Contains(lower, "coming weekend"), strings.Contains(lower, "next weekend"):
-		event = nextWeekend(at)
-	case strings.Contains(lower, "last weekend"):
-		event = previousWeekend(at)
-	case strings.Contains(lower, "the week before"), strings.Contains(lower, "a week before"):
-		event = at.AddDate(0, 0, -7)
-	case strings.Contains(lower, "today"), strings.Contains(lower, "this week"), strings.Contains(lower, "this month"):
-		event = at
-	default:
-		if days := parseDaysOffset(lower); days != 0 {
-			event = at.AddDate(0, 0, days)
-			break
-		}
-		if monthEvent, ok := parseMonthAgainstObserved(lower, at); ok {
-			event = monthEvent
-			break
-		}
-		if years := parseYearsAgo(lower); years > 0 {
-			event = at.AddDate(-years, 0, 0)
-			break
-		}
-		if wd, ok := parseLastWeekday(lower); ok {
-			event = previousWeekday(at, wd)
-			break
-		}
-		if wd, ok := parseThisWeekday(lower); ok {
-			event = thisWeekday(at, wd)
-			break
-		}
+	res, ok := resolveRelativeEvent(lower, at)
+	if !ok || res.event.IsZero() {
 		return content
 	}
-	if event.IsZero() {
-		return content
-	}
-	stamp := event.Format("2 January 2006")
+	stamp := res.event.Format("2 January 2006")
 	if strings.Contains(lower, strings.ToLower(stamp)) {
 		return content
 	}
-	// Also expose ISO year for "how long ago" style questions.
-	extra := stamp
+	parts := []string{stamp}
 	if years := parseYearsAgo(lower); years > 0 {
-		extra = stamp + "; " + strconv.Itoa(years) + " years ago"
+		parts = append(parts, strconv.Itoa(years)+" years ago")
 	}
-	return content + " (" + extra + ")"
+	if phrase := sessionRelativePhrase(res, at); phrase != "" && !strings.Contains(lower, strings.ToLower(phrase)) {
+		parts = append(parts, phrase)
+	}
+	if !res.weekendSun.IsZero() {
+		sun := res.weekendSun.Format("2 January 2006")
+		joined := strings.Join(parts, " ")
+		if !strings.Contains(joined, sun) {
+			parts = append(parts, sun)
+		}
+	}
+	return content + " (" + strings.Join(parts, "; ") + ")"
+}
+
+func sessionRelativePhrase(res relativeResolution, at time.Time) string {
+	obs := at.Format("2 January 2006")
+	switch res.kind {
+	case relKindWeekday:
+		return "the " + res.event.Weekday().String() + " before " + obs
+	case relKindWeek:
+		return "the week before " + obs
+	case relKindWeekend:
+		return "the weekend before " + obs
+	case relKindDay:
+		if res.event.Equal(at.AddDate(0, 0, -1)) {
+			return "the day before " + obs
+		}
+	}
+	return ""
+}
+
+func resolveRelativeEvent(lower string, at time.Time) (relativeResolution, bool) {
+	switch {
+	case strings.Contains(lower, "day before yesterday"):
+		return relativeResolution{event: at.AddDate(0, 0, -2), kind: relKindDay}, true
+	case strings.Contains(lower, "two days ago"), strings.Contains(lower, "2 days ago"):
+		return relativeResolution{event: at.AddDate(0, 0, -2), kind: relKindDay}, true
+	case strings.Contains(lower, "three days ago"), strings.Contains(lower, "3 days ago"):
+		return relativeResolution{event: at.AddDate(0, 0, -3), kind: relKindDay}, true
+	case strings.Contains(lower, "a few days ago"), strings.Contains(lower, "couple days ago"), strings.Contains(lower, "couple of days ago"):
+		return relativeResolution{event: at.AddDate(0, 0, -3), kind: relKindDay}, true
+	case strings.Contains(lower, "yesterday"):
+		return relativeResolution{event: at.AddDate(0, 0, -1), kind: relKindDay}, true
+	case strings.Contains(lower, "tomorrow"):
+		return relativeResolution{event: at.AddDate(0, 0, 1), kind: relKindDay}, true
+	case strings.Contains(lower, "last week"), strings.Contains(lower, "a week ago"), strings.Contains(lower, "1 week ago"):
+		return relativeResolution{event: at.AddDate(0, 0, -7), kind: relKindWeek}, true
+	case strings.Contains(lower, "two weeks ago"), strings.Contains(lower, "2 weeks ago"):
+		return relativeResolution{event: at.AddDate(0, 0, -14), kind: relKindWeek}, true
+	case strings.Contains(lower, "next week"):
+		return relativeResolution{event: at.AddDate(0, 0, 7), kind: relKindWeek}, true
+	case strings.Contains(lower, "last month"), strings.Contains(lower, "a month ago"):
+		return relativeResolution{event: at.AddDate(0, -1, 0), kind: relKindMonth}, true
+	case strings.Contains(lower, "next month"):
+		return relativeResolution{event: at.AddDate(0, 1, 0), kind: relKindMonth}, true
+	case strings.Contains(lower, "last year"), strings.Contains(lower, "a year ago"), strings.Contains(lower, "1 year ago"):
+		return relativeResolution{event: at.AddDate(-1, 0, 0), kind: relKindYears}, true
+	case strings.Contains(lower, "next year"):
+		return relativeResolution{event: at.AddDate(1, 0, 0), kind: relKindYears}, true
+	case strings.Contains(lower, "this weekend"), strings.Contains(lower, "coming weekend"), strings.Contains(lower, "next weekend"):
+		return relativeResolution{event: nextWeekend(at), kind: relKindWeekend}, true
+	case strings.Contains(lower, "last weekend"):
+		sat := previousWeekend(at)
+		return relativeResolution{event: sat, weekendSun: sat.AddDate(0, 0, 1), kind: relKindWeekend}, true
+	case strings.Contains(lower, "the week before"), strings.Contains(lower, "a week before"):
+		return relativeResolution{event: at.AddDate(0, 0, -7), kind: relKindWeek}, true
+	case strings.Contains(lower, "today"), strings.Contains(lower, "this week"), strings.Contains(lower, "this month"):
+		return relativeResolution{event: at, kind: relKindOther}, true
+	}
+	if days := parseDaysOffset(lower); days != 0 {
+		return relativeResolution{event: at.AddDate(0, 0, days), kind: relKindDay}, true
+	}
+	if monthEvent, ok := parseMonthAgainstObserved(lower, at); ok {
+		return relativeResolution{event: monthEvent, kind: relKindMonth}, true
+	}
+	if years := parseYearsAgo(lower); years > 0 {
+		return relativeResolution{event: at.AddDate(-years, 0, 0), kind: relKindYears}, true
+	}
+	if wd, ok := parseLastWeekday(lower); ok {
+		return relativeResolution{event: previousWeekday(at, wd), kind: relKindWeekday}, true
+	}
+	if wd, ok := parseThisWeekday(lower); ok {
+		return relativeResolution{event: thisWeekday(at, wd), kind: relKindWeekday}, true
+	}
+	return relativeResolution{}, false
 }
 
 func previousWeekday(at time.Time, day time.Weekday) time.Time {
@@ -283,6 +329,13 @@ func parseLastWeekday(lower string) (time.Weekday, bool) {
 		{"last thursday", time.Thursday},
 		{"last friday", time.Friday},
 		{"last saturday", time.Saturday},
+		{"last sun", time.Sunday},
+		{"last mon", time.Monday},
+		{"last tue", time.Tuesday},
+		{"last wed", time.Wednesday},
+		{"last thu", time.Thursday},
+		{"last fri", time.Friday},
+		{"last sat", time.Saturday},
 	}
 	for _, item := range mapping {
 		if strings.Contains(lower, item.needle) {

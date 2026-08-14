@@ -161,15 +161,32 @@ func predicateHintsFromQuery(query string) []string {
 		out = append(out, p)
 	}
 	switch {
-	case strings.Contains(lower, "live") || strings.Contains(lower, "reside") || strings.Contains(lower, "city") || strings.Contains(lower, "moved"):
+	case strings.Contains(lower, "live") || strings.Contains(lower, "reside") || strings.Contains(lower, "city") || strings.Contains(lower, "moved") || strings.Contains(lower, "from") || strings.Contains(lower, "country"):
 		add(PredicateResidence)
 		add(PredicateOrigin)
-	case strings.Contains(lower, "job") || strings.Contains(lower, "work") || strings.Contains(lower, "occupation") || strings.Contains(lower, "nurse") || strings.Contains(lower, "engineer"):
+	case strings.Contains(lower, "job") || strings.Contains(lower, "work") || strings.Contains(lower, "occupation") || strings.Contains(lower, "career") || strings.Contains(lower, "pursue") || strings.Contains(lower, "educat"):
 		add(PredicateOccupation)
-	case strings.Contains(lower, "married") || strings.Contains(lower, "relationship") || strings.Contains(lower, "partner"):
+		add(PredicateEducation)
+		add(PredicatePlan)
+	case strings.Contains(lower, "married") || strings.Contains(lower, "relationship") || strings.Contains(lower, "partner") || strings.Contains(lower, "single"):
 		add(PredicateRelationshipStatus)
 	case strings.Contains(lower, "name") || strings.Contains(lower, "who is") || strings.Contains(lower, "identity"):
 		add(PredicateIdentity)
+	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop"):
+		add(PredicateActivity)
+		add(PredicateEvent)
+	case strings.Contains(lower, "book") || strings.Contains(lower, "read") || strings.Contains(lower, "library"):
+		add(PredicateMediaConsumed)
+	case strings.Contains(lower, "kid") || strings.Contains(lower, "child"):
+		add(PredicateFamilyMember)
+		add(PredicatePreference)
+	case strings.Contains(lower, "when did") || strings.Contains(lower, "when was") || strings.Contains(lower, "when is"):
+		add(PredicateEvent)
+		add(PredicateActivity)
+		add(PredicatePlan)
+	case strings.Contains(lower, "plan") || strings.Contains(lower, "going"):
+		add(PredicatePlan)
+		add(PredicateEvent)
 	}
 	if len(out) == 0 {
 		// Conservative defaults for "currently" questions.

@@ -151,13 +151,17 @@ CRITICAL RULES:
 4. When possible set subject + predicate + value (normalized short value, not the full sentence).
 5. Always extract when present:
    - identity / role / relationship status
-   - origin / moved from <place> (include country/city names literally)
-   - activities and hobbies
-   - places tied to activities
-   - book/movie titles in quotes (verbatim spans)
+   - origin / originally from / moved from <place> (include country/city names literally)
+   - when the speaker says "home country" and Prior context already has a country, bind that country
+   - activities, hobbies, ways people unwind, and places tied to those activities (one memory per place)
+   - book/movie titles in quotes OR capitalized titles after read/reading (verbatim spans)
    - family members' preferences (e.g. "Sam's kids like astronomy")
-   - career plans and research topics
-6. Resolve relative time against Observation Date in the user message (yesterday → absolute date).
+   - career plans, fields of study, certifications
+   - collections / possessions ("collects classic children's books")
+   - durations ("for 4 years")
+6. Resolve relative time against Observation Date (yesterday, last Fri, last week, this month).
+   Put the absolute date in "when" AND in content. Also include the session-relative phrase
+   when the utterance is last-<weekday> or last week (e.g. "the Monday before 3 March 2024").
 7. Skip pure greetings/acks ("Thanks!", "Yeah, Name", "Cool").
 8. When Prior context lists [memory_id] lines: prefer UPDATE/DELETE over duplicate ADD for the same subject/predicate; keep subject stable.
 9. When in doubt, EXTRACT as ADD — missed atoms destroy multi-attribute recall.

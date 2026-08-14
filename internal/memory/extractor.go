@@ -70,7 +70,7 @@ func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]E
 	// Attribute atoms: standalone searchable facts (identity, origin, titles,
 	// activities). Closes the Mem0-style ADD-fact gap for conversational ingest.
 	if retainEpisodes {
-		extracted = append(extracted, extractAttributeAtoms(allUtterances)...)
+		extracted = append(extracted, extractAttributeAtoms(allUtterances, ResolveObservedAt(req.Metadata, ""))...)
 	}
 	return filterAssistantRecallEpisodes(req, extracted), nil
 }
