@@ -5,7 +5,9 @@
 **Competitive SOP / gap matrix:** [competitive/README.md](./competitive/README.md) · [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md)  
 **Hardening self-review prompt (historical):** [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)  
 **Intake SOP:** [external-reviews/README.md](./external-reviews/README.md)  
-**Tips:** `main` `308d3a1` (production = V3 hardening cutover) · `dev` `a7a5184` (Wave 1 merged; staging = not production)
+**Tips:** `main` `bd987fa` = `dev` `bd987fa` (Wave 1 + pins on production after explicit merge 2026-08-14)
+
+**Course-correction (2026-08-14):** [sota-representation-path.md](./sota-representation-path.md) — Wave 1 was ranking around a transcript index. Next is **fact-primary recall → entities → relations**, not more efficiency PRs and not “reader-only.”
 
 ## Course correction (accepted)
 
@@ -13,7 +15,9 @@
 2. Recall-contract + V3 hardening (#93–#98) **landed** on `dev` + `main`.
 3. **New PoR (2026-08-11):** competitive architecture program — Mem0-quality conversational recall + Graphiti-quality relations + Brainy governed truth. Principle: **recall broadly → represent explicitly → prove narrowly → answer truthfully.**
 4. **2026-08-13:** PR #100 (PR1 LME-20 integrity pin + PR2 write policy) merged to **`dev` only**. `main` untouched.  
-5. **2026-08-13 later:** Wave 1 (#101–#105: PR5, PR3, PR4, PR9) merge-committed onto **`dev` only** (`a7a5184`). `main` untouched.
+5. **2026-08-13 later:** Wave 1 (#101–#105) merge-committed onto `dev` (`a7a5184`).  
+6. **2026-08-14:** `dev` fast-forwarded onto **`main`** (`bd987fa`) with explicit approval.  
+7. **2026-08-14:** Wave 1 deferred PR6–PR8 on a misleading `READER_MISS` oracle. Course-correct to [sota-representation-path.md](./sota-representation-path.md).
 
 ## Hardening cycle — closed
 
@@ -56,7 +60,7 @@ Wave 1 does **not** start with canonical entities / Postgres SPO / hop V3:
 - LoCoMo 1×30 WRONG items are **24/24 `READER_MISS`** with coverage oracles supported.
 - Mem0 still leads MH on the same pin (7/10 vs 4/10), but Brainy’s oracles say the facts are already in the packet. That is PR5/PR4/PR9, not a graph DB.
 
-Wave 1 remasure (`a7a5184`) still shows **coverage supported / READER_MISS**. Revisit PR6–PR8 only after a later pin shows **coverage** (not reader-parse) as the remaining MH driver on 3×90.
+Wave 1 remasure (`a7a5184`) still showed **coverage supported / READER_MISS**. That oracle meant gold sat in a **transcript blob**, not that entities/edges were unnecessary. **2026-08-14:** un-defer PR6–PR8 after R1 fact-primary recall. See [sota-representation-path.md](./sota-representation-path.md).
 
 LoCoMo 1×30 remasure on merged PR2 (`24be5ab`): **6/30** (MH 4/10, temporal 1/16). Ledger **24/24 READER_MISS** with oracles supported. Pin: [locomo-pr2-dev-1x30-20260813.md](../benchmarks/artifacts/locomo-pr2-dev-1x30-20260813.md). Dip vs staging 15/30; do not invent lift.
 
@@ -71,22 +75,22 @@ LoCoMo 1×30 remasure on merged Wave 1 (`a7a5184`): **14/30** (MH **3/10**, OD 2
 | PR3 Temporal features V1 | TEMPORAL_RETRIEVAL_MISS | **Merged to `dev`** (#103) | Intent → `IncludeHistorical`; `temporal_score`. Local 1×30 temporal **9/16** (was 1/16 on PR2 local; hybrid-reader confound). |
 | PR4 Retrieval V4 budgets | RETRIEVAL_MISS | **Merged to `dev`** (#104) | `MaxEvidenceTokens`; candidate pools 30/50/100/200 cap 200; episode −0.15 |
 | PR5 Context vs proof split | EVIDENCE_COVERAGE_MISS | **Merged to `dev`** (#102) | `ContextEvidence` + `ProofChain`. Failures still READER_MISS with coverage supported. |
-| PR6 Canonical entity store V2 | ENTITY_RESOLUTION_MISS | **Deferred** | Wave 1 remasure: 16/16 READER_MISS, oracles supported. Not missing edges. |
-| PR7 Relation memory V1 | MULTIHOP_REPRESENTATION_MISS | **Deferred** | Wave 1 MH **3/10** vs Mem0 7/10; 7/7 MH WRONG are READER_MISS with coverage supported — not an SPO-table first move |
-| PR8 Hop executor V3 | MULTIHOP_PLANNING_MISS | **Deferred** | `follow_relation` after PR7, only if a later pin shows coverage (not reader) as the MH driver |
+| PR6 Canonical entity store V2 | ENTITY_RESOLUTION_MISS | **Un-deferred — after R1** | Wave 1 deferral was wrong: oracle “supported” meant gold in a **chat turn**, not a fact. See representation path. |
+| PR7 Relation memory V1 | MULTIHOP_REPRESENTATION_MISS | **Un-deferred — R3** | MH 3/10 vs Mem0 7/10 is missing edges/facts, not a graph DB |
+| PR8 Hop executor V3 | MULTIHOP_PLANNING_MISS | **After PR7** | Relation walk once edges exist |
 | PR9 Assistant-generated memories | EXTRACTION_COVERAGE_MISS | **Merged to `dev`** (#105) | Skip phatic assistant `conversation_episode`; keep `assistant_stated` |
 | PR10 Frozen competitive qualification | — | **Measured; not claimed** | Fresh Mem0 **12/30** (MH 70%) vs Wave 1 local **14/30** (MH **30%**). Mem0 still leads MH. LME-20 quality still **0/20**. **No SOTA / beats-Mem0.** |
 
 ## Still open (honest)
 
 - Conversational quality (LME-20 **0/20** publishable; LoCoMo staging 15/30 / 33/90; local PR2 **6/30**; **Wave 1 local 14/30**, MH **3/10**)
-- Reader still the remaining driver: Wave 1 ledger **16/16 `READER_MISS`** with coverage oracles supported. Next is `/recall` answer/enumerate emitting the fact, not chat continuation — **not** PR6–PR8.
-- Optional cleaner compare: staging 1×30 after `dev` deploy vs post-cutover 15/30 (local vs Render confound remains)
-- PR10: Mem0 **12/30** same-pin done; Brainy Wave 1 local **14/30** is not a qualification (MH 3/10 vs 7/10; hybrid-reader confound vs 6/30). LME-20 quality still 0/20 so LME-100 is not a quality run
+- Reader-only as the SOTA bet is **rejected**. Remaining conversational gap is **representation** (facts/entities/edges). See [sota-representation-path.md](./sota-representation-path.md).
+- Optional cleaner compare: staging 1×30 vs post-cutover 15/30 after `main` deploy
+- PR10: Mem0 **12/30** same-pin; Wave 1 local **14/30** is not a qualification (MH 3/10 vs 7/10)
 - Pack authority / procedures / conflict packets (deferred behind conversational parity)
 - Hash/128 re-embed residue
 
 ## Claims discipline
 
-- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; local PR2 remasure **6/30**; Wave 1 local **14/30** (MH 3/10, temporal 9/16) with hybrid-reader confound vs 6/30; fresh Mem0 **12/30** (MH 7/10); OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); #100 + Wave 1 merged to `dev` only; Wave D histogram.
-- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30, local 6/30, or Wave 1 14/30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME; starting PR6–PR8 from this pin.
+- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; local PR2 remasure **6/30**; Wave 1 local **14/30** (MH 3/10, temporal 9/16) with hybrid-reader confound vs 6/30; fresh Mem0 **12/30** (MH 7/10); OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); Wave 1 on `dev`+`main` (`bd987fa`); Wave D histogram.
+- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30, local 6/30, or Wave 1 14/30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME; treating Wave 1 ranking PRs as the SOTA architecture.

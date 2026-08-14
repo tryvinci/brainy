@@ -2,7 +2,7 @@
 
 Standing process for inspecting Mem0 / Graphiti (and peers) before inventing Brainy memory mechanisms.
 
-**Program of record adoption:** [../external-reviews/2026-08-11-competitive-architecture-verdict.md](../external-reviews/2026-08-11-competitive-architecture-verdict.md)  
+**Program of record (execution):** [sota-representation-path.md](./sota-representation-path.md) — fact-primary recall, then entities/relations. Wave 1 ranking PRs are not the SOTA bet.  
 **Gap matrix:** [competitive-gap-matrix.md](./competitive-gap-matrix.md)  
 **Borrow log:** [implementation-borrow-log.md](./implementation-borrow-log.md)
 

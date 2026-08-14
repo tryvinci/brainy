@@ -1,13 +1,13 @@
 # Competitive gap matrix
 
-**Updated:** 2026-08-13  
+**Updated:** 2026-08-14  
 **Source:** Competitive architecture review §23, adjudicated in [../external-reviews/2026-08-11-competitive-architecture-verdict.md](../external-reviews/2026-08-11-competitive-architecture-verdict.md)
 
 Update continuously as PRs land. Prefer measured pins over vibes.
 
 | Capability | Mem0 | Graphiti/Zep | Brainy now | Brainy target | Program PR |
 | --- | --- | --- | --- | --- | --- |
-| Durable conversational facts | strong | strong | strong | strong | — |
+| Durable conversational facts | strong | strong | **mixed** (facts + recall-primary episodes) | **facts recall-primary; episodes provenance** | R1 |
 | ADD-only conversational history | yes | effectively | **policy split** (core append-only; verticals keep #94) | **yes (policy split)** | PR2 **landed** |
 | Operational mutation semantics | limited | temporal invalidation | **strong** | **strong** | keep |
 | Raw provenance | partial | strong | **strong** | **strong** | keep |
@@ -16,9 +16,9 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Temporal retrieval scoring | strong | strong | **intent → IncludeHistorical + temporal_score** | **strong** | PR3 **landed on `dev`** |
 | BM25 + dense | yes | yes | yes (`fusion_v2`) | yes | PR4 extend |
 | Entity retrieval | strong | strong | partial (hub boosts) | **strong** | PR4/PR6 |
-| Canonical entities | graph-backed | native | partial (`memory_entity_links` only) | **native Postgres** | PR6 |
-| Relation memory | platform graph | **core** | weak | **first-class** | PR7 |
-| Multi-hop traversal | entity graph | **native** | early (hop V2) | **typed relation hops** | PR8 |
+| Canonical entities | graph-backed | native | partial (`memory_entity_links` only) | **native Postgres** | PR6 **next after R1** |
+| Relation memory | platform graph | **core** | weak | **first-class** | PR7 **un-deferred** |
+| Multi-hop traversal | entity graph | **native** | early (hop V2) | **typed relation hops** | PR8 **after PR7** |
 | Governed answer sufficiency | limited | not core | **strong** | **strong** | keep |
 | Evidence proof chain | limited | provenance | **context + proof split on `dev`** | **context + proof split** | PR5 **landed on `dev`** |
 | Vertical packs | no equivalent | ontology | **strong** | **strong** | keep |

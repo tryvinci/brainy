@@ -10,7 +10,8 @@ Track BORROW / ADAPT / REJECT decisions before inventing Brainy mechanisms.
 | 2026-08-11 | Temporal ranking features | Mem0 temporal reasoning stage | **ADAPT** | Reuse mig-16 event windows; add ranking signal — not duplicate schema | PR3 (queued) |
 | 2026-08-11 | Broad multi-signal candidates | Mem0 multi-signal + top-200 docs | **ADAPT** | Extend fusion_v2; fixed context token budget; no bare top-k inflation | PR4 (queued) |
 | 2026-08-11 | Relation-native multi-hop | Graphiti entities/edges/BFS recipes | **ADAPT** | Postgres relations + hop V3; **REJECT** Neo4j default | PR7–PR8 (queued) |
-| 2026-08-11 | Graph DB as substrate | Graphiti backends | **REJECT** | Graph semantics yes; DB optional; prior architect reject stands | — |
+| 2026-08-14 | Fact-primary vs transcript index | Mem0 ADD facts + Graphiti episode/entity split | **ADAPT** | Default search drops `conversation_episode` when facts exist; episodes remain provenance. Do not copy Mem0 prompts. | R1 / this PR |
+| 2026-08-14 | Attribute atoms tagged episode | (bug) | **REJECT** as design | Atoms and dated provider facts are recall-primary facts | R1 |
 
 ## How to append
 
