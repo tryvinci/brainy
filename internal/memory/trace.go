@@ -57,6 +57,8 @@ type SearchTrace struct {
 	FusionV2           bool               `json:"fusion_v2,omitempty"`
 	Intents            []string           `json:"intents,omitempty"`
 	ChannelScores      map[string]float64 `json:"channel_scores,omitempty"`
+	EpisodesDropped    int                `json:"episodes_dropped,omitempty"`
+	EpisodeFallback    bool               `json:"episode_fallback,omitempty"`
 }
 
 // AnalyzeQueryIntents is a deterministic intent classifier (Phase 4 starter).

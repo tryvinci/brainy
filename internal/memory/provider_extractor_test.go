@@ -58,8 +58,8 @@ func TestProviderExtractorParsesStructuredMemories(t *testing.T) {
 	if providerFact.When != "2023-05-07" {
 		t.Fatalf("expected when slot, got %#v", providerFact)
 	}
-	if providerFact.Explain["primitive"] != PrimitiveEpisode {
-		t.Fatalf("expected episode primitive for dated fact")
+	if providerFact.Explain["primitive"] == PrimitiveEpisode {
+		t.Fatal("dated provider facts must not be tagged as provenance episodes")
 	}
 }
 
@@ -142,19 +142,19 @@ func TestProviderExtractorMergesBaselineEpisodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(memories) < 2 {
-		t.Fatalf("expected provider fact + baseline episode, got %d (%#v)", len(memories), memories)
+		t.Fatalf("expected provider fact + baseline dated event, got %d (%#v)", len(memories), memories)
 	}
-	var sawProvider, sawEpisode bool
+	var sawProvider, sawBaseline bool
 	for _, m := range memories {
 		if m.Explain["rule"] == "provider_extract" {
 			sawProvider = true
 		}
-		if m.Explain["rule"] == "conversation_episode" {
-			sawEpisode = true
+		if m.Explain["rule"] == "dated_event" || m.Explain["rule"] == "conversation_episode" {
+			sawBaseline = true
 		}
 	}
-	if !sawProvider || !sawEpisode {
-		t.Fatalf("expected merge of provider+episode, got %#v", memories)
+	if !sawProvider || !sawBaseline {
+		t.Fatalf("expected merge of provider+baseline, got %#v", memories)
 	}
 }
 
@@ -225,7 +225,7 @@ func TestBuildMemoryRecordSetsObservedAt(t *testing.T) {
 		Content:    "Caroline went to LGBTQ support group",
 		SourceText: "I went to the LGBTQ support group on 7 May 2023",
 		Confidence: 0.9,
-		Explain:    map[string]any{"rule": "provider_extract", "primitive": PrimitiveEpisode},
+		Explain:    map[string]any{"rule": "provider_extract"},
 		When:       "2023-05-07",
 	}, nil)
 	if err != nil {
@@ -237,8 +237,8 @@ func TestBuildMemoryRecordSetsObservedAt(t *testing.T) {
 	if record.ObservedAt.Format("2006-01-02") != "2023-05-07" {
 		t.Fatalf("expected observed_at from metadata, got %s", record.ObservedAt)
 	}
-	if record.Primitive != PrimitiveEpisode {
-		t.Fatalf("expected episode primitive, got %s", record.Primitive)
+	if record.Primitive == PrimitiveEpisode {
+		t.Fatal("dated provider facts are recall-primary, not provenance episodes")
 	}
 	if record.ExtractionVersion != providerExtractionVersion {
 		t.Fatalf("expected provider version, got %s", record.ExtractionVersion)

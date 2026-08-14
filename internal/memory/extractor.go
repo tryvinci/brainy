@@ -58,6 +58,10 @@ func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]E
 				}
 				continue
 			}
+			if dated, ok := datedEventMemory(utterance); ok {
+				extracted = append(extracted, dated)
+				continue
+			}
 			if episode, ok := conversationEpisode(utterance); ok {
 				extracted = append(extracted, episode)
 			}
@@ -96,6 +100,26 @@ func conversationEpisode(utterance string) (ExtractedMemory, bool) {
 		Explain: map[string]any{
 			"rule":      "conversation_episode",
 			"primitive": PrimitiveEpisode,
+		},
+	}, true
+}
+
+var yearTokenRE = regexp.MustCompile(`\b(?:19|20)\d{2}\b`)
+
+// datedEventMemory copies a dated turn as a recall-primary fact so search
+// does not depend on provenance episodes (Mem0 stores the event, not the turn).
+func datedEventMemory(utterance string) (ExtractedMemory, bool) {
+	text := NormalizeText(utterance)
+	if text == "" || !yearTokenRE.MatchString(text) {
+		return ExtractedMemory{}, false
+	}
+	return ExtractedMemory{
+		Kind:       KindFact,
+		Content:    text,
+		SourceText: utterance,
+		Confidence: 0.8,
+		Explain: map[string]any{
+			"rule": "dated_event",
 		},
 	}, true
 }

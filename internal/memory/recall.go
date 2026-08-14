@@ -12,20 +12,20 @@ import (
 
 // RecallRequest is the product synthesis surface (master-plan W4 / program §14).
 type RecallRequest struct {
-	TenantID           string `json:"tenant_id"`
-	SubjectID          string `json:"subject_id"`
-	Query              string `json:"q"`
-	Mode               string `json:"mode"` // context | enumerate | answer
-	Vertical           string `json:"vertical,omitempty"`
-	TopK               int    `json:"top_k,omitempty"`
-	BudgetTokens       int    `json:"budget_tokens,omitempty"`
-	IncludeHistorical  bool   `json:"include_historical,omitempty"`
-	View               string `json:"view,omitempty"` // current | historical | all
-	AsOf               string `json:"as_of,omitempty"`
-	IncludeProvenance  bool   `json:"include_provenance,omitempty"`
-	MaxEvidenceTokens  int    `json:"max_evidence_tokens,omitempty"`
-	CandidateLimit     int    `json:"candidate_limit,omitempty"`
-	OracleMode         string `json:"oracle_mode,omitempty"` // reader | evidence | semantic | ""
+	TenantID          string `json:"tenant_id"`
+	SubjectID         string `json:"subject_id"`
+	Query             string `json:"q"`
+	Mode              string `json:"mode"` // context | enumerate | answer
+	Vertical          string `json:"vertical,omitempty"`
+	TopK              int    `json:"top_k,omitempty"`
+	BudgetTokens      int    `json:"budget_tokens,omitempty"`
+	IncludeHistorical bool   `json:"include_historical,omitempty"`
+	View              string `json:"view,omitempty"` // current | historical | all
+	AsOf              string `json:"as_of,omitempty"`
+	IncludeProvenance bool   `json:"include_provenance,omitempty"`
+	MaxEvidenceTokens int    `json:"max_evidence_tokens,omitempty"`
+	CandidateLimit    int    `json:"candidate_limit,omitempty"`
+	OracleMode        string `json:"oracle_mode,omitempty"` // reader | evidence | semantic | ""
 }
 
 // RecallItem is one enumerated value with evidence.
@@ -73,6 +73,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all") || WantsHistoricalRetrieval(intents)
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
 		IncludeHistorical: hist,
+		IncludeEpisodes:   strings.EqualFold(req.View, "all"),
 		Limit:             topK,
 		CandidateLimit:    req.CandidateLimit,
 	})
@@ -93,10 +94,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		Intents:  intents,
 		Trace:    search.Trace,
 		Explain: map[string]any{
-			"top_k":               topK,
-			"budget_tokens":       budget,
-			"query_plan":          plan,
-			"include_historical":  hist,
+			"top_k":              topK,
+			"budget_tokens":      budget,
+			"query_plan":         plan,
+			"include_historical": hist,
 		},
 	}
 	if req.View != "" {
@@ -664,6 +665,9 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	}
 
 	for _, r := range results {
+		if primitive, _ := r.Explain["primitive"].(string); primitive == PrimitiveEpisode {
+			continue
+		}
 		obs := ""
 		if r.ObservedAt != nil {
 			obs = r.ObservedAt.UTC().Format(time.RFC3339)

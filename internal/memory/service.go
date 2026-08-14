@@ -582,6 +582,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	dropped, fallback := dropProvenanceEpisodes(candidates, opts.IncludeEpisodes)
+	trace.EpisodesDropped = dropped
+	trace.EpisodeFallback = fallback
+
 	ranked := make([]rankedSearchResult, 0, len(candidates))
 	entitiesByID := make(map[string][]string, len(candidates))
 	for _, record := range candidates {
@@ -759,6 +763,37 @@ func admitRecord(candidates map[string]MemoryRecord, record MemoryRecord, includ
 	}
 	candidates[record.MemoryID] = record
 	return true
+}
+
+// IsProvenanceEpisode is a conversation turn stored for evidence, not a
+// recall-primary fact (Graphiti episode vs entity/edge).
+func IsProvenanceEpisode(record MemoryRecord) bool {
+	return record.Primitive == PrimitiveEpisode
+}
+
+// dropProvenanceEpisodes removes transcript episodes when any fact/profile/
+// preference candidate exists. If the pool is episode-only, keep them and
+// signal fallback so empty representation stays visible in the trace.
+func dropProvenanceEpisodes(candidates map[string]MemoryRecord, includeEpisodes bool) (dropped int, fallback bool) {
+	if includeEpisodes || len(candidates) == 0 {
+		return 0, false
+	}
+	primary := 0
+	for _, rec := range candidates {
+		if !IsProvenanceEpisode(rec) {
+			primary++
+		}
+	}
+	if primary == 0 {
+		return 0, true
+	}
+	for id, rec := range candidates {
+		if IsProvenanceEpisode(rec) {
+			delete(candidates, id)
+			dropped++
+		}
+	}
+	return dropped, false
 }
 
 func indexMemoriesByID(records []MemoryRecord) map[string]MemoryRecord {
@@ -1129,21 +1164,21 @@ func relatedIntentTokens(token string) []string {
 		return []string{"single", "married", "partner", "dating", "relationship"}
 	case "career", "path", "pursue", "persue":
 		return []string{"career", "job", "profession", "work"}
-		case "activities", "activity", "hobby", "hobbies":
-			return []string{"hobby", "hobbies", "activity", "activities"}
-		case "camping", "camp":
-			return []string{"camp", "camping", "camped"}
-		case "books", "read", "reading":
-			return []string{"reading", "book", "books", "library"}
-		case "stress", "relax":
-			return []string{"stress", "relax", "unwind"}
-		case "moved":
-			return []string{"moved", "move", "relocated"}
-		case "kids", "children":
-			return []string{"kids", "children", "child"}
-		default:
-			return nil
-		}
+	case "activities", "activity", "hobby", "hobbies":
+		return []string{"hobby", "hobbies", "activity", "activities"}
+	case "camping", "camp":
+		return []string{"camp", "camping", "camped"}
+	case "books", "read", "reading":
+		return []string{"reading", "book", "books", "library"}
+	case "stress", "relax":
+		return []string{"stress", "relax", "unwind"}
+	case "moved":
+		return []string{"moved", "move", "relocated"}
+	case "kids", "children":
+		return []string{"kids", "children", "child"}
+	default:
+		return nil
+	}
 }
 
 // topicAlignmentBoost rewards memories whose content matches the topical intent

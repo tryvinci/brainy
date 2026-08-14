@@ -70,12 +70,12 @@ type SupersedeRequest struct {
 // DomainEventRequest batch-invalidates memories (campaign end, fact revision).
 // Prefer explicit IDs when known; or Match to select by label/metadata (v2).
 type DomainEventRequest struct {
-	TenantID           string             `json:"tenant_id"`
-	SubjectID          string             `json:"subject_id"`
-	EventType          string             `json:"event_type"`
-	SupersedeMemoryIDs []string           `json:"supersede_memory_ids,omitempty"`
-	Match              *DomainEventMatch  `json:"match,omitempty"`
-	Metadata           map[string]any     `json:"metadata,omitempty"`
+	TenantID           string            `json:"tenant_id"`
+	SubjectID          string            `json:"subject_id"`
+	EventType          string            `json:"event_type"`
+	SupersedeMemoryIDs []string          `json:"supersede_memory_ids,omitempty"`
+	Match              *DomainEventMatch `json:"match,omitempty"`
+	Metadata           map[string]any    `json:"metadata,omitempty"`
 }
 
 // DomainEventMatch selects memories to supersede without listing IDs.
@@ -156,6 +156,10 @@ type SearchResult struct {
 // archived / suppressed lifecycle states (production default).
 type SearchOptions struct {
 	IncludeHistorical bool // when true, include lifecycle=superseded rows
+	// IncludeEpisodes keeps conversation_episode rows in the default search
+	// pool. Off by default: episodes are provenance; facts are recall-primary
+	// (Mem0/Graphiti). If the only hits are episodes, SearchOpt falls back.
+	IncludeEpisodes bool
 	// Limit caps returned results (0 = unlimited / caller truncates).
 	Limit int
 	// CandidateLimit is the explicit retrieval pool size before the context
@@ -186,12 +190,12 @@ type ExtractedMemory struct {
 }
 
 type ExtractionJob struct {
-	JobID        string
-	IngestID     string
-	Request      IngestRequest
-	Attempts     int
-	MaxAttempts  int
-	CreatedAt    time.Time
+	JobID       string
+	IngestID    string
+	Request     IngestRequest
+	Attempts    int
+	MaxAttempts int
+	CreatedAt   time.Time
 }
 
 type EnqueueResult struct {

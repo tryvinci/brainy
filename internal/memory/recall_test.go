@@ -82,6 +82,41 @@ func TestRecallAbstainsWhenPacketEmpty(t *testing.T) {
 	}
 }
 
+func TestRecallEnumerateSkipsProvenanceEpisodes(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Yeah, Caroline, Yep, Melanie",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"primitive": PrimitiveEpisode},
+	}
+	store.records["fact"] = MemoryRecord{
+		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Dana enjoys hiking",
+		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t1", SubjectID: "u1", Query: "What activities does Dana enjoy?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.ToLower(out.ContextBlock + " " + out.Answer)
+	for _, it := range out.Items {
+		joined += " " + strings.ToLower(it.Value)
+	}
+	if strings.Contains(joined, "yeah") {
+		t.Fatalf("enumerate leaked provenance episode: %#v", out.Items)
+	}
+	if !strings.Contains(joined, "hik") {
+		t.Fatalf("expected fact value, got %#v answer=%q", out.Items, out.Answer)
+	}
+}
+
 func itemHas(items []RecallItem, needle string) bool {
 	for _, it := range items {
 		if strings.Contains(strings.ToLower(it.Value), needle) {
