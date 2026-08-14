@@ -723,3 +723,54 @@ func TestClaimNextExtractionJobConcurrentSameSubject(t *testing.T) {
 		t.Fatalf("expected earliest job_1, got %s", claimed[0])
 	}
 }
+
+func TestMemoryRelationsUpsertAndList(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	port := randomPort(3)
+	root := t.TempDir()
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() { _ = postgres.Stop() }()
+
+	store, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.ApplyMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	rel := memory.MemoryRelation{
+		TenantID:  "t1",
+		SubjectID: "u1",
+		SrcEntity: "Jordan",
+		Relation:  memory.PredicateOrigin,
+		DstEntity: "Portugal",
+		MemoryID:  "mem_origin",
+	}
+	if err := store.UpsertMemoryRelation(ctx, rel); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.ListRelationsFrom(ctx, "t1", "u1", "jordan", memory.PredicateOrigin, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].DstEntity != "portugal" || got[0].MemoryID != "mem_origin" {
+		t.Fatalf("got %+v", got)
+	}
+}

@@ -27,6 +27,17 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if list.PreferredModeHint != "enumerate" {
 		t.Fatalf("mode hint=%q", list.PreferredModeHint)
 	}
+
+	acts := PlanQuery("What activities does Jordan enjoy?", nil)
+	foundRel := false
+	for _, hop := range acts.Hops {
+		if hop.Kind == "follow_relation" && hop.Predicate == PredicateActivity {
+			foundRel = true
+		}
+	}
+	if !foundRel {
+		t.Fatalf("expected follow_relation activity hop, hops=%+v intents=%v", acts.Hops, acts.Intents)
+	}
 }
 
 func TestBuildEvidencePacket(t *testing.T) {

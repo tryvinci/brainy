@@ -62,8 +62,10 @@ func (s *Service) executeTypedHops(
 		}
 
 		switch hop.Kind {
-		case "resolve_entity", "follow_relation":
+		case "resolve_entity":
 			s.resolveEntityHop(ctx, tenantID, subjectID, vertical, includeHistorical, hop, &res, topK)
+		case "follow_relation":
+			s.followRelationHop(ctx, tenantID, subjectID, vertical, includeHistorical, hop, &res, topK)
 		case "fetch_predicate", "answer_slot":
 			s.fetchPredicateHop(ctx, tenantID, subjectID, vertical, includeHistorical, hop, &res, topK)
 		default:
@@ -140,6 +142,40 @@ func (s *Service) resolveEntityHop(
 	if res.Value == "" {
 		res.Value = mention
 	}
+}
+
+func (s *Service) followRelationHop(
+	ctx context.Context,
+	tenantID, subjectID, vertical string,
+	includeHistorical bool,
+	hop HopStep,
+	res *HopResult,
+	topK int,
+) {
+	entity := firstNonEmpty(res.Entity, hop.Entity)
+	pred := firstNonEmpty(hop.Predicate, "")
+	res.Entity = entity
+	res.Predicate = pred
+	if indexer, ok := s.store.(RelationIndexer); ok && entity != "" {
+		rels, err := indexer.ListRelationsFrom(ctx, tenantID, subjectID, strings.ToLower(entity), pred, topK)
+		if err == nil && len(rels) > 0 {
+			for _, rel := range rels {
+				if rel.MemoryID != "" {
+					res.MemoryIDs = append(res.MemoryIDs, rel.MemoryID)
+				}
+				if rel.DstEntity != "" {
+					res.Contents = append(res.Contents, rel.SrcEntity+" "+rel.Relation+" "+rel.DstEntity)
+				}
+				if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, rel.MemoryID); err == nil {
+					res.Contents = append(res.Contents, rec.Content)
+				}
+			}
+			res.Value = rels[0].DstEntity
+			res.Source = "typed_store"
+			return
+		}
+	}
+	s.fetchPredicateHop(ctx, tenantID, subjectID, vertical, includeHistorical, hop, res, topK)
 }
 
 func (s *Service) fetchPredicateHop(
@@ -275,11 +311,11 @@ func hopJoinProven(results []HopResult) bool {
 	var resolved, fetched bool
 	for _, r := range results {
 		switch r.Kind {
-		case "resolve_entity", "follow_relation":
+		case "resolve_entity":
 			if r.Source != "unresolved" && (r.Value != "" || len(r.MemoryIDs) > 0) {
 				resolved = true
 			}
-		case "fetch_predicate", "answer_slot":
+		case "follow_relation", "fetch_predicate", "answer_slot":
 			if r.Source != "unresolved" && (r.Value != "" || len(r.Contents) > 0 || len(r.MemoryIDs) > 0) {
 				fetched = true
 			}
@@ -291,7 +327,7 @@ func hopJoinProven(results []HopResult) bool {
 	// Single fetch hop with typed store hit still counts as grounded join.
 	if !resolved && fetched {
 		for _, r := range results {
-			if (r.Kind == "fetch_predicate" || r.Kind == "answer_slot") && r.Source == "typed_store" {
+			if (r.Kind == "fetch_predicate" || r.Kind == "answer_slot" || r.Kind == "follow_relation") && r.Source == "typed_store" {
 				return true
 			}
 		}

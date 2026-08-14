@@ -51,8 +51,8 @@ func PlanQuery(query string, intents []string) QueryPlan {
 		intents = AnalyzeQueryIntents(query)
 	}
 	plan := QueryPlan{
-		Intents:       append([]string(nil), intents...),
-		BudgetPasses:  1,
+		Intents:         append([]string(nil), intents...),
+		BudgetPasses:    1,
 		CoverageTargets: nil,
 	}
 	if len(intents) > 0 {
@@ -79,7 +79,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if plan.NeedsMultiHop {
+	if plan.NeedsMultiHop || plan.NeedsEnumeration {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -129,7 +129,7 @@ func buildTypedHops(query string) []HopStep {
 			break
 		}
 	}
-	if len(probeParts) > 0 {
+	if pred != "" {
 		fetch := HopStep{
 			Kind:      "fetch_predicate",
 			Entity:    firstNonEmpty(bridge, entity),
@@ -140,7 +140,27 @@ func buildTypedHops(query string) []HopStep {
 		if entity != "" {
 			fetch.DependsOn = []string{"e1"}
 		}
-		// answer_slot encodes expected answer type without adding regex cases.
+		if pred == PredicateOrigin || pred == PredicateResidence || pred == PredicateActivity ||
+			pred == PredicateMediaConsumed || pred == PredicateOccupation ||
+			pred == PredicateFamilyMember || pred == PredicateEducation ||
+			pred == PredicatePlan || pred == PredicateEvent {
+			fetch.Kind = "follow_relation"
+		}
+		if looksPlaceOrPersonSlot(query) && fetch.Kind != "follow_relation" {
+			fetch.Kind = "answer_slot"
+		}
+		hops = append(hops, fetch)
+	} else if len(probeParts) > 0 {
+		fetch := HopStep{
+			Kind:      "fetch_predicate",
+			Entity:    firstNonEmpty(bridge, entity),
+			Predicate: pred,
+			Probe:     strings.Join(probeParts, " "),
+			Output:    "ans",
+		}
+		if entity != "" {
+			fetch.DependsOn = []string{"e1"}
+		}
 		if looksPlaceOrPersonSlot(query) {
 			fetch.Kind = "answer_slot"
 		}
@@ -186,7 +206,7 @@ func nextHopProbe(plan QueryPlan, pkt EvidencePacket) string {
 			if bridges == 0 {
 				return probe
 			}
-		case "fetch_predicate":
+		case "fetch_predicate", "follow_relation", "answer_slot":
 			if directs == 0 || len(uncoveredTargets(pkt)) > 0 {
 				return probe
 			}

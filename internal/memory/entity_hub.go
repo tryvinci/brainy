@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -58,6 +59,7 @@ func (s *Service) persistEntityLinks(ctx context.Context, record MemoryRecord) {
 		return
 	}
 	ents := recordEntities(record)
+	ents = appendIdentityEntities(ents, record)
 	if len(ents) == 0 {
 		return
 	}
@@ -78,6 +80,11 @@ func (s *Service) persistEntityLinks(ctx context.Context, record MemoryRecord) {
 			_ = indexer.UpsertMemoryAtom(ctx, record.TenantID, record.SubjectID, pred, val, record.MemoryID, record.ObservedAt)
 		}
 	}
+	if rel, ok := projectMemoryRelation(record); ok {
+		if indexer, ok := s.store.(RelationIndexer); ok {
+			_ = indexer.UpsertMemoryRelation(ctx, rel)
+		}
+	}
 }
 
 // AtomIndexer persists typed atoms for predicate enumeration (W2/W3).
@@ -89,6 +96,44 @@ type AtomIndexer interface {
 // AtomRetirer retires superseded state atoms (bitemporal valid_to / retired_at).
 type AtomRetirer interface {
 	RetireMemoryAtom(ctx context.Context, tenantID, subjectID, predicate, value, memoryID string, endedAt *time.Time) error
+}
+
+func appendIdentityEntities(ents []string, record MemoryRecord) []string {
+	add := func(raw string) {
+		e := strings.ToLower(strings.TrimSpace(raw))
+		if e == "" || utf8Len(e) < 2 {
+			return
+		}
+		if i := strings.IndexAny(e, ",;("); i > 0 {
+			e = strings.TrimSpace(e[:i])
+		}
+		if utf8Len(e) > 48 {
+			return
+		}
+		for _, existing := range ents {
+			if existing == e {
+				return
+			}
+		}
+		ents = append(ents, e)
+	}
+	if record.Explain != nil {
+		if s, ok := record.Explain["subject"].(string); ok {
+			add(s)
+		}
+		if v, ok := record.Explain["value_norm"].(string); ok {
+			add(v)
+		}
+	}
+	if record.Metadata != nil {
+		if s, ok := record.Metadata["subject"].(string); ok {
+			add(s)
+		}
+		if v, ok := record.Metadata["value_norm"].(string); ok {
+			add(v)
+		}
+	}
+	return ents
 }
 
 func (s *Service) entityHubBoostMap(ctx context.Context, tenantID, subjectID, query string) map[string]float64 {

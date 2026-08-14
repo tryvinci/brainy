@@ -424,6 +424,28 @@ EXCEPTION
 END $$;
 `,
 	},
+
+	{
+		version: 20,
+		name:    "add_memory_relations",
+		sql: `
+CREATE TABLE IF NOT EXISTS memory_relations (
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    src_entity TEXT NOT NULL,
+    relation TEXT NOT NULL,
+    dst_entity TEXT NOT NULL,
+    memory_id TEXT NOT NULL,
+    observed_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, subject_id, src_entity, relation, dst_entity, memory_id)
+);
+CREATE INDEX IF NOT EXISTS memory_relations_src
+ON memory_relations (tenant_id, subject_id, src_entity, relation);
+CREATE INDEX IF NOT EXISTS memory_relations_dst
+ON memory_relations (tenant_id, subject_id, dst_entity);
+`,
+	},
 }
 
 // EnsureContentFTSIndex builds the GIN index outside the migration txn.
