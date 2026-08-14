@@ -344,3 +344,70 @@ func TestRouterAsyncIngestReturnsAcceptedJob(t *testing.T) {
 		t.Fatalf("expected accepted async ingest with ids, got %+v", response)
 	}
 }
+
+func TestRouterOversizedBodyReturns413(t *testing.T) {
+	service := memory.NewService(newMemoryStoreAdapter())
+	router := NewRouter(service, observability.NewMetrics())
+	handler := MaxBytesMiddleware(64)(router)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/ingest",
+		bytes.NewReader([]byte(`{"tenant_id":"t1","subject_id":"u1","source_type":"conversation","messages":[{"role":"user","content":"`+strings.Repeat("x", 4096)+`"}]}`)),
+	)
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413 for oversized body, got %d", recorder.Code)
+	}
+
+	var payload map[string]map[string]string
+	if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("failed to decode error payload: %v", err)
+	}
+	if payload["error"]["code"] != "request_too_large" {
+		t.Fatalf("expected request_too_large error code, got %q", payload["error"]["code"])
+	}
+}
+
+func TestRouterMaxBytesUnderLimitStillSucceeds(t *testing.T) {
+	service := memory.NewService(newMemoryStoreAdapter())
+	router := NewRouter(service, observability.NewMetrics())
+	handler := MaxBytesMiddleware(1 << 20)(router)
+
+	body, err := json.Marshal(memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages: []memory.Message{
+			{Role: "user", Content: "I prefer concise answers."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/ingest", bytes.NewReader(body))
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected ingest status 200 under size limit, got %d", recorder.Code)
+	}
+}
+
+func TestRouterOversizedCorrectReturns413(t *testing.T) {
+	service := memory.NewService(newMemoryStoreAdapter())
+	router := NewRouter(service, observability.NewMetrics())
+	handler := MaxBytesMiddleware(64)(router)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/memories/mem1/correct?tenant_id=t1&subject_id=u1",
+		bytes.NewReader([]byte(`{"content":"`+strings.Repeat("x", 4096)+`"}`)),
+	)
+	handler.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413 for oversized correction body, got %d", recorder.Code)
+	}
+}

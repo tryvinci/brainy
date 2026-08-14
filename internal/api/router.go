@@ -33,6 +33,36 @@ func NewRouter(service *memory.Service, metrics *observability.Metrics) http.Han
 	return mux
 }
 
+// MaxBytesMiddleware caps request bodies with http.MaxBytesReader. When the
+// limit is exceeded, subsequent reads return *http.MaxBytesError, which the
+// JSON decode helper maps to a stable 413 response. A maxBytes <= 0 disables
+// the limit.
+func MaxBytesMiddleware(maxBytes int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if maxBytes > 0 && r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// decodeJSON decodes a JSON request body, returning 400 for malformed JSON and
+// a stable 413 when the body exceeds the configured size limit.
+func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			writeError(w, http.StatusRequestEntityTooLarge, "request_too_large", "request body exceeds the maximum allowed size")
+			return err
+		}
+		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+		return err
+	}
+	return nil
+}
+
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
@@ -58,8 +88,7 @@ func (r *Router) handleIngestRequest(w http.ResponseWriter, req *http.Request, a
 	}
 
 	var payload memory.IngestRequest
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+	if err := decodeJSON(w, req, &payload); err != nil {
 		return
 	}
 
@@ -167,8 +196,7 @@ func (r *Router) handleCorrect(w http.ResponseWriter, req *http.Request, path st
 	}
 
 	var payload memory.CorrectionRequest
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+	if err := decodeJSON(w, req, &payload); err != nil {
 		return
 	}
 
@@ -199,8 +227,7 @@ func (r *Router) handleSupersede(w http.ResponseWriter, req *http.Request, path 
 	}
 
 	var payload memory.SupersedeRequest
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+	if err := decodeJSON(w, req, &payload); err != nil {
 		return
 	}
 
@@ -267,8 +294,7 @@ func (r *Router) handleDomainEvent(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var payload memory.DomainEventRequest
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+	if err := decodeJSON(w, req, &payload); err != nil {
 		return
 	}
 	result, err := r.service.ApplyDomainEvent(req.Context(), payload)
@@ -285,8 +311,7 @@ func (r *Router) handleRecall(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	var payload memory.RecallRequest
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", "invalid json body")
+	if err := decodeJSON(w, req, &payload); err != nil {
 		return
 	}
 	result, err := r.service.Recall(req.Context(), payload)

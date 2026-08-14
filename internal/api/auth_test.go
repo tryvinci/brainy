@@ -78,3 +78,35 @@ func TestAPIKeyMiddlewareSkipsHealthz(t *testing.T) {
 		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestAPIKeyMiddlewareWithMaxBytesReturns413(t *testing.T) {
+	ring := auth.ParseKeyRing("demo:sk_demo")
+	base := NewRouter(memory.NewService(newMemoryStoreAdapter()), observability.NewMetrics())
+	handler := MaxBytesMiddleware(64)(APIKeyMiddleware(ring, true)(base))
+
+	body := `{"tenant_id":"demo","subject_id":"u1","source_type":"conversation","messages":[{"role":"user","content":"` + strings.Repeat("x", 4096) + `"}]}`
+	req := httptest.NewRequest(http.MethodPost, "/ingest", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer sk_demo")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAPIKeyMiddlewareWithMaxBytesAllowsValidRequest(t *testing.T) {
+	ring := auth.ParseKeyRing("demo:sk_demo")
+	base := NewRouter(memory.NewService(newMemoryStoreAdapter()), observability.NewMetrics())
+	handler := MaxBytesMiddleware(1 << 20)(APIKeyMiddleware(ring, true)(base))
+
+	body := `{"tenant_id":"demo","subject_id":"u1","source_type":"conversation","messages":[{"role":"user","content":"I prefer concise answers."}]}`
+	req := httptest.NewRequest(http.MethodPost, "/ingest", strings.NewReader(body))
+	req.Header.Set("X-API-Key", "sk_demo")
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
