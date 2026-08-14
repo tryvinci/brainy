@@ -305,7 +305,7 @@ flowchart LR
 6. `internal/store/postgres/migrations.go` (v12–v18; evidence v2 + pgvector 768)  
 7. One vertical pack: `packs/support/v2/` and `fixtures/vertical/support/`  
 
-**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; HNSW valid on staging; hash/128 residue still needs re-embed. Packs v2 sidecars + support/marketing FSMs load at registry time. `/recall` consumes structured evidence packets with optional hybrid LLM reader (`BRAINY_RECALL_LLM`). Architect PR1–PR7 closed 2026-08-05; recall-contract steps 1–5 landed on `dev` 2026-08-07. **Next:** representation coverage oracle (R0) → atomic compiler (R1b) → coverage-gated fact-primary recall (R1c) → entities/relation projection. See [sota-representation-path.md](./sota-representation-path.md).
+**Hazards (honest):** hosted ANN is `vector(768)` after mig 18; HNSW valid on staging; hash/128 residue still needs re-embed. Packs v2 sidecars + support/marketing FSMs load at registry time. `/recall` consumes structured evidence packets with optional hybrid LLM reader (`BRAINY_RECALL_LLM`). Architect PR1–PR7 closed 2026-08-05; recall-contract steps 1–5 landed on `dev` 2026-08-07. **Next:** atomic compiler (R1b) + held-out coverage audit → entities/relation projection. R0/R1a/R1c landed in PR #113 (`21a632b`); local LoCoMo remasure **10/30** is a dip. See [sota-representation-path.md](./sota-representation-path.md).
 ---
 
 ## 10. Non-goals / traps for reviewers

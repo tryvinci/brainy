@@ -28,8 +28,9 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | **LOCOMO post-cutover staging** | **15/30** / **33/90** on `1f2f26f` (1×30 dipped vs Gate 0; 3×90 roughly flat, MH 22.2%) |
 | **LOCOMO harden local** | **14/30** — honest dip vs Gate 0 after stricter hop-join |
 | **LOCOMO Wave 1 local** | **14/30** on `a7a5184` (MH **3/10**, temporal **9/16**); not vs Gate 0; hybrid-reader confound vs local 6/30 |
+| **LOCOMO R1c local** | **10/30** on `21a632b` (MH **2/10**, OD **0/4**, temporal **8/16**) — honest dip vs Wave 1; not a compiler coverage result |
 | **Industry stand** | Lead ops + marketing; conversational improving but not SOTA — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
-| **Next agent** | R0 coverage oracle → R1a/R1b compiler → R1c facts-first with episode fallback → entities → relation projection. Not hard episode-drop, not more ranking efficiency. [sota-representation-path.md](./sota-representation-path.md) |
+| **Next agent** | **R1b** atomic compiler + held-out coverage audit. R0/R1a/R1c landed in #113. Not hard episode-drop, not more ranking efficiency. [sota-representation-path.md](./sota-representation-path.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [gap matrix](./competitive/competitive-gap-matrix.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
 
@@ -87,10 +88,9 @@ Empty / TBD cells beat invented numbers.
 
 ## Next engineering step
 
-1. **R0** representation coverage oracle (do not call chat-substring hits `READER_MISS`).  
-2. **R1a/R1b** primitive semantics + atomic compiler; held-out **semantic coverage** is the milestone.  
-3. **R1c** facts first; bounded episode fallback until coverage is complete.  
-4. **R2–R5** canonical entities → relation **projection** → entity-ID hops → structured-first answers.  
-5. Fair LoCoMo 3×90 + LME-20 quality under identical pins before any “beat Mem0” claim. Representation audit gates merge before those scores.  
+1. **R1b** atomic compiler; held-out **semantic coverage** is the milestone (R0/R1a/R1c landed in #113).  
+2. **R2–R5** canonical entities → relation **projection** → entity-ID hops → structured-first answers.  
+3. Fair LoCoMo 3×90 + LME-20 quality under identical pins before any “beat Mem0” claim. Representation audit gates merge before those scores.  
+4. Keep bounded episode fallback until R1b coverage is proven. Do not hard-drop episodes.  
 
 Details: [sota-representation-path.md](./sota-representation-path.md)  

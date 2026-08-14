@@ -66,8 +66,10 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | LME-20 product-recall | **Publishable** 0/20 `/recall`, jobs 4829=4829 failed=0 — [pin](../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |
 | Local PR2 LoCoMo 1×30 (`24be5ab`) | **6/30**, MH 4/10 — [pin](../benchmarks/artifacts/locomo-pr2-dev-1x30-20260813.md) |
 | Wave 1 local LoCoMo 1×30 (`a7a5184`) | **14/30**, MH **3/10**, temporal **9/16** — [pin](../benchmarks/artifacts/locomo-wave1-dev-1x30-20260813.md) |
+| R1c local LoCoMo 1×30 (`21a632b`, PR #113) | **10/30**, MH **2/10**, OD **0/4**, temporal **8/16** — [pin](../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md) (dip vs Wave 1; not a compiler win) |
+| R1c local OpMem / marketing (`21a632b`) | **13/13** / **17/17** — [opmem](../benchmarks/artifacts/opmem-r1c-local-20260814.md) · [marketing](../benchmarks/artifacts/marketing-r1c-local-20260814.md) |
 
-**Implication for next agent (2026-08-14):** Wave 1 is on `dev`+`main`. Those “READER_MISS / coverage supported” ledgers meant gold sat in a **chat turn**, not that the reader is the SOTA bet. Execute [sota-representation-path.md](./sota-representation-path.md) as amended by [2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md): **R0 oracle → R1a/R1b compiler → R1c facts-first with episode fallback → R2–R5**. Do **not** hard-drop episodes before compiler coverage. Do **not** claim beats-Mem0 / SOTA. Still reject: fusion retune, graph DB default, category dictionaries.
+**Implication for next agent (2026-08-14):** PR #113 is on `dev`+`main`. R0/R1a/coverage-gated R1c landed. Local remasure **10/30** is a dip, not a reason to retune ranking. Next is **R1b** (atomic compiler + held-out coverage). Do **not** hard-drop episodes before that coverage. Do **not** claim beats-Mem0 / SOTA. Still reject: fusion retune, graph DB default, category dictionaries.
 ---
 
 ## 0. One-paragraph product definition

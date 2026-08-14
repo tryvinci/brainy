@@ -1,7 +1,7 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` = `bd987fa` (Wave 1 + pins on production after explicit merge)  
+**Tips:** `main` = `dev` = `21a632b` (PR #113: R0/R1a/R1c). Local R1c remasure **10/30** is a dip; next is **R1b**.  
 **Does not claim:** SOTA, beats-Mem0, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md)
 
@@ -162,6 +162,8 @@ The milestone is **not** `primitive != episode`. The question is: did the source
 
 ### R0 — Representation observability
 
+**Landed in #113** (fact-aware `semantic` / `representation` oracles; gold in episode-only store is `WRITE_MISS`). Evidence-stage `SOURCE_MISS` must mean **zero evidence rows**, not “gold missing from a truncated dump.”
+
 Coverage oracle + stage taxonomy above. Held-out conversation **representation audit** is a merge gate **before** benchmark score (POV 12):
 
 ```text
@@ -195,7 +197,7 @@ Per held-out conversation also count: `episodes_ingested`, `atomic_facts_created
 
 Stop marking real facts/atoms as `primitive=episode`. Episodes remain provenance. Dated provider facts and attribute atoms are recall-primary facts.
 
-**This PR ships R1a.** It does not by itself complete the representation milestone.
+**Landed in #113.** It does not by itself complete the representation milestone.
 
 ### R1b — Atomic semantic compiler
 
@@ -232,6 +234,8 @@ Inspect Mem0 OSS `mem0/configs/prompts.py` (ADD-only fact sentences) as **ADAPT*
 **Exit:** held-out representation audit (POV 12), not a LoCoMo bump. R1+R1b are incomplete until coverage is high enough that dropping transcripts would not hide `WRITE_MISS`.
 
 ### R1c — Fact-primary recall (not unconditional transcript suppression)
+
+**Landed in #113** with coverage-gated fallback (trace: `representation_status`, `episode_fallback`, `episodes_dropped`). Local 1×30 remasure **10/30** (MH 2/10, OD 0/4, temporal 8/16) vs Wave 1 **14/30** — a **dip**, expected while the compiler is thin. See [locomo-r1c-dev-1x30-20260814.md](../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md).
 
 ```text
 facts / edges     = primary evidence
