@@ -48,6 +48,10 @@ func Load() Config {
 	}
 	providerBase := getenv("BRAINY_PROVIDER_BASE_URL", os.Getenv("LLM_BASE_URL"))
 	providerKey := getenv("BRAINY_PROVIDER_API_KEY", os.Getenv("LLM_API_KEY"))
+	providerTimeout := getenvDuration("BRAINY_PROVIDER_TIMEOUT", 45*time.Second)
+	// Write deadline must exceed the provider ceiling so slow hybrid-reader
+	// recall is not cut off mid-answer; the env override still wins.
+	writeTimeout := getenvDuration("BRAINY_HTTP_WRITE_TIMEOUT", providerTimeout+60*time.Second)
 	return Config{
 		Environment:           env,
 		HTTPAddr:              getenv("BRAINY_HTTP_ADDR", ":8080"),
@@ -55,7 +59,7 @@ func Load() Config {
 		MaxBodyBytes:          getenvInt64("BRAINY_MAX_BODY_BYTES", 5<<20),
 		HTTPReadHeaderTimeout: getenvDuration("BRAINY_HTTP_READ_HEADER_TIMEOUT", 10*time.Second),
 		HTTPReadTimeout:       getenvDuration("BRAINY_HTTP_READ_TIMEOUT", 30*time.Second),
-		HTTPWriteTimeout:      getenvDuration("BRAINY_HTTP_WRITE_TIMEOUT", 60*time.Second),
+		HTTPWriteTimeout:      writeTimeout,
 		HTTPIdleTimeout:       getenvDuration("BRAINY_HTTP_IDLE_TIMEOUT", 120*time.Second),
 		WorkerMode:            getenv("BRAINY_WORKER_MODE", "once"),
 		WorkerPollInterval:    getenvDuration("BRAINY_WORKER_POLL_INTERVAL", 2*time.Second),
@@ -65,7 +69,7 @@ func Load() Config {
 		ProviderBaseURL:       providerBase,
 		ProviderAPIKey:        providerKey,
 		ProviderModel:         getenv("BRAINY_PROVIDER_MODEL", os.Getenv("LLM_MODEL")),
-		ProviderTimeout:       getenvDuration("BRAINY_PROVIDER_TIMEOUT", 45*time.Second),
+		ProviderTimeout:       providerTimeout,
 		EmbeddingBaseURL:      getenv("BRAINY_EMBEDDING_BASE_URL", providerBase),
 		EmbeddingAPIKey:       getenv("BRAINY_EMBEDDING_API_KEY", providerKey),
 		EmbeddingModel:        getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL")),
