@@ -30,6 +30,7 @@ func TestHTTPHardeningDefaults(t *testing.T) {
 	os.Unsetenv("BRAINY_HTTP_READ_TIMEOUT")
 	os.Unsetenv("BRAINY_HTTP_WRITE_TIMEOUT")
 	os.Unsetenv("BRAINY_HTTP_IDLE_TIMEOUT")
+	os.Unsetenv("BRAINY_PROVIDER_TIMEOUT")
 
 	cfg := Load()
 	if cfg.MaxBodyBytes != 5<<20 {
@@ -41,8 +42,8 @@ func TestHTTPHardeningDefaults(t *testing.T) {
 	if cfg.HTTPReadTimeout != 30*time.Second {
 		t.Fatalf("expected default read timeout 30s, got %s", cfg.HTTPReadTimeout)
 	}
-	if cfg.HTTPWriteTimeout != 60*time.Second {
-		t.Fatalf("expected default write timeout 60s, got %s", cfg.HTTPWriteTimeout)
+	if cfg.HTTPWriteTimeout != 105*time.Second {
+		t.Fatalf("expected default write timeout provider+60s (105s), got %s", cfg.HTTPWriteTimeout)
 	}
 	if cfg.HTTPIdleTimeout != 120*time.Second {
 		t.Fatalf("expected default idle timeout 120s, got %s", cfg.HTTPIdleTimeout)
