@@ -31,14 +31,21 @@ func TestHybridEvalHarnessAgainstHTTPServer(t *testing.T) {
 }
 
 func TestMarketingMVPBenchmarkAgainstHTTPServer(t *testing.T) {
-	runEvalHarness(t, "evals/run_marketing_mvp_benchmark.py", "")
+	outDir := t.TempDir()
+	runEvalHarness(t, "evals/run_marketing_mvp_benchmark.py", "",
+		"--json-out", filepath.Join(outDir, "marketing-mvp-benchmark.json"),
+		"--md-out", filepath.Join(outDir, "marketing-mvp-benchmark.md"),
+	)
 }
 
 func TestOpMemBenchmarkAgainstHTTPServer(t *testing.T) {
-	runEvalHarness(t, "evals/run_opmem.py", "")
+	outDir := t.TempDir()
+	runEvalHarness(t, "evals/run_opmem.py", "",
+		"--json-out", filepath.Join(outDir, "opmem-latest.json"),
+	)
 }
 
-func runEvalHarness(t *testing.T, script, fixtureDir string) {
+func runEvalHarness(t *testing.T, script, fixtureDir string, extraArgs ...string) {
 	t.Helper()
 	t.Setenv("LANG", "C")
 	t.Setenv("LC_ALL", "C")
@@ -58,6 +65,7 @@ func runEvalHarness(t *testing.T, script, fixtureDir string) {
 	if fixtureDir != "" && script == "evals/run_eval.py" {
 		command.Args = append(command.Args, "--fixture-dir", fixtureDir)
 	}
+	command.Args = append(command.Args, extraArgs...)
 	command.Dir = root
 	output, err := command.CombinedOutput()
 	if err != nil {
