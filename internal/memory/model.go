@@ -156,9 +156,10 @@ type SearchResult struct {
 // archived / suppressed lifecycle states (production default).
 type SearchOptions struct {
 	IncludeHistorical bool // when true, include lifecycle=superseded rows
-	// IncludeEpisodes keeps conversation_episode rows in the default search
-	// pool. Off by default: episodes are provenance; facts are recall-primary
-	// (Mem0/Graphiti). If the only hits are episodes, SearchOpt falls back.
+	// IncludeEpisodes keeps conversation_episode rows even when structured
+	// coverage is complete. Off by default: facts/edges are recall-primary;
+	// episodes stay as bounded fallback while representation_status is
+	// empty or partial (R1c). view=all sets this so provenance remains visible.
 	IncludeEpisodes bool
 	// Limit caps returned results (0 = unlimited / caller truncates).
 	Limit int

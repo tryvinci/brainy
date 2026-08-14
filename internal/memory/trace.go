@@ -8,15 +8,24 @@ const (
 	FailWriteMiss              = "WRITE_MISS"
 	FailRepresentationMiss     = "REPRESENTATION_MISS"
 	FailEntityLinkMiss         = "ENTITY_LINK_MISS"
+	FailRelationMiss           = "RELATION_MISS"
 	FailRetrievalMiss          = "RETRIEVAL_MISS"
 	FailEvidenceCoverageMiss   = "EVIDENCE_COVERAGE_MISS"
 	FailTemporalResolutionMiss = "TEMPORAL_RESOLUTION_MISS"
 	FailConflictResolutionMiss = "CONFLICT_RESOLUTION_MISS"
 	FailPlanningMiss           = "PLANNING_MISS"
+	FailProofMiss              = "PROOF_MISS"
 	FailReaderMiss             = "READER_MISS"
 	FailAbstentionMiss         = "ABSTENTION_MISS"
 	FailJudgeMiss              = "JUDGE_MISS"
 	FailHarnessError           = "HARNESS_ERROR"
+)
+
+// RepresentationStatus is Search's coverage of structured (non-episode) memory.
+const (
+	RepresentationEmpty    = "empty"
+	RepresentationPartial  = "partial"
+	RepresentationComplete = "complete"
 )
 
 // AnswerStatus values for POST /recall (program §12.11).
@@ -48,17 +57,18 @@ const (
 
 // SearchTrace records retrieval diagnostics (program §15.4 / MEM-001).
 type SearchTrace struct {
-	CandidateOverfetch int                `json:"candidate_overfetch,omitempty"`
-	LexicalHits        int                `json:"lexical_hits,omitempty"`
-	DenseAdmitted      int                `json:"dense_admitted,omitempty"`
-	EntityHubAdmitted  int                `json:"entity_hub_admitted,omitempty"`
-	AtomScanAdmitted   int                `json:"atom_scan_admitted,omitempty"`
-	ListedSubject      bool               `json:"listed_subject,omitempty"`
-	FusionV2           bool               `json:"fusion_v2,omitempty"`
-	Intents            []string           `json:"intents,omitempty"`
-	ChannelScores      map[string]float64 `json:"channel_scores,omitempty"`
-	EpisodesDropped    int                `json:"episodes_dropped,omitempty"`
-	EpisodeFallback    bool               `json:"episode_fallback,omitempty"`
+	CandidateOverfetch   int                `json:"candidate_overfetch,omitempty"`
+	LexicalHits          int                `json:"lexical_hits,omitempty"`
+	DenseAdmitted        int                `json:"dense_admitted,omitempty"`
+	EntityHubAdmitted    int                `json:"entity_hub_admitted,omitempty"`
+	AtomScanAdmitted     int                `json:"atom_scan_admitted,omitempty"`
+	ListedSubject        bool               `json:"listed_subject,omitempty"`
+	FusionV2             bool               `json:"fusion_v2,omitempty"`
+	Intents              []string           `json:"intents,omitempty"`
+	ChannelScores        map[string]float64 `json:"channel_scores,omitempty"`
+	EpisodesDropped      int                `json:"episodes_dropped,omitempty"`
+	EpisodeFallback      bool               `json:"episode_fallback,omitempty"`
+	RepresentationStatus string             `json:"representation_status,omitempty"`
 }
 
 // AnalyzeQueryIntents is a deterministic intent classifier (Phase 4 starter).

@@ -681,7 +681,7 @@ func TestEpisodePenaltyPrefersTypedFact(t *testing.T) {
 	}
 }
 
-func TestDefaultSearchDropsEpisodesWhenFactsExist(t *testing.T) {
+func TestFactPrimaryDropsEpisodesWhenCoverageComplete(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)
 	now := service.now()
@@ -697,23 +697,29 @@ func TestDefaultSearchDropsEpisodesWhenFactsExist(t *testing.T) {
 		Content:   "Caroline is from Sweden",
 		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
 	}
-	search, err := service.Search(context.Background(), "t1", "u1", "", "", "Where did Caroline move from")
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "Is Caroline from Sweden")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if search.Trace == nil || search.Trace.EpisodesDropped < 1 {
-		t.Fatalf("expected episodes dropped, trace=%+v", search.Trace)
+	if search.Trace == nil || search.Trace.RepresentationStatus != RepresentationComplete {
+		t.Fatalf("expected complete representation, trace=%+v", search.Trace)
+	}
+	if search.Trace.EpisodeFallback {
+		t.Fatalf("complete coverage must not fall back to episodes, trace=%+v", search.Trace)
+	}
+	if search.Trace.EpisodesDropped < 1 {
+		t.Fatalf("expected standalone episodes dropped when coverage is complete, trace=%+v", search.Trace)
 	}
 	for _, r := range search.Results {
 		if strings.Contains(strings.ToLower(r.Content), "yeah") {
-			t.Fatalf("provenance episode leaked into default search: %q", r.Content)
+			t.Fatalf("provenance episode leaked into complete-coverage search: %q", r.Content)
 		}
 	}
 	if len(search.Results) == 0 || !strings.Contains(strings.ToLower(search.Results[0].Content), "sweden") {
 		t.Fatalf("expected fact hit, got %#v", search.Results)
 	}
 
-	withEp, err := service.SearchOpt(context.Background(), "t1", "u1", "", "", "Where did Caroline move from", SearchOptions{IncludeEpisodes: true, Limit: 10})
+	withEp, err := service.SearchOpt(context.Background(), "t1", "u1", "", "", "Is Caroline from Sweden", SearchOptions{IncludeEpisodes: true, Limit: 10})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -725,6 +731,51 @@ func TestDefaultSearchDropsEpisodesWhenFactsExist(t *testing.T) {
 	}
 	if !sawEp {
 		t.Fatal("IncludeEpisodes should keep provenance turns")
+	}
+}
+
+func TestFactPrimaryKeepsEpisodesWhenCoveragePartial(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["sweden"] = MemoryRecord{
+		MemoryID: "mem_ep_sweden", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Caroline is from Sweden",
+		DedupeKey: "sweden", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["fact"] = MemoryRecord{
+		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Caroline likes pottery",
+		DedupeKey: "fact", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "Where is Caroline originally from")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if search.Trace == nil || search.Trace.RepresentationStatus != RepresentationPartial {
+		t.Fatalf("expected partial representation, trace=%+v", search.Trace)
+	}
+	if !search.Trace.EpisodeFallback {
+		t.Fatalf("incomplete compiler coverage must keep episode fallback, trace=%+v", search.Trace)
+	}
+	sawSweden := false
+	sawPottery := false
+	for _, r := range search.Results {
+		lower := strings.ToLower(r.Content)
+		if strings.Contains(lower, "sweden") {
+			sawSweden = true
+		}
+		if strings.Contains(lower, "pottery") {
+			sawPottery = true
+		}
+	}
+	if !sawSweden {
+		t.Fatal("WRITE_MISS must not be converted into a retrieval miss: Sweden episode should remain")
+	}
+	if !sawPottery {
+		t.Fatal("expected pottery fact to remain recall-primary")
 	}
 }
 
@@ -744,6 +795,9 @@ func TestEpisodeOnlyPoolFallsBack(t *testing.T) {
 	}
 	if search.Trace == nil || !search.Trace.EpisodeFallback {
 		t.Fatalf("expected episode fallback when no facts exist, trace=%+v", search.Trace)
+	}
+	if search.Trace.RepresentationStatus != RepresentationEmpty {
+		t.Fatalf("expected empty representation_status, trace=%+v", search.Trace)
 	}
 	if len(search.Results) == 0 {
 		t.Fatal("fallback must not empty the pool")

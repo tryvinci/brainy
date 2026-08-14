@@ -1,22 +1,24 @@
 {
   "schema": "brainy-failure-ledger-1.0",
-  "note": "Append-only JSONL. LoCoMo smoke writes via --failure-ledger using stage oracles (evidence→semantic→retrieval→coverage). Full LME ≥100 adjudication remains ops-gated.",
+  "note": "Append-only JSONL. LoCoMo smoke writes via --failure-ledger using stage oracles (evidence→representation→retrieval→coverage). Gold-in-chat-turn is SOURCE/WRITE, not READER_MISS. Full LME ≥100 adjudication remains ops-gated.",
   "primary_labels": [
     "SOURCE_MISS",
     "WRITE_MISS",
     "REPRESENTATION_MISS",
     "ENTITY_LINK_MISS",
+    "RELATION_MISS",
     "RETRIEVAL_MISS",
     "EVIDENCE_COVERAGE_MISS",
     "TEMPORAL_RESOLUTION_MISS",
     "CONFLICT_RESOLUTION_MISS",
     "PLANNING_MISS",
+    "PROOF_MISS",
     "READER_MISS",
     "ABSTENTION_MISS",
     "JUDGE_MISS",
     "HARNESS_ERROR"
   ],
-  "oracle_modes": ["evidence", "semantic", "retrieval", "coverage", "reader"],
+  "oracle_modes": ["evidence", "semantic", "representation", "retrieval", "coverage", "reader"],
   "runners": {
     "locomo_smoke": "python -m public.locomo.run_smoke --failure-ledger docs/benchmarks/artifacts/failure-ledger/locomo-smoke.jsonl"
   }

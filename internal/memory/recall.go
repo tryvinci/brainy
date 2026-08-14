@@ -25,7 +25,7 @@ type RecallRequest struct {
 	IncludeProvenance bool   `json:"include_provenance,omitempty"`
 	MaxEvidenceTokens int    `json:"max_evidence_tokens,omitempty"`
 	CandidateLimit    int    `json:"candidate_limit,omitempty"`
-	OracleMode        string `json:"oracle_mode,omitempty"` // reader | evidence | semantic | ""
+	OracleMode        string `json:"oracle_mode,omitempty"` // reader | evidence | semantic | representation | retrieval | coverage | ""
 }
 
 // RecallItem is one enumerated value with evidence.
@@ -232,34 +232,46 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Abstained = true
 			out.Answer = "oracle_unsupported"
 			return out, nil
-		case "semantic":
-			atomCount := 0
-			if indexer, ok := s.store.(AtomIndexer); ok {
-				ids, err := indexer.ListAtomMemoryIDs(ctx, req.TenantID, req.SubjectID, "", "", topK)
-				if err == nil {
-					atomCount = len(ids)
-				}
+		case "semantic", "representation":
+			rep, err := s.collectRepresentationOracle(ctx, req, hist, topK)
+			if err != nil {
+				return RecallResponse{}, err
 			}
 			out.Explain["oracle_semantic"] = true
-			out.Explain["oracle_atom_count"] = atomCount
+			out.Explain["oracle_representation"] = true
+			out.Explain["oracle_atom_count"] = rep.atomCount
+			out.Explain["oracle_fact_count"] = rep.factCount
+			out.Explain["oracle_episode_count"] = rep.episodeCount
 			out.Explain["oracle_memory_count"] = len(search.Results)
-			present := atomCount > 0 || len(search.Results) > 0
-			out.Coverage = map[string]any{"targets": 1, "satisfied": present, "oracle": "semantic"}
+			out.Explain["oracle_fact_blob"] = rep.factBlob
+			out.Explain["oracle_episode_blob"] = rep.episodeBlob
+			if search.Trace != nil && search.Trace.RepresentationStatus != "" {
+				out.Explain["oracle_representation_status"] = search.Trace.RepresentationStatus
+			}
+			present := rep.atomCount > 0 || rep.factCount > 0
+			out.Coverage = map[string]any{"targets": 1, "satisfied": present, "oracle": oracle}
 			if !present {
 				out.AnswerStatus = AnswerNotFound
 				out.Abstained = true
-				out.Answer = "semantic_absent"
+				out.Answer = "representation_absent"
 				return out, nil
 			}
 			out.ContextBlock = assembleContextFromPacket(pkt, budget)
+			if out.ContextBlock == "" {
+				out.ContextBlock = rep.factBlob
+			}
 			out.AnswerStatus = AnswerSupported
 			out.Answer = firstStatementFromPacket(pkt)
 			return out, nil
 		case "retrieval":
+			factN, epN := countSearchRepresentation(search.Results)
 			out.Explain["oracle_retrieval"] = true
 			out.Explain["oracle_memory_count"] = len(search.Results)
-			out.Coverage = map[string]any{"targets": 1, "satisfied": len(search.Results) > 0, "oracle": "retrieval"}
-			if len(search.Results) == 0 {
+			out.Explain["oracle_fact_count"] = factN
+			out.Explain["oracle_episode_count"] = epN
+			retrieved := factN > 0 || (factN == 0 && epN > 0 && search.Trace != nil && search.Trace.RepresentationStatus == RepresentationEmpty)
+			out.Coverage = map[string]any{"targets": 1, "satisfied": retrieved, "oracle": "retrieval"}
+			if !retrieved {
 				out.AnswerStatus = AnswerNotFound
 				out.Abstained = true
 				out.Answer = "retrieval_miss"
@@ -685,6 +697,80 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		items = append(items, seen[key])
 	}
 	return items
+}
+
+type representationOracleCounts struct {
+	atomCount    int
+	factCount    int
+	episodeCount int
+	factBlob     string
+	episodeBlob  string
+}
+
+func (s *Service) collectRepresentationOracle(ctx context.Context, req RecallRequest, includeSuperseded bool, topK int) (representationOracleCounts, error) {
+	var out representationOracleCounts
+	if indexer, ok := s.store.(AtomIndexer); ok {
+		ids, err := indexer.ListAtomMemoryIDs(ctx, req.TenantID, req.SubjectID, "", "", topK)
+		if err != nil {
+			return out, err
+		}
+		out.atomCount = len(ids)
+	}
+	listed, err := s.store.ListMemories(ctx, req.TenantID, req.SubjectID, includeSuperseded)
+	if err != nil {
+		return out, err
+	}
+	facts := make([]string, 0, len(listed))
+	episodes := make([]string, 0, len(listed))
+	for _, rec := range listed {
+		if rec.Status != "" && rec.Status != StatusActive {
+			continue
+		}
+		if IsProvenanceEpisode(rec) {
+			out.episodeCount++
+			episodes = append(episodes, rec.Content)
+			continue
+		}
+		out.factCount++
+		facts = append(facts, rec.Content)
+	}
+	out.factBlob = joinBounded(facts, 80000)
+	out.episodeBlob = joinBounded(episodes, 80000)
+	return out, nil
+}
+
+func joinBounded(parts []string, budget int) string {
+	var b strings.Builder
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		need := len(p)
+		if b.Len() > 0 {
+			need++
+		}
+		if b.Len()+need > budget {
+			break
+		}
+		if b.Len() > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(p)
+	}
+	return b.String()
+}
+
+func countSearchRepresentation(results []SearchResult) (facts, episodes int) {
+	for _, r := range results {
+		prim, _ := r.Explain["primitive"].(string)
+		if prim == PrimitiveEpisode {
+			episodes++
+			continue
+		}
+		facts++
+	}
+	return facts, episodes
 }
 
 func formatEvidenceOracle(rows []map[string]any, budgetTokens int) string {
