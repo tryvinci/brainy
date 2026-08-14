@@ -224,3 +224,18 @@ WHERE tenant_id = $1 AND namespace = 'default' AND subject_id = $2 AND predicate
 	}
 	return memoryID, value, policy, true, nil
 }
+
+// DeleteCurrentStateByMemory removes every current-state projection row whose
+// winner is the given memory. Mutations that retire a record (suppress,
+// supersede) must call this so stale values do not survive through current
+// recall. The projection is rebuildable, so removal is safe.
+func (s *Store) DeleteCurrentStateByMemory(ctx context.Context, tenantID, subjectID, memoryID string) error {
+	if tenantID == "" || subjectID == "" || memoryID == "" {
+		return nil
+	}
+	_, err := s.pool.Exec(ctx, `
+DELETE FROM memory_current_state
+WHERE tenant_id = $1 AND namespace = 'default' AND subject_id = $2 AND winning_memory_id = $3
+`, tenantID, subjectID, memoryID)
+	return err
+}
