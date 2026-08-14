@@ -446,6 +446,24 @@ CREATE INDEX IF NOT EXISTS memory_relations_dst
 ON memory_relations (tenant_id, subject_id, dst_entity);
 `,
 	},
+
+	{
+		// Lease ownership fencing: a claimed job is bound to a per-claim token
+		// (lease_owner) so a worker whose lease was reclaimed cannot commit or
+		// fail the job under a new owner. last_heartbeat_at lets long work renew
+		// its lease instead of being reclaimed mid-extraction.
+		version: 21,
+		name:    "fenced_job_leases",
+		sql: `
+ALTER TABLE extraction_jobs
+ADD COLUMN IF NOT EXISTS lease_owner TEXT;
+ALTER TABLE extraction_jobs
+ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS extraction_jobs_lease_owner_lookup
+ON extraction_jobs (lease_owner) WHERE lease_owner IS NOT NULL;
+`,
+
+	},
 }
 
 // EnsureContentFTSIndex builds the GIN index outside the migration txn.

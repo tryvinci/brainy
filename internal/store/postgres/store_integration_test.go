@@ -545,6 +545,99 @@ func TestClaimNextExtractionJobReclaimsExpiredInProgressJob(t *testing.T) {
 	}
 }
 
+func TestLeaseFencingRejectsOldOwnerAfterReclaim(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	root := t.TempDir()
+	port := randomPort(609)
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() {
+		_ = postgres.Stop()
+	}()
+
+	baseStore, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baseStore.Close()
+
+	if err := baseStore.ApplyMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	store := &Store{pool: baseStore.pool, jobLease: 5 * time.Millisecond}
+	req := memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages: []memory.Message{
+			{Role: "user", Content: "I prefer concise answers."},
+		},
+	}
+	if _, err := store.EnqueueIngestJob(ctx, "ing_f1", "job_f1", "", req); err != nil {
+		t.Fatal(err)
+	}
+
+	first, ok, err := store.ClaimNextExtractionJob(ctx)
+	if err != nil || !ok {
+		t.Fatalf("first claim: ok=%v err=%v", ok, err)
+	}
+	if first.LeaseOwner == "" {
+		t.Fatal("expected claim to carry a lease owner token")
+	}
+
+	// Heartbeat from the owner must succeed while the lease is live.
+	if err := store.HeartbeatExtractionJob(ctx, first.JobID, first.LeaseOwner); err != nil {
+		t.Fatalf("owner heartbeat should succeed: %v", err)
+	}
+	// A wrong-owner heartbeat must be rejected even with a live lease.
+	if err := store.HeartbeatExtractionJob(ctx, first.JobID, "lo_attacker"); !errors.Is(err, memory.ErrLeaseLost) {
+		t.Fatalf("expected ErrLeaseLost for wrong-owner heartbeat, got %v", err)
+	}
+
+	time.Sleep(10 * time.Millisecond)
+
+	second, ok, err := store.ClaimNextExtractionJob(ctx)
+	if err != nil || !ok {
+		t.Fatalf("reclaim should succeed after expiry: ok=%v err=%v", ok, err)
+	}
+	if second.JobID != first.JobID {
+		t.Fatalf("expected same job reclaimed, got %s", second.JobID)
+	}
+
+	// Old owner must not be able to complete or fail the reclaimed job.
+	if err := store.CompleteExtractionJobFenced(ctx, first.JobID, first.IngestID, first.LeaseOwner); !errors.Is(err, memory.ErrLeaseLost) {
+		t.Fatalf("expected ErrLeaseLost for old-owner complete, got %v", err)
+	}
+	if err := store.FailExtractionJobFenced(ctx, first.JobID, first.IngestID, first.LeaseOwner, "boom"); !errors.Is(err, memory.ErrLeaseLost) {
+		t.Fatalf("expected ErrLeaseLost for old-owner fail, got %v", err)
+	}
+
+	// New owner can still complete normally.
+	if err := store.CompleteExtractionJobFenced(ctx, second.JobID, second.IngestID, second.LeaseOwner); err != nil {
+		t.Fatalf("new-owner complete should succeed: %v", err)
+	}
+
+	// A further claim of the completed job must yield nothing.
+	if _, ok, err := store.ClaimNextExtractionJob(ctx); err != nil || ok {
+		t.Fatalf("expected no job after new-owner completion, ok=%v err=%v", ok, err)
+	}
+}
+
 func TestClaimNextExtractionJobSerializesSameSubject(t *testing.T) {
 	t.Setenv("LANG", "C")
 	t.Setenv("LC_ALL", "C")

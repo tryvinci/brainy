@@ -59,11 +59,20 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	}
 
 	memory.NormalizeIngestRequest(&job.Request)
+	// Extract may exceed the initial lease (provider calls up to 45s vs a 30s
+	// default lease). Renew the lease for the current owner so a live worker is
+	// not reclaimed mid-extraction.
+	if fencer, ok := p.store.(memory.LeaseFencer); ok {
+		_ = fencer.HeartbeatExtractionJob(ctx, job.JobID, job.LeaseOwner)
+		defer func() {
+			_ = fencer.HeartbeatExtractionJob(ctx, job.JobID, job.LeaseOwner)
+		}()
+	}
 	extracted, err := p.extractor.Extract(ctx, job.Request)
 	if err != nil {
 		// Fail before any upserts so a provider error cannot leave partial
 		// enrichment or mutate the immutable raw_ingests payload.
-		_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
+		_ = p.failJob(ctx, job, err.Error())
 		return true, err
 	}
 
@@ -81,12 +90,12 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		}
 		record, err := memory.BuildMemoryRecord(p.id("mem"), p.now(), job.Request, item, p.packs)
 		if err != nil {
-			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
+			_ = p.failJob(ctx, job, err.Error())
 			return true, err
 		}
 		upserted, err := p.store.UpsertMemory(ctx, record)
 		if err != nil {
-			_ = p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, err.Error())
+			_ = p.failJob(ctx, job, err.Error())
 			return true, err
 		}
 		p.persistEmbedding(ctx, upserted.Record)
@@ -103,10 +112,27 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		memory.ProjectCurrentStateIfApplicable(ctx, p.store, fresh)
 	}
 
-	if err := p.store.CompleteExtractionJob(ctx, job.JobID, job.IngestID); err != nil {
+	if err := p.completeJob(ctx, job); err != nil {
 		return true, err
 	}
 	return true, nil
+}
+
+// completeJob uses the owner-fenced completion when the store supports it, so a
+// reclaimed job cannot be committed by its old worker.
+func (p *Processor) completeJob(ctx context.Context, job memory.ExtractionJob) error {
+	if fencer, ok := p.store.(memory.LeaseFencer); ok {
+		return fencer.CompleteExtractionJobFenced(ctx, job.JobID, job.IngestID, job.LeaseOwner)
+	}
+	return p.store.CompleteExtractionJob(ctx, job.JobID, job.IngestID)
+}
+
+// failJob uses the owner-fenced failure path when the store supports it.
+func (p *Processor) failJob(ctx context.Context, job memory.ExtractionJob, reason string) error {
+	if fencer, ok := p.store.(memory.LeaseFencer); ok {
+		return fencer.FailExtractionJobFenced(ctx, job.JobID, job.IngestID, job.LeaseOwner, reason)
+	}
+	return p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, reason)
 }
 
 // ProcessAvailable runs up to concurrency parallel ProcessNext calls.

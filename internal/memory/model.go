@@ -198,6 +198,10 @@ type ExtractionJob struct {
 	Attempts    int
 	MaxAttempts int
 	CreatedAt   time.Time
+	// LeaseOwner is the per-claim fencing token written when the job is
+	// claimed. Complete/Fail must present the same token; a reclaimed job
+	// rejects the old claimant.
+	LeaseOwner string
 }
 
 type EnqueueResult struct {
