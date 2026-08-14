@@ -1402,7 +1402,16 @@ func (s *Service) Suppress(ctx context.Context, tenantID, subjectID, memoryID st
 	if tenantID == "" || subjectID == "" || memoryID == "" {
 		return errors.New("tenant_id, subject_id, and memory_id are required")
 	}
-	return s.store.SuppressMemory(ctx, tenantID, subjectID, memoryID)
+	if err := s.store.SuppressMemory(ctx, tenantID, subjectID, memoryID); err != nil {
+		return err
+	}
+	// A suppressed memory must not remain visible through current-state recall.
+	if cs, ok := s.store.(CurrentStateStore); ok {
+		if err := cs.DeleteCurrentStateByMemory(ctx, tenantID, subjectID, memoryID); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID string, req CorrectionRequest) (MutationResult, error) {
@@ -1424,6 +1433,10 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 	}
 	s.persistEmbedding(ctx, record)
 	s.persistEntityLinks(ctx, record)
+
+	// Rebuild the current-state projection so the corrected value wins, not a
+	// stale pre-correction value.
+	ReprojCurrentStateForMutation(ctx, s.store, record, strings.ToLower(NormalizeText(content)))
 
 	return MutationResult{
 		MemoryID: record.MemoryID,
@@ -1487,6 +1500,11 @@ func (s *Service) Supersede(ctx context.Context, tenantID, subjectID, priorID st
 	if err := s.store.MarkSuperseded(ctx, tenantID, subjectID, priorID); err != nil {
 		return MutationResult{}, err
 	}
+
+	// The prior may have been the current-state winner; re-point the projection
+	// at the replacement so current recall does not keep returning the
+	// superseded value.
+	ReprojCurrentStateForMutation(ctx, s.store, upserted.Record, "")
 
 	return MutationResult{
 		MemoryID: upserted.Record.MemoryID,

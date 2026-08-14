@@ -18,17 +18,25 @@ type memoryStoreStub struct {
 	entityLinks map[string][]string
 	relations   []MemoryRelation
 	atoms       []stubAtom
+	currentState map[string]currentStateRow
 }
 
 type stubAtom struct {
 	pred, val, memID string
 }
 
+type currentStateRow struct {
+	MemoryID string
+	Value    string
+	Policy   string
+}
+
 func newMemoryStoreStub() *memoryStoreStub {
 	return &memoryStoreStub{
-		records:     map[string]MemoryRecord{},
-		jobs:        map[string]ExtractionJob{},
-		entityLinks: map[string][]string{},
+		records:      map[string]MemoryRecord{},
+		jobs:         map[string]ExtractionJob{},
+		entityLinks:  map[string][]string{},
+		currentState: map[string]currentStateRow{},
 	}
 }
 
@@ -206,6 +214,30 @@ func (s *memoryStoreStub) MarkSuperseded(_ context.Context, tenantID, subjectID,
 		}
 	}
 	return ErrMemoryNotFound
+}
+
+func (s *memoryStoreStub) GetCurrentState(_ context.Context, tenantID, subjectID, predicate string) (memoryID, value, policy string, ok bool, err error) {
+	key := tenantID + "::" + subjectID + "::" + predicate
+	row, found := s.currentState[key]
+	if !found {
+		return "", "", "", false, nil
+	}
+	return row.MemoryID, row.Value, row.Policy, true, nil
+}
+
+func (s *memoryStoreStub) UpsertCurrentState(_ context.Context, tenantID, subjectID, predicate, memoryID, value, policy string) error {
+	key := tenantID + "::" + subjectID + "::" + predicate
+	s.currentState[key] = currentStateRow{MemoryID: memoryID, Value: value, Policy: policy}
+	return nil
+}
+
+func (s *memoryStoreStub) DeleteCurrentStateByMemory(_ context.Context, tenantID, subjectID, memoryID string) error {
+	for key, row := range s.currentState {
+		if strings.HasPrefix(key, tenantID+"::"+subjectID+"::") && row.MemoryID == memoryID {
+			delete(s.currentState, key)
+		}
+	}
+	return nil
 }
 
 func (s *memoryStoreStub) SuppressMemory(_ context.Context, tenantID, subjectID, memoryID string) error {
@@ -1351,3 +1383,104 @@ func TestDomainEventBatchSupersede(t *testing.T) {
 		t.Fatalf("expected empty search after batch supersede, got %#v", search.Results)
 	}
 }
+
+func seedStatefulMemory(t *testing.T, service *Service, store *memoryStoreStub, memoryID, content, predicate, valueNorm string) string {
+	t.Helper()
+	now := service.now()
+	record := MemoryRecord{
+		MemoryID: memoryID, TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Content: content, DedupeKey: DedupeKey("t1", "u1", KindFact, content),
+		Status: StatusActive, LifecycleState: LifecycleActive,
+		Metadata:  map[string]any{"predicate": predicate, "value_norm": valueNorm, "memory_type": "state"},
+		CreatedAt: now, UpdatedAt: now,
+	}
+	store.records[record.DedupeKey] = record
+	// Mirror the store projection the way ingest would.
+	ProjectCurrentStateIfApplicable(context.Background(), store, record)
+	return record.MemoryID
+}
+
+func currentStateValue(store *memoryStoreStub, predicate string) (string, bool) {
+	for key, row := range store.currentState {
+		if strings.HasSuffix(key, "::"+predicate) {
+			return row.Value, row.MemoryID != ""
+		}
+	}
+	return "", false
+}
+
+// Suppressing the winning current-state memory must remove it from current recall.
+func TestSuppressClearsCurrentStateProjection(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	memID := seedStatefulMemory(t, service, store, "mem_res", "Alex lives in New York", PredicateResidence, "new york")
+
+	if _, found := currentStateValue(store, PredicateResidence); !found {
+		t.Fatal("expected residence current-state projection before suppress")
+	}
+
+	if err := service.Suppress(context.Background(), "t1", "u1", memID); err != nil {
+		t.Fatal(err)
+	}
+	if _, found := currentStateValue(store, PredicateResidence); found {
+		t.Fatalf("suppressed memory still projects current state: %+v", store.currentState)
+	}
+	if _, found := currentStateValue(store, PredicateResidence); found {
+		t.Fatal("suppressed winner must not be recallable as current")
+	}
+}
+
+// Correcting a stateful memory must update the projected current value.
+func TestCorrectUpdatesCurrentStateProjection(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	memID := seedStatefulMemory(t, service, store, "mem_res", "Alex lives in New York", PredicateResidence, "new york")
+
+	if _, err := service.Correct(context.Background(), "t1", "u1", memID, CorrectionRequest{
+		Content:    "Alex lives in Austin",
+		SourceText: "Actually Alex lives in Austin now.",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	val, found := currentStateValue(store, PredicateResidence)
+	if !found {
+		t.Fatal("expected current-state projection after correction")
+	}
+	// The corrected content is the new ground-truth value; it replaces the stale
+	// pre-correction projection value rather than the old value_norm.
+	if val != "alex lives in austin" {
+		t.Fatalf("expected corrected current value to reflect corrected content, got %q", val)
+	}
+}
+
+// Superseding the current-state winner must re-point the projection at the replacement.
+func TestSupersedeRepointsCurrentStateProjection(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	priorID := seedStatefulMemory(t, service, store, "mem_res", "Alex lives in New York", PredicateResidence, "new york")
+
+	replacement, err := service.Supersede(context.Background(), "t1", "u1", priorID, SupersedeRequest{
+		Content:    "Alex lives in New York",
+		SourceText: "Same fact, refreshed source.",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val, found := currentStateValue(store, PredicateResidence)
+	if !found {
+		t.Fatal("expected current-state projection after supersede")
+	}
+	if val != "new york" {
+		t.Fatalf("expected superseded value to remain current, got %q", val)
+	}
+	row, ok := store.currentState[mapKeyFor("t1", "u1", PredicateResidence)]
+	if !ok || row.MemoryID != replacement.MemoryID {
+		t.Fatalf("expected current-state winner to be replacement %s, got %+v", replacement.MemoryID, store.currentState)
+	}
+}
+
+func mapKeyFor(tenantID, subjectID, predicate string) string {
+	return tenantID + "::" + subjectID + "::" + predicate
+}
+

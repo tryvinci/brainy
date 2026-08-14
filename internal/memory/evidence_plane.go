@@ -35,6 +35,7 @@ type EventEnder interface {
 type CurrentStateStore interface {
 	UpsertCurrentState(ctx context.Context, tenantID, subjectID, predicate, memoryID, value, policy string) error
 	GetCurrentState(ctx context.Context, tenantID, subjectID, predicate string) (memoryID, value, policy string, ok bool, err error)
+	DeleteCurrentStateByMemory(ctx context.Context, tenantID, subjectID, memoryID string) error
 }
 
 // RankedSearcher returns lexical ranks alongside memories (real FTS when available).
@@ -239,4 +240,48 @@ func ProjectCurrentStateIfApplicable(ctx context.Context, store Store, record Me
 		}
 	}
 	_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, keyed, record.MemoryID, val, string(PredicatePolicy(pred)))
+}
+
+// ReprojCurrentStateForMutation reconciles the current-state projection after a
+// mutation changes a record's content (Correct) or retires the winner
+// (Supersede). It deletes stale rows pointing at the given memory and then
+// re-projects the record if it is still search-visible and stateful. For
+// corrections the corrected content is the new ground-truth value; value
+// overrides the record's (possibly stale) metadata value_norm when non-empty.
+func ReprojCurrentStateForMutation(ctx context.Context, store Store, record MemoryRecord, value string) {
+	if store == nil {
+		return
+	}
+	cs, ok := store.(CurrentStateStore)
+	if !ok {
+		return
+	}
+	_ = cs.DeleteCurrentStateByMemory(ctx, record.TenantID, record.SubjectID, record.MemoryID)
+	if record.Metadata == nil {
+		return
+	}
+	pred, _ := record.Metadata["predicate"].(string)
+	if !IsStatefulPredicate(pred) {
+		return
+	}
+	if record.Status != "" && record.Status != StatusActive {
+		return
+	}
+	if !IsLifecycleSearchVisible(record.LifecycleState) && record.LifecycleState != "" && record.LifecycleState != LifecycleActive {
+		return
+	}
+	if value == "" {
+		value, _ = record.Metadata["value_norm"].(string)
+	}
+	if value == "" {
+		value = strings.ToLower(NormalizeText(record.Content))
+	}
+	keyed := statePredicateKey(entitySubjectOf(record), pred)
+	if existingID, _, _, found, _ := cs.GetCurrentState(ctx, record.TenantID, record.SubjectID, keyed); found && existingID != "" && existingID != record.MemoryID {
+		existing, err := store.GetMemory(ctx, record.TenantID, record.SubjectID, existingID)
+		if err == nil && !shouldReplaceCurrentState(record, existing) {
+			return
+		}
+	}
+	_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, keyed, record.MemoryID, value, string(PredicatePolicy(pred)))
 }

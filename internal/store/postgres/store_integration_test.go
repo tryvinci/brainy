@@ -774,3 +774,69 @@ func TestMemoryRelationsUpsertAndList(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestDeleteCurrentStateByMemoryWithEmbeddedPostgres(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	port := randomPort(204)
+	root := t.TempDir()
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() {
+		_ = postgres.Stop()
+	}()
+
+	store, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.ApplyMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// Seed two predicates won by the same memory (multi-attribute records).
+	for _, pred := range []string{"occupation", "residence"} {
+		if err := store.UpsertCurrentState(ctx, "t1", "u1", pred, "mem_1", "value-"+pred, "TEMPORAL_STATE"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Another subject owns its own row and must be untouched.
+	if err := store.UpsertCurrentState(ctx, "t1", "u2", "occupation", "mem_2", "doctor", "TEMPORAL_STATE"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, _, found, err := store.GetCurrentState(ctx, "t1", "u1", "occupation"); err != nil || !found {
+		t.Fatalf("expected occupation projection, found=%v err=%v", found, err)
+	}
+	if _, _, _, found, err := store.GetCurrentState(ctx, "t1", "u1", "residence"); err != nil || !found {
+		t.Fatalf("expected residence projection, found=%v err=%v", found, err)
+	}
+
+	if err := store.DeleteCurrentStateByMemory(ctx, "t1", "u1", "mem_1"); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, pred := range []string{"occupation", "residence"} {
+		if _, _, _, found, err := store.GetCurrentState(ctx, "t1", "u1", pred); err != nil || found {
+			t.Fatalf("expected projection %q deleted, found=%v err=%v", pred, found, err)
+		}
+	}
+	// Other subject's row survives.
+	if _, _, _, found, err := store.GetCurrentState(ctx, "t1", "u2", "occupation"); err != nil || !found {
+		t.Fatalf("expected other-subject projection to survive, found=%v err=%v", found, err)
+	}
+}

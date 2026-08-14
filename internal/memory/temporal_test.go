@@ -147,6 +147,15 @@ func (s *projectStateStub) UpsertCurrentState(_ context.Context, _, _, predicate
 	s.values[predicate] = value
 	return nil
 }
+func (s *projectStateStub) DeleteCurrentStateByMemory(_ context.Context, _, _, memoryID string) error {
+	for pred, id := range s.current {
+		if id == memoryID {
+			delete(s.current, pred)
+			delete(s.values, pred)
+		}
+	}
+	return nil
+}
 
 func TestPredicateHintsFromQuery(t *testing.T) {
 	h := predicateHintsFromQuery("where does she live now")
