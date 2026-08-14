@@ -5,7 +5,7 @@ vertical governance, latency/cost, and (fairly measured) conversational recall �
 publish that evidence. Not LOCOMO parity alone. Not benchmax.
 
 **Program of record (2026-08-11): [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md)** — competitive parity program (Mem0 recall + Graphiti relations + Brainy governed truth).  
-**Competitive archaeology:** [competitive/README.md](./competitive/README.md) · [gap matrix](./competitive/competitive-gap-matrix.md)  
+**Competitive archaeology:** [competitive/README.md](./competitive/README.md) · [gap matrix](./competitive/competitive-gap-matrix.md) · **[cycle closeout (required)](./competitive/cycle-closeout.md)**  
 **Prior PoR:** [sota-end-to-end-program.md](./sota-end-to-end-program.md) — still useful history; next sequence follows the competitive verdict.  
 **External review intake:** [external-reviews/](./external-reviews/) · **hardening self-review prompt:** [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)  
 **External agent handoff (preferred): [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)** — architecture context; start from the competitive verdict.  
@@ -30,7 +30,7 @@ Style targets: [SuperMemory Research](https://supermemory.ai/research/) and Mem0
 | **LOCOMO Wave 1 local** | **14/30** on `a7a5184` (MH **3/10**, temporal **9/16**); not vs Gate 0; hybrid-reader confound vs local 6/30 |
 | **LOCOMO R1c local** | **10/30** on `21a632b` (MH **2/10**, OD **0/4**, temporal **8/16**) — honest dip vs Wave 1; not a compiler coverage result |
 | **LOCOMO compiler-quality local** | **11/30** on `d82f7d6` (MH **2/10**, OD **0/4**, temporal **9/16**) — q10 recovered; junk templates 45→6; still a dip vs Wave 1 |
-| **Industry stand** | Lead ops + marketing; conversational improving but not SOTA — [competitive positioning](../benchmarks/competitive-positioning-20260806.md) |
+| **Industry stand (same-pin)** | Trail Mem0 Platform LoCoMo **11/30 vs 12/30**; trail MH **2/10 vs 7/10**; trail OD **0/4 vs 3/4**; **lead** temporal **9/16 vs 2/16**. Lead OpMem 13/13 vs 9/12 and marketing 17/17 vs 4/16 (Mem0 ops/vertical pins not re-run this cycle). Graphiti/Zep: no pin. Full table: [cycle-closeout.md](./competitive/cycle-closeout.md) |
 | **Next agent** | **R1b coverage**: durable claims still WRITE_MISS in transcripts (15/19 LoCoMo misses this run). Not ranking retune. [sota-representation-path.md](./sota-representation-path.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [gap matrix](./competitive/competitive-gap-matrix.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)

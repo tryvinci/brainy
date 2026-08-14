@@ -77,3 +77,20 @@ against a live API, e.g.:
 python3 evals/run_eval.py --base-url http://127.0.0.1:8080
 python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 ```
+
+## Benchmark cycle closeout (required)
+
+Every remasure, merge, or “where we landed” cycle must report **in this order**, in **both** the user-facing summary and a new dated section of [docs/research/competitive/cycle-closeout.md](docs/research/competitive/cycle-closeout.md). Scores-only is incomplete. A Brainy pin without a detailed competitor compare is not a cycle closeout.
+
+1. **Landed** — SHAs on `dev` / `main`, what product change shipped.
+2. **Own pins** — OpMem, marketing, LoCoMo 1×30 **by category** (MH / OD / temporal), LME if run. Name dips as dips. 1×30 is measurement, not qualification.
+3. **Competitor compare (detailed)** — required every cycle, not optional color. Same-pin only for lead/trail:
+   - Mem0 OSS ≠ Mem0 Platform; Graphiti ≠ Zep Platform.
+   - Table: overall + MH + OD + temporal vs last frozen Mem0 LoCoMo same-pin [docs/benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md](docs/benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md) (12/30, MH 7/10, OD 3/4, temporal 2/16). Say trail/lead **per axis**.
+   - OpMem / marketing vs Mem0: [docs/benchmarks/staging-competitive-report.md](docs/benchmarks/staging-competitive-report.md), [docs/vertical/marketing-mvp-vs-mem0.md](docs/vertical/marketing-mvp-vs-mem0.md). Mark the Mem0 pin date; re-run Mem0 before claiming a **new** lead.
+   - For each trailing axis: the product mechanism and the PoR step that closes it. For each leading axis: what we must not regress.
+   - Graphiti/Zep: write **no pin** unless we ran them. Published headlines are **context**, never scoreboard rows. Do not invent a Graphiti/Zep LoCoMo number.
+4. **Why the delta** — product mechanism (compiler coverage, provenance crowding, reader). Not vibes.
+5. **Next** — one step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md), mapped to the largest competitor gap (today: MH 2/10 vs Mem0 7/10 → R1b coverage, then entities/relations). Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA / beats-Mem0 claims.
+
+`dev` is staging. `main` is production — only fast-forward `main` with explicit user approval.

@@ -1,7 +1,7 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` = `21a632b` (PR #113: R0/R1a/R1c). Local R1c remasure **10/30** is a dip; next is **R1b**.  
+**Tips:** `main` = `dev` after 2026-08-14 production FF (compiler-quality gate `4010d30`). Local remasure **11/30** (MH 2/10) vs Mem0 same-pin **12/30** (MH 7/10) — trail overall and MH; lead temporal 9/16 vs 2/16. Next is **R1b coverage**. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
 **Does not claim:** SOTA, beats-Mem0, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md)
 

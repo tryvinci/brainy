@@ -5,7 +5,7 @@
 **Competitive SOP / gap matrix:** [competitive/README.md](./competitive/README.md) · [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md)  
 **Hardening self-review prompt (historical):** [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)  
 **Intake SOP:** [external-reviews/README.md](./external-reviews/README.md)  
-**Tips:** `dev` tip includes compiler-atom quality (`d82f7d6` on the feature branch; remasure **11/30**). PR #113 R1c remains `21a632b`. Next is held-out **coverage**, not more ranking.
+**Tips:** `main` = `dev` after 2026-08-14 production FF (compiler-quality gate; LoCoMo **11/30**). Next is held-out **coverage**, not more ranking. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
 
 **Course-correction (2026-08-14):** [sota-representation-path.md](./sota-representation-path.md) — Wave 1 was ranking around a transcript index. Next is **representation-first**: compile interactions into facts/entities/relations, retrieve those, keep episodes as provenance + fallback. Not reader-first, not retrieval-tuning-first.  
 **External amendment (same day):** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) — R1c is fact-priority with episode fallback on incomplete coverage, **not** hard episode drop before R1b. R0 coverage oracle before the next LoCoMo category read.
@@ -22,6 +22,7 @@
 8. **2026-08-14 later:** External review accepted. Sequence is **R0 → R1a → R1b → R1c → R2–R5 → R6**. Do **not** ship unconditional episode suppression before held-out compiler coverage.
 9. **2026-08-14 later:** PR #113 merge-committed onto `dev` + `main` (`21a632b`): R0 fact-aware oracles, R1a primitive semantics, coverage-gated R1c. Local remasure: OpMem **13/13**, marketing **17/17**, LoCoMo 1×30 **10/30** (MH **2/10**, OD **0/4**, temporal **8/16**) — [pin](../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md). Dip vs Wave 1 14/30. Next real milestone is **R1b** (atomic compiler + held-out coverage). The 19 `SOURCE_MISS` labels on that ledger were an evidence-dump over-label, not a write outage.
 10. **2026-08-14 later:** Compiler quality gate (malformed `has done going at` / failed gerund stems are not recall-primary). Local remasure **11/30** (temporal **9/16**, q10 recovered). Packet junk templates 45→6. Ledger **15 WRITE_MISS + 4 READER_MISS**. [pin](../benchmarks/artifacts/locomo-atomq-dev-1x30-20260814.md).
+11. **2026-08-14 later:** `dev` fast-forwarded onto **`main`** with explicit approval (compiler-quality + cycle-closeout SOP). Competitor compare is required every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
 
 ## Hardening cycle — closed
 
