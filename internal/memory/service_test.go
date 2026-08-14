@@ -779,6 +779,104 @@ func TestFactPrimaryKeepsEpisodesWhenCoveragePartial(t *testing.T) {
 	}
 }
 
+func TestMalformedFactsDoNotCountAsCoverage(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["junk"] = MemoryRecord{
+		MemoryID: "mem_junk", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Alex has done going at since then",
+		DedupeKey: "junk", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"rule": "attribute_place_activity"},
+	}
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "I've known these friends for 4 years, since I moved from my home country",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "How long has Alex had this group of friends")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if search.Trace == nil || search.Trace.RepresentationStatus == RepresentationComplete {
+		t.Fatalf("malformed atoms must not complete coverage, trace=%+v", search.Trace)
+	}
+	sawYears := false
+	for _, r := range search.Results {
+		if strings.Contains(strings.ToLower(r.Content), "4 years") {
+			sawYears = true
+		}
+	}
+	if !sawYears {
+		t.Fatalf("provenance with the duration must remain, got %#v", search.Results)
+	}
+}
+
+func TestSelectEpisodeFallbackPrefersDistinctiveProvenance(t *testing.T) {
+	episodes := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 10; i++ {
+		episodes = append(episodes, MemoryRecord{
+			MemoryID: fmt.Sprintf("name_%d", i),
+			Content:  "Alex: the support group has been a huge part of my journey",
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I've known these friends for 4 years, since I moved from my home country",
+	}
+	episodes = append(episodes, gold)
+	picked := selectEpisodeFallback(episodes, []string{"long", "alex", "current", "group", "friends"}, 8)
+	found := false
+	for _, ep := range picked {
+		if ep.MemoryID == "gold" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("fallback must keep distinctive provenance, picked=%v", picked)
+	}
+}
+
+func TestMalformedAtomsDoNotOutrankProvenance(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["junk"] = MemoryRecord{
+		MemoryID: "mem_junk", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Alex participates in runn",
+		DedupeKey: "junk", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"rule": "attribute_activity"},
+	}
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Alex: I ran a charity race last Saturday (20 May 2023)",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "When did Alex run a charity race")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected hits")
+	}
+	if strings.Contains(strings.ToLower(search.Results[0].Content), "participates in runn") {
+		t.Fatalf("malformed atom outranked provenance: %#v", search.Results)
+	}
+	sawRace := false
+	for _, r := range search.Results {
+		if strings.Contains(strings.ToLower(r.Content), "charity race") {
+			sawRace = true
+		}
+	}
+	if !sawRace {
+		t.Fatalf("expected charity-race episode, got %#v", search.Results)
+	}
+}
+
 func TestEpisodeOnlyPoolFallsBack(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

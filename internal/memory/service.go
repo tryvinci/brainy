@@ -825,11 +825,18 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 func assessRepresentationCoverage(facts []MemoryRecord, query string) (status string, uncovered []string) {
 	tokens := tokenize(query)
 	bearing := contentBearingTokens(tokens)
-	if len(facts) == 0 {
+	usable := make([]MemoryRecord, 0, len(facts))
+	for _, rec := range facts {
+		if malformedCompilerFact(rec.Content) {
+			continue
+		}
+		usable = append(usable, rec)
+	}
+	if len(usable) == 0 {
 		return RepresentationEmpty, bearing
 	}
 	covered := map[string]struct{}{}
-	for _, rec := range facts {
+	for _, rec := range usable {
 		contentTokens := tokenize(rec.Content)
 		for _, q := range bearing {
 			if recordTokensCover(contentTokens, q) {
@@ -869,33 +876,63 @@ func selectEpisodeFallback(episodes []MemoryRecord, uncovered []string, capN int
 	if len(episodes) <= capN {
 		return episodes
 	}
-	picked := make([]MemoryRecord, 0, capN)
-	seen := map[string]struct{}{}
-	for _, tok := range uncovered {
-		for _, ep := range episodes {
-			if len(picked) >= capN {
-				return picked
-			}
-			if _, ok := seen[ep.MemoryID]; ok {
+	type scored struct {
+		ep   MemoryRecord
+		toks []string
+		idf  float64
+		dens int
+	}
+	items := make([]scored, 0, len(episodes))
+	df := map[string]int{}
+	for _, ep := range episodes {
+		toks := tokenize(ep.Content)
+		items = append(items, scored{
+			ep:   ep,
+			toks: toks,
+			dens: len(contentBearingTokens(toks)),
+		})
+		seen := map[string]struct{}{}
+		for _, u := range uncovered {
+			if _, ok := seen[u]; ok {
 				continue
 			}
-			if recordTokensCover(tokenize(ep.Content), tok) {
-				picked = append(picked, ep)
-				seen[ep.MemoryID] = struct{}{}
+			if recordTokensCover(toks, u) {
+				df[u]++
+				seen[u] = struct{}{}
 			}
 		}
 	}
-	for _, ep := range episodes {
-		if len(picked) >= capN {
+	for i := range items {
+		var idf float64
+		for _, u := range uncovered {
+			if !recordTokensCover(items[i].toks, u) {
+				continue
+			}
+			d := df[u]
+			if d <= 0 {
+				d = 1
+			}
+			idf += 1.0 / float64(d)
+		}
+		items[i].idf = idf
+	}
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].idf != items[j].idf {
+			return items[i].idf > items[j].idf
+		}
+		if items[i].dens != items[j].dens {
+			return items[i].dens > items[j].dens
+		}
+		return items[i].ep.MemoryID < items[j].ep.MemoryID
+	})
+	out := make([]MemoryRecord, 0, capN)
+	for _, it := range items {
+		if len(out) >= capN {
 			break
 		}
-		if _, ok := seen[ep.MemoryID]; ok {
-			continue
-		}
-		picked = append(picked, ep)
-		seen[ep.MemoryID] = struct{}{}
+		out = append(out, it.ep)
 	}
-	return picked
+	return out
 }
 
 func indexMemoriesByID(records []MemoryRecord) map[string]MemoryRecord {
@@ -1776,6 +1813,10 @@ func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights 
 		score += bonus
 		explain["attribute_atom_boost"] = bonus
 	}
+	if penalty := malformedCompilerFactPenalty(record.Content); penalty != 0 {
+		score += penalty
+		explain["malformed_compiler_fact_penalty"] = penalty
+	}
 	if bonus := queryAttributeIntentBoost(queryTokens, record); bonus > 0 {
 		score += bonus
 		explain["attribute_intent_boost"] = bonus
@@ -1876,6 +1917,9 @@ func subjectMentionBoost(queryTokens, contentTokens []string) float64 {
 // attributeAtomBoost prefers deterministic/provider atomic facts so
 // multi-hop attribute questions (identity, activities, titles) surface.
 func attributeAtomBoost(record MemoryRecord) float64 {
+	if malformedCompilerFact(record.Content) {
+		return 0
+	}
 	if record.Explain == nil {
 		return 0
 	}
@@ -1891,9 +1935,19 @@ func attributeAtomBoost(record MemoryRecord) float64 {
 	return 0
 }
 
+func malformedCompilerFactPenalty(content string) float64 {
+	if malformedCompilerFact(content) {
+		return -0.85
+	}
+	return 0
+}
+
 // queryAttributeIntentBoost aligns atom type with question intent
 // (moved-from → origin atoms, relationship status → relationship atoms, etc.).
 func queryAttributeIntentBoost(queryTokens []string, record MemoryRecord) float64 {
+	if malformedCompilerFact(record.Content) {
+		return 0
+	}
 	if record.Explain == nil {
 		return 0
 	}

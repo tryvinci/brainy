@@ -33,6 +33,15 @@ var (
 		"looking": {}, "thinking": {}, "feeling": {}, "saying": {}, "trying": {},
 		"making": {}, "taking": {}, "coming": {}, "seeing": {}, "knowing": {},
 		"wanting": {}, "needing": {}, "working": {}, "living": {}, "telling": {},
+		"fulfilling": {}, "investing": {}, "helping": {}, "using": {},
+	}
+
+	placeTailStop = map[string]struct{}{
+		"last": {}, "next": {}, "this": {}, "yesterday": {}, "today": {}, "tomorrow": {},
+		"week": {}, "month": {}, "year": {}, "morning": {}, "night": {}, "ago": {},
+		"it": {}, "was": {}, "really": {}, "so": {}, "many": {}, "my": {}, "our": {},
+		"in": {}, "at": {}, "on": {}, "of": {}, "for": {}, "with": {}, "and": {}, "or": {},
+		"but": {}, "that": {}, "since": {}, "then": {}, "the": {},
 	}
 )
 
@@ -67,6 +76,9 @@ func extractAttributeAtoms(utterances []string) []ExtractedMemory {
 			continue // require attributed speaker for atoms
 		}
 		for _, atom := range attributeAtomsFromUtterance(who, body, utt) {
+			if malformedCompilerFact(atom.Content) {
+				continue
+			}
 			key := strings.ToLower(NormalizeText(atom.Content))
 			if _, ok := seen[key]; ok {
 				continue
@@ -129,8 +141,8 @@ func attributeAtomsFromUtterance(who, body, source string) []ExtractedMemory {
 		}
 	}
 	if m := homeCountryRE.FindStringSubmatch(body); m != nil {
-		place := NormalizeText(m[1])
-		if isConcretePlace(place) {
+		place, ok := normalizePlace(m[1])
+		if ok {
 			out = append(out, atomFact(
 				fmt.Sprintf("%s is from %s", who, place),
 				source, 0.93, "attribute_origin",
@@ -142,8 +154,8 @@ func attributeAtomsFromUtterance(who, body, source string) []ExtractedMemory {
 		}
 	}
 	if m := movedFromRE.FindStringSubmatch(body); m != nil {
-		place := NormalizeText(m[1])
-		if isConcretePlace(place) {
+		place, ok := normalizePlace(m[1])
+		if ok {
 			out = append(out, atomFact(
 				fmt.Sprintf("%s moved from %s", who, place),
 				source, 0.9, "attribute_origin",
@@ -151,8 +163,8 @@ func attributeAtomsFromUtterance(who, body, source string) []ExtractedMemory {
 		}
 	}
 	if m := movedToRE.FindStringSubmatch(body); m != nil {
-		place := NormalizeText(m[1])
-		if isConcretePlace(place) {
+		place, ok := normalizePlace(m[1])
+		if ok {
 			out = append(out, atomFact(
 				fmt.Sprintf("%s moved to %s", who, place),
 				source, 0.9, "attribute_origin",
@@ -186,10 +198,8 @@ func attributeAtomsFromUtterance(who, body, source string) []ExtractedMemory {
 	if m := activityGerund.FindStringSubmatch(body); m != nil {
 		act := strings.ToLower(NormalizeText(m[1]))
 		if _, stop := activityGerundStop[act]; !stop && len(act) >= 5 {
-			out = append(out, atomFact(
-				fmt.Sprintf("%s participates in %s", who, strings.TrimSuffix(act, "ing")),
-				source, 0.8, "attribute_activity",
-			))
+			// Keep the gerund. Stripping "ing" yields "runn"/"hik" and those
+			// shards outrank real provenance once they are treated as facts.
 			out = append(out, atomFact(
 				fmt.Sprintf("%s participates in %s", who, act),
 				source, 0.82, "attribute_activity",
@@ -207,8 +217,8 @@ func attributeAtomsFromUtterance(who, body, source string) []ExtractedMemory {
 	}
 	if m := placeWithActRE.FindStringSubmatch(body); m != nil {
 		act := strings.ToLower(NormalizeText(m[1]))
-		place := strings.ToLower(NormalizeText(m[2]))
-		if isConcretePlace(place) {
+		place, ok := normalizePlace(m[2])
+		if _, stop := activityGerundStop[act]; !stop && ok {
 			out = append(out, atomFact(
 				fmt.Sprintf("%s has done %s at %s", who, act, place),
 				source, 0.86, "attribute_place_activity",
@@ -290,10 +300,19 @@ func looksBrokenQuotedTitle(title string) bool {
 	if t == "" {
 		return true
 	}
+	r, _ := utf8.DecodeRuneInString(t)
+	if r >= 'a' && r <= 'z' {
+		return true
+	}
 	if matched, _ := regexp.MatchString(`^[a-z]\s`, t); matched {
 		return true
 	}
-	if strings.HasSuffix(strings.ToLower(t), " but i") || strings.HasSuffix(t, " but I") {
+	lower := strings.ToLower(t)
+	if strings.HasSuffix(lower, " but i") || strings.HasSuffix(t, " but I") {
+		return true
+	}
+	if strings.HasPrefix(lower, "ve ") || strings.HasPrefix(lower, "m ") ||
+		strings.HasPrefix(lower, "ll ") || strings.HasPrefix(lower, "re ") {
 		return true
 	}
 	if strings.Count(t, " ") >= 8 && !looksLikeWorkTitle(t) {
@@ -302,19 +321,101 @@ func looksBrokenQuotedTitle(title string) bool {
 	return false
 }
 
+func normalizePlace(place string) (string, bool) {
+	words := strings.Fields(strings.ToLower(NormalizeText(place)))
+	out := make([]string, 0, 2)
+	for _, w := range words {
+		w = strings.Trim(w, ",.;:!?\"'")
+		if w == "" {
+			break
+		}
+		if _, stop := placeTailStop[w]; stop {
+			break
+		}
+		out = append(out, w)
+		if len(out) >= 2 {
+			break
+		}
+	}
+	p := strings.Join(out, " ")
+	return p, isConcretePlace(p)
+}
+
 func isConcretePlace(place string) bool {
 	p := strings.ToLower(strings.TrimSpace(place))
-	if p == "" || len(p) < 2 {
+	if p == "" || utf8.RuneCountInString(p) < 3 {
+		return false
+	}
+	if strings.Contains(p, " - ") || strings.Contains(p, " last ") {
 		return false
 	}
 	if strings.HasPrefix(p, "my ") || strings.HasPrefix(p, "our ") || strings.HasPrefix(p, "the ") {
 		return false
 	}
 	switch p {
-	case "home", "home country", "there", "here", "abroad", "overseas":
+	case "home", "home country", "there", "here", "abroad", "overseas",
+		"life", "ways", "changes", "touch", "then", "need", "you":
 		return false
 	}
 	return true
+}
+
+// malformedCompilerFact reports extractor templates that are not durable
+// semantic memory: light-verb "has done X at Y", failed gerund stems, and
+// broken quote shards. Used on write and recall so junk cannot count as
+// representation coverage or crowd out provenance.
+func malformedCompilerFact(content string) bool {
+	c := strings.ToLower(strings.TrimSpace(content))
+	if c == "" {
+		return true
+	}
+	if i := strings.Index(c, " participates in "); i >= 0 {
+		val := strings.Trim(strings.TrimSpace(c[i+len(" participates in "):]), `."'`)
+		if val == "" || !strings.HasSuffix(val, "ing") {
+			return true
+		}
+		head, _, _ := strings.Cut(val, " ")
+		if _, stop := activityGerundStop[head]; stop {
+			return true
+		}
+	}
+	if i := strings.Index(c, " has done "); i >= 0 {
+		rest := strings.TrimSpace(c[i+len(" has done "):])
+		act, place, ok := strings.Cut(rest, " at ")
+		if !ok {
+			return true
+		}
+		act = strings.ToLower(strings.TrimSpace(act))
+		if _, stop := activityGerundStop[act]; stop {
+			return true
+		}
+		if !isConcretePlace(place) {
+			return true
+		}
+	}
+	if i := strings.Index(c, ` mentioned "`); i >= 0 {
+		orig := strings.TrimSpace(content)
+		qi := strings.Index(orig, `"`)
+		if qi >= 0 {
+			rest := orig[qi+1:]
+			q := rest
+			if end := strings.Index(rest, `"`); end >= 0 {
+				q = rest[:end]
+			}
+			if looksBrokenQuotedTitle(q) {
+				return true
+			}
+		}
+	}
+	fields := strings.Fields(c)
+	if len(fields) == 0 {
+		return true
+	}
+	last := strings.Trim(fields[len(fields)-1], `."'`)
+	if utf8.RuneCountInString(last) == 1 {
+		return true
+	}
+	return false
 }
 
 func looksLikeWorkTitle(title string) bool {

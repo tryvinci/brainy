@@ -109,6 +109,72 @@ func TestAttributeAtomsSkippedForPackLabeledIngest(t *testing.T) {
 	}
 }
 
+func TestAttributeAtomsRejectMalformedTemplates(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Alex: I've been going at this in my life since then"},
+			{Role: "user", Content: "Alex: Getting in touch with ourselves is the point"},
+			{Role: "user", Content: "Alex: I've been running every morning"},
+			{Role: "user", Content: `Alex: I loved reading "The Little Prince" as a kid`},
+			{Role: "user", Content: "Alex: I've been hiking in the mountains"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + m.Content
+		if malformedCompilerFact(m.Content) {
+			t.Fatalf("extractor persisted malformed atom: %q", m.Content)
+		}
+	}
+	lower := strings.ToLower(joined)
+	if strings.Contains(lower, "has done going at") || strings.Contains(lower, "has done getting at") {
+		t.Fatalf("light-verb place atoms must not persist, got %q", joined)
+	}
+	if strings.Contains(lower, "participates in runn") && !strings.Contains(lower, "participates in running") {
+		t.Fatalf("failed gerund stem must not persist, got %q", joined)
+	}
+	if !strings.Contains(lower, "participates in running") {
+		t.Fatalf("expected gerund activity atom, got %q", joined)
+	}
+	if !strings.Contains(lower, "little prince") {
+		t.Fatalf("expected well-formed title atom, got %q", joined)
+	}
+	if !strings.Contains(lower, "hiking") {
+		t.Fatalf("expected hiking place/activity atom, got %q", joined)
+	}
+}
+
+func TestMalformedCompilerFactDetector(t *testing.T) {
+	bad := []string{
+		"Caroline has done going at since then",
+		"Caroline has done going at in my life",
+		"Melanie participates in runn",
+		"Caroline mentioned \"ve got lots of kids\"",
+		"Melanie has done taking at kids in need - you",
+	}
+	for _, c := range bad {
+		if !malformedCompilerFact(c) {
+			t.Fatalf("expected malformed: %q", c)
+		}
+	}
+	good := []string{
+		"Alex participates in running",
+		"Alex has done hiking at mountains",
+		"Alex mentioned \"The Little Prince\"",
+		"Alex is from Canada",
+	}
+	for _, c := range good {
+		if malformedCompilerFact(c) {
+			t.Fatalf("expected well-formed: %q", c)
+		}
+	}
+}
+
 func TestAsARoleEmitsIdentityAtom(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{
