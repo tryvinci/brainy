@@ -39,6 +39,15 @@ type StoreUpsertResult struct {
 	State  string
 }
 
+// LeaseFencer is the optional worker-side lease ownership contract. A store
+// that implements it supports per-claim fencing: Complete/Fail succeed only for
+// the active lease owner, and long-running extraction can renew its lease.
+type LeaseFencer interface {
+	HeartbeatExtractionJob(ctx context.Context, jobID, leaseOwner string) error
+	CompleteExtractionJobFenced(ctx context.Context, jobID, ingestID, leaseOwner string) error
+	FailExtractionJobFenced(ctx context.Context, jobID, ingestID, leaseOwner, reason string) error
+}
+
 type Service struct {
 	store     Store
 	extractor Extractor

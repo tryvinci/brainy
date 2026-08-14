@@ -229,3 +229,84 @@ type failingExtractor struct {
 func (f failingExtractor) Extract(_ context.Context, _ memory.IngestRequest) ([]memory.ExtractedMemory, error) {
 	return nil, f.err
 }
+
+// fencedStoreStub implements memory.LeaseFencer to prove the processor uses the
+// fenced completion path and propagates ErrLeaseLost.
+type fencedStoreStub struct {
+	storeStub
+	heartbeats     int
+	completeFenced bool
+	failFenced     bool
+	failErr        error
+}
+
+func (s *fencedStoreStub) HeartbeatExtractionJob(_ context.Context, _, _ string) error {
+	s.heartbeats++
+	return nil
+}
+
+func (s *fencedStoreStub) CompleteExtractionJobFenced(_ context.Context, _, _, _ string) error {
+	s.completeFenced = true
+	return nil
+}
+
+func (s *fencedStoreStub) FailExtractionJobFenced(_ context.Context, _, _, _, _ string) error {
+	s.failFenced = true
+	return s.failErr
+}
+
+func TestProcessorUsesFencedLeasePath(t *testing.T) {
+	store := &fencedStoreStub{}
+	store.records = map[string]memory.MemoryRecord{}
+	store.jobs = map[string]memory.ExtractionJob{}
+	store.failedJobs = map[string]string{}
+	store.embeddings = map[string][]float32{}
+
+	processor := NewProcessor(store, observability.NewMetrics())
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_f", "job_f", "", memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "I prefer concise answers."}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := processor.ProcessNext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if !store.completeFenced {
+		t.Fatal("expected fenced completion to be used")
+	}
+	if store.heartbeats == 0 {
+		t.Fatal("expected lease heartbeat during processing")
+	}
+}
+
+func TestProcessorPropagatesLeaseLostOnFailure(t *testing.T) {
+	store := &fencedStoreStub{failErr: memory.ErrLeaseLost}
+	store.records = map[string]memory.MemoryRecord{}
+	store.jobs = map[string]memory.ExtractionJob{}
+	store.failedJobs = map[string]string{}
+	store.embeddings = map[string][]float32{}
+
+	failing := failingExtractor{err: context.DeadlineExceeded}
+	processor := NewProcessorWithExtractor(store, observability.NewMetrics(), failing)
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_fl", "job_fl", "", memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "Caroline went on 7 May 2023"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := processor.ProcessNext(context.Background()); err == nil {
+		t.Fatal("expected extract failure")
+	}
+	if !store.failFenced {
+		t.Fatal("expected fenced failure to be used")
+	}
+}

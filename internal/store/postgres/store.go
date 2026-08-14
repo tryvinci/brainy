@@ -2,6 +2,8 @@ package postgres
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -728,11 +730,13 @@ LIMIT 1
 	}
 
 	backoff := s.jobLease * time.Duration(1<<min(job.Attempts, 6))
+	leaseOwner := newLeaseOwner()
 	if _, err := tx.Exec(ctx, `
 UPDATE extraction_jobs
-SET status = $2, attempts = attempts + 1, updated_at = $3, lease_expires_at = $4
+SET status = $2, attempts = attempts + 1, updated_at = $3, lease_expires_at = $4,
+    lease_owner = $5, last_heartbeat_at = $3
 WHERE job_id = $1
-`, job.JobID, memory.JobStatusInProgress, now, now.Add(backoff)); err != nil {
+`, job.JobID, memory.JobStatusInProgress, now, now.Add(backoff), leaseOwner); err != nil {
 		return memory.ExtractionJob{}, false, err
 	}
 
@@ -740,6 +744,7 @@ WHERE job_id = $1
 		return memory.ExtractionJob{}, false, err
 	}
 	job.Attempts++
+	job.LeaseOwner = leaseOwner
 	return job, true, nil
 }
 
@@ -748,6 +753,17 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// newLeaseOwner returns a random per-claim fencing token. Cryptographically
+// random so a reclaimed lease cannot be forged by guessing the owner.
+func newLeaseOwner() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		// Fall back to a timestamp+sequence token rather than blocking a claim.
+		return fmt.Sprintf("lo_%d", time.Now().UTC().UnixNano())
+	}
+	return "lo_" + hex.EncodeToString(b[:])
 }
 
 func (s *Store) CompleteExtractionJob(ctx context.Context, jobID, ingestID string) error {
@@ -815,6 +831,120 @@ WHERE job_id = $1
 		if _, err := tx.Exec(ctx, `
 UPDATE extraction_jobs
 SET status = $2, failure_reason = $3, updated_at = $4, lease_expires_at = NULL
+WHERE job_id = $1
+`, jobID, memory.JobStatusPending, reason, now); err != nil {
+			return err
+		}
+	}
+
+	if _, err := tx.Exec(ctx, `
+UPDATE raw_ingests
+SET status = $2, updated_at = $3
+WHERE ingest_id = $1
+`, ingestID, memory.RawIngestStatusFailed, now); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// HeartbeatExtractionJob renews the lease of an in-progress job, but only for
+// the owner that currently holds it. A reclaimed job (owner changed) or an
+// already-terminal job is left untouched.
+func (s *Store) HeartbeatExtractionJob(ctx context.Context, jobID, leaseOwner string) error {
+	now := time.Now().UTC()
+	tag, err := s.pool.Exec(ctx, `
+UPDATE extraction_jobs
+SET lease_expires_at = $3, last_heartbeat_at = $4, updated_at = $4
+WHERE job_id = $1 AND lease_owner = $2 AND status = $5
+`, jobID, leaseOwner, now.Add(s.jobLease), now, memory.JobStatusInProgress)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return memory.ErrLeaseLost
+	}
+	return nil
+}
+
+// CompleteExtractionJobFenced marks a job completed only when the caller still
+// owns the lease. If the lease was reclaimed, it returns ErrLeaseLost and the
+// worker must not treat its results as committed.
+func (s *Store) CompleteExtractionJobFenced(ctx context.Context, jobID, ingestID, leaseOwner string) error {
+	now := time.Now().UTC()
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	tag, err := tx.Exec(ctx, `
+UPDATE extraction_jobs
+SET status = $2, updated_at = $3, processed_at = $3, lease_expires_at = NULL, lease_owner = NULL
+WHERE job_id = $1 AND lease_owner = $4 AND status = $5
+`, jobID, memory.JobStatusCompleted, now, leaseOwner, memory.JobStatusInProgress)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return memory.ErrLeaseLost
+	}
+	if _, err := tx.Exec(ctx, `
+UPDATE raw_ingests
+SET status = $2, updated_at = $3, processed_at = $3
+WHERE ingest_id = $1
+`, ingestID, memory.RawIngestStatusProcessed, now); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
+// FailExtractionJobFenced fails or re-queues a job only when the caller still
+// owns the lease. If the lease was reclaimed, it returns ErrLeaseLost and the
+// old worker must not mutate job state.
+func (s *Store) FailExtractionJobFenced(ctx context.Context, jobID, ingestID, leaseOwner, reason string) error {
+	now := time.Now().UTC()
+	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = tx.Rollback(ctx)
+	}()
+
+	var attempts, maxAttempts int
+	err = tx.QueryRow(ctx, `
+SELECT attempts, max_attempts FROM extraction_jobs
+WHERE job_id = $1 AND lease_owner = $2 AND status = $3
+`, jobID, leaseOwner, memory.JobStatusInProgress).Scan(&attempts, &maxAttempts)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return memory.ErrLeaseLost
+		}
+		return err
+	}
+
+	if attempts >= maxAttempts {
+		deadLetterID := fmt.Sprintf("dl_%d", now.UnixNano())
+		if _, err := tx.Exec(ctx, `
+INSERT INTO dead_letter_jobs (
+    dead_letter_id, job_id, ingest_id, failure_reason, attempts, created_at, dead_lettered_at
+) VALUES ($1, $2, $3, $4, $5, $6, $6)
+`, deadLetterID, jobID, ingestID, reason, attempts, now); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `
+UPDATE extraction_jobs
+SET status = $2, failure_reason = $3, updated_at = $4, lease_expires_at = NULL, lease_owner = NULL
+WHERE job_id = $1
+`, jobID, memory.JobStatusFailed, reason, now); err != nil {
+			return err
+		}
+	} else {
+		if _, err := tx.Exec(ctx, `
+UPDATE extraction_jobs
+SET status = $2, failure_reason = $3, updated_at = $4, lease_expires_at = NULL, lease_owner = NULL
 WHERE job_id = $1
 `, jobID, memory.JobStatusPending, reason, now); err != nil {
 			return err
