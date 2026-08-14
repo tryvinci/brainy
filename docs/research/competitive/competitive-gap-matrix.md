@@ -41,4 +41,5 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Wave 1 local OpMem / marketing (`a7a5184`) | 13/13 / passed — [opmem](../../benchmarks/artifacts/opmem-wave1-local-20260813.md) · [marketing](../../benchmarks/artifacts/marketing-wave1-local-20260813.md) |
 | R1c local LoCoMo 1×30 (`21a632b`) | **10/30** · MH **2/10** · OD **0/4** · temporal **8/16** — [pin](../../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md) (honest dip vs Wave 1; not a compiler win) |
 | R1c local OpMem / marketing (`21a632b`) | 13/13 / 17/17 — [opmem](../../benchmarks/artifacts/opmem-r1c-local-20260814.md) · [marketing](../../benchmarks/artifacts/marketing-r1c-local-20260814.md) |
+| Compiler-quality local LoCoMo 1×30 (`d82f7d6`) | **11/30** · MH **2/10** · OD **0/4** · temporal **9/16** — [pin](../../benchmarks/artifacts/locomo-atomq-dev-1x30-20260814.md) (q10 recovered; junk 45→6; still a dip vs Wave 1) |
 | LME-20 | **Publishable 0/20** `/recall` — [pin](../../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |

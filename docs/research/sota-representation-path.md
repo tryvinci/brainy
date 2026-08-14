@@ -233,6 +233,8 @@ Inspect Mem0 OSS `mem0/configs/prompts.py` (ADD-only fact sentences) as **ADAPT*
 
 **Exit:** held-out representation audit (POV 12), not a LoCoMo bump. R1+R1b are incomplete until coverage is high enough that dropping transcripts would not hide `WRITE_MISS`.
 
+**Quality gate (landed):** malformed compiler templates are not semantic memory. Light-verb `has done going at …`, failed gerund stems (`participates in runn`), and broken quote shards must not persist, must not complete coverage, and must not outrank provenance. Local remasure **11/30** vs R1c **10/30** (q10 recovered; packet junk 45→6). Remaining LoCoMo misses on that pin are mostly **WRITE_MISS** — the compiler still does not emit the durable claim.
+
 ### R1c — Fact-primary recall (not unconditional transcript suppression)
 
 **Landed in #113** with coverage-gated fallback (trace: `representation_status`, `episode_fallback`, `episodes_dropped`). Local 1×30 remasure **10/30** (MH 2/10, OD 0/4, temporal 8/16) vs Wave 1 **14/30** — a **dip**, expected while the compiler is thin. See [locomo-r1c-dev-1x30-20260814.md](../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md).
