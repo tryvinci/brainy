@@ -367,6 +367,13 @@ func TestSlotValueKeepsQuotedTitleContainingIs(t *testing.T) {
 	if !ok || !strings.EqualFold(got, "single") {
 		t.Fatalf("identity copula, got %q ok=%v", got, ok)
 	}
+	got, ok = slotValueFromMemoryContent("Riley: This book I read last year reminds me. [visible text: LIFE IS ELSEWHERE]")
+	if !ok || !strings.Contains(strings.ToLower(got), "life is elsewhere") {
+		t.Fatalf("visible-text title, got %q ok=%v", got, ok)
+	}
+	if strings.EqualFold(got, "Elsewhere") {
+		t.Fatalf("visible-text title split on is: %q", got)
+	}
 }
 
 func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {

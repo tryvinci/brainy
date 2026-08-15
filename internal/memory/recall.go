@@ -963,7 +963,13 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 			return title, true
 		}
 	}
-	lower := strings.ToLower(content)
+	if m := visibleTextBlockRE.FindStringSubmatch(content); m != nil {
+		if title, ok := titleFromVisibleText(m[1]); ok {
+			return title, true
+		}
+	}
+	stripped := visibleTextBlockRE.ReplaceAllString(content, " ")
+	lower := strings.ToLower(stripped)
 	for _, sep := range []string{
 		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
@@ -973,7 +979,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 			if sep == " is " && titleLikeCopula(content) {
 				continue
 			}
-			v := strings.TrimSpace(content[i+len(sep):])
+			v := strings.TrimSpace(stripped[i+len(sep):])
 			v = strings.Trim(v, "\"")
 			if j := strings.IndexAny(v, ".(["); j > 0 {
 				v = strings.TrimSpace(v[:j])
