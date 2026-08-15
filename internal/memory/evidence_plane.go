@@ -76,11 +76,16 @@ func observedAtFromMetadata(meta map[string]any) *time.Time {
 	return nil
 }
 
-func (s *Service) persistRawEvidence(ctx context.Context, req IngestRequest) []string {
+// persistRawEvidence captures raw evidence for every non-empty source message.
+// In strict mode (BRAINY_EVIDENCE_STRICT=true) any write failure is fatal so the
+// caller can abort before semantic persistence; otherwise it fails best-effort
+// and ingest keeps moving without that message's raw evidence.
+func (s *Service) persistRawEvidence(ctx context.Context, req IngestRequest) ([]string, error) {
 	writer, ok := s.store.(RawEvidenceWriter)
 	if !ok {
-		return nil
+		return nil, nil
 	}
+	strict := os.Getenv("BRAINY_EVIDENCE_STRICT") == "true"
 	ids := make([]string, 0, len(req.Messages))
 	session := ""
 	if req.Metadata != nil {
@@ -97,9 +102,9 @@ func (s *Service) persistRawEvidence(ctx context.Context, req IngestRequest) []s
 		ref := fmt.Sprintf("msg:%d", i)
 		id, err := writer.WriteRawEvidence(ctx, req.TenantID, req.SubjectID, "default", req.SourceType, ref, session, msg.Role, content, occurredAt, req.Metadata)
 		if err != nil {
-			// Prefer failing closed on evidence loss in strict mode; otherwise keep ingest moving.
-			if os.Getenv("BRAINY_EVIDENCE_STRICT") == "true" {
-				continue
+			// Fail closed on evidence loss in strict mode; otherwise keep ingest moving.
+			if strict {
+				return nil, fmt.Errorf("evidence write failed in strict mode: %w", err)
 			}
 			continue
 		}
@@ -107,7 +112,7 @@ func (s *Service) persistRawEvidence(ctx context.Context, req IngestRequest) []s
 			ids = append(ids, id)
 		}
 	}
-	return ids
+	return ids, nil
 }
 
 // attachEvidenceIDs stores raw evidence IDs on request metadata for extract→record linking.
