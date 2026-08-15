@@ -355,6 +355,20 @@ func TestRecallResearchEnumeratesTopicNotIdentity(t *testing.T) {
 	}
 }
 
+func TestSlotValueKeepsQuotedTitleContainingIs(t *testing.T) {
+	got, ok := slotValueFromMemoryContent(`Riley read "Life is Elsewhere" (12 July 2022)`)
+	if !ok || !strings.EqualFold(got, "Life is Elsewhere") {
+		t.Fatalf("quoted title, got %q ok=%v", got, ok)
+	}
+	if got, ok := slotValueFromMemoryContent("Life is Elsewhere"); ok && strings.EqualFold(got, "Elsewhere") {
+		t.Fatalf("must not split title on is, got %q", got)
+	}
+	got, ok = slotValueFromMemoryContent("Riley is single")
+	if !ok || !strings.EqualFold(got, "single") {
+		t.Fatalf("identity copula, got %q ok=%v", got, ok)
+	}
+}
+
 func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -365,6 +379,7 @@ func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
 			{Role: "user", Content: `Riley: I loved reading "The Little Prince" as a kid.`},
 			{Role: "user", Content: "Riley: This book I read last year, The Hidden Garden, still stays with me."},
 			{Role: "user", Content: "Riley: This book I read last year reminds me to keep going. [visible text: THE QUIET ORCHARD]"},
+			{Role: "user", Content: `Riley: I loved reading "Life is Elsewhere" last spring.`},
 			{Role: "user", Content: `Riley: I read "Perfect"`},
 		},
 	})
@@ -390,6 +405,12 @@ func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
 	}
 	if !strings.Contains(joined, "quiet orchard") {
 		t.Fatalf("expected deictic visible title, items=%#v answer=%q", out.Items, out.Answer)
+	}
+	if !strings.Contains(joined, "life is elsewhere") {
+		t.Fatalf("title containing is must stay intact, items=%#v answer=%q", out.Items, out.Answer)
+	}
+	if itemHas(out.Items, "elsewhere") && !itemHas(out.Items, "life is elsewhere") {
+		t.Fatalf("must not split title on is, items=%#v", out.Items)
 	}
 	if strings.Contains(joined, `"perfect"`) || itemHas(out.Items, "Perfect") {
 		t.Fatalf("one-word quote should be rejected, items=%#v", out.Items)

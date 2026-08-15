@@ -62,6 +62,7 @@ var (
 		"wanting": {}, "needing": {}, "working": {}, "living": {}, "telling": {},
 		"fulfilling": {}, "investing": {}, "helping": {}, "using": {},
 		"planning": {}, "starting": {}, "keeping": {},
+		"sitting": {}, "standing": {}, "laying": {}, "lying": {},
 	}
 
 	roleStop = map[string]struct{}{
@@ -1007,7 +1008,9 @@ func isConcretePlace(place string) bool {
 	}
 	switch p {
 	case "home", "home country", "there", "here", "abroad", "overseas",
-		"life", "ways", "changes", "touch", "then", "need", "you":
+		"life", "ways", "changes", "touch", "then", "need", "you",
+		"top", "floor", "grass", "chairs", "chair", "stage", "sky",
+		"steps", "front", "ground", "table", "sign":
 		return false
 	}
 	return true

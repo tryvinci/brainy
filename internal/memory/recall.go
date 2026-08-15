@@ -956,6 +956,13 @@ func valueFromMemoryContent(content string) string {
 }
 
 func slotValueFromMemoryContent(content string) (string, bool) {
+	content = stripTrailingStamp(content)
+	if m := quotedTitleRE.FindStringSubmatch(content); m != nil {
+		title := NormalizeText(firstNonEmpty(m[1], m[2], m[3], m[4]))
+		if utf8.RuneCountInString(title) >= 4 && len(strings.Fields(title)) >= 2 && !looksBrokenQuotedTitle(title) {
+			return title, true
+		}
+	}
 	lower := strings.ToLower(content)
 	for _, sep := range []string{
 		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
@@ -963,6 +970,9 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		" researched ", " unwinds via ", " is a ", " is ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
+			if sep == " is " && titleLikeCopula(content) {
+				continue
+			}
 			v := strings.TrimSpace(content[i+len(sep):])
 			v = strings.Trim(v, "\"")
 			if j := strings.IndexAny(v, ".(["); j > 0 {
@@ -980,6 +990,20 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func titleLikeCopula(content string) bool {
+	words := strings.Fields(strings.TrimSpace(content))
+	if len(words) < 3 {
+		return false
+	}
+	caps := 0
+	for _, w := range words {
+		if len(w) > 0 && w[0] >= 'A' && w[0] <= 'Z' {
+			caps++
+		}
+	}
+	return caps >= 2
 }
 
 func assembleContextBlock(results []SearchResult, budgetTokens int) string {

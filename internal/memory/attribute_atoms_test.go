@@ -149,6 +149,30 @@ func TestAttributeAtomsRejectMalformedTemplates(t *testing.T) {
 	}
 }
 
+func TestCaptionPoseDoesNotCompilePlaceActivity(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: [a photo of a woman sitting on a sign on top of a mountain]"},
+			{Role: "user", Content: "Riley: I'm off to go swimming with the kids."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if strings.Contains(joined, "has done sitting") || strings.Contains(joined, " at top") {
+		t.Fatalf("caption pose/place must not compile, got %q", joined)
+	}
+	if !strings.Contains(joined, "swimming") {
+		t.Fatalf("expected swimming activity, got %q", joined)
+	}
+}
+
 func TestMalformedCompilerFactDetector(t *testing.T) {
 	bad := []string{
 		"Caroline has done going at since then",
