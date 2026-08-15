@@ -6,13 +6,15 @@ import (
 
 	"brainy/internal/memory"
 	"brainy/internal/observability"
+	"strings"
 )
 
 type storeStub struct {
-	records     map[string]memory.MemoryRecord
-	jobs        map[string]memory.ExtractionJob
-	failedJobs  map[string]string
-	embeddings  map[string][]float32
+	records    map[string]memory.MemoryRecord
+	jobs       map[string]memory.ExtractionJob
+	failedJobs map[string]string
+	embeddings map[string][]float32
+	relations  []memory.MemoryRelation
 }
 
 func newStoreStub() *storeStub {
@@ -96,6 +98,32 @@ func (s *storeStub) FailExtractionJob(_ context.Context, jobID, _, reason string
 	return nil
 }
 
+func (s *storeStub) UpsertMemoryRelation(_ context.Context, rel memory.MemoryRelation) error {
+	s.relations = append(s.relations, rel)
+	return nil
+}
+
+func (s *storeStub) ListRelationsFrom(_ context.Context, tenantID, subjectID, srcEntity, relation string, limit int) ([]memory.MemoryRelation, error) {
+	srcEntity = strings.ToLower(strings.TrimSpace(srcEntity))
+	out := make([]memory.MemoryRelation, 0)
+	for _, rel := range s.relations {
+		if rel.TenantID != tenantID || rel.SubjectID != subjectID {
+			continue
+		}
+		if srcEntity != "" && strings.ToLower(rel.SrcEntity) != srcEntity {
+			continue
+		}
+		if relation != "" && rel.Relation != relation {
+			continue
+		}
+		out = append(out, rel)
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
 func TestProcessorProcessesQueuedJob(t *testing.T) {
 	store := newStoreStub()
 	processor := NewProcessor(store, observability.NewMetrics())
@@ -159,6 +187,38 @@ func TestProcessorProviderFailureLeavesNoMemories(t *testing.T) {
 	}
 	if store.failedJobs["job_fail"] == "" {
 		t.Fatal("expected FailExtractionJob called")
+	}
+}
+
+func TestProcessorProjectsRelationsFromTypedFacts(t *testing.T) {
+	store := newStoreStub()
+	processor := NewProcessor(store, observability.NewMetrics())
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_rel", "job_rel", "", memory.IngestRequest{
+		TenantID:   "t-rel",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages: []memory.Message{
+			{Role: "user", Content: "Jordan: I moved from Portugal four years ago."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	processed, err := processor.ProcessNext(context.Background())
+	if err != nil {
+		t.Fatalf("process next failed: %v", err)
+	}
+	if !processed {
+		t.Fatal("expected job")
+	}
+	found := false
+	for _, rel := range store.relations {
+		if rel.Relation == memory.PredicateOrigin && strings.Contains(strings.ToLower(rel.DstEntity), "portugal") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected origin relation from async extract, relations=%#v records=%d", store.relations, len(store.records))
 	}
 }
 

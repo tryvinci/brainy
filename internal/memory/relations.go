@@ -23,9 +23,9 @@ type RelationIndexer interface {
 	ListRelationsFrom(ctx context.Context, tenantID, subjectID, srcEntity, relation string, limit int) ([]MemoryRelation, error)
 }
 
-// projectMemoryRelation turns an entity-valued atomic fact into a Postgres edge.
+// ProjectMemoryRelation turns an entity-valued atomic fact into a Postgres edge.
 // Relations are a projection of the compiler, not a second extractor.
-func projectMemoryRelation(record MemoryRecord) (MemoryRelation, bool) {
+func ProjectMemoryRelation(record MemoryRecord) (MemoryRelation, bool) {
 	pred, _ := record.Explain["predicate"].(string)
 	val, _ := record.Explain["value_norm"].(string)
 	if pred == "" && record.Metadata != nil {

@@ -177,7 +177,7 @@ func TestProjectMemoryRelationFromOriginAtom(t *testing.T) {
 			"rule":       "attribute_origin",
 		},
 	}
-	rel, ok := projectMemoryRelation(rec)
+	rel, ok := ProjectMemoryRelation(rec)
 	if !ok {
 		t.Fatal("expected relation projection")
 	}

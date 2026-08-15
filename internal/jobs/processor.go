@@ -196,6 +196,11 @@ func (p *Processor) persistEntityLinks(ctx context.Context, record memory.Memory
 			_ = indexer.UpsertMemoryAtom(ctx, record.TenantID, record.SubjectID, pred, val, record.MemoryID, record.ObservedAt)
 		}
 	}
+	if rel, ok := memory.ProjectMemoryRelation(record); ok {
+		if indexer, ok := p.store.(memory.RelationIndexer); ok {
+			_ = indexer.UpsertMemoryRelation(ctx, rel)
+		}
+	}
 }
 
 func (p *Processor) persistEvidenceAndEvents(ctx context.Context, record memory.MemoryRecord) {

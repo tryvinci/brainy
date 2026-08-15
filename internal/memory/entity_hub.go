@@ -80,7 +80,7 @@ func (s *Service) persistEntityLinks(ctx context.Context, record MemoryRecord) {
 			_ = indexer.UpsertMemoryAtom(ctx, record.TenantID, record.SubjectID, pred, val, record.MemoryID, record.ObservedAt)
 		}
 	}
-	if rel, ok := projectMemoryRelation(record); ok {
+	if rel, ok := ProjectMemoryRelation(record); ok {
 		if indexer, ok := s.store.(RelationIndexer); ok {
 			_ = indexer.UpsertMemoryRelation(ctx, rel)
 		}
