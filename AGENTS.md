@@ -84,20 +84,25 @@ python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 
 ## Public docs voice
 
-Do **not** name competitor products in README, Quick Start, GTM, launch narrative,
-evals README, commercial checklist, or other user-facing docs. Those pages
+Do **not** name competitor products in the product README, Quick Start, GTM,
+launch narrative, commercial checklist, or other **product** pages. Those
 describe Brainy: what it is, how to run it, and **Brainy** n/N by category.
+
+**Evals may name competitors** (`evals/`, including `evals/README.md` and
+`evals/public/`). Name the system the harness actually calls (today: Mem0
+Platform vs Mem0 OSS). Do not invent pins. Do not write SOTA / beats-Mem0.
+
 Contributor-facing layout follows [CONTRIBUTING.md](CONTRIBUTING.md),
 [docs/README.md](docs/README.md), and [docs/api.md](docs/api.md) — do not dump
 research notes into the README.
 
-Same-pin competitor pins belong only under `docs/research/competitive/` and
-historical `docs/benchmarks/artifacts/`. Do not copy bake-off tables into
-README or the research portal headline.
+Same-pin competitor tables belong under `docs/research/competitive/` and
+historical `docs/benchmarks/artifacts/`. Do not copy bake-off tables into the
+product README or the research portal headline.
 
 ## Benchmark cycle closeout (required)
 
-Every remasure, merge, or “where we landed” cycle must report **in this order**, in **both** the user-facing summary and a new dated section of [docs/research/competitive/cycle-closeout.md](docs/research/competitive/cycle-closeout.md). Scores-only is incomplete. A Brainy pin without a detailed competitor compare **in the competitive folder** is not a cycle closeout. The **user-facing** half of the summary still uses Brainy scores only (no competitor brand names).
+Every remasure, merge, or “where we landed” cycle must report **in this order**, in **both** the user-facing summary and a new dated section of [docs/research/competitive/cycle-closeout.md](docs/research/competitive/cycle-closeout.md). Scores-only is incomplete. A Brainy pin without a detailed competitor compare **in the competitive folder** is not a cycle closeout. The **product README** half of the summary still uses Brainy scores only (no competitor brand names). Evals may name competitors.
 
 1. **Landed** — SHAs on `dev` / `main`, what product change shipped.
 2. **Own pins** — OpMem, marketing, LoCoMo 1×30 **by category** (MH / OD / temporal), LME if run. Name dips as dips. 1×30 is measurement, not qualification.

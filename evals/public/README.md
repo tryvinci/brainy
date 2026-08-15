@@ -79,4 +79,18 @@ Outputs: `{run_id}.json` (UnifiedResult), `{run_id}.manifest.json`, markdown rep
 | L5 LongMemEval | TODO | same schema |
 | L6 MarketingMem | vertical fixtures | sibling track |
 
+## Same-pin vs Mem0 Platform
+
+`run_smoke.py --system mem0` uses `backends/mem0.py` (Mem0 Platform API, not
+Mem0 OSS). Requires `MEM0_API_KEY`. Same dataset SHA / judge / question set as
+the Brainy run.
+
+```bash
+cd evals
+python -m public.locomo.run_smoke --system mem0 --conversations 1 --questions 30
+```
+
+Harness peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks).
+Pin tables: `docs/research/competitive/` and `docs/benchmarks/artifacts/`.
+
 See [docs/research/proveable-eval-framework.md](../../docs/research/proveable-eval-framework.md).

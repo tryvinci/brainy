@@ -11,7 +11,7 @@ lives in the root [README](../README.md).
 | [api.md](./api.md) | HTTP routes, auth, request bodies |
 | [conversation-ingest.md](./conversation-ingest.md) | How chat clients should call `/ingest` |
 | [external-postgres-runbook.md](./external-postgres-runbook.md) | Run API + worker on your own Postgres |
-| [../evals/README.md](../evals/README.md) | Fixture harnesses against a live API |
+| [../evals/README.md](../evals/README.md) | Fixture harnesses; same-pin vs Mem0 Platform |
 
 ## Product
 

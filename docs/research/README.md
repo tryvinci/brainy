@@ -14,7 +14,7 @@ Not a single public-suite number. Not benchmax.
 **Earlier external briefing: [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md)** — seeded the program; prefer the assessment pack for new agents.
 History: [path-to-sota.md](./path-to-sota.md) · Papers: [paper-topics.md](./paper-topics.md) · Ladder: [public-bench-ladder.md](./public-bench-ladder.md)
 
-Style: **reproducible, cited, honest about gaps**. User-facing pages do not name competitor products — see [AGENTS.md](../../AGENTS.md).
+Style: **reproducible, cited, honest about gaps**. Product pages (README, GTM, launch) do not name competitor products. **Evals may.** See [AGENTS.md](../../AGENTS.md).
 
 ---
 

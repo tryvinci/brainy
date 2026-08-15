@@ -4,7 +4,7 @@ Fill a new dated section (or a new file `cycle-closeout-YYYYMMDD.md`) at the end
 
 **Tracks (never mix):** Same-pin = same dataset SHA, same judge/answerer, same question set. Vendor blogs / README headlines are context, not scoreboard rows. Competitor brand names stay in **this file** and `docs/benchmarks/artifacts/` — not README, GTM, or launch copy.
 
-The **user-facing** cycle summary reports Brainy n/N by category only. The competitor table lives here.
+The **product** cycle summary (README / GTM) reports Brainy n/N by category only. **Evals may name competitors.** The competitor table lives here.
 
 ## Template
 
