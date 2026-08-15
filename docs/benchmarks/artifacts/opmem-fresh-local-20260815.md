@@ -6,4 +6,4 @@
 
 **Result:** Brainy **13/13 (100%) passed** (correction 3/3, isolation 3/3, suppression 3/3, staleness 3/3, idempotency 1/1). Verbatim baseline 10/13.
 
-`upd01` June vs May kept. Ops lead vs Mem0 is **not** claimed from this Brainy-only pin — see the Mem0 counter-run artifact if present.
+`upd01` June vs May kept. Ops lead vs Mem0 **10/13 (76.9%)** this cycle ([opmem-mem0-fresh-20260815.md](./opmem-mem0-fresh-20260815.md)).
