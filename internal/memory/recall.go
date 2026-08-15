@@ -669,8 +669,10 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 
 	add := func(value, predicate, memoryID, observed string) {
 		v := strings.TrimSpace(value)
-		if extracted, ok := slotValueFromMemoryContent(v); ok {
-			v = extracted
+		if hasSlotTemplate(v) {
+			if extracted, ok := slotValueFromMemoryContent(v); ok {
+				v = extracted
+			}
 		}
 		if v == "" || anaphoricSlotValue(v) || !validEnumeratedValue(v) {
 			return
@@ -996,6 +998,20 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func hasSlotTemplate(v string) bool {
+	low := strings.ToLower(v)
+	for _, sep := range []string{
+		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
+		" read \"", " has done ", " plans career in ", " plans career for ",
+		" researched ", " unwinds via ", " is a ",
+	} {
+		if strings.Contains(low, sep) {
+			return true
+		}
+	}
+	return false
 }
 
 func titleLikeCopula(content string) bool {

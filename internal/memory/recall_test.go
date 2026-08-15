@@ -374,6 +374,9 @@ func TestSlotValueKeepsQuotedTitleContainingIs(t *testing.T) {
 	if strings.EqualFold(got, "Elsewhere") {
 		t.Fatalf("visible-text title split on is: %q", got)
 	}
+	if hasSlotTemplate("nothing is impossible") || hasSlotTemplate("life is elsewhere") {
+		t.Fatal("lowercase title dst is not a slot template")
+	}
 }
 
 func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
