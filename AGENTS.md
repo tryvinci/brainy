@@ -4,16 +4,17 @@ Notes for automated coding agents working in this repository.
 
 ## Git identity
 
-Author and committer for all commits:
-
-```text
-Siddhant Singh <s@siddhant.site>
-```
+Use the contributor's locally configured git identity for commits, not a forced
+one:
 
 ```bash
-git config user.name "Siddhant Singh"
-git config user.email "s@siddhant.site"
+git config user.name "Your Name"
+git config user.email "you@example.com"
 ```
+
+Commits are attributed to whoever owns the local checkout. Only commit as the
+maintainer (`s@siddhant.site`) if they have explicitly asked you to author a
+commit on their behalf.
 
 ## Cloud / ephemeral VM notes
 

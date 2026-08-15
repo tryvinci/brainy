@@ -19,11 +19,15 @@ python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
 
 ## Git identity
 
-Use this author for commits:
+Use your own git identity for commits:
 
-```text
-Siddhant Singh <s@siddhant.site>
+```bash
+git config user.name "Your Name"
+git config user.email "you@example.com"
 ```
+
+Commits are attributed to you, not the maintainer. Only override this if you are
+authoring commits on the maintainer's behalf.
 
 ## Pull requests
 

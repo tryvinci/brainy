@@ -1,7 +1,8 @@
 # Mem0 parity gaps — where we win, where we fail, what to crush
 
-**Updated:** 2026-07-25 · **Doctrine:** product gaps, not benchmax.  
-**North star:** surpass Mem0 multi-axis ([path-to-sota.md](./path-to-sota.md)).
+**Updated:** 2026-08-15 · **Doctrine:** product gaps, not benchmax.  
+**North star:** surpass Mem0 multi-axis ([path-to-sota.md](./path-to-sota.md)).  
+**Status source:** [gap-crush-checklist.md](./gap-crush-checklist.md) is the authoritative completion record (100% done, 2026-07-29). GitHub issues #50–#57 track these items and remain open pending maintainer close-out; see the backlog table below.
 
 ---
 
@@ -66,14 +67,14 @@ Fail taxonomy on `locomo-staging-diversify-v1` (11 misses):
 
 | Gap | Issue | Status |
 | --- | --- | --- |
-| GAP-C1 Attribute atoms | [#50](https://github.com/tryvinci/brainy/issues/50) | In progress (deterministic atoms + provider prompt) |
-| GAP-M1 Fair Mem0 LOCOMO | [#51](https://github.com/tryvinci/brainy/issues/51) | In progress (`--system mem0` backend) |
-| GAP-C4 Multi-span synthesis | [#52](https://github.com/tryvinci/brainy/issues/52) | Open |
-| GAP-C2 IDF/entity default-on | [#53](https://github.com/tryvinci/brainy/issues/53) | Open |
-| GAP-C3 Temporal plans | [#54](https://github.com/tryvinci/brainy/issues/54) | Open |
-| GAP-C5 Budget + latency SLO | [#55](https://github.com/tryvinci/brainy/issues/55) | Open |
-| GAP-A1 Supersession v2 | [#56](https://github.com/tryvinci/brainy/issues/56) | Open (ENG-86 remainder) |
-| GAP-P1 OpMem Paper 1 | [#57](https://github.com/tryvinci/brainy/issues/57) | Open |
+| GAP-C1 Attribute atoms | [#50](https://github.com/tryvinci/brainy/issues/50) | **Done** — see gap-crush-checklist.md |
+| GAP-M1 Fair Mem0 LOCOMO | [#51](https://github.com/tryvinci/brainy/issues/51) | **Done** — see gap-crush-checklist.md |
+| GAP-C4 Multi-span synthesis | [#52](https://github.com/tryvinci/brainy/issues/52) | **Done** — see gap-crush-checklist.md |
+| GAP-C2 IDF/entity default-on | [#53](https://github.com/tryvinci/brainy/issues/53) | **Done (decision: stay opt-in)** — see gap-crush-checklist.md |
+| GAP-C3 Temporal plans | [#54](https://github.com/tryvinci/brainy/issues/54) | **Done** — see gap-crush-checklist.md |
+| GAP-C5 Budget + latency SLO | [#55](https://github.com/tryvinci/brainy/issues/55) | **Done** — see gap-crush-checklist.md |
+| GAP-A1 Supersession v2 | [#56](https://github.com/tryvinci/brainy/issues/56) | **Done** — see gap-crush-checklist.md |
+| GAP-P1 OpMem Paper 1 | [#57](https://github.com/tryvinci/brainy/issues/57) | **Done** — see gap-crush-checklist.md |
 
 **Linear:** authenticate the Linear MCP in Cursor to clone these as ENG-* and edit ENG-86/ENG-76.
 
