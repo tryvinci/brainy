@@ -99,17 +99,18 @@ Harness peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchm
 
 | | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
 | --- | ---: | ---: | ---: | ---: |
-| **Brainy** | **49.8%** last full (n=1540) · 70.0% 1×30 now | **4%** (n=100) · 0% LME-20 | not run (40% on 100K/20q) | not run |
+| **Brainy** | **11.4%** full `/recall` (n=1540) · 70.0% 1×30 | **4%** (n=100) · 0% LME-20 | not run (40% on 100K/20q) | not run |
 | **Mem0 Platform** | **92.5%** | **94.4%** | **64.1** | **48.6** |
 | **Zep** | **75.14%** | 71.2% | — | — |
 | **SuperMemory** | 77.1% | 95% Recall@15 | — | — |
 | **Letta** | 74.0% | — | — | — |
 | **Hindsight** | 92.0% | 94.6% | 73.9% | 64.1% |
 
-Brainy’s 49.8% is the last **full** LoCoMo (3-seed mean, 2026-07-31, old stack);
-a fresh n=1540 remasure is in flight. SuperMemory’s 95 is **Recall@15**, not
-LLM-judge. Graphiti OSS has no published %. Zep LoCoMo was disputed (Mem0
-re-ran Zep at 58.44%; Zep publishes 75.14%).
+Brainy’s **11.4%** is this cycle’s **full** LoCoMo on product `/recall` (n=1540).
+The 2026-07-31 **49.8%** was search + harness answerer on an older stack — do not
+mix. SuperMemory’s 95 is **Recall@15**, not LLM-judge. Graphiti OSS has no
+published %. Zep LoCoMo was disputed (Mem0 re-ran Zep at 58.44%; Zep publishes
+75.14%).
 
 ### Same-pin
 

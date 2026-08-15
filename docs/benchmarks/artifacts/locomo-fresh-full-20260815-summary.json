@@ -1,0 +1,18 @@
+{
+  "benchmark": "locomo-full-10",
+  "n_seeds": 1,
+  "mean_accuracy": 0.1136,
+  "mean_correct": 175.0,
+  "total_q": 1540,
+  "path": "product POST /recall",
+  "product_sha": "1b5ab3e",
+  "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "run_id": "locomo-fresh-full-20260815-s0-33161a",
+  "by_group": {
+    "multi-hop": {"correct": 21, "total": 282},
+    "open-domain": {"correct": 5, "total": 96},
+    "single-hop": {"correct": 88, "total": 841},
+    "temporal": {"correct": 61, "total": 321}
+  },
+  "note": "Honest product-/recall pin. Not comparable to 2026-07-31 49.8% search+harness without a path label. 1x30 21/30 is a different n."
+}
