@@ -69,7 +69,7 @@ Local Docker quickstart above uses sync `/ingest` only — works offline without
 
 ## Mem0 Reference
 
-The pinned Mem0 reference for this rebuild is tracked in [docs/mem0-parity-matrix.md](/Users/sid/Documents/Projects/vinci/code/brainy/docs/mem0-parity-matrix.md).
+The pinned Mem0 reference for this rebuild is tracked in [docs/mem0-parity-matrix.md](docs/mem0-parity-matrix.md).
 
 Current pinned upstream commit:
 
@@ -101,7 +101,7 @@ python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
 
 Current parity fixtures live under `fixtures/parity/`. Marketing vertical fixtures: `fixtures/vertical/marketing/`.
 
-For an operator-oriented local setup using an external Postgres instance, see [docs/external-postgres-runbook.md](/Users/sid/Documents/Projects/vinci/code/brainy/docs/external-postgres-runbook.md).
+For an operator-oriented local setup using an external Postgres instance, see [docs/external-postgres-runbook.md](docs/external-postgres-runbook.md).
 
 **Vetting & GTM:** Marketing proof gates and paths to open source, published benchmarks, and commercial API — [docs/vertical/marketing-vetting-gate.md](docs/vertical/marketing-vetting-gate.md), [docs/vertical/go-to-market-roadmap.md](docs/vertical/go-to-market-roadmap.md), [docs/vertical/execution-plan.md](docs/vertical/execution-plan.md) (Linear ↔ GitHub sync).
 

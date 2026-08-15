@@ -9,7 +9,7 @@
 - `COGNEE_API_KEY`
 
 ## Files Updated
-- `/Users/sid/Documents/Projects/vinci/code/brainy/.env.example`
+- `.env.example` (repo root — [`../../.env.example`](../../.env.example))
 
 ## Post-Merge Environment Action
 Populate the above keys in runtime-specific environment files used for benchmark execution.
