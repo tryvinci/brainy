@@ -1,0 +1,26 @@
+cff-version: 1.2.0
+message: If you use Brainy, please cite it as below.
+type: software
+title: Brainy
+abstract: >-
+  Self-hosted memory for agents. HTTP ingest, search, and recall with
+  current-state, corrections, and YAML vertical packs. Postgres-backed.
+authors:
+  - family-names: Singh
+    given-names: Siddhant
+    email: s@siddhant.site
+    affiliation: Vinci
+license: Apache-2.0
+repository-code: "https://github.com/tryvinci/brainy"
+url: "https://github.com/tryvinci/brainy"
+version: 0.1.0
+date-released: "2026-08-15"
+keywords:
+  - memory
+  - agents
+  - postgresql
+  - go
+  - llm
+  - locomo
+  - longmemeval
+  - recall

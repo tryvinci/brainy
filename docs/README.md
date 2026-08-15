@@ -31,6 +31,7 @@ lives in the root [README](../README.md).
 | [SUPPORT.md](../SUPPORT.md) | Where to ask for help |
 | [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) | Community standards |
 | [SECURITY.md](../SECURITY.md) | Vulnerability reporting |
+| [CITATION.cff](../CITATION.cff) | Cite this repository |
 | [AGENTS.md](../AGENTS.md) | Notes for automated coding agents |
 
 ## Research notes

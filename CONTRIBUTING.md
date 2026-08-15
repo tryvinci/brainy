@@ -116,4 +116,5 @@ Automated maintainer agents follow [AGENTS.md](AGENTS.md).
 ## License
 
 Contributions are licensed under the [Apache License 2.0](LICENSE) (same as the
-repository). Do not contribute code you cannot license that way.
+repository). Do not contribute code you cannot license that way. Cite the
+project with [CITATION.cff](CITATION.cff).

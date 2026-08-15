@@ -156,6 +156,7 @@ expectations. [AGENTS.md](AGENTS.md) is for automated coding agents.
 - [Contributing](CONTRIBUTING.md)
 - [Support](SUPPORT.md)
 - [Security policy](SECURITY.md)
+- [Citation](CITATION.cff)
 
 Bugs and features go through GitHub issue templates. Do not file public issues
 for undisclosed vulnerabilities.
