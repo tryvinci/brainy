@@ -714,41 +714,63 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	}
 
 	// Prefer indexed atoms when hops missed or to fill additional values.
+	preds := make([]string, 0, 2)
 	if pred != "" {
+		preds = append(preds, pred)
+		switch pred {
+		case PredicateFamilyMember:
+			preds = append(preds, PredicatePreference)
+		case PredicateOccupation:
+			preds = append(preds, PredicateIdentity)
+		}
+	}
+	if len(preds) > 0 {
 		if indexer, ok := s.store.(AtomIndexer); ok {
-			ids, err := indexer.ListAtomMemoryIDs(ctx, req.TenantID, req.SubjectID, pred, "", 40)
-			if err == nil {
-				byID := map[string]SearchResult{}
-				for _, r := range results {
-					byID[r.MemoryID] = r
+			ids := make([]string, 0, 40)
+			seenID := map[string]struct{}{}
+			for _, p := range preds {
+				got, err := indexer.ListAtomMemoryIDs(ctx, req.TenantID, req.SubjectID, p, "", 40)
+				if err != nil {
+					continue
 				}
-				for _, id := range ids {
-					rec, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, id)
-					content := ""
-					obs := ""
-					if err == nil {
-						content = rec.Content
-						if rec.ObservedAt != nil {
-							obs = rec.ObservedAt.UTC().Format(time.RFC3339)
-						}
-						if entity != "" && !memoryMentionsEntity(rec, entity) {
-							continue
-						}
-					} else if r, ok := byID[id]; ok {
-						content = r.Content
-						if r.ObservedAt != nil {
-							obs = r.ObservedAt.UTC().Format(time.RFC3339)
-						}
-					}
-					if content == "" {
+				for _, id := range got {
+					if _, ok := seenID[id]; ok {
 						continue
 					}
-					val, ok := slotValueFromMemoryContent(content)
-					if !ok {
+					seenID[id] = struct{}{}
+					ids = append(ids, id)
+				}
+			}
+			byID := map[string]SearchResult{}
+			for _, r := range results {
+				byID[r.MemoryID] = r
+			}
+			for _, id := range ids {
+				rec, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, id)
+				content := ""
+				obs := ""
+				if err == nil {
+					content = rec.Content
+					if rec.ObservedAt != nil {
+						obs = rec.ObservedAt.UTC().Format(time.RFC3339)
+					}
+					if entity != "" && !memoryMentionsEntity(rec, entity) {
 						continue
 					}
-					add(val, pred, id, obs)
+				} else if r, ok := byID[id]; ok {
+					content = r.Content
+					if r.ObservedAt != nil {
+						obs = r.ObservedAt.UTC().Format(time.RFC3339)
+					}
 				}
+				if content == "" {
+					continue
+				}
+				val, ok := slotValueFromMemoryContent(content)
+				if !ok {
+					continue
+				}
+				add(val, pred, id, obs)
 			}
 		}
 	}

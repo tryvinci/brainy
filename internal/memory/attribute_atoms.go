@@ -32,6 +32,9 @@ var (
 	trainingForRE     = regexp.MustCompile(`(?i)\btraining\s+for\s+(?:a |an )?([a-z][a-z\s-]{3,40})\b`)
 	kidsLikeRE        = regexp.MustCompile(`(?i)\b(?:kids?|children)\s+(?:love|like|enjoy|are into|were\s+\w+\s+(?:about|for))\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
 	kidsAboutRE       = regexp.MustCompile(`(?i)\b(?:kids?|children).{0,48}?\b(?:love|like|enjoy|into|about|obsessed with)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
+	kidsMentionRE     = regexp.MustCompile(`(?i)\b(?:kids?|children)\b`)
+	theyExcitedRE     = regexp.MustCompile(`(?i)\bthey\s+(?:were\s+|are\s+)?(?:stoked|excited|pumped|thrilled)\s+(?:for|about)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
+	theyLikeRE        = regexp.MustCompile(`(?i)\bthey\s+(?:love|like|enjoy|are into)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
 	homeCountryRE     = regexp.MustCompile(`(?i)\bhome country[,:]?\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b`)
 	homeCountryBareRE = regexp.MustCompile(`(?i)\bhome country\b`)
 	originallyFromRE  = regexp.MustCompile(`(?i)\boriginally from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
@@ -115,6 +118,7 @@ func extractAttributeAtoms(utterances []string, observedAt *time.Time) []Extract
 	seen := map[string]struct{}{}
 	lastSpeaker := ""
 	origins := map[string]string{}
+	kidsBySpeaker := map[string]bool{}
 	add := func(atom ExtractedMemory) {
 		if malformedCompilerFact(atom.Content) {
 			return
@@ -149,12 +153,21 @@ func extractAttributeAtoms(utterances []string, observedAt *time.Time) []Extract
 		turns = append(turns, turn{who: speaker, body: body, utt: utt})
 	}
 	for _, t := range turns {
+		whoKey := strings.ToLower(t.who)
+		if kidsMentionRE.MatchString(t.body) {
+			kidsBySpeaker[whoKey] = true
+		}
 		for _, atom := range attributeAtomsFromUtterance(t.who, t.body, t.utt, observedAt) {
 			add(atom)
 			if pred, _ := atom.Explain["predicate"].(string); pred == PredicateOrigin {
 				if v, _ := atom.Explain["value_norm"].(string); v != "" {
-					origins[strings.ToLower(t.who)] = v
+					origins[whoKey] = v
 				}
+			}
+		}
+		if kidsBySpeaker[whoKey] {
+			for _, like := range pronounPreferenceObjects(t.body) {
+				add(atomFact(t.who, fmt.Sprintf("%s's kids like %s", t.who, like), t.utt, 0.82, "attribute_preference", observedAt))
 			}
 		}
 	}
@@ -538,13 +551,37 @@ func clipActivityTail(s string) string {
 func clipPreferenceTail(s string) string {
 	s = NormalizeText(s)
 	lower := strings.ToLower(s)
-	for _, tail := range []string{" at the ", " at a ", " in the ", " in a ", " with the ", " with my "} {
+	for _, tail := range []string{" at the ", " at a ", " in the ", " in a ", " with the ", " with my ", " and "} {
 		if i := strings.Index(lower, tail); i > 0 {
 			s = strings.TrimSpace(s[:i])
 			lower = strings.ToLower(s)
 		}
 	}
 	return s
+}
+
+func pronounPreferenceObjects(body string) []string {
+	out := make([]string, 0, 4)
+	seen := map[string]struct{}{}
+	add := func(raw string) {
+		like := clipPreferenceTail(NormalizeText(raw))
+		if !validPreferenceValue(like) {
+			return
+		}
+		key := strings.ToLower(like)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, like)
+	}
+	for _, m := range theyExcitedRE.FindAllStringSubmatch(body, 4) {
+		add(m[1])
+	}
+	for _, m := range theyLikeRE.FindAllStringSubmatch(body, 4) {
+		add(m[1])
+	}
+	return out
 }
 
 func clipEventTail(s string) string {

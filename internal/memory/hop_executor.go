@@ -263,7 +263,27 @@ func (s *Service) fetchPredicateHop(
 				}
 				res.MemoryIDs = picked
 				if len(res.Contents) > 0 {
-					res.Value = res.Contents[0]
+					seenVal := map[string]struct{}{}
+					for _, c := range res.Contents {
+						v, ok := slotValueFromMemoryContent(c)
+						if !ok {
+							v = strings.TrimSpace(c)
+						}
+						if v == "" || anaphoricSlotValue(v) {
+							continue
+						}
+						key := strings.ToLower(v)
+						if _, dup := seenVal[key]; dup {
+							continue
+						}
+						seenVal[key] = struct{}{}
+						res.Values = append(res.Values, v)
+					}
+					if len(res.Values) > 0 {
+						res.Value = strings.Join(res.Values, ", ")
+					} else {
+						res.Value = res.Contents[0]
+					}
 				}
 				res.Source = "typed_store"
 				return

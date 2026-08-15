@@ -156,6 +156,7 @@ CRITICAL RULES:
    - activities, hobbies, ways people unwind, and places tied to those activities (one memory per place)
    - book/movie titles in quotes OR capitalized titles after read/reading (verbatim spans)
    - family members' preferences (e.g. "Sam's kids like astronomy")
+   - after a kids/children mention, bind later "they were excited/stoked for X" / "they love X" to those kids
    - career plans, fields of study, certifications
    - collections / possessions ("collects classic children's books")
    - durations ("for 4 years")
