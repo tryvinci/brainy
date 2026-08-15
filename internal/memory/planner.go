@@ -142,11 +142,6 @@ func buildTypedHops(query string) []HopStep {
 		if i >= 3 {
 			break
 		}
-		probeParts := make([]string, 0, 3)
-		if entity != "" {
-			probeParts = append(probeParts, entity)
-		}
-		probeParts = append(probeParts, pred)
 		outKey := "ans"
 		if i > 0 {
 			outKey = "ans" + itoa(i+1)
@@ -155,7 +150,7 @@ func buildTypedHops(query string) []HopStep {
 			Kind:      "fetch_predicate",
 			Entity:    firstNonEmpty(entity, bridge),
 			Predicate: pred,
-			Probe:     strings.Join(probeParts, " "),
+			Probe:     hopProbe(toks, entity, pred),
 			Output:    outKey,
 		}
 		if entity != "" {
@@ -169,6 +164,38 @@ func buildTypedHops(query string) []HopStep {
 		hops = append(hops, fetch)
 	}
 	return hops
+}
+
+func hopProbe(toks []string, entity string, extra ...string) string {
+	seen := map[string]struct{}{}
+	parts := make([]string, 0, 4)
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return
+		}
+		key := strings.ToLower(s)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		parts = append(parts, s)
+	}
+	add(entity)
+	for _, e := range extra {
+		add(e)
+	}
+	entKey := strings.ToLower(strings.TrimSpace(entity))
+	for _, t := range toks {
+		if strings.ToLower(t) == entKey {
+			continue
+		}
+		add(t)
+		if len(parts) >= 4 {
+			break
+		}
+	}
+	return strings.Join(parts, " ")
 }
 
 func hopEntityName(names []string) string {
@@ -199,6 +226,7 @@ var hopEntityStop = map[string]struct{}{
 	"pursue": {}, "decided": {},
 	"long": {}, "ago": {}, "current": {}, "currently": {},
 	"group": {}, "friends": {}, "friend": {},
+	"research": {}, "researched": {}, "researching": {},
 }
 
 func relationFollowPredicate(pred string) bool {

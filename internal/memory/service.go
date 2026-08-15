@@ -1046,7 +1046,7 @@ func looksListQuery(tokens []string) bool {
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "books", "book",
 			"places", "place", "stress", "camping", "camped",
-			"kids", "children", "likes", "identity":
+			"kids", "children", "likes", "identity", "research", "researched":
 			return true
 		}
 	}
@@ -1065,6 +1065,8 @@ func predicateFromListQuery(tokens []string) string {
 			return PredicateFamilyMember
 		case "identity":
 			return PredicateIdentity
+		case "research", "researched", "researching":
+			return PredicatePlan
 		}
 	}
 	return ""
@@ -1317,6 +1319,8 @@ func relatedIntentTokens(token string) []string {
 		return []string{"moved", "move", "relocated"}
 	case "kids", "children":
 		return []string{"kids", "children", "child"}
+	case "research", "researched", "researching":
+		return []string{"research", "researched", "researching"}
 	default:
 		return nil
 	}

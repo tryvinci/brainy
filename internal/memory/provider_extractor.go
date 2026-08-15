@@ -158,6 +158,7 @@ CRITICAL RULES:
    - family members' preferences (e.g. "Sam's kids like astronomy")
    - after a kids/children mention, bind later "they were excited/stoked for X" / "they love X" to those kids
    - career plans, fields of study, certifications
+   - topics a speaker researched or is researching (the topic, not the motive)
    - collections / possessions ("collects classic children's books")
    - durations ("for 4 years")
 6. Resolve relative time against Observation Date (yesterday, last Fri, last week, this month).

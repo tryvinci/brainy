@@ -40,6 +40,7 @@ var (
 	originallyFromRE  = regexp.MustCompile(`(?i)\boriginally from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
 	imFromRE          = regexp.MustCompile(`(?i)\b(?:i'm|i am)\s+from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
 	lookingIntoRE     = regexp.MustCompile(`(?i)\b(?:looking into|keen on|interested in)\s+([^,.!?]{3,70})`)
+	researchingRE     = regexp.MustCompile(`(?i)\b(?:researching|researched)\s+([^,.!?]{3,50})`)
 	careerFieldRE     = regexp.MustCompile(`(?i)\b(?:career|profession)\s+(?:in|as)\s+([^,.!?]{3,50})`)
 	wantToBeRE        = regexp.MustCompile(`(?i)\b(?:want to|wanted to|hope to|plan to|planning to)\s+(?:be|become|pursue|work as)\s+(?:a |an )?([^,.!?]{3,50})`)
 	workWithGroupRE   = regexp.MustCompile(`(?i)\b(?:thinking of working with|working with|work with)\s+([a-z][a-z\s-]{1,40}(?:people|community|patients|clients|families))\b`)
@@ -169,6 +170,9 @@ func extractAttributeAtoms(utterances []string, observedAt *time.Time) []Extract
 			for _, like := range pronounPreferenceObjects(t.body) {
 				add(atomFact(t.who, fmt.Sprintf("%s's kids like %s", t.who, like), t.utt, 0.82, "attribute_preference", observedAt))
 			}
+		}
+		for _, like := range pronounExcitedObjects(t.body) {
+			add(atomFact(t.who, fmt.Sprintf("%s enjoys %s", t.who, like), t.utt, 0.8, "attribute_preference", observedAt))
 		}
 	}
 	// Bind "home country" anaphora to an origin already compiled for this speaker.
@@ -380,6 +384,12 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 	if m := lookingIntoRE.FindStringSubmatch(body); m != nil {
 		emitCareer(NormalizeText(m[1]), 0.88, "attribute_occupation")
 	}
+	if m := researchingRE.FindStringSubmatch(body); m != nil {
+		topic := clipResearchTopic(NormalizeText(m[1]))
+		if utf8.RuneCountInString(topic) >= 4 && utf8.RuneCountInString(topic) <= 50 {
+			emit(fmt.Sprintf("%s researched %s", who, topic), 0.86, "attribute_plan")
+		}
+	}
 	if m := careerFieldRE.FindStringSubmatch(body); m != nil {
 		emitCareer(NormalizeText(m[1]), 0.88, "attribute_occupation")
 	}
@@ -560,6 +570,37 @@ func clipPreferenceTail(s string) string {
 	return s
 }
 
+func clipResearchTopic(s string) string {
+	s = NormalizeText(s)
+	for _, sep := range []string{" — ", " – ", " -- ", " - ", "—", "–"} {
+		if i := strings.Index(s, sep); i > 0 {
+			s = strings.TrimSpace(s[:i])
+		}
+	}
+	return s
+}
+
+func pronounExcitedObjects(body string) []string {
+	out := make([]string, 0, 4)
+	seen := map[string]struct{}{}
+	add := func(raw string) {
+		like := clipPreferenceTail(NormalizeText(raw))
+		if !validPreferenceValue(like) {
+			return
+		}
+		key := strings.ToLower(like)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, like)
+	}
+	for _, m := range theyExcitedRE.FindAllStringSubmatch(body, 4) {
+		add(m[1])
+	}
+	return out
+}
+
 func pronounPreferenceObjects(body string) []string {
 	out := make([]string, 0, 4)
 	seen := map[string]struct{}{}
@@ -717,7 +758,7 @@ func valueNormFromAtomContent(content string) string {
 		" moved from ", " moved to ", " is from ", " participates in ", " enjoys ",
 		" kids like ", " read \"", " mentioned \"", " is a ", " is ",
 		" plans career in ", " plans career for ", " plans ", " studies ", " collects ",
-		" has known friends for ", " has done ", " attended ",
+		" researched ", " has known friends for ", " has done ", " attended ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			v := strings.TrimSpace(content[i+len(sep):])

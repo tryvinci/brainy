@@ -701,12 +701,8 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
 			continue
 		}
-		if pred != "" && h.Predicate != "" && !strings.EqualFold(h.Predicate, pred) &&
-			h.Predicate != PredicateIdentity && h.Predicate != PredicatePreference {
-			// Keep identity/preference joins; skip unrelated hop predicates.
-			if h.OutputKey != "ans" {
-				continue
-			}
+		if !hopUsefulForList(h.Predicate, pred) {
+			continue
 		}
 		slotPred := firstNonEmpty(h.Predicate, pred)
 		if len(h.Values) > 0 {
@@ -819,6 +815,23 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		items = append(items, seen[key])
 	}
 	return items
+}
+
+func hopUsefulForList(hopPred, listPred string) bool {
+	if listPred == "" || hopPred == "" || strings.EqualFold(hopPred, listPred) {
+		return true
+	}
+	switch listPred {
+	case PredicateOccupation:
+		return hopPred == PredicateIdentity || hopPred == PredicateEducation || hopPred == PredicatePlan
+	case PredicateFamilyMember:
+		return hopPred == PredicatePreference
+	case PredicatePreference:
+		return hopPred == PredicateFamilyMember || hopPred == PredicateActivity
+	case PredicateActivity:
+		return hopPred == PredicateEvent || hopPred == PredicatePreference
+	}
+	return false
 }
 
 func memoryMentionsEntity(rec MemoryRecord, entity string) bool {
@@ -947,7 +960,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 	for _, sep := range []string{
 		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
-		" unwinds via ", " is a ", " is ",
+		" researched ", " unwinds via ", " is a ", " is ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			v := strings.TrimSpace(content[i+len(sep):])

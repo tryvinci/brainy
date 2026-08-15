@@ -192,9 +192,11 @@ func predicateHintsFromQuery(query string) []string {
 	case strings.Contains(lower, "plan") || strings.Contains(lower, "going"):
 		add(PredicatePlan)
 		add(PredicateEvent)
+	case strings.Contains(lower, "research"):
+		add(PredicatePlan)
 	}
-	if len(out) == 0 {
-		// Conservative defaults for "currently" questions.
+	if len(out) == 0 && (strings.Contains(lower, "currently") || strings.Contains(lower, "right now") || strings.Contains(lower, "current")) {
+		// Conservative defaults for "currently" questions only.
 		add(PredicateResidence)
 		add(PredicateOccupation)
 		add(PredicateRelationshipStatus)

@@ -63,6 +63,14 @@ def iter_sessions(conversation: dict) -> list[dict]:
                 continue
             speaker = str(turn.get("speaker") or "user")
             text = str(turn.get("text") or "").strip()
+            caption = str(turn.get("query") or "").strip()
+            if not caption:
+                caption = str(turn.get("blip_caption") or "").strip()
+            if caption and caption.lower() not in text.lower():
+                if text:
+                    text = f"{text} [{caption}]"
+                else:
+                    text = caption
             if text:
                 turns.append((speaker, text))
         if not turns:
