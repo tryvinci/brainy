@@ -18,16 +18,16 @@ No second vertical until marketing technical proof — not discovery docs, not p
 
 ```
 Tier 0  Unit + package tests (go test ./...)
-Tier 1  Mem0 parity fixtures (core ingest/search/dedupe/correct)
+Tier 1  Core parity fixtures (ingest/search/dedupe/correct)
 Tier 2  Marketing golden fixtures (BV + LC per pack eval_fixtures)
-Tier 3  Marketing MVP benchmark (parity + vertical + Mem0 gap matrix)
+Tier 3  Marketing MVP benchmark (parity + vertical + capability matrix)
 Tier 4  Marketing capability depth (all use-case eval seeds + semantic non-regression)
 Tier 5  Second vertical unlock (finance research → pack only after Gate M3)
 ```
 
 | Gate | Tiers required | Meaning | Status |
 | --- | --- | --- | --- |
-| **M1 — Deterministic MVP** | 0–3, all green in CI | Marketing pack runs on general runtime; Mem0 parity held; documented differentiation | **Passed** (local `dev`) |
+| **M1 — Deterministic MVP** | 0–3, all green in CI | Marketing pack runs on general runtime; core parity held; documented differentiation | **Passed** (local `dev`) |
 | **M2 — Publish** | M1 + push `dev`, PR, CI on origin | Reproducible off one laptop | **Open** (ENG-91) |
 | **M3 — Marketing technical proof** | M2 + Tier 4 | All marketing use-case eval seeds covered; pgvector does not regress deterministic suite | **Passed** |
 | **M4 — Second vertical** | M3 + explicit architecture sign-off | Finance pack work may begin (vocabulary + fixtures, not schema fork) | **Blocked** |
@@ -44,7 +44,7 @@ go test ./...
 
 Includes embedded Postgres API tests that run parity, vertical, and MVP benchmark harnesses against a real HTTP server.
 
-### Tier 1 — Parity (Mem0 thin-slice baseline)
+### Tier 1 — Parity (core ingest/search/correct)
 
 | Item | Location |
 | --- | --- |
@@ -53,8 +53,6 @@ Includes embedded Postgres API tests that run parity, vertical, and MVP benchmar
 | CI | `TestEvalHarnessAgainstHTTPServer` |
 
 **Pass criteria:** Every fixture `passed: true`. Regressions block merge.
-
-Mem0 reference pin: `docs/mem0-parity-matrix.md` (commit `a670333d…`).
 
 ### Tier 2 — Marketing golden scenarios
 
@@ -78,10 +76,10 @@ Mem0 reference pin: `docs/mem0-parity-matrix.md` (commit `a670333d…`).
 **Pass criteria:**
 
 - `mvp_ready: true` (parity + vertical suites green)
-- Differentiation score: every `mem0_has: false` capability in the matrix must have `brainy_pass: true`
+- Differentiation score: every Brainy-only capability in the matrix must have `brainy_pass: true`
 - Report committed or regenerated in CI on release branches
 
-This tier answers: *“Does Brainy beat generic Mem0 on marketing-specific capabilities we claim?”*
+This tier answers: *“Does Brainy hold the marketing-specific capabilities we claim?”*
 
 ### Tier 4 — Marketing capability depth (Gate M3)
 
@@ -167,7 +165,7 @@ Vetting (Tiers 0–4) is not the same as product exposure or competitor benchmar
 | --- | --- | --- | --- |
 | **Fixture / CI** | Golden scenarios via `go test ./...` | **Now** | Yes — every PR |
 | **Staging API** | Shared HTTP endpoint for dogfood + partners | **M2** | Deploy gate |
-| **Live competitor benchmarks** | Same fixtures against Mem0/Zep APIs | **Start M2**, publish **M3** | No — evidence only |
+| **Live competitor benchmarks** | Same fixtures against hosted memory APIs | **Start M2**, publish **M3** | No — evidence only |
 
 ### Fixture testing (now)
 
@@ -195,10 +193,10 @@ The HTTP API already exists locally (`POST /ingest`, `GET /memories/search`, cor
 
 | Stage | What | Gate |
 | --- | --- | --- |
-| Documented Mem0 gap (Tier 3) | `marketing_mvp_matrix.json` — expected behavior, not live API | **M1 ✅** |
-| Live Mem0 parity side-by-side | `fixtures/parity/` on both APIs | **M2** |
+| Documented capability gap (Tier 3) | `marketing_mvp_matrix.json` — expected behavior, not live API | **M1 ✅** |
+| Live parity side-by-side | `fixtures/parity/` on both APIs | **M2** |
 | Published marketing moat report | Vertical fixtures + methodology | **M3** |
-| Multi-vendor (Zep, etc.) | Public scenarios only | **M3+** |
+| Multi-vendor | Public scenarios only | **M3+** |
 
 Live competitor runs are **not** a substitute for fixture CI. They support positioning and sales after staging exists.
 
@@ -213,7 +211,6 @@ Full open source, benchmark publication, and commercial timelines: [`go-to-marke
 | This file | Canonical gate definitions |
 | `docs/vertical/verticalization-model.md` | Architecture; Phase 7 finance deferred to M4 |
 | `docs/vertical/marketing-use-case-map.md` | Eval seeds → fixture backlog for M3 |
-| `docs/mem0-parity-matrix.md` | Tier 1 reference behavior |
 | `docs/brainy/09-iteration-and-productization.md` | Release regression policy |
 | `evals/README.md` | Operator commands |
 | `docs/vertical/go-to-market-roadmap.md` | Open source, benchmark publication, commercial API |

@@ -16,7 +16,7 @@
 | CI (fixture regression) | Green on public `origin` |
 | LICENSE (Apache-2.0) | **Done** |
 | Docker Compose stack | **Done** |
-| Mem0 live competitor adapter | **Done** (ENG-100) |
+| Live competitor adapter | **Done** (ENG-100) |
 | Moat benchmark report + methodology | **Done** (Gate M3) |
 | API auth / billing | **Beta-ready** — API keys (#11), checklist (#12) |
 | Hosted production API | **Not started** (Track C) |
@@ -98,40 +98,40 @@ What reviewers and adopters expect before calling it “real”:
 
 ---
 
-## Track B — Published marketing benchmarks vs competitors
+## Track B — Published Brainy benchmarks
 
 ### What we have today (Tier 3)
 
 - Fixture-driven **Brainy-only** runs
-- **Documented Mem0 gap matrix** (`evals/marketing_mvp_matrix.json`) — not live Mem0 API calls
+- Capability matrix (`evals/marketing_mvp_matrix.json`)
 - Report: `docs/vertical/marketing-mvp-benchmark.md`
 
-This supports internal claims and architecture docs. It is **not** sufficient for a public “we beat Mem0/Zep” blog post.
+This supports internal claims and architecture docs. It is **not** sufficient for a public “we beat vendor X” blog post.
 
 ### Benchmark publication ladder
 
 | Stage | What | Gate | Output |
 | --- | --- | --- | --- |
 | **B1 — Reproducible Brainy report** | Anyone clones repo, runs harness | M2 | CI badge + committed report on release tags |
-| **B2 — Live Mem0 parity comparison** | Same `fixtures/parity/` against Mem0 Cloud API | M2 | `docs/benchmarks/marketing-vs-mem0-parity.md` |
-| **B3 — Marketing vertical head-to-head** | Brainy vertical fixtures vs Mem0 on expressible scenarios; document where Mem0 cannot model | M3 | `docs/benchmarks/marketing-vertical-moat.md` |
-| **B4 — Multi-vendor public track** | Mem0 + Zep (+ optional Supermemory) on shared public scenarios | M3+ | `docs/benchmarks/competitor-index-results.md` |
+| **B2 — Core parity on a live incumbent API** | Same `fixtures/parity/` against a hosted memory API | M2 | Internal pin under `docs/research/competitive/` |
+| **B3 — Marketing vertical head-to-head** | Brainy vertical fixtures vs generic APIs on expressible scenarios; document what they cannot model | M3 | `docs/benchmarks/marketing-vertical-moat.md` |
+| **B4 — Multi-vendor public track** | Shared public scenarios across vendors | M3+ | `docs/benchmarks/competitor-index-results.md` |
 
 ### What to build (engineering)
 
 | Component | Purpose |
 | --- | --- |
-| `evals/competitors/mem0_adapter.py` | Map fixture ingest/search to Mem0 API |
+| `evals/competitors/` | Map fixture ingest/search to optional live APIs |
 | `evals/competitors/base.py` | Shared runner interface, skip if API key missing |
-| `evals/run_competitor_benchmark.py` | Side-by-side JSON + markdown report |
-| `docs/benchmarks/METHODOLOGY.md` | Scoring rubric, fair-use, pinned API versions |
+| `evals/run_competitor_benchmark.py` | Side-by-side JSON + markdown report (internal) |
+| `docs/benchmarks/METHODOLOGY.md` | Scoring rubric, fair-use, pinned versions |
 | Nightly workflow (optional) | Competitor runs on schedule, not every PR (cost) |
 
 ### Scoring rubric (critical for credibility)
 
 Do **not** use one aggregate score. Publish per capability:
 
-| Dimension | Brainy expectation | Mem0 / generic |
+| Dimension | Brainy expectation | Generic memory API |
 | --- | --- | --- |
 | Parity (preference, profile, fact) | Must match or explain delta | Baseline |
 | Principle > preference | Win | Fail / N/A |
@@ -140,7 +140,7 @@ Do **not** use one aggregate score. Publish per capability:
 | Suppression leak | Win | Approximate |
 | Semantic paraphrase (post ENG-87) | Target win | May win today |
 
-Mem0 may win on raw embedding semantic search until ENG-87 ships — **say that explicitly** in published benchmarks.
+Generic APIs may win on raw embedding semantic search until ENG-87 ships — **say that explicitly** in published benchmarks, without naming vendors in user-facing copy.
 
 ### When to publish externally
 
@@ -148,7 +148,7 @@ Mem0 may win on raw embedding semantic search until ENG-87 ships — **say that 
 | --- | --- |
 | README / docs site | B1 (M2) |
 | Hacker News / blog “marketing memory benchmark” | B3 (M3) + methodology |
-| Sales deck “vs Mem0” | B3 + 1 design partner anecdote |
+| Sales deck (capability, not vendor bake-off) | B3 + 1 design partner anecdote |
 | Analyst / press | B4 + hosted API uptime story |
 
 ---
@@ -227,7 +227,7 @@ Three test modes — see also [`marketing-vetting-gate.md`](./marketing-vetting-
 | --- | --- | --- | --- |
 | **M2 + M3** | Done | Engineering gates | Technical proof complete |
 | **Track A** | 1 | OSS preview + `v0.1.0` | Public clone-and-run, contributor onboarding |
-| **Track B** | 2–4 | OpMem 12/12 publish + launch content | Mem0/SuperMemory-style benchmark narrative |
+| **Track B** | 2–4 | OpMem 12/12 publish + launch content | Honest Brainy benchmark narrative |
 | **Track C** | 6–10 | Auth, billing, design partners | First revenue (manual invoice) |
 | **M4** | — | Finance research (parallel, non-blocking) | Second vertical discovery |
 
@@ -248,7 +248,7 @@ Three test modes — see also [`marketing-vetting-gate.md`](./marketing-vetting-
 | First public artifact | `v0.1.0` on `main` + README quickstart (Track A) |
 | Second public artifact | OpMem 12/12 + moat report launch post (Track B) |
 | First revenue | Managed API for marketing agents — Track C / M5 |
-| Competitor benchmarks | Mem0 adapter done; publish at Track B |
+| Competitor benchmarks | Adapter done; keep pins internal until Track B |
 | Finance | Gate M4 research — not on launch critical path |
 | Claim discipline | No “SOTA” until Track B published with methodology |
 
@@ -258,6 +258,5 @@ Three test modes — see also [`marketing-vetting-gate.md`](./marketing-vetting-
 
 - [`marketing-vetting-gate.md`](./marketing-vetting-gate.md) — M1–M4 gates
 - [`marketing-mvp-benchmark.md`](./marketing-mvp-benchmark.md) — current Tier 3 report
-- [`docs/mem0-parity-matrix.md`](../mem0-parity-matrix.md) — Mem0 reference pin
-- [`docs/brainy/03-competitor-index.md`](../brainy/03-competitor-index.md) — vendor list for B4
+- [`docs/brainy/03-competitor-index.md`](../brainy/03-competitor-index.md) — vendor list for B4 (internal)
 - [`docs/external-postgres-runbook.md`](../external-postgres-runbook.md) — staging setup

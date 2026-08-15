@@ -2,27 +2,27 @@
 
 Fill a new dated section (or a new file `cycle-closeout-YYYYMMDD.md`) at the end of every measurement cycle. Do not close a cycle with Brainy scores alone.
 
-**Tracks (never mix):** Mem0 OSS ≠ Mem0 Platform. Graphiti ≠ Zep Platform. Same-pin = same dataset SHA, same judge/answerer, same question set. Blog / README headlines are context, not scoreboard rows.
+**Tracks (never mix):** Same-pin = same dataset SHA, same judge/answerer, same question set. Vendor blogs / README headlines are context, not scoreboard rows. Competitor brand names stay in **this file** and `docs/benchmarks/artifacts/` — not README, GTM, or launch copy.
 
-The user-facing cycle summary **must** follow the same five sections, in order, with the competitor table filled. Scores-only is incomplete.
+The **user-facing** cycle summary reports Brainy n/N by category only. The competitor table lives here.
 
 ## Template
 
 1. **Landed** — SHAs on `dev` / `main`, PRs, what product change shipped (one sentence).
 2. **Own pins** — OpMem, marketing, LoCoMo 1×30 **by category**, LME if run. Name dips as dips. 1×30 is measurement, not qualification.
-3. **Competitor compare (detailed)** — not a one-liner. Required axes:
-   - LoCoMo 1×30 overall + **multi-hop / open-domain / temporal** vs last frozen same-pin Mem0 Platform ([locomo-mem0-samepin-pr10-20260813.md](../../benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md)).
+3. **Competitor compare (detailed)** — not a one-liner; **this file only**. Required axes:
+   - LoCoMo 1×30 overall + **multi-hop / open-domain / temporal** vs last frozen same-pin ([locomo-mem0-samepin-pr10-20260813.md](../../benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md)).
    - Search latency on that pin (local vs platform; do not claim a platform SLO).
-   - OpMem vs last Mem0 OpMem pin ([staging-competitive-report.md](../../benchmarks/staging-competitive-report.md)) — re-run Mem0 if claiming a **new** ops lead.
-   - Marketing vertical vs last Mem0 empirical pin ([marketing-mvp-vs-mem0.md](../../vertical/marketing-mvp-vs-mem0.md)) — same rule.
-   - LME-20 quality if run. No fair Mem0 pin on our harness unless one exists.
-   - Graphiti OSS / Zep Platform: **no pin** unless we actually ran them. Published headlines stay in a “context only” row.
+   - OpMem vs last ops pin ([staging-competitive-report.md](../../benchmarks/staging-competitive-report.md)) — re-run the incumbent before claiming a **new** ops lead.
+   - Marketing vertical vs last empirical pin ([marketing-mvp-vs-mem0.md](../../vertical/marketing-mvp-vs-mem0.md)) — same rule.
+   - LME-20 quality if run. No fair incumbent pin on our harness unless one exists.
+   - Other vendors: **no pin** unless we actually ran them. Published headlines stay in a “context only” row.
    - For every trailing axis: the **product mechanism** (not “we need to try harder”).
    - For every leading axis: what we must **not** regress, and whether the pin is stale.
 4. **Why** — product mechanism (compiler coverage, provenance crowding, reader). Not vibes.
-5. **Next** — one step on [sota-representation-path.md](../sota-representation-path.md), mapped to the largest competitor gap. Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA / beats-Mem0 claims.
+5. **Next** — one step on [sota-representation-path.md](../sota-representation-path.md), mapped to the largest gap. Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA claims.
 
-Forbidden in the closeout: SOTA, beats-Mem0 without a frozen win, mixing 1×30 with 3×90 or with published 90+ LoCoMo headlines, inventing a Graphiti/Zep LoCoMo number.
+Forbidden in the closeout: SOTA without a frozen same-pin win, mixing 1×30 with 3×90 or with published 90+ LoCoMo headlines, inventing a vendor LoCoMo number.
 
 ---
 

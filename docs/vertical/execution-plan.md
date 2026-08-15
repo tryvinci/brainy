@@ -46,7 +46,7 @@ M3 Done ──► Track A (OSS preview) ──► Track B (benchmark launch) ─
 | --- | --- |
 | Verify OpMem 12/12 on staging (`evals/run_opmem.py`) | PR #17 fixes `sup03`, `upd02` |
 | Update `docs/benchmarks/opmem-baseline-report.md` | Publish 12/12 score |
-| Public benchmark narrative (blog / landing) | Mem0/SuperMemory-style launch |
+| Public benchmark narrative (blog / landing) | Honest Brainy launch with methodology |
 
 ### Track C — after benchmark launch
 
@@ -110,7 +110,7 @@ cd evals && python -m public.locomo.run_smoke --conversations 1 --questions 30
 | [ENG-96](https://linear.app/engramhq/issue/ENG-96) | [#2](https://github.com/tryvinci/brainy/issues/2) | OSS legal files | Done |
 | [ENG-97](https://linear.app/engramhq/issue/ENG-97) | [#3](https://github.com/tryvinci/brainy/issues/3) | Docker Compose stack | Done |
 | [ENG-98](https://linear.app/engramhq/issue/ENG-98) | [#4](https://github.com/tryvinci/brainy/issues/4) | Staging + post-deploy eval | Done (docker-smoke CI) |
-| [ENG-100](https://linear.app/engramhq/issue/ENG-100) | [#9](https://github.com/tryvinci/brainy/issues/9) | Mem0 live competitor adapter | Done |
+| [ENG-100](https://linear.app/engramhq/issue/ENG-100) | [#9](https://github.com/tryvinci/brainy/issues/9) | Live competitor adapter | Done |
 
 ### Gate M3 — Done
 

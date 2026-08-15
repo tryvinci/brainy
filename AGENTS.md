@@ -82,19 +82,26 @@ python3 evals/run_eval.py --base-url http://127.0.0.1:8080
 python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 ```
 
+## Public docs voice
+
+Do **not** name competitor products in README, Quick Start, GTM, launch narrative,
+evals README, commercial checklist, or other user-facing docs. Those pages
+describe Brainy: what it is, how to run it, and **Brainy** n/N by category.
+
+Same-pin competitor pins belong only under `docs/research/competitive/` and
+historical `docs/benchmarks/artifacts/`. Do not copy bake-off tables into
+README or the research portal headline.
+
 ## Benchmark cycle closeout (required)
 
-Every remasure, merge, or “where we landed” cycle must report **in this order**, in **both** the user-facing summary and a new dated section of [docs/research/competitive/cycle-closeout.md](docs/research/competitive/cycle-closeout.md). Scores-only is incomplete. A Brainy pin without a detailed competitor compare is not a cycle closeout.
+Every remasure, merge, or “where we landed” cycle must report **in this order**, in **both** the user-facing summary and a new dated section of [docs/research/competitive/cycle-closeout.md](docs/research/competitive/cycle-closeout.md). Scores-only is incomplete. A Brainy pin without a detailed competitor compare **in the competitive folder** is not a cycle closeout. The **user-facing** half of the summary still uses Brainy scores only (no competitor brand names).
 
 1. **Landed** — SHAs on `dev` / `main`, what product change shipped.
 2. **Own pins** — OpMem, marketing, LoCoMo 1×30 **by category** (MH / OD / temporal), LME if run. Name dips as dips. 1×30 is measurement, not qualification.
-3. **Competitor compare (detailed)** — required every cycle, not optional color. Same-pin only for lead/trail:
-   - Mem0 OSS ≠ Mem0 Platform; Graphiti ≠ Zep Platform.
-   - Table: overall + MH + OD + temporal vs last frozen Mem0 LoCoMo same-pin [docs/benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md](docs/benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md) (12/30, MH 7/10, OD 3/4, temporal 2/16). Say trail/lead **per axis**.
-   - OpMem / marketing vs Mem0: [docs/benchmarks/staging-competitive-report.md](docs/benchmarks/staging-competitive-report.md), [docs/vertical/marketing-mvp-vs-mem0.md](docs/vertical/marketing-mvp-vs-mem0.md). Mark the Mem0 pin date; re-run Mem0 before claiming a **new** lead.
+3. **Competitor compare (detailed)** — required every cycle, **only** in [cycle-closeout.md](docs/research/competitive/cycle-closeout.md) (not README). Same-pin only for lead/trail. See [competitive/README.md](docs/research/competitive/README.md).
    - For each trailing axis: the product mechanism and the PoR step that closes it. For each leading axis: what we must not regress.
-   - Graphiti/Zep: write **no pin** unless we ran them. Published headlines are **context**, never scoreboard rows. Do not invent a Graphiti/Zep LoCoMo number.
+   - Unpublished vendors: write **no pin** unless we ran them. Published headlines are **context**, never scoreboard rows.
 4. **Why the delta** — product mechanism (compiler coverage, provenance crowding, reader). Not vibes.
-5. **Next** — one step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md), mapped to the largest competitor gap (today: OD 0/4 vs Mem0 3/4 → R5 structured-first answer). Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA / beats-Mem0 claims.
+5. **Next** — one step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md), mapped to the largest gap (today: OD 0/4 → R5 structured-first answer). Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA claims.
 
 `dev` is staging. `main` is production — only fast-forward `main` with explicit user approval.

@@ -2,7 +2,7 @@
 
 Brainy is a Go **vertical memory** service: an HTTP API (`cmd/api`) plus an async
 worker (`cmd/worker`), Postgres persistence, and YAML vertical packs. Marketing
-is the first wedge. Mem0 is a pinned behavioral reference, not a fork target.
+is the first wedge.
 
 ## 5-Minute Quickstart
 
@@ -56,17 +56,15 @@ Auth gotcha and cloud-agent notes: [AGENTS.md](AGENTS.md).
 
 ## Current pins (honest)
 
-1×30 LoCoMo conv-26 is **measurement, not qualification**. Same dataset SHA and
-judge as the frozen Mem0 Platform pin. Open-domain still trails. Do not read
-these as SOTA or “beats Mem0.”
+1×30 LoCoMo conv-26 is **measurement, not qualification**. Open-domain still
+trails. Do not read these as SOTA.
 
-| Suite | Brainy | Mem0 same-pin | Report |
-| --- | ---: | ---: | --- |
-| LoCoMo 1×30 | **20/30** (MH **10/10**, OD **0/4**, temporal **10/16**) | 12/30 (MH 7/10, OD 3/4, temporal 2/16) | [R4h pin](docs/benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) · [Mem0 freeze](docs/benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md) |
-| OpMem | **13/13** | — | [R4h OpMem](docs/benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) |
-| Marketing vertical | **17/17** | — | [R4h marketing](docs/benchmarks/artifacts/marketing-mh-r4h-local-20260815.md) |
+| Suite | Brainy | Report |
+| --- | ---: | --- |
+| LoCoMo 1×30 | **20/30** (MH **10/10**, OD **0/4**, temporal **10/16**) | [R4h pin](docs/benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) |
+| OpMem | **13/13** | [R4h OpMem](docs/benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) |
+| Marketing vertical | **17/17** | [R4h marketing](docs/benchmarks/artifacts/marketing-mh-r4h-local-20260815.md) |
 
-Cycle closeout: [docs/research/competitive/cycle-closeout.md](docs/research/competitive/cycle-closeout.md).
 Next product step: [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md) (R5 structured-first OD).
 
 Docs: [verticalization model](docs/vertical/verticalization-model.md) · [research portal](docs/research/README.md) · [GTM roadmap](docs/vertical/go-to-market-roadmap.md) · [benchmarks](docs/benchmarks/README.md)
@@ -94,17 +92,9 @@ kinds. First wedge: `packs/marketing/v1/pack.yaml`. See
 - `cmd/worker/`: Go worker entrypoint
 - `internal/`: private Go application packages
 - `packs/`: vertical pack definitions (YAML vocabulary, schemas, rank policy)
-- `docs/`: rebuild docs, parity tracking, and cutover guidance
+- `docs/`: rebuild docs and cutover guidance
 - `docs/vertical/`: verticalization model and marketing discovery
-- `docs/research/`: representation path, cycle closeouts, competitive pins
-
-## Mem0 Reference
-
-The pinned Mem0 reference for this rebuild is tracked in [docs/mem0-parity-matrix.md](docs/mem0-parity-matrix.md).
-
-Current pinned upstream commit:
-
-- `a670333d67be1207b5be2fc73af60c3439444f48`
+- `docs/research/`: representation path and cycle closeouts
 
 ## Local Development
 
@@ -152,6 +142,5 @@ Copy or populate `.env.example` as needed.
 ## Execution Rules
 
 - Preserve the archived prototype until the destructive-change gate passes.
-- Keep Mem0 parity tracking explicit; do not use "Mem0-inspired" as a substitute for a pinned reference and documented deviations.
-- Do not claim SOTA or beats-Mem0 without a frozen same-pin win on the axis you name. 1×30 is measurement.
+- Do not claim SOTA. 1×30 is measurement.
 - Human contributors: [CONTRIBUTING.md](CONTRIBUTING.md). Cloud agents: [AGENTS.md](AGENTS.md).

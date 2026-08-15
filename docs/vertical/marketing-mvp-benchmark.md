@@ -2,35 +2,33 @@
 
 - **Benchmark:** `marketing-mvp-v1`
 - **Generated:** 2026-08-04T09:20:58Z
-- **Mem0 mode:** `declared` (static matrix only)
-- **Mem0 reference commit:** `a670333d67be1207b5be2fc73af60c3439444f48`
 
 ## Summary
 
-| Suite | Brainy | Mem0 |
-| --- | ---: | ---: |
-| Parity | 4/4 | pass |
-| Vertical (marketing) | 17/17 | fail |
+| Suite | Brainy |
+| --- | ---: |
+| Parity | 4/4 |
+| Vertical (marketing) | 17/17 |
 
 **MVP ready (Brainy):** yes
 
-**Differentiation score:** 5/5 capabilities where Brainy passes and Mem0 does not.
+**Differentiation score:** 5/5 marketing-specific capabilities pass.
 
-## Capabilities vs Mem0
+## Capabilities
 
-| Capability | Brainy | Mem0 declared | Mem0 empirical | Differentiation |
-| --- | --- | --- | --- | --- |
-| Principle ranks above soft preference | pass | no | n/a | yes |
-| Suppressed taboo never resurfaces | pass | approx | n/a | no |
-| Marketing vertical maps preferences to voice_profile | pass | no | n/a | yes |
-| Editorial correction persists in retrieval | pass | approx | n/a | no |
-| Core ingest unaffected by marketing pack weights | pass | yes | n/a | no |
-| Subject isolation prevents cross-brand bleed | pass | approx | n/a | no |
-| Duplicate marketing ingest dedupes | pass | yes | n/a | no |
-| Never-sentences classify as brand_rule / principle | pass | no | n/a | yes |
-| Response-style queries rank marketing preferences | pass | approx | n/a | no |
-| Multi-message ingest extracts voice + rule | pass | no | n/a | yes |
-| Archived campaign excluded from search | pass | no | n/a | yes |
+| Capability | Brainy | Vertical-specific |
+| --- | --- | --- |
+| Principle ranks above soft preference | pass | yes |
+| Suppressed taboo never resurfaces | pass | no |
+| Marketing vertical maps preferences to voice_profile | pass | yes |
+| Editorial correction persists in retrieval | pass | no |
+| Core ingest unaffected by marketing pack weights | pass | no |
+| Subject isolation prevents cross-brand bleed | pass | no |
+| Duplicate marketing ingest dedupes | pass | no |
+| Never-sentences classify as brand_rule / principle | pass | yes |
+| Response-style queries rank marketing preferences | pass | no |
+| Multi-message ingest extracts voice + rule | pass | yes |
+| Archived campaign excluded from search | pass | yes |
 
 ## Fixture detail
 
@@ -63,19 +61,12 @@
 
 ## Interpretation
 
-- **Parity suite** — Mem0-like ingest/search/dedupe; both systems should mostly pass.
+- **Parity suite** — ingest/search/dedupe/correct.
 - **Vertical suite** — marketing pack behavior (Principle > preference, lifecycle, etc.).
-- **Declared** `mem0_has` comes from the capability matrix (design expectation).
-- **Empirical** runs the *same fixture JSON* against Mem0 Platform when `--systems` includes `mem0`.
-- Fixtures that require `explain.primitive` / pack labels will fail on Mem0 by design — that is the moat.
+- Fixtures that require `explain.primitive` / pack labels are the vertical moat.
 
 Reproduce:
 
 ```bash
-# Brainy only (declared Mem0 gaps)
 python3 evals/run_marketing_mvp_benchmark.py --base-url "$BRAINY_BASE_URL"
-
-# True counter-run (requires MEM0_API_KEY)
-python3 evals/run_marketing_mvp_benchmark.py --base-url "$BRAINY_BASE_URL" \
-  --systems brainy,mem0
 ```

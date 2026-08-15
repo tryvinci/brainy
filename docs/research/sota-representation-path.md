@@ -1,8 +1,8 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` after 2026-08-15 production FF (R4h `f4ec4d7`). Local remasure **R4h 20/30 (66.7%)** (MH **10/10 (100%)**) vs Mem0 same-pin **12/30 (40.0%)** (MH **7/10 (70.0%)**) — **lead overall and MH this pin**. OD still **0/4**. Next is **R5** structured-first OD. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
-**Does not claim:** SOTA, beats-Mem0, or a LoCoMo/LME target score  
+**Tips:** `main` = `dev` after 2026-08-15 production FF (R4h `f4ec4d7`). Local remasure **R4h 20/30 (66.7%)** (MH **10/10**, OD **0/4**, temporal **10/16**). Next is **R5** structured-first OD. Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
+**Does not claim:** SOTA, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md)
 
 ## Competitive thesis
@@ -15,12 +15,12 @@ It is:
 
 > **Compile interactions into durable semantic memory, retrieve and reason over that memory, and retain the transcript as immutable provenance.**
 
-Mem0 shows that atomic conversational facts plus multi-signal retrieval (semantic, keyword/BM25, entity, temporal) are highly effective. Graphiti shows a public model that keeps episodes as provenance while entities and temporally-valid relations become the semantic substrate. Brainy's opportunity is the combination:
+Atomic conversational facts plus multi-signal retrieval (semantic, keyword/BM25, entity, temporal) are highly effective. Public graph-memory systems keep episodes as provenance while entities and temporally-valid relations become the semantic substrate. Brainy's opportunity is the combination:
 
 ```text
-Mem0-style high-recall semantic memory
+high-recall semantic memory
         +
-Graphiti-style entity / relation structure
+entity / relation structure
         +
 Brainy-style evidence provenance, current-state semantics,
 predicate policies, operational correctness, vertical governance,

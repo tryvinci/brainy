@@ -1,8 +1,7 @@
 # Public proveable eval framework
 
-In-repo harness for **LOCOMO / LongMemEval-style** runs against Brainy, with Mem0-compatible `UnifiedResult` JSON and hard proveability pins.
+In-repo harness for **LOCOMO / LongMemEval-style** runs against Brainy, with a pinned `UnifiedResult` JSON and hard proveability pins.
 
-Peer reference: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)  
 Dataset: [snap-research/locomo](https://github.com/snap-research/locomo) · [ACL 2024](https://aclanthology.org/2024.acl-long.747/)
 
 ## Design rules
@@ -66,7 +65,7 @@ Lexical-only (CI / harness prove, not public J-score):
 python -m public.locomo.run_smoke --lexical-only --conversations 1 --questions 5
 ```
 
-**Proveability note:** pin `LLM_BASE_URL` + full model id in the manifest. Scores are not comparable to Mem0 GPT-judged blog numbers.
+**Proveability note:** pin `LLM_BASE_URL` + full model id in the manifest. Scores are not comparable to vendor blog numbers that used a different judge.
 
 Outputs: `{run_id}.json` (UnifiedResult), `{run_id}.manifest.json`, markdown report.
 

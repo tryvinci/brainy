@@ -11,7 +11,7 @@ Two bad options:
 | Approach | Failure mode |
 |---|---|
 | **Per-vertical schema** | `brand_rule`, `campaign`, `thesis`, `market_event` as DB enums → combinatorial sprawl; finance and marketing share nothing |
-| **Generic Mem0 clone** | `profile` / `preference` / `fact` only → no vertical moat; ranking and lifecycle stay dumb |
+| **Generic memory clone** | `profile` / `preference` / `fact` only → no vertical moat; ranking and lifecycle stay dumb |
 
 We need a **general platform** that verticalizes through configuration and primitives, not through forked schemas.
 
@@ -63,7 +63,7 @@ Extend `memory_records` with:
 | `lifecycle_state` | Generic state machine (see below) |
 | `conviction` | For Belief primitive (nullable) |
 
-Retire widening the `kind` enum per vertical. Keep `kind` temporarily for Mem0-compat / thin-slice migration (`profile` → IdentityPrior or profile primitive, etc.).
+Retire widening the `kind` enum per vertical. Keep `kind` temporarily for thin-slice migration (`profile` → IdentityPrior or profile primitive, etc.).
 
 ### Generic lifecycle state machine
 
@@ -407,5 +407,5 @@ Go-to-market (OSS, benchmarks, commercial): `docs/vertical/go-to-market-roadmap.
 
 - `docs/brainy/architecture/00-cognitive-primitives.md`
 - `docs/vertical/marketing-use-case-map.md` (domain discovery)
-- `.omx/plans/v1-contracts-mem0-go-rebuild.md`
+- `.omx/plans/` historical rebuild contracts
 - Linear: ENG-58 (marketing first pack), ENG-81 (`docs/vertical/marketing-brand-voice-spec.md`)

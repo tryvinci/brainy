@@ -308,9 +308,9 @@ When memories conflict at retrieval time, apply this precedence:
 
 ---
 
-## Generic Mem0 Gap Analysis
+## Generic memory gap analysis
 
-What generic memory (Mem0-style) misses for these jobs:
+What generic memory APIs miss for these jobs:
 
 | Gap | Marketing impact | Brainy differentiation |
 |---|---|---|
@@ -377,5 +377,5 @@ Do not start finance until **Gate M3** clears. See [`marketing-vetting-gate.md`]
 - `docs/brainy/architecture/01-taste-evolution-model.md`
 - `docs/brainy/architecture/02-belief-lifecycle.md`
 - `docs/brainy/architecture/03-conflict-reconciliation.md`
-- `.omx/plans/v1-contracts-mem0-go-rebuild.md`
+- `.omx/plans/` historical rebuild contracts
 - Linear: ENG-58 (marketing wedge), ENG-81 (brand voice), ENG-82 (eval fixtures), ENG-83 (campaign lifecycle)

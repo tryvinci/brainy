@@ -32,7 +32,7 @@ Report: [opmem-baseline-report.md](./opmem-baseline-report.md)
 
 ### Marketing vertical moat (16 fixtures + Tier 4 seeds)
 
-Capabilities Mem0 cannot model out of the box:
+Capabilities generic memory APIs cannot model out of the box:
 
 - Principle > preference hierarchy
 - Brand rule extraction from voice conversations
@@ -60,7 +60,7 @@ Tagged release: **`v0.1.0`** (developer preview) · Hosted beta: API key auth �
 
 ## Honest limits
 
-- Brainy uses a **deterministic local embedder** for CI reproducibility; Mem0 may win on provider-quality embeddings at scale until provider extraction ships.
+- Brainy uses a **deterministic local embedder** for CI reproducibility; hosted embedding quality is a separate operator choice.
 - Finance vertical is **Gate M4 research** — not required for marketing launch.
 - No “SOTA” claim without methodology — we publish fixtures, scores, and reproduction commands.
 

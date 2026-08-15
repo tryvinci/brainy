@@ -17,7 +17,7 @@ Start the API server first:
 go run ./cmd/api
 ```
 
-Parity fixtures (Mem0 thin-slice):
+Parity fixtures (ingest / search / dedupe / correct):
 
 ```bash
 python3 evals/run_eval.py --base-url http://127.0.0.1:8080
@@ -29,7 +29,7 @@ Marketing vertical fixtures:
 python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 ```
 
-Marketing MVP benchmark (parity + vertical suites, Mem0 gap report):
+Marketing MVP benchmark (parity + vertical suites):
 
 ```bash
 python3 evals/run_marketing_mvp_benchmark.py --base-url http://127.0.0.1:8080
@@ -49,7 +49,7 @@ Default fixture directories:
 
 CI runs parity, vertical, and MVP benchmark suites via `go test ./internal/api/...`. Docker smoke: `.github/workflows/docker-smoke.yml`.
 
-Competitor benchmark (optional, requires `MEM0_API_KEY`):
+Competitor benchmark (optional, requires a competitor API key):
 
 ```bash
 python3 evals/run_competitor_benchmark.py --brainy-url http://127.0.0.1:8080
@@ -73,9 +73,9 @@ Marketing must prove technical capabilities before finance or a second vertical.
 | Tier | What | Command / CI |
 | --- | --- | --- |
 | 0 | Go tests | `go test ./...` |
-| 1 | Mem0 parity | `evals/run_eval.py` / `TestEvalHarnessAgainstHTTPServer` |
+| 1 | Core parity | `evals/run_eval.py` / `TestEvalHarnessAgainstHTTPServer` |
 | 2 | Marketing golden | `evals/run_vertical_eval.py` / `TestVerticalEvalHarnessAgainstHTTPServer` |
-| 3 | MVP benchmark + Mem0 gap | `evals/run_marketing_mvp_benchmark.py` / `TestMarketingMVPBenchmarkAgainstHTTPServer` |
+| 3 | MVP benchmark | `evals/run_marketing_mvp_benchmark.py` / `TestMarketingMVPBenchmarkAgainstHTTPServer` |
 | 4 | Full use-case seed coverage + semantic | Gate **M3** — not complete |
 
 **Gate M1** (Tiers 0–3) is the current bar for merge. **Gate M3** is required before finance.
