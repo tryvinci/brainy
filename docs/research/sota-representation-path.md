@@ -1,7 +1,7 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` after 2026-08-15 production FF (R4 hops `d48e202`). Local remasure **R4 19/30 (63.3%)** (MH **9/10 (90.0%)**) vs Mem0 same-pin **12/30 (40.0%)** (MH **7/10 (70.0%)**) — **lead overall and MH this pin**. Remaining MH miss is image-gold WRITE_MISS. Next is **R5** structured-first OD. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
+**Tips:** `main` = `dev` after 2026-08-15 production FF (R4h `f4ec4d7`). Local remasure **R4h 20/30 (66.7%)** (MH **10/10 (100%)**) vs Mem0 same-pin **12/30 (40.0%)** (MH **7/10 (70.0%)**) — **lead overall and MH this pin**. OD still **0/4**. Next is **R5** structured-first OD. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
 **Does not claim:** SOTA, beats-Mem0, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md)
 
