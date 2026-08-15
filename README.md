@@ -1,22 +1,36 @@
 # Brainy
 
-Brainy is a Go **vertical memory** service: an HTTP API (`cmd/api`) plus an async
-worker (`cmd/worker`), Postgres persistence, and YAML vertical packs. Marketing
-is the first wedge.
+[![Test](https://github.com/tryvinci/brainy/actions/workflows/test.yml/badge.svg?branch=dev)](https://github.com/tryvinci/brainy/actions/workflows/test.yml)
+[![Docker smoke](https://github.com/tryvinci/brainy/actions/workflows/docker-smoke.yml/badge.svg?branch=dev)](https://github.com/tryvinci/brainy/actions/workflows/docker-smoke.yml)
+[![Go](https://img.shields.io/github/go-mod/go-version/tryvinci/brainy)](https://github.com/tryvinci/brainy/blob/dev/go.mod)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
-## 5-Minute Quickstart
+Self-hosted **memory for agents**: ingest conversations, persist facts, search,
+and recall — with current-state, corrections, and YAML vertical packs.
+
+Marketing is the first pack. The runtime is domain-agnostic: verticals are
+configuration, not forked schemas.
+
+## Why Brainy
+
+Most memory layers stop at “embed it and hope.” Brainy is an HTTP service with
+an async worker and Postgres, built so memories can be **governed**:
+
+- **Write** — sync ingest (offline, deterministic) or async extract (optional LLM)
+- **Read** — lexical + hybrid search, plus `/recall` (`context` / `enumerate` / `answer`)
+- **Govern** — correct, suppress, supersede; current-state views; tenant isolation
+- **Specialize** — packs under `packs/` (vocabulary, rank policy, fixtures)
+
+## Quick start
 
 ```bash
 git clone https://github.com/tryvinci/brainy.git && cd brainy
 docker compose up --build -d
-# API + worker + Postgres. Wait for health (~30s).
 curl -s http://localhost:8080/healthz
 ```
 
-Local Compose sets `BRAINY_ENV=local` (no API key). The image includes
-`tesseract-ocr` so `image_urls` on ingest can extract cover text.
-
-Ingest, search, and recall:
+Compose starts Postgres, the API, and the worker. `BRAINY_ENV=local` means no
+API key. The image includes `tesseract-ocr` for optional `image_urls` on ingest.
 
 ```bash
 curl -s -X POST http://localhost:8080/ingest \
@@ -30,7 +44,7 @@ curl -s -X POST http://localhost:8080/recall \
   -d '{"tenant_id":"demo","subject_id":"user-1","q":"brand voice rules","mode":"enumerate"}'
 ```
 
-Async ingest (worker already looping in Compose):
+Async ingest (worker is already looping):
 
 ```bash
 curl -s -X POST http://localhost:8080/ingest/async \
@@ -38,69 +52,59 @@ curl -s -X POST http://localhost:8080/ingest/async \
   -d '{"tenant_id":"demo","subject_id":"user-1","source_type":"conversation","messages":[{"role":"user","content":"Ship the autumn campaign on 12 September."}]}'
 ```
 
-Run evals against the live API:
+## HTTP API
 
-```bash
-python3 evals/run_vertical_eval.py --base-url http://localhost:8080
-python3 evals/run_opmem.py --base-url http://localhost:8080
-python3 evals/run_marketing_mvp_benchmark.py --base-url http://localhost:8080
-```
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/healthz` | Liveness |
+| `POST` | `/ingest` | Sync ingest (no LLM required) |
+| `POST` | `/ingest/async` | Queue extract for the worker |
+| `GET` | `/memories/search` | Search |
+| `POST` | `/recall` | Recall (`context` / `enumerate` / `answer`) |
+| `POST` | `/memories/{id}/correct` | In-place correction |
+| `POST` | `/memories/{id}/suppress` | Hide from default search |
+| `POST` | `/memories/{id}/supersede` | Replace with lineage |
+| `POST` | `/events` | Batch domain events |
+| `GET` | `/jobs/status`, `/jobs/{id}` | Async job status |
+| `GET` | `/metrics` | Prometheus text |
 
-**Self-host preview.** Docker Compose is the supported local path. Hosted
-design-partner beta uses per-tenant API keys — see
-[commercial-beta-checklist.md](docs/commercial-beta-checklist.md). ToS, privacy
-policy, and PITR backups are still required before GA. This is not a SOTA claim.
+Full request shapes: [docs/api.md](docs/api.md). Conversation pattern (including
+`image_urls`): [docs/conversation-ingest.md](docs/conversation-ingest.md).
 
-Conversation ingest (including `image_urls`): [docs/conversation-ingest.md](docs/conversation-ingest.md).
-Auth gotcha and cloud-agent notes: [AGENTS.md](AGENTS.md).
+When `BRAINY_API_KEYS` is set, send `Authorization: Bearer <key>` or `X-API-Key`.
+Local Compose does not require a key.
 
-## Current pins (honest)
+## Documentation
 
-1×30 LoCoMo conv-26 is **measurement, not qualification**. Open-domain still
-trails. Do not read these as SOTA.
+Start at **[docs/README.md](docs/README.md)**.
 
-| Suite | Brainy | Report |
+| I want to… | Go here |
+| --- | --- |
+| Run against my own Postgres | [docs/external-postgres-runbook.md](docs/external-postgres-runbook.md) |
+| Write a vertical pack | [docs/vertical/verticalization-model.md](docs/vertical/verticalization-model.md) |
+| Reproduce evals | [evals/README.md](evals/README.md) · [docs/benchmarks/README.md](docs/benchmarks/README.md) |
+| Contribute or get support | [CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) |
+| Report a vulnerability | [SECURITY.md](SECURITY.md) |
+
+## Status
+
+Developer preview (`v0.1.0`). Self-host with Docker Compose. Hosted beta needs
+API keys and still lacks ToS / privacy / PITR before GA.
+
+Measured locally (1×30 LoCoMo is measurement, not qualification; not SOTA):
+
+| Suite | Score | Report |
 | --- | ---: | --- |
-| LoCoMo 1×30 | **20/30** (MH **10/10**, OD **0/4**, temporal **10/16**) | [R4h pin](docs/benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) |
-| OpMem | **13/13** | [R4h OpMem](docs/benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) |
-| Marketing vertical | **17/17** | [R4h marketing](docs/benchmarks/artifacts/marketing-mh-r4h-local-20260815.md) |
+| OpMem | **13/13** | [pin](docs/benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) |
+| Marketing vertical | **17/17** | [pin](docs/benchmarks/artifacts/marketing-mh-r4h-local-20260815.md) |
+| LoCoMo 1×30 | **20/30** (MH 10/10, OD 0/4, temporal 10/16) | [pin](docs/benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) |
 
-Next product step: [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md) (R5 structured-first OD).
+How to reproduce: [docs/benchmarks/README.md](docs/benchmarks/README.md).
 
-Docs: [verticalization model](docs/vertical/verticalization-model.md) · [research portal](docs/research/README.md) · [GTM roadmap](docs/vertical/go-to-market-roadmap.md) · [benchmarks](docs/benchmarks/README.md)
+## Development
 
-## What is shipped
-
-- `POST /ingest` — deterministic sync (no LLM required)
-- `POST /ingest/async` — worker extract when `BRAINY_PROVIDER_*` is set
-- `GET /memories/search` and `POST /recall` (`context` / `enumerate` / `answer`)
-- Postgres + local hash embeddings (optional provider embeddings / pgvector 768)
-- Duplicate-ingest idempotency, correct / suppress / supersede
-- Current-state projections (`view=current`), evidence plane (`BRAINY_EVIDENCE_STRICT`)
-- Fenced worker leases (heartbeat + owner token)
-- HTTP body cap (default 5 MiB) and server timeouts
-- Optional `image_urls` OCR at WRITE (public http(s) only; Docker image has tesseract)
-
-**Vertical strategy:** cognitive primitives + YAML packs — not per-vertical DB
-kinds. First wedge: `packs/marketing/v1/pack.yaml`. See
-[docs/vertical/verticalization-model.md](docs/vertical/verticalization-model.md).
-
-## Repository Layout
-
-- `archive/brainy-python-prototype/`: archived Python prototype and tests
-- `cmd/api/`: Go API entrypoint
-- `cmd/worker/`: Go worker entrypoint
-- `internal/`: private Go application packages
-- `packs/`: vertical pack definitions (YAML vocabulary, schemas, rank policy)
-- `docs/`: rebuild docs and cutover guidance
-- `docs/vertical/`: verticalization model and marketing discovery
-- `docs/research/`: representation path and cycle closeouts
-
-## Local Development
-
-### Go tooling
-
-Needs Postgres (`BRAINY_DATABASE_URL`; migrations apply on API startup).
+Requires Go 1.25+ and Postgres (`BRAINY_DATABASE_URL`). Migrations apply on API
+startup (`pg_trgm` required; `pgvector` optional).
 
 ```bash
 go test ./...
@@ -108,39 +112,19 @@ go run ./cmd/api
 BRAINY_WORKER_MODE=loop go run ./cmd/worker
 ```
 
-When `BRAINY_API_KEYS` is set, unauthenticated requests return 401. For local
-no-auth: `unset BRAINY_API_KEYS BRAINY_REQUIRE_API_KEY` and `export BRAINY_ENV=local`.
-Otherwise send `Authorization: Bearer <key>` or `X-API-Key` (`tenant_id:key` pairs).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, branch policy, and PR
+expectations. [AGENTS.md](AGENTS.md) is for automated coding agents.
 
-### Eval harness
+## Community
 
-Python evals under `evals/` are stdlib-only. They need a live API.
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Contributing](CONTRIBUTING.md)
+- [Support](SUPPORT.md)
+- [Security policy](SECURITY.md)
 
-```bash
-python3 evals/run_eval.py --base-url http://localhost:8080
-python3 evals/run_vertical_eval.py --base-url http://localhost:8080
-python3 evals/run_marketing_mvp_benchmark.py --base-url http://localhost:8080
-```
+Bugs and features go through GitHub issue templates. Do not file public issues
+for undisclosed vulnerabilities.
 
-Current parity fixtures live under `fixtures/parity/`. Marketing vertical fixtures: `fixtures/vertical/marketing/`.
+## License
 
-For an operator-oriented local setup using an external Postgres instance, see [docs/external-postgres-runbook.md](docs/external-postgres-runbook.md).
-
-**Vetting & GTM:** Marketing proof gates and paths to open source, published benchmarks, and commercial API — [docs/vertical/marketing-vetting-gate.md](docs/vertical/marketing-vetting-gate.md), [docs/vertical/go-to-market-roadmap.md](docs/vertical/go-to-market-roadmap.md), [docs/vertical/execution-plan.md](docs/vertical/execution-plan.md) (Linear ↔ GitHub sync).
-
-### Docker (local / staging)
-
-```bash
-docker compose up --build
-python3 evals/run_marketing_mvp_benchmark.py --base-url http://localhost:8080
-```
-
-### Environment
-
-Copy or populate `.env.example` as needed.
-
-## Execution Rules
-
-- Preserve the archived prototype until the destructive-change gate passes.
-- Do not claim SOTA. 1×30 is measurement.
-- Human contributors: [CONTRIBUTING.md](CONTRIBUTING.md). Cloud agents: [AGENTS.md](AGENTS.md).
+[Apache License 2.0](LICENSE).

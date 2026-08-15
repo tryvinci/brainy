@@ -1,0 +1,40 @@
+name: Bug report
+description: Something is broken in the API, worker, or docs
+title: "[bug] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for a report. Security issues belong in [SECURITY.md](https://github.com/tryvinci/brainy/blob/dev/SECURITY.md), not here.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you expected vs what you got.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: Commands, curl, or a minimal fixture. Include Brainy SHA or image tag if you can.
+      placeholder: |
+        docker compose up --build -d
+        curl -s -X POST http://localhost:8080/ingest ...
+    validations:
+      required: true
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, `go version`, Docker or source, relevant env vars (no secrets).
+    validations:
+      required: false
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: API/worker log lines or `/metrics` if relevant. Redact keys.
+    validations:
+      required: false

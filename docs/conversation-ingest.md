@@ -12,12 +12,12 @@ Send **one utterance per `messages[]` entry** (speaker label optional but helpfu
   "subject_id": "user-42",
   "source_type": "conversation",
   "metadata": {
-    "session_id": "sess-2023-05-07",
-    "observed_at": "2023-05-07T18:00:00Z"
+    "session_id": "sess-autumn",
+    "observed_at": "2026-08-15T12:00:00Z"
   },
   "messages": [
-    {"role": "user", "content": "Caroline: I went to the LGBTQ support group on 7 May 2023"},
-    {"role": "user", "content": "Melanie: That sounds important — how was it?"}
+    {"role": "user", "content": "We never use exclamation marks in brand copy."},
+    {"role": "user", "content": "Got it — I'll keep campaign headlines quiet."}
   ]
 }
 ```
@@ -52,13 +52,12 @@ Hybrid search uses an `Embedder`:
 
 Provider embedding failures soft-degrade to the local embedder. pgvector `embedding_vec` is `vector(768)` for the pinned hosted model (`bge-base-en-v1.5`); the 128-d local hash path keeps float[] only.
 
-
-Local Docker Compose passes provider vars through from the host environment. Staging Blueprint (`render.yaml`) declares the same keys as Dashboard secrets on `brainy-worker-staging`.
+Local Docker Compose passes provider vars through from the host environment.
 
 ```bash
-curl -s -X POST http://127.0.0.1:8080/ingest/async \
+curl -s -X POST http://localhost:8080/ingest/async \
   -H 'Content-Type: application/json' \
-  -d '{"tenant_id":"acme","subject_id":"user-42","source_type":"conversation","metadata":{"observed_at":"2023-05-07T18:00:00Z"},"messages":[{"role":"user","content":"Caroline: I went to the LGBTQ support group on 7 May 2023"}]}'
+  -d '{"tenant_id":"acme","subject_id":"user-42","source_type":"conversation","metadata":{"observed_at":"2026-08-15T18:00:00Z"},"messages":[{"role":"user","content":"Ship the autumn campaign on 12 September."}]}'
 # then search once the worker completes the job
 ```
 

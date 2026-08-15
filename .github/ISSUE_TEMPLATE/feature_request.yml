@@ -1,0 +1,29 @@
+name: Feature request
+description: A change to the API, packs, or docs
+title: "[feat] "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        New behavior usually needs a fixture under `fixtures/parity/` or `fixtures/vertical/marketing/`.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard or missing today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Concrete API/pack/docs change if you have one.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false

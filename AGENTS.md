@@ -87,6 +87,9 @@ python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 Do **not** name competitor products in README, Quick Start, GTM, launch narrative,
 evals README, commercial checklist, or other user-facing docs. Those pages
 describe Brainy: what it is, how to run it, and **Brainy** n/N by category.
+Contributor-facing layout follows [CONTRIBUTING.md](CONTRIBUTING.md),
+[docs/README.md](docs/README.md), and [docs/api.md](docs/api.md) — do not dump
+research notes into the README.
 
 Same-pin competitor pins belong only under `docs/research/competitive/` and
 historical `docs/benchmarks/artifacts/`. Do not copy bake-off tables into

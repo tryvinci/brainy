@@ -1,23 +1,34 @@
 # Security Policy
 
-## Supported versions
-
-| Version | Supported |
-| --- | --- |
-| `dev` branch | Active development — no SLA |
-
 ## Reporting a vulnerability
 
-Email security concerns to the repository maintainers (Engram / Vinci). Do not open public issues for undisclosed security bugs.
+**Do not** open a public GitHub issue for undisclosed security bugs.
 
-Include:
+1. Prefer a [private GitHub security advisory](https://github.com/tryvinci/brainy/security/advisories/new).
+2. Or email **s@siddhant.site** with:
+   - Description and impact
+   - Steps to reproduce
+   - Affected endpoints or components
+   - Whether you have a fix
 
-- Description and impact
-- Steps to reproduce
-- Affected endpoints or components
+We aim to acknowledge reports within **5 business days**.
 
-We aim to acknowledge reports within 5 business days.
+## Supported versions
 
-## Scope notes
+| Line | Supported |
+| --- | --- |
+| `dev` (staging) | Active |
+| `main` (production tags) | Active for the latest release |
+| Older tags | Best-effort |
 
-Brainy is pre-production. Do not expose staging or local instances to the public internet without authentication.
+This is a developer-preview HTTP service. Do not expose an instance to the
+public internet without authentication (`BRAINY_API_KEYS` /
+`BRAINY_REQUIRE_API_KEY=true` or `BRAINY_ENV=production`).
+
+## Scope
+
+In scope: the API (`cmd/api`), worker (`cmd/worker`), Postgres store, and
+auth/tenant isolation.
+
+Out of scope: running without auth on a public bind address; third-party LLM
+providers; datasets under `datasets/` (gitignored).
