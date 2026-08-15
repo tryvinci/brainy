@@ -116,8 +116,13 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		return IngestResult{}, err
 	}
 
-	// Evidence Plane v2: capture raw messages before extraction.
-	ids := s.persistRawEvidence(ctx, req)
+	// Evidence Plane v2: capture raw messages before extraction. In strict mode a
+	// capture failure aborts ingest before any semantic writes so a successful
+	// ingest can never be missing raw evidence.
+	ids, err := s.persistRawEvidence(ctx, req)
+	if err != nil {
+		return IngestResult{}, err
+	}
 	attachEvidenceIDs(&req, ids)
 
 	memories := s.extractOrLabel(ctx, req)
@@ -252,7 +257,12 @@ func (s *Service) IngestAsync(ctx context.Context, req IngestRequest) (AsyncInge
 		Accepted: true,
 	}
 	// Capture raw evidence before async enrichment so source survives extract failure.
-	ids := s.persistRawEvidence(ctx, req)
+	// In strict mode a capture failure aborts before enqueue so no job is created
+	// without its raw evidence.
+	ids, err := s.persistRawEvidence(ctx, req)
+	if err != nil {
+		return AsyncIngestResult{}, err
+	}
 	attachEvidenceIDs(&req, ids)
 	idempotencyKey := s.idempotencyKey(req)
 	enqueueResult, err := s.store.EnqueueIngestJob(ctx, result.IngestID, result.JobID, idempotencyKey, req)
