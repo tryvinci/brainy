@@ -75,7 +75,7 @@ Clients send `Authorization: Bearer sk_live_partner_a` on all routes except `/he
 | Item | Status | Notes |
 | --- | --- | --- |
 | README quickstart | Done | Docker Compose API+worker; ingest / search / recall |
-| Benchmark reports | Done | OpMem **13/13**, marketing **17/17**, LoCoMo 1×30 **20/30** (MH 10/10, OD 0/4) — [R4h pin](./benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md). 1×30 is measurement; not SOTA. Historical smoke: [locomo-smoke.md](./benchmarks/locomo-smoke.md) |
+| Benchmark reports | Done | OpMem **13/13**, marketing **17/17**, LoCoMo 1×30 **21/30** (MH 10/10, OD 0/4) — [fresh pin](./benchmarks/artifacts/locomo-fresh-1x30-20260815.md). 1×30 is measurement; not SOTA. Historical smoke: [locomo-smoke.md](./benchmarks/locomo-smoke.md) |
 | Launch narrative | Done | [launch-narrative.md](./benchmarks/launch-narrative.md) |
 | Design partner Slack | Ready | Manual onboarding |
 | Ticketing | Todo | Before GA |

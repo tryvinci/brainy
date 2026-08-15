@@ -24,7 +24,7 @@ Style: **reproducible, cited, honest about gaps**. The product README may carry 
 | --- | --- |
 | **OpMem** (operational) | **13/13** |
 | **Marketing vertical** | **17/17** |
-| **LOCOMO 1×30 (R4h)** | **20/30** (MH **10/10**, OD **0/4**, temporal **10/16**) — measurement, not qualification |
+| **LOCOMO 1×30** | **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) — measurement, not qualification |
 | **LongMemEval-20** | **0/20** integrity pin (not re-run this cycle) |
 | **Next** | **R5** structured-first OD. [sota-representation-path.md](./sota-representation-path.md) |
 
@@ -37,10 +37,10 @@ Details: [competitive verdict](./external-reviews/2026-08-11-competitive-archite
 | Piece | Status | Link |
 | --- | --- | --- |
 | Recall-contract proof | Active | [recall-contract-proof-20260807.md](../benchmarks/artifacts/recall-contract-proof-20260807.md) |
-| OpMem v0 | Live results | [spec](./opmem-spec.md) · [R4h pin](../benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) |
+| OpMem v0 | Live results | [spec](./opmem-spec.md) · [fresh pin](../benchmarks/artifacts/opmem-fresh-local-20260815.md) |
 | Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
 | Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
-| LOCOMO R4h 1×30 | Live measurement | [R4h pin](../benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) |
+| LOCOMO 1×30 | Live measurement | [fresh pin](../benchmarks/artifacts/locomo-fresh-1x30-20260815.md) |
 | Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
 | Proveable eval framework | Spec + harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
 | External agent assessment pack | **Preferred handoff** | [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) |

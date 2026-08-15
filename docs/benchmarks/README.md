@@ -22,7 +22,7 @@ Industry format: one percent per public suite. **Not same-pin.**
 
 | | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
 | --- | ---: | ---: | ---: | ---: |
-| **Brainy** | **49.8%** last full (n=1540, 2026-07-31) · **66.7%** 1×30 now | **4%** (n=100) · **0%** LME-20 | not run (40% on 100K/20q) | not run |
+| **Brainy** | **49.8%** last full (n=1540, 2026-07-31) · **70.0%** 1×30 now | **4%** (n=100) · **0%** LME-20 | not run (40% on 100K/20q) | not run |
 | **Mem0 Platform** | **92.5%** | **94.4%** | **64.1** | **48.6** |
 | **Zep** | **75.14%** | 71.2% | — | — |
 | **SuperMemory** | 77.1% | 95% Recall@15 | — | — |
@@ -35,24 +35,25 @@ Sources, n, metric type, and the Zep LoCoMo dispute:
 
 ## Same-pin comparison
 
-Pin date for Brainy: **R4h, 2026-08-15** (`f4ec4d7` product SHA; docs may be
-later). Mem0 LoCoMo freeze: **2026-08-13**.
+Pin date for Brainy: **fresh remasure, 2026-08-15** (`1b5ab3e` product SHA).
+Mem0 LoCoMo / OpMem / marketing freeze: **this cycle**. Full LoCoMo n=1540,
+LME, and BEAM still running.
 
 | Suite | Brainy | Mem0 Platform | Graphiti OSS / Zep Platform | Stand |
-| --- | ---: | ---: | --- | --- |
-| LoCoMo 1×30 overall | **20/30 (66.7%)** | **12/30 (40.0%)** frozen | **no same-pin** | Lead this freeze; **not** SOTA |
-| Multi-hop | **10/10** | **7/10** | no same-pin | Lead this freeze |
+| --- | ---: | ---: | ---: | --- |
+| LoCoMo 1×30 overall | **21/30 (70.0%)** | **11/30 (36.7%)** | **no same-pin** | Lead this freeze; **not** SOTA |
+| Multi-hop | **10/10** | **6/10** | no same-pin | Lead this freeze |
 | Open-domain | **0/4** | **3/4** | no same-pin | **Trail** |
-| Temporal | **10/16** | **2/16** | no same-pin | Lead this freeze |
-| OpMem | **13/13** | **9/12** (2026-07-14, **not re-run**) | no pin | Lead ops; Mem0 pin is stale |
-| Marketing vertical | **17/17** | **4/16** empirical (2026-07-29, **not re-run**) | no pin | Lead governed vertical; Mem0 pin is stale |
-| LongMemEval-20 | **0/20** integrity | no fair pin on this harness | no pin | Neither is a quality win |
-| BEAM | **not re-run** this cycle | published elsewhere; not our pin | no pin | — |
+| Temporal | **11/16** | **2/16** | no same-pin | Lead this freeze |
+| OpMem | **13/13** | **10/13** | no pin | Lead ops |
+| Marketing vertical | **17/17** | **4/17** empirical | no pin | Lead governed vertical |
+| LongMemEval-20 | remasure in flight (last integrity **0/20**) | no fair pin on this harness | no pin | Neither is a quality win |
+| BEAM | remasure in flight | published elsewhere; not our pin | no pin | — |
 
-Search p50 on the LoCoMo 1×30 pin: Brainy **125 ms** local vs Mem0 Platform
-**471 ms**. That is a harness observation, **not** a production SLO.
+Search p50 on the LoCoMo 1×30 pin: Brainy **175 ms** local vs Mem0 Platform
+**492 ms**. That is a harness observation, **not** a production SLO.
 
-Mem0 OSS was **not** re-measured. Do not treat Platform 12/30 as an
+Mem0 OSS was **not** re-measured. Do not treat Platform 11/30 as an
 OSS-reproducible number.
 
 Do not paste the published-% table into this same-pin n/N table. Those
@@ -123,16 +124,16 @@ More harness detail: [evals/README.md](../../evals/README.md) ·
 [evals/public/README.md](../../evals/public/README.md).
 Ladder: [research/public-bench-ladder.md](../research/public-bench-ladder.md).
 
-## Current Brainy artifacts (R4h)
+## Current Brainy artifacts (fresh remasure 2026-08-15)
 
 | Suite | Report |
 | --- | --- |
-| LoCoMo 1×30 | [locomo-mh-r4h-dev-1x30-20260815.md](./artifacts/locomo-mh-r4h-dev-1x30-20260815.md) |
-| Mem0 LoCoMo freeze | [locomo-mem0-samepin-pr10-20260813.md](./artifacts/locomo-mem0-samepin-pr10-20260813.md) |
-| OpMem | [opmem-mh-r4h-local-20260815.md](./artifacts/opmem-mh-r4h-local-20260815.md) |
-| Marketing | [marketing-mh-r4h-local-20260815.md](./artifacts/marketing-mh-r4h-local-20260815.md) · [moat](./marketing-moat-report.md) |
+| LoCoMo 1×30 | [locomo-fresh-1x30-20260815.md](./artifacts/locomo-fresh-1x30-20260815.md) |
+| Mem0 LoCoMo freeze | [locomo-mem0-fresh-1x30-20260815.md](./artifacts/locomo-mem0-fresh-1x30-20260815.md) |
+| OpMem | [opmem-fresh-local-20260815.md](./artifacts/opmem-fresh-local-20260815.md) · [Mem0](./artifacts/opmem-mem0-fresh-20260815.md) |
+| Marketing | [marketing-fresh-local-20260815.md](./artifacts/marketing-fresh-local-20260815.md) · [Mem0](./artifacts/marketing-mem0-fresh-20260815.md) · [moat](./marketing-moat-report.md) |
 | Cycle closeout (detailed why) | [cycle-closeout.md](../research/competitive/cycle-closeout.md) |
-| BEAM 100K historical | [beam-100k-c0-async.md](./artifacts/beam-100k-c0-async.md) — do not mix with R4h |
+| BEAM 100K historical | [beam-100k-c0-async.md](./artifacts/beam-100k-c0-async.md) — superseded when this remasure's BEAM pin lands |
 
 Historical staging smoke (2026-07, do not mix with R4h): [locomo-smoke.md](./locomo-smoke.md).
 

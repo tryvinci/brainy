@@ -12,7 +12,7 @@ Do not write SOTA / beats-Mem0 from this table.
 
 | System | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
 | --- | ---: | ---: | ---: | ---: |
-| **Brainy** (our last pin on that suite) | **49.8%** full (mean 3-seed, 767/1540, 2026-07-31) · **66.7%** current 1×30 | **4%** (4/100, 2026-08-01) · **0%** LME-20 `/recall` | not run (40% on 100K/20q) | not run |
+| **Brainy** (our last pin on that suite) | **49.8%** full (mean 3-seed, 767/1540, 2026-07-31) · **70.0%** current 1×30 | **4%** (4/100, 2026-08-01) · **0%** LME-20 `/recall` | not run (40% on 100K/20q) | not run |
 | **Mem0 Platform** | **92.5%** (1425/1540, top-k 200) | **94.4%** (472/500, top-k 200) | **64.1** mean (70.1% pass) | **48.6** mean (50.5% pass) |
 | **Mem0 OSS** | no current published full LoCoMo % | **91.0%** (GPT-5 extract; other extractors 88.6–89.8) | — | — |
 | **Zep** | **75.14%** ±0.17 | **71.2%** (in SuperMemory’s GPT-4o table, not a Zep paper) | — | — |
@@ -45,7 +45,7 @@ Do not write SOTA / beats-Mem0 from this table.
 | Hindsight | LongMemEval | 94.6 | same | same | same |
 | Hindsight | BEAM 1M / 10M | 73.9 / 64.1 | published BEAM tiers | [BEAM compare](https://hindsight.vectorize.io/guides/2026/04/21/comparison-agent-memory-benchmark-hindsight-vs-alternatives) |
 | Brainy | LoCoMo full | 49.8 mean | LLM-judge, cats 1–4, gpt-oss | 3 seeds × 1540; old stack | [summary](./artifacts/locomo-full-publish-summary.json) |
-| Brainy | LoCoMo 1×30 | 66.7 | LLM-judge | 30 Q, R4h 2026-08-15 | [R4h](./artifacts/locomo-mh-r4h-dev-1x30-20260815.md) |
+| Brainy | LoCoMo 1×30 | 70.0 | LLM-judge | 30 Q, remasure 2026-08-15 | [fresh](./artifacts/locomo-fresh-1x30-20260815.md) |
 | Brainy | LongMemEval-S | 4.0 | LLM-judge | 100 Q, 2026-08-01 | [lme-s-100](./artifacts/lme-s-100.md) |
 | Brainy | LongMemEval-20 | 0.0 | `/recall` integrity | 20 Q | cycle closeout |
 | Brainy | BEAM 100K | 40.0 | 20 probing Q, 1 convo | not 1M/10M | [beam-100k](./artifacts/beam-100k-c0-async.md) |
@@ -64,10 +64,10 @@ Mem0’s own weak axis on the published full suite is **open-domain** (72.7). Ou
 
 ## How to read this vs same-pin
 
-- **92.5 vs 49.8** is the industry-format LoCoMo compare (full n≈1540). Brainy has not re-run full 1540 on the R4h stack.
-- **92.5 vs 66.7** is **not** that compare (n=1540 vs n=30).
+- **92.5 vs 49.8** is the industry-format LoCoMo compare (full n≈1540). A fresh n=1540 remasure is in flight.
+- **92.5 vs 70.0** is **not** that compare (n=1540 vs n=30).
 - **94.4 vs 4** is the industry-format LongMemEval compare (hundreds of Q vs our 100-Q pin). **94.4 vs 0/20** is worse: integrity pin, not quality.
 - **95% Recall@15** is not an LLM-judge percent. Do not rank SuperMemory 95 against Mem0 94.4 as if the same metric.
 - **64.1** on BEAM is Mem0’s mean score; their harness also prints **70.1% pass**. Hindsight’s 73.9 / 64.1 are a different published BEAM run.
 
-Same-pin Mem0 Platform LoCoMo 1×30 remains **40.0% (12/30)** vs Brainy **66.7% (20/30)**.
+Same-pin Mem0 Platform LoCoMo 1×30 this cycle is **36.7% (11/30)** vs Brainy **70.0% (21/30)**.

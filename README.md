@@ -99,37 +99,37 @@ Harness peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchm
 
 | | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
 | --- | ---: | ---: | ---: | ---: |
-| **Brainy** | **49.8%** last full (n=1540) · 66.7% 1×30 now | **4%** (n=100) · 0% LME-20 | not run (40% on 100K/20q) | not run |
+| **Brainy** | **49.8%** last full (n=1540) · 70.0% 1×30 now | **4%** (n=100) · 0% LME-20 | not run (40% on 100K/20q) | not run |
 | **Mem0 Platform** | **92.5%** | **94.4%** | **64.1** | **48.6** |
 | **Zep** | **75.14%** | 71.2% | — | — |
 | **SuperMemory** | 77.1% | 95% Recall@15 | — | — |
 | **Letta** | 74.0% | — | — | — |
 | **Hindsight** | 92.0% | 94.6% | 73.9% | 64.1% |
 
-Brainy’s 49.8% is the last **full** LoCoMo (3-seed mean, 2026-07-31, old stack).
-R4h did not re-run n=1540. SuperMemory’s 95 is **Recall@15**, not LLM-judge.
-Graphiti OSS has no published %. Zep LoCoMo was disputed (Mem0 re-ran Zep at
-58.44%; Zep publishes 75.14%).
+Brainy’s 49.8% is the last **full** LoCoMo (3-seed mean, 2026-07-31, old stack);
+a fresh n=1540 remasure is in flight. SuperMemory’s 95 is **Recall@15**, not
+LLM-judge. Graphiti OSS has no published %. Zep LoCoMo was disputed (Mem0
+re-ran Zep at 58.44%; Zep publishes 75.14%).
 
 ### Same-pin
 
 Same dataset SHA, judge temperature, and question set. We **trail
 open-domain** on this pin.
 
-| Suite | Brainy (R4h, 2026-08-15) | Mem0 Platform | Graphiti OSS / Zep |
+| Suite | Brainy (`1b5ab3e`, 2026-08-15) | Mem0 Platform | Graphiti OSS / Zep |
 | --- | ---: | ---: | --- |
-| LoCoMo 1×30 | **66.7%** (20/30; MH 10/10, OD **0/4**, temporal 10/16) | **40.0%** (12/30; MH 7/10, OD 3/4, temporal 2/16) frozen 2026-08-13 | no same-pin |
-| OpMem | **100%** (13/13) | 75% (9/12, 2026-07-14, **not re-run**) | no pin |
-| Marketing vertical | **100%** (17/17) | 25% (4/16 empirical, 2026-07-29, **not re-run**) | no pin |
-| LongMemEval-20 | 0% integrity | no fair pin on this harness | no pin |
-| BEAM | not re-run this cycle | see published % above | no pin |
+| LoCoMo 1×30 | **70.0%** (21/30; MH 10/10, OD **0/4**, temporal 11/16) | **36.7%** (11/30; MH 6/10, OD 3/4, temporal 2/16) this cycle | no same-pin |
+| OpMem | **100%** (13/13) | **76.9%** (10/13) this cycle | no pin |
+| Marketing vertical | **100%** (17/17) | **23.5%** (4/17 empirical) this cycle | no pin |
+| LongMemEval-20 | 0% integrity (not yet re-run this remasure) | no fair pin on this harness | no pin |
+| BEAM | remasure in flight | see published % above | no pin |
 
 Mem0 **OSS** was not re-measured. Reproduce and artifacts:
 **[docs/benchmarks](docs/benchmarks/README.md)**. Pins:
-[LoCoMo](docs/benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) ·
-[Mem0 same-pin](docs/benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md) ·
-[OpMem](docs/benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) ·
-[marketing](docs/benchmarks/artifacts/marketing-mh-r4h-local-20260815.md).
+[LoCoMo](docs/benchmarks/artifacts/locomo-fresh-1x30-20260815.md) ·
+[Mem0 same-pin](docs/benchmarks/artifacts/locomo-mem0-fresh-1x30-20260815.md) ·
+[OpMem](docs/benchmarks/artifacts/opmem-fresh-local-20260815.md) ·
+[marketing](docs/benchmarks/artifacts/marketing-fresh-local-20260815.md).
 
 ## Status
 
