@@ -362,3 +362,30 @@ func TestUnquotedTitleRunAndOneWordQuote(t *testing.T) {
 		t.Fatalf("one-word quote should not compile, got %q", joined)
 	}
 }
+
+func TestDeicticVisibleTextCompilesTitledWork(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: This book I read last year reminds me to keep going. [visible text: ANN AUTHOR THE QUIET ORCHARD FOREWORD BY PAT]"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "quiet orchard") {
+		t.Fatalf("expected deictic visible title, got %q", joined)
+	}
+	if strings.Contains(joined, "ann author") || strings.Contains(joined, "foreword") {
+		t.Fatalf("author/foreword should not win over title, got %q", joined)
+	}
+}

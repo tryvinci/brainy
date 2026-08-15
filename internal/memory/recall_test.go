@@ -364,6 +364,7 @@ func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
 		Messages: []Message{
 			{Role: "user", Content: `Riley: I loved reading "The Little Prince" as a kid.`},
 			{Role: "user", Content: "Riley: This book I read last year, The Hidden Garden, still stays with me."},
+			{Role: "user", Content: "Riley: This book I read last year reminds me to keep going. [visible text: THE QUIET ORCHARD]"},
 			{Role: "user", Content: `Riley: I read "Perfect"`},
 		},
 	})
@@ -386,6 +387,9 @@ func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
 	}
 	if !strings.Contains(joined, "hidden garden") {
 		t.Fatalf("expected unquoted title run, items=%#v", out.Items)
+	}
+	if !strings.Contains(joined, "quiet orchard") {
+		t.Fatalf("expected deictic visible title, items=%#v answer=%q", out.Items, out.Answer)
 	}
 	if strings.Contains(joined, `"perfect"`) || itemHas(out.Items, "Perfect") {
 		t.Fatalf("one-word quote should be rejected, items=%#v", out.Items)

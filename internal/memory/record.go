@@ -29,6 +29,26 @@ func NormalizeIngestRequest(req *IngestRequest) {
 	for i := range req.Messages {
 		req.Messages[i].Content = sanitizeUTF8(req.Messages[i].Content)
 		req.Messages[i].Role = sanitizeUTF8(req.Messages[i].Role)
+		if len(req.Messages[i].ImageURLs) == 0 {
+			continue
+		}
+		clean := make([]string, 0, len(req.Messages[i].ImageURLs))
+		seen := map[string]struct{}{}
+		for _, raw := range req.Messages[i].ImageURLs {
+			u := strings.TrimSpace(raw)
+			if u == "" {
+				continue
+			}
+			if _, ok := seen[u]; ok {
+				continue
+			}
+			seen[u] = struct{}{}
+			clean = append(clean, u)
+			if len(clean) >= 4 {
+				break
+			}
+		}
+		req.Messages[i].ImageURLs = clean
 	}
 }
 

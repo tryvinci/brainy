@@ -39,8 +39,9 @@ const (
 )
 
 type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
+	Role      string   `json:"role"`
+	Content   string   `json:"content"`
+	ImageURLs []string `json:"image_urls,omitempty"`
 }
 
 type IngestRequest struct {

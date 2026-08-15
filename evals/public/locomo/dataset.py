@@ -37,7 +37,7 @@ def load_conversations(path: pathlib.Path) -> list[dict]:
 def iter_sessions(conversation: dict) -> list[dict]:
     """Yield sessions with optional client-style event metadata.
 
-    Each item: {session_id, observed_at, turns: [(speaker, text), ...]}.
+    Each item: {session_id, observed_at, turns: [(speaker, text[, image_urls]), ...]}.
     observed_at is the LOCOMO session_*_date_time string when present —
     realistic client metadata, not a product special-case.
     """
@@ -57,22 +57,34 @@ def iter_sessions(conversation: dict) -> list[dict]:
 
     sessions: list[dict] = []
     for num in session_nums:
-        turns: list[tuple[str, str]] = []
+        turns: list[tuple] = []
         for turn in convo.get(f"session_{num}") or []:
             if not isinstance(turn, dict):
                 continue
             speaker = str(turn.get("speaker") or "user")
             text = str(turn.get("text") or "").strip()
-            caption = str(turn.get("query") or "").strip()
-            if not caption:
-                caption = str(turn.get("blip_caption") or "").strip()
-            if caption and caption.lower() not in text.lower():
-                if text:
-                    text = f"{text} [{caption}]"
+            alts: list[str] = []
+            for key in ("query", "blip_caption"):
+                cap = str(turn.get(key) or "").strip()
+                if not cap:
+                    continue
+                blob = f"{text} {' '.join(alts)}".lower()
+                if cap.lower() not in blob:
+                    alts.append(cap)
+            if alts:
+                extra = " ".join(f"[{a}]" for a in alts)
+                text = f"{text} {extra}".strip() if text else extra
+            raw_img = turn.get("img_url") or turn.get("image") or []
+            urls: list[str] = []
+            if isinstance(raw_img, str) and raw_img.strip():
+                urls = [raw_img.strip()]
+            elif isinstance(raw_img, list):
+                urls = [str(u).strip() for u in raw_img if str(u).strip()]
+            if text or urls:
+                if urls:
+                    turns.append((speaker, text, urls))
                 else:
-                    text = caption
-            if text:
-                turns.append((speaker, text))
+                    turns.append((speaker, text))
         if not turns:
             continue
         date_raw = convo.get(f"session_{num}_date_time")
@@ -91,7 +103,12 @@ def iter_session_turns(conversation: dict) -> list[tuple[str, str]]:
     """Flatten all sessions into (speaker, text) turns."""
     turns: list[tuple[str, str]] = []
     for session in iter_sessions(conversation):
-        turns.extend(session["turns"])
+        for turn in session["turns"]:
+            if not turn:
+                continue
+            speaker = turn[0]
+            text = turn[1] if len(turn) > 1 else ""
+            turns.append((str(speaker), str(text)))
     return turns
 
 

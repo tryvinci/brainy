@@ -24,6 +24,8 @@ Send **one utterance per `messages[]` entry** (speaker label optional but helpfu
 
 You may batch many messages in one request for throughput. Prefer **not** gluing multiple turns into a single string with only `\n` separators if you can use `messages[]` instead — but newline-separated turns in one content blob are also atomized.
 
+Attached images: pass `image_urls` on a message when the utterance points at a photo (a book cover, a sign). Extract OCR visible text at WRITE time and compile deictic titled works (`this book I read` + cover text). Sync `/ingest` and the async worker both do this when `tesseract` is on PATH. URLs must be public `http(s)`; loopback/private hosts are rejected.
+
 ## What Brainy stores
 
 1. Structured prefs / profile / facts when keyword rules match  

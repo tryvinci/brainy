@@ -32,7 +32,8 @@ func NewExtractor() DeterministicExtractor {
 	return NewDeterministicExtractor()
 }
 
-func (DeterministicExtractor) Extract(_ context.Context, req IngestRequest) ([]ExtractedMemory, error) {
+func (DeterministicExtractor) Extract(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
+	req.Messages = EnrichImageText(ctx, req.Messages)
 	var extracted []ExtractedMemory
 	retainEpisodes := shouldRetainConversationEpisodes(req)
 	var allUtterances []string
@@ -267,6 +268,11 @@ func splitUtterances(text string) []string {
 }
 
 func splitSentences(text string) []string {
+	vis := ""
+	if i := strings.Index(text, visibleTextMarker); i >= 0 {
+		vis = strings.TrimSpace(text[i:])
+		text = strings.TrimSpace(text[:i])
+	}
 	normalized := strings.NewReplacer("!", ".", "?", ".").Replace(text)
 	parts := strings.Split(normalized, ".")
 	out := make([]string, 0, len(parts))
@@ -274,6 +280,14 @@ func splitSentences(text string) []string {
 		part = NormalizeText(part)
 		if part != "" {
 			out = append(out, part)
+		}
+	}
+	if vis != "" {
+		if len(out) == 0 {
+			return []string{vis}
+		}
+		for i := range out {
+			out[i] = strings.TrimSpace(out[i] + " " + vis)
 		}
 	}
 	return out

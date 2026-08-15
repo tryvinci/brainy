@@ -15,43 +15,44 @@ import (
 // See docs/research/master-plan.md §1.2 / W1.
 
 var (
-	speakerLineRE     = regexp.MustCompile(`(?i)^\s*([A-Za-z][A-Za-z0-9_-]{1,40})\s*:\s*(.+)$`)
-	quotedTitleRE     = regexp.MustCompile(`"([^"]{2,80})"|“([^”]{2,80})”|'([^']{2,80})'|‘([^’]{2,80})’`)
-	movedFromRE       = regexp.MustCompile(`(?i)\b(?:moved|relocated)\s+from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
-	movedToRE         = regexp.MustCompile(`(?i)\b(?:moved|relocated)\s+to\s+([A-Za-z][A-Za-z\s-]{1,40})`)
-	iAmRE             = regexp.MustCompile(`(?i)\b(?:i am|i'm)\s+(?:a|an)\s+([^,.!?]{3,60})`)
-	iAmStatusRE       = regexp.MustCompile(`(?i)\b(?:i am|i'm)\s+(single|married|divorced|engaged|widowed)\b`)
-	asARoleRE         = regexp.MustCompile(`(?i)\bas an?\s+([a-z][a-z\s-]{2,40})\b`)
-	activityGerund    = regexp.MustCompile(`(?i)\b(?:i|i've|i have)\s+(?:been\s+)?([a-z]+ing)\b`)
-	loveActivityRE    = regexp.MustCompile(`(?i)\b(?:i love|i like|i enjoy|we love|we like|we enjoy|i'm a (?:big )?fan of)\s+([a-z][a-z\s-]{2,40})`)
-	placeWithActRE    = regexp.MustCompile(`(?i)\b([a-z]+ing)\s+(?:in|at|on)\s+(?:the\s+)?([a-z][a-z-]{2,30})\b`)
-	tripPlaceRE       = regexp.MustCompile(`(?i)\b(camping|hiking|swimming)\s+trip\s+(?:in|at|on|to|through)\s+(?:the\s+)?([a-z][a-z-]{2,30})\b`)
-	gaveEventRE       = regexp.MustCompile(`(?i)\b(?:gave|give|giving)\s+(?:a |an )?([a-z][a-z-]{3,24})\b`)
-	hadEventRE        = regexp.MustCompile(`(?i)\b(?:had|have)\s+a\s+([a-z][a-z-]{3,24})\b`)
-	ranEventRE        = regexp.MustCompile(`(?i)\b(?:ran|run)\s+(?:a|an)\s+([a-z][a-z\s-]{3,40})\b`)
-	trainingForRE     = regexp.MustCompile(`(?i)\btraining\s+for\s+(?:a |an )?([a-z][a-z\s-]{3,40})\b`)
-	kidsLikeRE        = regexp.MustCompile(`(?i)\b(?:kids?|children)\s+(?:love|like|enjoy|are into|were\s+\w+\s+(?:about|for))\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
-	kidsAboutRE       = regexp.MustCompile(`(?i)\b(?:kids?|children).{0,48}?\b(?:love|like|enjoy|into|about|obsessed with)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
-	kidsMentionRE     = regexp.MustCompile(`(?i)\b(?:kids?|children)\b`)
-	theyExcitedRE     = regexp.MustCompile(`(?i)\bthey\s+(?:were\s+|are\s+)?(?:stoked|excited|pumped|thrilled)\s+(?:for|about)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
-	theyLikeRE        = regexp.MustCompile(`(?i)\bthey\s+(?:love|like|enjoy|are into)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
-	homeCountryRE     = regexp.MustCompile(`(?i)\bhome country[,:]?\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b`)
-	homeCountryBareRE = regexp.MustCompile(`(?i)\bhome country\b`)
-	originallyFromRE  = regexp.MustCompile(`(?i)\boriginally from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
-	imFromRE          = regexp.MustCompile(`(?i)\b(?:i'm|i am)\s+from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
-	lookingIntoRE     = regexp.MustCompile(`(?i)\b(?:looking into|keen on|interested in)\s+([^,.!?]{3,70})`)
-	researchingRE     = regexp.MustCompile(`(?i)\b(?:researching|researched)\s+([^,.!?]{3,50})`)
-	careerFieldRE     = regexp.MustCompile(`(?i)\b(?:career|profession)\s+(?:in|as)\s+([^,.!?]{3,50})`)
-	wantToBeRE        = regexp.MustCompile(`(?i)\b(?:want to|wanted to|hope to|plan to|planning to)\s+(?:be|become|pursue|work as)\s+(?:a |an )?([^,.!?]{3,50})`)
-	workWithGroupRE   = regexp.MustCompile(`(?i)\b(?:thinking of working with|working with|work with)\s+([a-z][a-z\s-]{1,40}(?:people|community|patients|clients|families))\b`)
-	planningActRE     = regexp.MustCompile(`(?i)\b(?:planning on|planning to|going to)\s+(?:go(?:ing)?\s+)?([a-z]+ing)\b`)
-	workshopRE        = regexp.MustCompile(`(?i)\b([a-z][a-z-]{2,30})\s+(?:workshop|class|lesson)s?\b`)
-	goGerundRE        = regexp.MustCompile(`(?i)\b(?:go|going|went|off to go)\s+([a-z]+ing)\b`)
-	durationYearsRE   = regexp.MustCompile(`(?i)\bfor\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+years\b`)
-	collectsRE        = regexp.MustCompile(`(?i)\b(?:collect(?:s|ing)?|collection of)\s+([^,.!?]{3,50})`)
-	educationRE       = regexp.MustCompile(`(?i)\b(?:studying|degree in|certification in|certified in)\s+([^,.!?]{3,50})`)
-	readUnquotedRE    = regexp.MustCompile(`(?i)\b(?:read|reading|loved reading)\s+([A-Z][^"“”'.]{2,60})`)
-	bookTitleRunRE    = regexp.MustCompile(`\b((?:The|A|An)\s+[A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,5}|[A-Z][A-Za-z']+(?:\s+(?:is|the|a|an|of|and|in|to|for|on)\s+[A-Z][A-Za-z']+|\s+[A-Z][A-Za-z']+){1,5})\b`)
+	speakerLineRE      = regexp.MustCompile(`(?i)^\s*([A-Za-z][A-Za-z0-9_-]{1,40})\s*:\s*(.+)$`)
+	quotedTitleRE      = regexp.MustCompile(`"([^"]{2,80})"|“([^”]{2,80})”|'([^']{2,80})'|‘([^’]{2,80})’`)
+	movedFromRE        = regexp.MustCompile(`(?i)\b(?:moved|relocated)\s+from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
+	movedToRE          = regexp.MustCompile(`(?i)\b(?:moved|relocated)\s+to\s+([A-Za-z][A-Za-z\s-]{1,40})`)
+	iAmRE              = regexp.MustCompile(`(?i)\b(?:i am|i'm)\s+(?:a|an)\s+([^,.!?]{3,60})`)
+	iAmStatusRE        = regexp.MustCompile(`(?i)\b(?:i am|i'm)\s+(single|married|divorced|engaged|widowed)\b`)
+	asARoleRE          = regexp.MustCompile(`(?i)\bas an?\s+([a-z][a-z\s-]{2,40})\b`)
+	activityGerund     = regexp.MustCompile(`(?i)\b(?:i|i've|i have)\s+(?:been\s+)?([a-z]+ing)\b`)
+	loveActivityRE     = regexp.MustCompile(`(?i)\b(?:i love|i like|i enjoy|we love|we like|we enjoy|i'm a (?:big )?fan of)\s+([a-z][a-z\s-]{2,40})`)
+	placeWithActRE     = regexp.MustCompile(`(?i)\b([a-z]+ing)\s+(?:in|at|on)\s+(?:the\s+)?([a-z][a-z-]{2,30})\b`)
+	tripPlaceRE        = regexp.MustCompile(`(?i)\b(camping|hiking|swimming)\s+trip\s+(?:in|at|on|to|through)\s+(?:the\s+)?([a-z][a-z-]{2,30})\b`)
+	gaveEventRE        = regexp.MustCompile(`(?i)\b(?:gave|give|giving)\s+(?:a |an )?([a-z][a-z-]{3,24})\b`)
+	hadEventRE         = regexp.MustCompile(`(?i)\b(?:had|have)\s+a\s+([a-z][a-z-]{3,24})\b`)
+	ranEventRE         = regexp.MustCompile(`(?i)\b(?:ran|run)\s+(?:a|an)\s+([a-z][a-z\s-]{3,40})\b`)
+	trainingForRE      = regexp.MustCompile(`(?i)\btraining\s+for\s+(?:a |an )?([a-z][a-z\s-]{3,40})\b`)
+	kidsLikeRE         = regexp.MustCompile(`(?i)\b(?:kids?|children)\s+(?:love|like|enjoy|are into|were\s+\w+\s+(?:about|for))\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
+	kidsAboutRE        = regexp.MustCompile(`(?i)\b(?:kids?|children).{0,48}?\b(?:love|like|enjoy|into|about|obsessed with)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
+	kidsMentionRE      = regexp.MustCompile(`(?i)\b(?:kids?|children)\b`)
+	theyExcitedRE      = regexp.MustCompile(`(?i)\bthey\s+(?:were\s+|are\s+)?(?:stoked|excited|pumped|thrilled)\s+(?:for|about)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
+	theyLikeRE         = regexp.MustCompile(`(?i)\bthey\s+(?:love|like|enjoy|are into)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
+	homeCountryRE      = regexp.MustCompile(`(?i)\bhome country[,:]?\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b`)
+	homeCountryBareRE  = regexp.MustCompile(`(?i)\bhome country\b`)
+	originallyFromRE   = regexp.MustCompile(`(?i)\boriginally from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
+	imFromRE           = regexp.MustCompile(`(?i)\b(?:i'm|i am)\s+from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
+	lookingIntoRE      = regexp.MustCompile(`(?i)\b(?:looking into|keen on|interested in)\s+([^,.!?]{3,70})`)
+	researchingRE      = regexp.MustCompile(`(?i)\b(?:researching|researched)\s+([^,.!?]{3,50})`)
+	careerFieldRE      = regexp.MustCompile(`(?i)\b(?:career|profession)\s+(?:in|as)\s+([^,.!?]{3,50})`)
+	wantToBeRE         = regexp.MustCompile(`(?i)\b(?:want to|wanted to|hope to|plan to|planning to)\s+(?:be|become|pursue|work as)\s+(?:a |an )?([^,.!?]{3,50})`)
+	workWithGroupRE    = regexp.MustCompile(`(?i)\b(?:thinking of working with|working with|work with)\s+([a-z][a-z\s-]{1,40}(?:people|community|patients|clients|families))\b`)
+	planningActRE      = regexp.MustCompile(`(?i)\b(?:planning on|planning to|going to)\s+(?:go(?:ing)?\s+)?([a-z]+ing)\b`)
+	workshopRE         = regexp.MustCompile(`(?i)\b([a-z][a-z-]{2,30})\s+(?:workshop|class|lesson)s?\b`)
+	goGerundRE         = regexp.MustCompile(`(?i)\b(?:go|going|went|off to go)\s+([a-z]+ing)\b`)
+	durationYearsRE    = regexp.MustCompile(`(?i)\bfor\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+years\b`)
+	collectsRE         = regexp.MustCompile(`(?i)\b(?:collect(?:s|ing)?|collection of)\s+([^,.!?]{3,50})`)
+	educationRE        = regexp.MustCompile(`(?i)\b(?:studying|degree in|certification in|certified in)\s+([^,.!?]{3,50})`)
+	readUnquotedRE     = regexp.MustCompile(`(?i)\b(?:read|reading|loved reading)\s+([A-Z][^"“”'.]{2,60})`)
+	bookTitleRunRE     = regexp.MustCompile(`\b((?:The|A|An)\s+[A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,5}|[A-Z][A-Za-z']+(?:\s+(?:is|the|a|an|of|and|in|to|for|on)\s+[A-Z][A-Za-z']+|\s+[A-Z][A-Za-z']+){1,5})\b`)
+	visibleTextBlockRE = regexp.MustCompile(`\[visible text:\s*([^\]]{4,800})\]`)
 
 	// Activity gerunds that are usually not hobbies (skip).
 	activityGerundStop = map[string]struct{}{
@@ -208,6 +209,8 @@ func splitSpeaker(utterance string) (speaker, body string) {
 func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time) []ExtractedMemory {
 	var out []ExtractedMemory
 	lowerBody := strings.ToLower(body)
+	lexicalBody := visibleTextBlockRE.ReplaceAllString(body, " ")
+	lexicalLower := strings.ToLower(lexicalBody)
 	emit := func(content string, conf float64, rule string) {
 		out = append(out, atomFact(who, content, source, conf, rule, observedAt))
 	}
@@ -262,15 +265,15 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		}
 	}
 
-	for _, m := range quotedTitleRE.FindAllStringSubmatch(body, 4) {
+	for _, m := range quotedTitleRE.FindAllStringSubmatch(lexicalBody, 4) {
 		title := firstNonEmpty(m[1], m[2], m[3], m[4])
 		title = NormalizeText(title)
 		if utf8.RuneCountInString(title) < 4 || looksBrokenQuotedTitle(title) {
 			continue
 		}
-		bookCue := strings.Contains(lowerBody, "read") || strings.Contains(lowerBody, "reading") ||
-			strings.Contains(lowerBody, "book") || strings.Contains(lowerBody, "title") ||
-			strings.Contains(lowerBody, "novel") || strings.Contains(lowerBody, "story")
+		bookCue := strings.Contains(lexicalLower, "read") || strings.Contains(lexicalLower, "reading") ||
+			strings.Contains(lexicalLower, "book") || strings.Contains(lexicalLower, "title") ||
+			strings.Contains(lexicalLower, "novel") || strings.Contains(lexicalLower, "story")
 		if !bookCue {
 			continue
 		}
@@ -280,7 +283,7 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		verb := "read"
 		emit(fmt.Sprintf("%s %s \"%s\"", who, verb, title), 0.86, "attribute_titled_work")
 	}
-	if m := readUnquotedRE.FindStringSubmatch(body); m != nil {
+	if m := readUnquotedRE.FindStringSubmatch(lexicalBody); m != nil {
 		title := NormalizeText(strings.TrimSpace(m[1]))
 		title = strings.TrimSuffix(title, " as a kid")
 		title = strings.TrimSuffix(title, " last year")
@@ -288,8 +291,8 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.84, "attribute_titled_work")
 		}
 	}
-	if strings.Contains(lowerBody, "book") || strings.Contains(lowerBody, "read") {
-		for _, m := range bookTitleRunRE.FindAllStringSubmatch(body, 4) {
+	if strings.Contains(lexicalLower, "book") || strings.Contains(lexicalLower, "read") {
+		for _, m := range bookTitleRunRE.FindAllStringSubmatch(lexicalBody, 4) {
 			title := NormalizeText(strings.TrimSpace(m[1]))
 			if titleLeadStopped(title) || !looksLikeWorkTitle(title) || looksBrokenQuotedTitle(title) {
 				continue
@@ -299,6 +302,9 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			}
 			emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.82, "attribute_titled_work")
 		}
+	}
+	if title, ok := deicticVisibleWorkTitle(body); ok {
+		emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.85, "attribute_titled_work")
 	}
 
 	if m := activityGerund.FindStringSubmatch(body); m != nil {
@@ -703,6 +709,147 @@ func numberWord(raw string) string {
 	default:
 		return strings.TrimSpace(raw)
 	}
+}
+
+func deicticVisibleWorkTitle(body string) (string, bool) {
+	lower := strings.ToLower(body)
+	if !strings.Contains(lower, "this book") && !strings.Contains(lower, "this novel") &&
+		!strings.Contains(lower, "this title") {
+		return "", false
+	}
+	if !strings.Contains(lower, "read") && !strings.Contains(lower, "reading") {
+		return "", false
+	}
+	m := visibleTextBlockRE.FindStringSubmatch(body)
+	if m == nil {
+		return "", false
+	}
+	return titleFromVisibleText(m[1])
+}
+
+func titleFromVisibleText(raw string) (string, bool) {
+	best := ""
+	bestRank := 0
+	consider := func(cand string) {
+		words := strings.Fields(cand)
+		n := len(words)
+		if n < 2 || n > 5 || words[0][0] >= '0' && words[0][0] <= '9' {
+			return
+		}
+		hasFn := false
+		for _, w := range words {
+			if _, ok := titleFunctionWord[w]; ok {
+				hasFn = true
+				break
+			}
+		}
+		if !hasFn {
+			return
+		}
+		rank := titleLenRank(n)
+		if rank > bestRank || (rank == bestRank && len(cand) > len(best)) {
+			best, bestRank = cand, rank
+		}
+	}
+	var run []string
+	flush := func() {
+		for i := 0; i < len(run); i++ {
+			for n := 2; n <= 5 && i+n <= len(run); n++ {
+				consider(strings.Join(run[i:i+n], " "))
+			}
+		}
+		run = nil
+	}
+	for _, w := range strings.Fields(raw) {
+		w = strings.Trim(w, ".,:;!?\"'")
+		if isAllCapsWord(w) {
+			run = append(run, w)
+			continue
+		}
+		flush()
+	}
+	flush()
+	if best == "" {
+		for _, m := range bookTitleRunRE.FindAllStringSubmatch(raw, 8) {
+			title := NormalizeText(strings.TrimSpace(m[1]))
+			if titleLeadStopped(title) || !looksLikeWorkTitle(title) || looksBrokenQuotedTitle(title) {
+				continue
+			}
+			if utf8.RuneCountInString(title) < 8 {
+				continue
+			}
+			rank := titleLenRank(len(strings.Fields(title)))
+			if rank > bestRank || (rank == bestRank && len(title) > len(best)) {
+				best, bestRank = title, rank
+			}
+		}
+	}
+	if best == "" || bestRank <= 0 {
+		return "", false
+	}
+	titled := titleCaseWorkTitle(best)
+	if !looksLikeWorkTitle(titled) || looksBrokenQuotedTitle(titled) {
+		return "", false
+	}
+	return titled, true
+}
+
+func isAllCapsWord(w string) bool {
+	if w == "" {
+		return false
+	}
+	letters := 0
+	for _, r := range w {
+		switch {
+		case r >= 'A' && r <= 'Z':
+			letters++
+		case r >= '0' && r <= '9', r == '\'':
+		default:
+			return false
+		}
+	}
+	return letters >= 1
+}
+
+var titleFunctionWord = map[string]struct{}{
+	"A": {}, "AN": {}, "THE": {}, "AND": {}, "OR": {}, "OF": {},
+	"TO": {}, "FOR": {}, "IN": {}, "ON": {}, "IS": {}, "AT": {},
+}
+
+func titleLenRank(n int) int {
+	switch n {
+	case 3:
+		return 4
+	case 4:
+		return 3
+	case 2:
+		return 2
+	case 5:
+		return 1
+	default:
+		return 0
+	}
+}
+
+func titleCaseWorkTitle(s string) string {
+	words := strings.Fields(strings.ToLower(NormalizeText(s)))
+	if len(words) == 0 {
+		return ""
+	}
+	small := map[string]struct{}{
+		"a": {}, "an": {}, "the": {}, "and": {}, "or": {}, "of": {},
+		"to": {}, "for": {}, "in": {}, "on": {}, "is": {}, "at": {},
+	}
+	for i, w := range words {
+		if i > 0 {
+			if _, ok := small[w]; ok {
+				words[i] = w
+				continue
+			}
+		}
+		words[i] = titleCaseWords(w)
+	}
+	return strings.Join(words, " ")
 }
 
 func titleCaseWords(s string) string {

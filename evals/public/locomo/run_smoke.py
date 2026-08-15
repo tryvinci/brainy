@@ -108,11 +108,19 @@ def ingest_conversation(
         # Preserve speaker identity as stable user/assistant roles (not all-user).
         # Keep "Speaker: text" content so extract can attribute facts by name.
         speaker_roles: dict[str, str] = {}
-        for speaker, text in session.get("turns") or []:
+        for turn in session.get("turns") or []:
+            if not turn:
+                continue
+            speaker = turn[0]
+            text = turn[1] if len(turn) > 1 else ""
+            urls = list(turn[2]) if len(turn) > 2 and turn[2] else []
             sp = (speaker or "user").strip() or "user"
             if sp not in speaker_roles:
                 speaker_roles[sp] = "user" if len(speaker_roles) % 2 == 0 else "assistant"
-            batch.append({"role": speaker_roles[sp], "content": f"{sp}: {text}"})
+            msg = {"role": speaker_roles[sp], "content": f"{sp}: {text}"}
+            if urls:
+                msg["image_urls"] = urls
+            batch.append(msg)
             if len(batch) >= chunk:
                 backend.remember_messages(user_id, batch, metadata=meta, wait=False)
                 probe = _probe_token(batch)

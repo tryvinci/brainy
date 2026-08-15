@@ -120,7 +120,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 	ids := s.persistRawEvidence(ctx, req)
 	attachEvidenceIDs(&req, ids)
 
-	memories := s.extractOrLabel(req)
+	memories := s.extractOrLabel(ctx, req)
 	if len(memories) == 0 && strings.TrimSpace(req.Label) != "performance_outcome" {
 		return IngestResult{
 			IngestID: s.id("ing"),
@@ -2288,8 +2288,11 @@ func preferenceResponseQuery(record MemoryRecord, queryTokens []string) bool {
 	return false
 }
 
-func (s *Service) extractOrLabel(req IngestRequest) []ExtractedMemory {
-	memories, err := s.extractor.Extract(context.Background(), req)
+func (s *Service) extractOrLabel(ctx context.Context, req IngestRequest) []ExtractedMemory {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	memories, err := s.extractor.Extract(ctx, req)
 	if err != nil || len(memories) == 0 {
 		if err != nil {
 			memories = nil

@@ -36,6 +36,7 @@ func TestHeldOutCompilerCoverageAudit(t *testing.T) {
 			{Role: "user", Content: "Jordan: Last week I gave a speech at a school."},
 			{Role: "user", Content: "Jordan: I'm thinking of working with elderly patients."},
 			{Role: "user", Content: "Riley: This book I read last year, The Hidden Garden, still stays with me."},
+			{Role: "user", Content: "Riley: This book I read last year reminds me to keep going. [visible text: THE QUIET ORCHARD]"},
 		},
 	})
 	if err != nil {
@@ -91,6 +92,7 @@ func TestHeldOutCompilerCoverageAudit(t *testing.T) {
 		"the week before 15 july 2023",
 		"elderly patients",
 		"hidden garden",
+		"quiet orchard",
 	}
 	for _, needle := range mustContain {
 		if !strings.Contains(joined, needle) {

@@ -49,6 +49,7 @@ func NewProviderExtractor(cfg ProviderConfig, client *http.Client) *ProviderExtr
 }
 
 func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
+	req.Messages = EnrichImageText(ctx, req.Messages)
 	// Deterministic baseline always runs first (ENG-92).
 	baseline, err := p.fallback.Extract(ctx, req)
 	if err != nil {
@@ -155,6 +156,7 @@ CRITICAL RULES:
    - when the speaker says "home country" and Prior context already has a country, bind that country
    - activities, hobbies, ways people unwind, and places tied to those activities (one memory per place)
    - book/movie titles in quotes OR capitalized titles after read/reading (verbatim spans)
+   - visible text in [visible text: ...] after "this book I read" / "this novel"
    - family members' preferences (e.g. "Sam's kids like astronomy")
    - after a kids/children mention, bind later "they were excited/stoked for X" / "they love X" to those kids
    - career plans, fields of study, certifications

@@ -187,6 +187,29 @@ class DatasetParserTests(unittest.TestCase):
         self.assertTrue(any("fossils exhibit" in t for t in texts))
         self.assertTrue(any("painted canvas" in t for t in texts))
 
+    def test_iter_sessions_keeps_query_and_blip_and_image_urls(self) -> None:
+        from public.locomo.dataset import iter_sessions
+
+        conv = {
+            "conversation": {
+                "session_1": [
+                    {
+                        "speaker": "A",
+                        "text": "This book I read last year still stays with me.",
+                        "query": "painted canvas follow your dreams",
+                        "blip_caption": "a photography of a book cover with a gold coin on it",
+                        "img_url": ["https://example.com/cover.jpg"],
+                    }
+                ]
+            }
+        }
+        sessions = iter_sessions(conv)
+        turn = sessions[0]["turns"][0]
+        self.assertEqual(turn[0], "A")
+        self.assertIn("painted canvas", turn[1])
+        self.assertIn("book cover", turn[1])
+        self.assertEqual(turn[2], ["https://example.com/cover.jpg"])
+
 
 class BackendHelperTests(unittest.TestCase):
     def test_probe_token_prefers_year(self) -> None:
