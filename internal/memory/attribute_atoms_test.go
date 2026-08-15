@@ -225,6 +225,34 @@ func TestKidsPreferenceFindAllSkipsTemporalJunk(t *testing.T) {
 	}
 }
 
+func TestKidsPronounBindsAfterMention(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Dana: Yesterday I took the kids to the museum."},
+			{Role: "user", Content: "Dana: They were stoked for the fossils exhibit! They love nature."},
+			{Role: "user", Content: "Sam: They were excited about jazz night."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "fossils") {
+		t.Fatalf("expected pronoun-bound kids like, got %q", joined)
+	}
+	if !strings.Contains(joined, "nature") {
+		t.Fatalf("expected they-love kids like, got %q", joined)
+	}
+	if strings.Contains(joined, "sam's kids like jazz") {
+		t.Fatalf("unmentioned kids should not bind they-likes: %q", joined)
+	}
+}
+
 func TestWorkWithGroupEmitsOccupationQualifier(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{

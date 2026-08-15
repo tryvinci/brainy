@@ -291,7 +291,8 @@ func TestRecallKidsLikesSkipsJunkAndKeepsExhibitNoun(t *testing.T) {
 	_, err := svc.Ingest(context.Background(), IngestRequest{
 		TenantID: "t-kids", SubjectID: "u1", SourceType: "conversation",
 		Messages: []Message{
-			{Role: "user", Content: "Riley: The kids were wild about fossils at the museum."},
+			{Role: "user", Content: "Riley: Yesterday I took the kids to the museum."},
+			{Role: "user", Content: "Riley: They were stoked for the fossils exhibit!"},
 			{Role: "user", Content: "Riley: The kids love nature."},
 			{Role: "user", Content: "Riley: The kids were talking about our last one over summer break."},
 		},
