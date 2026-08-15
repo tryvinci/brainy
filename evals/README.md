@@ -57,6 +57,10 @@ Docker smoke: `.github/workflows/docker-smoke.yml`.
 
 ## Same-pin vs Mem0
 
+Scoreboard and caveats: [docs/benchmarks/README.md](../docs/benchmarks/README.md).
+Public-suite peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)
+(`UnifiedResult`). Do not mix their published 90%+ LoCoMo with our 1×30 pin.
+
 Evals **name competitors**. The live adapter in this tree is **Mem0 Platform**
 (`evals/competitors/mem0_adapter.py`, `https://api.mem0.ai`). That is not Mem0
 OSS. There is no Graphiti / Zep runner here yet.

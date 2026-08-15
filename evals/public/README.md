@@ -79,6 +79,10 @@ Outputs: `{run_id}.json` (UnifiedResult), `{run_id}.manifest.json`, markdown rep
 | L5 LongMemEval | TODO | same schema |
 | L6 MarketingMem | vertical fixtures | sibling track |
 
+Public-suite peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)
+(`UnifiedResult`). Scoreboard: [docs/benchmarks/README.md](../../docs/benchmarks/README.md).
+Do not mix their published 90%+ LoCoMo with our 1×30 pin.
+
 ## Same-pin vs Mem0 Platform
 
 `run_smoke.py --system mem0` uses `backends/mem0.py` (Mem0 Platform API, not

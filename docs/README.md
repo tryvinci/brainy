@@ -7,11 +7,12 @@ lives in the root [README](../README.md).
 
 | Doc | What it covers |
 | --- | --- |
-| [README](../README.md) | What Brainy is, Compose quickstart, API table |
+| [README](../README.md) | What Brainy is, Compose quickstart, API table, benchmark summary |
 | [api.md](./api.md) | HTTP routes, auth, request bodies |
 | [conversation-ingest.md](./conversation-ingest.md) | How chat clients should call `/ingest` |
+| [benchmarks/README.md](./benchmarks/README.md) | Full benchmarks: same-pin vs Mem0 / Graphiti / Zep, harness, reproduce |
+| [../evals/README.md](../evals/README.md) | Fixture harnesses; Mem0 Platform runners |
 | [external-postgres-runbook.md](./external-postgres-runbook.md) | Run API + worker on your own Postgres |
-| [../evals/README.md](../evals/README.md) | Fixture harnesses; same-pin vs Mem0 Platform |
 
 ## Product
 
@@ -19,7 +20,6 @@ lives in the root [README](../README.md).
 | --- | --- |
 | [vertical/verticalization-model.md](./vertical/verticalization-model.md) | Packs vs schemas; primitives |
 | [packs/marketing/v1/pack.yaml](../packs/marketing/v1/pack.yaml) | First vertical pack |
-| [benchmarks/README.md](./benchmarks/README.md) | Own-suite scores and how to reproduce |
 | [commercial-beta-checklist.md](./commercial-beta-checklist.md) | Self-host vs hosted-beta gaps |
 
 ## Contribute

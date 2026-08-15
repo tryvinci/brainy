@@ -82,24 +82,45 @@ Start at **[docs/README.md](docs/README.md)**.
 | --- | --- |
 | Run against my own Postgres | [docs/external-postgres-runbook.md](docs/external-postgres-runbook.md) |
 | Write a vertical pack | [docs/vertical/verticalization-model.md](docs/vertical/verticalization-model.md) |
-| Reproduce evals | [evals/README.md](evals/README.md) · [docs/benchmarks/README.md](docs/benchmarks/README.md) |
+| Benchmarks vs other memory systems | [docs/benchmarks/README.md](docs/benchmarks/README.md) |
+| Run evals | [evals/README.md](evals/README.md) |
 | Contribute or get support | [CONTRIBUTING.md](CONTRIBUTING.md) · [SUPPORT.md](SUPPORT.md) |
 | Report a vulnerability | [SECURITY.md](SECURITY.md) |
+
+## Benchmarks
+
+Same-pin only (same dataset SHA, same judge temperature, same question set).
+**Not SOTA.** 1×30 LoCoMo is measurement, not qualification. We **trail
+open-domain** on that pin.
+
+Full tables, methodology, artifacts, and how to reproduce:
+**[docs/benchmarks](docs/benchmarks/README.md)**.
+
+Public-suite peer ([LOCOMO](https://github.com/snap-research/locomo) /
+LongMemEval / BEAM, `UnifiedResult` JSON):
+[mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks).
+Their published LoCoMo ~92% is a **different run** (full 10 conversations,
+top-k 200) — it is not a row in the table below.
+
+| Suite | Brainy (R4h, 2026-08-15) | Mem0 Platform | Graphiti OSS / Zep Platform |
+| --- | ---: | ---: | --- |
+| LoCoMo 1×30 | **20/30** (MH 10/10, OD **0/4**, temporal 10/16) | **12/30** (MH 7/10, OD 3/4, temporal 2/16) frozen 2026-08-13 | no same-pin |
+| OpMem | **13/13** | 9/12 (2026-07-14, **not re-run**) | no pin |
+| Marketing vertical | **17/17** | 4/16 empirical (2026-07-29, **not re-run**) | no pin |
+| LongMemEval-20 | 0/20 integrity | no fair pin on this harness | no pin |
+| BEAM | not re-run this cycle | published elsewhere; not our pin | no pin |
+
+Mem0 **OSS** was not re-measured. Do not mix this 1×30 with Mem0 blog 90+ or
+with Brainy staging 3×90. Pins:
+[LoCoMo](docs/benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) ·
+[Mem0 same-pin](docs/benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md) ·
+[OpMem](docs/benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) ·
+[marketing](docs/benchmarks/artifacts/marketing-mh-r4h-local-20260815.md).
 
 ## Status
 
 Developer preview (`v0.1.0`). Self-host with Docker Compose. Hosted beta needs
 API keys and still lacks ToS / privacy / PITR before GA.
-
-Measured locally (1×30 LoCoMo is measurement, not qualification; not SOTA):
-
-| Suite | Score | Report |
-| --- | ---: | --- |
-| OpMem | **13/13** | [pin](docs/benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) |
-| Marketing vertical | **17/17** | [pin](docs/benchmarks/artifacts/marketing-mh-r4h-local-20260815.md) |
-| LoCoMo 1×30 | **20/30** (MH 10/10, OD 0/4, temporal 10/16) | [pin](docs/benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) |
-
-How to reproduce: [docs/benchmarks/README.md](docs/benchmarks/README.md).
 
 ## Development
 

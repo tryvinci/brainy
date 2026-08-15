@@ -24,7 +24,7 @@ Track four surfaces separately:
 
 ## Cycle closeout (required)
 
-Every remasure / merge cycle: fill [cycle-closeout.md](./cycle-closeout.md) (Landed → Own pins → **detailed competitor compare** → Why → Next). Product README / GTM report **Brainy scores only**. Evals may name competitors. Do not ship a Brainy-only score dump **in this file**.
+Every remasure / merge cycle: fill [cycle-closeout.md](./cycle-closeout.md) (Landed → Own pins → **detailed competitor compare** → Why → Next). Product README may carry a same-pin **summary** that outlinks [docs/benchmarks/README.md](../../benchmarks/README.md). GTM stays Brainy-product copy. Evals may name competitors. Do not ship a Brainy-only score dump **in this file**.
 
 ## Per-gap workflow
 
