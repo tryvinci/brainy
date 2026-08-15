@@ -25,7 +25,7 @@ const (
 )
 
 var imageHTTPClient = &http.Client{
-	Timeout: 12 * time.Second,
+	Timeout: 8 * time.Second,
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 3 {
 			return http.ErrUseLastResponse
@@ -87,21 +87,8 @@ func needsImageOCR(msg Message) bool {
 		return false
 	}
 	lower := strings.ToLower(msg.Content)
-	if strings.Contains(lower, "this book") || strings.Contains(lower, "this novel") ||
-		strings.Contains(lower, "this title") {
-		return true
-	}
-	if !(strings.Contains(lower, "read") || strings.Contains(lower, "book") || strings.Contains(lower, "novel")) {
-		return false
-	}
-	// Already has a quoted multi-word title — OCR is optional.
-	for _, m := range quotedTitleRE.FindAllStringSubmatch(msg.Content, 4) {
-		title := firstNonEmpty(m[1], m[2], m[3], m[4])
-		if len(strings.Fields(title)) >= 2 {
-			return false
-		}
-	}
-	return true
+	return strings.Contains(lower, "this book") || strings.Contains(lower, "this novel") ||
+		strings.Contains(lower, "this title")
 }
 
 func visibleTextFromURL(ctx context.Context, raw string) string {
@@ -109,20 +96,17 @@ func visibleTextFromURL(ctx context.Context, raw string) string {
 	if err != nil || len(img) < 64 {
 		return ""
 	}
-	parts := make([]string, 0, 3)
-	if text := ocrTesseract(ctx, img, "6"); text != "" {
-		parts = append(parts, text)
-	}
-	if text := ocrTesseract(ctx, img, "11"); text != "" {
-		parts = append(parts, text)
-	}
+	parts := make([]string, 0, 2)
 	if crop := cropUpperCenterPNG(img); len(crop) > 64 {
 		if text := ocrTesseract(ctx, crop, "11"); text != "" {
 			parts = append(parts, text)
+			if _, ok := titleFromVisibleText(text); ok {
+				return strings.Join(parts, "\n")
+			}
 		}
-		if text := ocrTesseract(ctx, crop, "6"); text != "" {
-			parts = append(parts, text)
-		}
+	}
+	if text := ocrTesseract(ctx, img, "11"); text != "" {
+		parts = append(parts, text)
 	}
 	return strings.Join(parts, "\n")
 }
