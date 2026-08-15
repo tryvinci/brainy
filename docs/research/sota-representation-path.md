@@ -1,7 +1,7 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` after 2026-08-14 production FF (compiler-quality gate `4010d30`). Local remasure **R1b 15/30 (50.0%)** (MH **6/10 (60.0%)**) vs Mem0 same-pin **12/30 (40.0%)** (MH **7/10 (70.0%)**) — **lead overall this pin; trail MH by 1**. Next is **R4 ID hops** on facts that exist + leftover WRITE_MISS. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
+**Tips:** `main` = `dev` after 2026-08-15 production FF (R4 hops `d48e202`). Local remasure **R4 19/30 (63.3%)** (MH **9/10 (90.0%)**) vs Mem0 same-pin **12/30 (40.0%)** (MH **7/10 (70.0%)**) — **lead overall and MH this pin**. Remaining MH miss is image-gold WRITE_MISS. Next is **R5** structured-first OD. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
 **Does not claim:** SOTA, beats-Mem0, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md)
 
@@ -313,9 +313,9 @@ Caroline currently lives in London.  fact_type=state  valid_from=2025-07
 
 Keep `temporal_score`, `IncludeHistorical`, and current-state resolution — score **dated semantic records**, not conversational prose.
 
-**First slice (landed):** `memory_relations` (mig v20) + `follow_relation` hops. Edges are projected from compiler facts. q11 origin still `READER_MISS` with `gold_in_facts=true` — R4 ID join is the remaining MH point vs Mem0 7/10.
+**First slice (landed):** `memory_relations` (mig v20) + `follow_relation` hops. Edges are projected from compiler facts on **both** sync ingest and async extract. R4 remasure MH **9/10**.
 
-### R4 — Relation-aware hops (actual joins)
+### R4 — Relation-aware hops (actual joins) — landed (measurement)
 
 Invariant:
 
@@ -323,9 +323,7 @@ Invariant:
 hop[i].output_entity_id == hop[i+1].input_entity_id
 ```
 
-```text
-Melanie --friend--> Caroline --origin--> Sweden
-```
+Local 1×30 (`d48e202`): MH **9/10 (90.0%)** vs Mem0 freeze **7/10**. Remaining MH miss is image-gold, not a hop miss. Canonical entity IDs (R2 full) are still not claimed done.
 
 Proof chain holds **entity IDs, relation IDs, fact IDs, evidence IDs** so the join is inspectable. This is not “hop 1 retrieved a relevant memory and hop 2 retrieved another.” Earlier `hop_join_proven` was too permissive when it allowed that.
 

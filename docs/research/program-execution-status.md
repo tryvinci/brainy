@@ -5,7 +5,7 @@
 **Competitive SOP / gap matrix:** [competitive/README.md](./competitive/README.md) · [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md)  
 **Hardening self-review prompt (historical):** [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)  
 **Intake SOP:** [external-reviews/README.md](./external-reviews/README.md)  
-**Tips:** `main` = `dev` after 2026-08-14 production FF (compiler-quality gate; LoCoMo **11/30**). Next is held-out **coverage**, not more ranking. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
+**Tips:** `main` = `dev` after 2026-08-15 production FF (R4 hops; LoCoMo **19/30**, MH **9/10**). Next is **R5** OD structured-first, not more MH regex. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
 
 **Course-correction (2026-08-14):** [sota-representation-path.md](./sota-representation-path.md) — Wave 1 was ranking around a transcript index. Next is **representation-first**: compile interactions into facts/entities/relations, retrieve those, keep episodes as provenance + fallback. Not reader-first, not retrieval-tuning-first.  
 **External amendment (same day):** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) — R1c is fact-priority with episode fallback on incomplete coverage, **not** hard episode drop before R1b. R0 coverage oracle before the next LoCoMo category read.
@@ -24,6 +24,7 @@
 10. **2026-08-14 later:** Compiler quality gate (malformed `has done going at` / failed gerund stems are not recall-primary). Local remasure **11/30** (temporal **9/16**, q10 recovered). Packet junk templates 45→6. Ledger **15 WRITE_MISS + 4 READER_MISS**. [pin](../benchmarks/artifacts/locomo-atomq-dev-1x30-20260814.md).
 11. **2026-08-14 later:** `dev` fast-forwarded onto **`main`** with explicit approval (compiler-quality + cycle-closeout SOP). Competitor compare is required every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
 12. **2026-08-14 later:** R1b coverage + R3 relation projection. Held-out audit green. Local remasure LoCoMo **15/30 (50.0%)**, MH **6/10 (60.0%)**, OD **0/4**, temporal **9/16 (56.2%)** vs Mem0 same-pin **12/30 (40.0%) / 7/10 (70.0%) / 3/4 (75.0%) / 2/16 (12.5%)**. OpMem **13/13**, marketing **17/17**. Lead overall this pin; trail MH by 1. **Not SOTA.** Next: R4 ID hops. [pin](../benchmarks/artifacts/locomo-r1b-dev-1x30-20260814.md).
+13. **2026-08-15:** R4 hops + leftover coverage. Local remasure LoCoMo **19/30 (63.3%)**, MH **9/10 (90.0%)**, OD **0/4**, temporal **10/16 (62.5%)** vs Mem0 same-pin **12/30 / 7/10 / 3/4 / 2/16**. OpMem **13/13**, marketing **17/17**. Lead overall **and** MH this pin. Remaining MH miss is image-gold. **Not SOTA.** Next: R5 OD. [pin](../benchmarks/artifacts/locomo-mh-r4c-dev-1x30-20260815.md).
 
 ## Hardening cycle — closed
 
@@ -89,7 +90,7 @@ LoCoMo 1×30 remasure on merged Wave 1 (`a7a5184`): **14/30** (MH **3/10**, OD 2
 
 ## Still open (honest)
 
-- Conversational quality (LME-20 **0/20** publishable; LoCoMo staging 15/30 / 33/90; local PR2 **6/30**; Wave 1 local **14/30**, MH **3/10**; R1c local **10/30**; compiler-quality local **11/30**, MH **2/10**; **R1b local 15/30 (50.0%)**, MH **6/10 (60.0%)** — lead Mem0 same-pin overall, trail MH 6 vs 7)
+- Conversational quality (LME-20 **0/20** publishable; LoCoMo staging 15/30 / 33/90; local PR2 **6/30**; Wave 1 local **14/30**, MH **3/10**; R1c local **10/30**; compiler-quality local **11/30**, MH **2/10**; R1b local **15/30 (50.0%)**, MH **6/10**; **R4 local 19/30 (63.3%)**, MH **9/10 (90.0%)** — lead Mem0 same-pin overall and MH; OD still 0/4; remaining MH miss is image-gold)
 - Reader-only as the SOTA bet is **rejected**. Remaining conversational gap is **representation** (compiler coverage, then entities/edges). Hard episode-drop before R1b is also **rejected**. See [sota-representation-path.md](./sota-representation-path.md).
 - Optional cleaner compare: staging 1×30 vs post-cutover 15/30 after `main` deploy
 - PR10: Mem0 **12/30** same-pin; Wave 1 local **14/30** is not a qualification (MH 3/10 vs 7/10)
@@ -98,5 +99,5 @@ LoCoMo 1×30 remasure on merged Wave 1 (`a7a5184`): **14/30** (MH **3/10**, OD 2
 
 ## Claims discipline
 
-- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; local PR2 remasure **6/30**; Wave 1 local **14/30** (MH 3/10, temporal 9/16) with hybrid-reader confound vs 6/30; R1c local **10/30** (MH 2/10, OD 0/4, temporal 8/16) as an honest dip after PR #113; compiler-quality local **11/30** (q10 recovered; junk 45→6; still a dip vs Wave 1); R1b local **15/30 (50.0%)** (MH 6/10, OD 0/4, temporal 9/16) as **lead this Mem0 freeze overall** and **trail MH 6 vs 7** — not SOTA / not qualification; fresh Mem0 **12/30 (40.0%)** (MH 7/10); OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); PR #113 on `dev`+`main` (`21a632b`); Wave D histogram.
-- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30, local 6/30, Wave 1 14/30, R1c 10/30, compiler-quality 11/30, or R1b 15/30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME; treating Wave 1 ranking PRs as the SOTA architecture; treating R1c’s 19 `SOURCE_MISS` ledger labels as a write-pipeline outage.
+- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; local PR2 remasure **6/30**; Wave 1 local **14/30** (MH 3/10, temporal 9/16) with hybrid-reader confound vs 6/30; R1c local **10/30** (MH 2/10, OD 0/4, temporal 8/16) as an honest dip after PR #113; compiler-quality local **11/30** (q10 recovered; junk 45→6; still a dip vs Wave 1); R1b local **15/30 (50.0%)** (MH 6/10, OD 0/4, temporal 9/16) as **lead this Mem0 freeze overall** and **trail MH 6 vs 7**; R4 local **19/30 (63.3%)** (MH 9/10, OD 0/4, temporal 10/16) as **lead this freeze overall and MH** — not SOTA / not qualification; remaining MH miss is image-gold; fresh Mem0 **12/30 (40.0%)** (MH 7/10); OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); PR #113 on `dev`+`main` (`21a632b`); Wave D histogram.
+- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30, local 6/30, Wave 1 14/30, R1c 10/30, compiler-quality 11/30, R1b 15/30, or R4 19/30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME; treating Wave 1 ranking PRs as the SOTA architecture; treating R1c’s 19 `SOURCE_MISS` ledger labels as a write-pipeline outage.
