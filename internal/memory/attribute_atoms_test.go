@@ -253,6 +253,28 @@ func TestKidsPronounBindsAfterMention(t *testing.T) {
 	}
 }
 
+func TestKidsPronounBindsStokedExhibitInSameBatch(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Dana: Congrats on following your dreams. Yesterday I took the kids to the museum - it was so cool spending time with them!"},
+			{Role: "user", Content: "Sam: What were they so stoked about?"},
+			{Role: "user", Content: "Dana: They were stoked for the fossils exhibit! They love learning about animals and the bones were so cool."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "fossils") {
+		t.Fatalf("expected exhibit noun from they-stoked, got %q", joined)
+	}
+}
+
 func TestWorkWithGroupEmitsOccupationQualifier(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{

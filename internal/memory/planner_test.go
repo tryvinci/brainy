@@ -1,6 +1,9 @@
 package memory
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	plan := PlanQuery("what is Alex currently working on?", nil)
@@ -62,6 +65,22 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	}
 	if !foundOcc || !foundID {
 		t.Fatalf("expected occupation+identity hops, hops=%+v", career.Hops)
+	}
+
+	when := PlanQuery("When did Jordan go to the support group?", nil)
+	if len(when.Hops) != 0 {
+		t.Fatalf("when-questions must not dump event hops, hops=%+v", when.Hops)
+	}
+
+	kids := PlanQuery("What do Riley's kids like?", nil)
+	ent := ""
+	for _, hop := range kids.Hops {
+		if hop.Kind == "resolve_entity" {
+			ent = hop.Entity
+		}
+	}
+	if !strings.EqualFold(ent, "riley") {
+		t.Fatalf("expected entity riley, got %q hops=%+v", ent, kids.Hops)
 	}
 }
 
