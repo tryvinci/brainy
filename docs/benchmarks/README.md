@@ -2,20 +2,38 @@
 
 How Brainy is measured, and how that compares to other memory systems.
 
-The README carries a **same-pin summary**. This page is the full section:
-suites, caveats, artifacts, and reproduce commands. Internal cycle write-ups
-(why a delta happened) live in
+The README carries two tables: **published %** (industry scoreboard) and
+**same-pin** (the only fair lead/trail). This page is the full section:
+sourced claims, caveats, artifacts, and reproduce commands. Internal cycle
+write-ups live in
 [research/competitive/cycle-closeout.md](../research/competitive/cycle-closeout.md).
 
 **Honest rules**
 
 - We do **not** invent scores. Suites without a run are **not run** / **no pin**.
 - Same-pin = same dataset SHA, same judge/answerer, same question set.
-- Vendor README / blog headlines are **context**, never mixed into our n/N table.
+- Published vendor percents live in [published-claims.md](./published-claims.md). Label metric and n. Do not treat them as same-pin lead/trail.
 - 1×30 LoCoMo is **measurement, not qualification**. Not SOTA.
 - **Mem0 OSS ≠ Mem0 Platform.** **Graphiti OSS ≠ Zep Platform.**
 
-## Comparison summary
+## Published %
+
+Industry format: one percent per public suite. **Not same-pin.**
+
+| | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
+| --- | ---: | ---: | ---: | ---: |
+| **Brainy** | **49.8%** last full (n=1540, 2026-07-31) · **66.7%** 1×30 now | **4%** (n=100) · **0%** LME-20 | not run (40% on 100K/20q) | not run |
+| **Mem0 Platform** | **92.5%** | **94.4%** | **64.1** | **48.6** |
+| **Zep** | **75.14%** | 71.2% | — | — |
+| **SuperMemory** | 77.1% | 95% Recall@15 | — | — |
+| **Letta** | 74.0% | — | — | — |
+| **Hindsight** | 92.0% | 94.6% | 73.9% | 64.1% |
+
+Sources, n, metric type, and the Zep LoCoMo dispute:
+[published-claims.md](./published-claims.md). Peer harness:
+[mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks).
+
+## Same-pin comparison
 
 Pin date for Brainy: **R4h, 2026-08-15** (`f4ec4d7` product SHA; docs may be
 later). Mem0 LoCoMo freeze: **2026-08-13**.
@@ -37,19 +55,9 @@ Search p50 on the LoCoMo 1×30 pin: Brainy **125 ms** local vs Mem0 Platform
 Mem0 OSS was **not** re-measured. Do not treat Platform 12/30 as an
 OSS-reproducible number.
 
-### What we do not mix
-
-[mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks) publishes
-Mem0 Platform numbers on a **different** harness (full datasets, top-k 200):
-
-| Their published suite | Their published score | Why it is not a row above |
-| --- | --- | --- |
-| LoCoMo (10 convos) | ~92.5% (1425/1540) | Different n, top-k, judge, ingest path vs our 1×30 |
-| LongMemEval (500 Q) | ~94.4% (472/500) | Different n vs our LME-20 integrity pin |
-| BEAM 1M / 10M | ~70.1% / ~50.5% (top-k 200) | We have no same-pin BEAM run this cycle |
-
-Those are useful **context** for the public-suite ladder. Do not paste them into
-the n/N table.
+Do not paste the published-% table into this same-pin n/N table. Those
+percents (and the Zep 58–84 dispute) are catalogued in
+[published-claims.md](./published-claims.md).
 
 ## Public suites
 

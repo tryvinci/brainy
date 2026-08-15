@@ -81,6 +81,7 @@ Outputs: `{run_id}.json` (UnifiedResult), `{run_id}.manifest.json`, markdown rep
 
 Public-suite peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)
 (`UnifiedResult`). Scoreboard: [docs/benchmarks/README.md](../../docs/benchmarks/README.md).
+Sourced vendor percents: [published-claims.md](../../docs/benchmarks/published-claims.md).
 Do not mix their published 90%+ LoCoMo with our 1×30 pin.
 
 ## Same-pin vs Mem0 Platform

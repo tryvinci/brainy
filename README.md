@@ -89,29 +89,43 @@ Start at **[docs/README.md](docs/README.md)**.
 
 ## Benchmarks
 
-Same-pin only (same dataset SHA, same judge temperature, same question set).
-**Not SOTA.** 1×30 LoCoMo is measurement, not qualification. We **trail
-open-domain** on that pin.
+Vendors publish a **percent per suite** (LoCoMo / LongMemEval / BEAM). That is
+the industry scoreboard. **Not SOTA.** Cells below are **sourced claims**, not
+a same-pin bake-off (n, top-k, judge, and sometimes the metric differ).
 
-Full tables, methodology, artifacts, and how to reproduce:
-**[docs/benchmarks](docs/benchmarks/README.md)**.
+Full sourced table:
+**[docs/benchmarks/published-claims.md](docs/benchmarks/published-claims.md)**.
+Harness peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks).
 
-Public-suite peer ([LOCOMO](https://github.com/snap-research/locomo) /
-LongMemEval / BEAM, `UnifiedResult` JSON):
-[mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks).
-Their published LoCoMo ~92% is a **different run** (full 10 conversations,
-top-k 200) — it is not a row in the table below.
+| | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
+| --- | ---: | ---: | ---: | ---: |
+| **Brainy** | **49.8%** last full (n=1540) · 66.7% 1×30 now | **4%** (n=100) · 0% LME-20 | not run (40% on 100K/20q) | not run |
+| **Mem0 Platform** | **92.5%** | **94.4%** | **64.1** | **48.6** |
+| **Zep** | **75.14%** | 71.2% | — | — |
+| **SuperMemory** | 77.1% | 95% Recall@15 | — | — |
+| **Letta** | 74.0% | — | — | — |
+| **Hindsight** | 92.0% | 94.6% | 73.9% | 64.1% |
 
-| Suite | Brainy (R4h, 2026-08-15) | Mem0 Platform | Graphiti OSS / Zep Platform |
+Brainy’s 49.8% is the last **full** LoCoMo (3-seed mean, 2026-07-31, old stack).
+R4h did not re-run n=1540. SuperMemory’s 95 is **Recall@15**, not LLM-judge.
+Graphiti OSS has no published %. Zep LoCoMo was disputed (Mem0 re-ran Zep at
+58.44%; Zep publishes 75.14%).
+
+### Same-pin
+
+Same dataset SHA, judge temperature, and question set. We **trail
+open-domain** on this pin.
+
+| Suite | Brainy (R4h, 2026-08-15) | Mem0 Platform | Graphiti OSS / Zep |
 | --- | ---: | ---: | --- |
-| LoCoMo 1×30 | **20/30** (MH 10/10, OD **0/4**, temporal 10/16) | **12/30** (MH 7/10, OD 3/4, temporal 2/16) frozen 2026-08-13 | no same-pin |
-| OpMem | **13/13** | 9/12 (2026-07-14, **not re-run**) | no pin |
-| Marketing vertical | **17/17** | 4/16 empirical (2026-07-29, **not re-run**) | no pin |
-| LongMemEval-20 | 0/20 integrity | no fair pin on this harness | no pin |
-| BEAM | not re-run this cycle | published elsewhere; not our pin | no pin |
+| LoCoMo 1×30 | **66.7%** (20/30; MH 10/10, OD **0/4**, temporal 10/16) | **40.0%** (12/30; MH 7/10, OD 3/4, temporal 2/16) frozen 2026-08-13 | no same-pin |
+| OpMem | **100%** (13/13) | 75% (9/12, 2026-07-14, **not re-run**) | no pin |
+| Marketing vertical | **100%** (17/17) | 25% (4/16 empirical, 2026-07-29, **not re-run**) | no pin |
+| LongMemEval-20 | 0% integrity | no fair pin on this harness | no pin |
+| BEAM | not re-run this cycle | see published % above | no pin |
 
-Mem0 **OSS** was not re-measured. Do not mix this 1×30 with Mem0 blog 90+ or
-with Brainy staging 3×90. Pins:
+Mem0 **OSS** was not re-measured. Reproduce and artifacts:
+**[docs/benchmarks](docs/benchmarks/README.md)**. Pins:
 [LoCoMo](docs/benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md) ·
 [Mem0 same-pin](docs/benchmarks/artifacts/locomo-mem0-samepin-pr10-20260813.md) ·
 [OpMem](docs/benchmarks/artifacts/opmem-mh-r4h-local-20260815.md) ·

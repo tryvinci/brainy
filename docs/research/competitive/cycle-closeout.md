@@ -2,7 +2,7 @@
 
 Fill a new dated section (or a new file `cycle-closeout-YYYYMMDD.md`) at the end of every measurement cycle. Do not close a cycle with Brainy scores alone.
 
-**Tracks (never mix):** Same-pin = same dataset SHA, same judge/answerer, same question set. Vendor blogs / README headlines are context, not scoreboard rows. The product README may carry a **same-pin summary** that outlinks [docs/benchmarks/README.md](../../benchmarks/README.md). Detailed why/next stays **here**. Do not paste [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks) 90%+ headlines into our n/N table.
+**Tracks (never mix):** Same-pin = same dataset SHA, same judge/answerer, same question set. The product README may carry a **published-% claims** table (sourced, n/metric labeled) and a **same-pin** table, outlinking [docs/benchmarks/README.md](../../benchmarks/README.md) and [published-claims.md](../../benchmarks/published-claims.md). Detailed why/next stays **here**. Do not use vendor headlines for lead/trail.
 
 The **product** cycle summary is the README comparison table (plus GTM still Brainy-product copy). **Evals may name competitors.** The competitor table lives here.
 

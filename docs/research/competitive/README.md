@@ -2,7 +2,7 @@
 
 Standing process for inspecting Mem0 / Graphiti (and peers) before inventing Brainy memory mechanisms.
 
-**Program of record (execution):** [sota-representation-path.md](./sota-representation-path.md) — compile interactions into facts/entities/relations; retrieve those; keep episodes as provenance + fallback. Wave 1 ranking PRs are not the SOTA bet. **Mem0 OSS ≠ Mem0 Platform; Graphiti ≠ Zep Platform.**  
+**Program of record (execution):** [sota-representation-path.md](../sota-representation-path.md) — compile interactions into facts/entities/relations; retrieve those; keep episodes as provenance + fallback. Wave 1 ranking PRs are not the SOTA bet. **Mem0 OSS ≠ Mem0 Platform; Graphiti ≠ Zep Platform.**  
 **Gap matrix:** [competitive-gap-matrix.md](./competitive-gap-matrix.md)  
 **Cycle closeout (required every remasure):** [cycle-closeout.md](./cycle-closeout.md)  
 **Borrow log:** [implementation-borrow-log.md](./implementation-borrow-log.md)
@@ -24,7 +24,7 @@ Track four surfaces separately:
 
 ## Cycle closeout (required)
 
-Every remasure / merge cycle: fill [cycle-closeout.md](./cycle-closeout.md) (Landed → Own pins → **detailed competitor compare** → Why → Next). Product README may carry a same-pin **summary** that outlinks [docs/benchmarks/README.md](../../benchmarks/README.md). GTM stays Brainy-product copy. Evals may name competitors. Do not ship a Brainy-only score dump **in this file**.
+Every remasure / merge cycle: fill [cycle-closeout.md](./cycle-closeout.md) (Landed → Own pins → **detailed competitor compare** → Why → Next). Product README may carry a **published-%** table plus a same-pin **summary** that outlinks [docs/benchmarks/README.md](../../benchmarks/README.md) and [published-claims.md](../../benchmarks/published-claims.md). GTM stays Brainy-product copy. Evals may name competitors. Do not ship a Brainy-only score dump **in this file**.
 
 ## Per-gap workflow
 

@@ -10,7 +10,8 @@ lives in the root [README](../README.md).
 | [README](../README.md) | What Brainy is, Compose quickstart, API table, benchmark summary |
 | [api.md](./api.md) | HTTP routes, auth, request bodies |
 | [conversation-ingest.md](./conversation-ingest.md) | How chat clients should call `/ingest` |
-| [benchmarks/README.md](./benchmarks/README.md) | Full benchmarks: same-pin vs Mem0 / Graphiti / Zep, harness, reproduce |
+| [benchmarks/README.md](./benchmarks/README.md) | Full benchmarks: published % vs claims, same-pin, harness, reproduce |
+| [benchmarks/published-claims.md](./benchmarks/published-claims.md) | Sourced LoCoMo / LME / BEAM percents (Mem0, Zep, SuperMemory, Letta, Hindsight) |
 | [../evals/README.md](../evals/README.md) | Fixture harnesses; Mem0 Platform runners |
 | [external-postgres-runbook.md](./external-postgres-runbook.md) | Run API + worker on your own Postgres |
 

@@ -84,12 +84,14 @@ python3 evals/run_vertical_eval.py --base-url http://127.0.0.1:8080
 
 ## Public docs voice
 
-The product README **may** include a **same-pin comparison summary** vs named
-systems (today: Mem0 Platform; Graphiti/Zep as **no pin**), outlinking to
-[docs/benchmarks/README.md](docs/benchmarks/README.md). Do **not** mix vendor
-blog / [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)
-90%+ headlines into our n/N table. Do not write SOTA / beats-Mem0. 1×30 is
-measurement. Trail axes (today: open-domain) must stay visible.
+The product README **may** include (1) a **published-% claims** table vs named
+systems (LoCoMo / LongMemEval / BEAM percents, sourced, n and metric labeled)
+and (2) a **same-pin** summary, outlinking to
+[docs/benchmarks/README.md](docs/benchmarks/README.md) and
+[docs/benchmarks/published-claims.md](docs/benchmarks/published-claims.md).
+Do **not** treat vendor headlines as same-pin lead/trail. Do not write SOTA /
+beats-Mem0. 1×30 is measurement. Trail axes (today: open-domain) must stay
+visible. SuperMemory Recall@k is not an LLM-judge percent.
 
 GTM, launch narrative, and the commercial checklist stay Brainy-product copy
 (no bake-off tables). Quick Start stays how-to-run.
@@ -110,11 +112,11 @@ cycle-closeout.
 
 ## Benchmark cycle closeout (required)
 
-Every remasure, merge, or “where we landed” cycle must report **in this order**, in **both** the user-facing summary and a new dated section of [docs/research/competitive/cycle-closeout.md](docs/research/competitive/cycle-closeout.md). Scores-only is incomplete. A Brainy pin without a detailed competitor compare **in the competitive folder** is not a cycle closeout. The **README** half is a same-pin **summary table** plus outlink to [docs/benchmarks/README.md](docs/benchmarks/README.md) (no SOTA; trail axes named). Evals may name competitors.
+Every remasure, merge, or “where we landed” cycle must report **in this order**, in **both** the user-facing summary and a new dated section of [docs/research/competitive/cycle-closeout.md](docs/research/competitive/cycle-closeout.md). Scores-only is incomplete. A Brainy pin without a detailed competitor compare **in the competitive folder** is not a cycle closeout. The **README** half is (1) a labeled **published-%** table plus (2) a **same-pin** table, outlinking [docs/benchmarks/README.md](docs/benchmarks/README.md) (no SOTA; trail axes named). Evals may name competitors.
 
 1. **Landed** — SHAs on `dev` / `main`, what product change shipped.
 2. **Own pins** — OpMem, marketing, LoCoMo 1×30 **by category** (MH / OD / temporal), LME if run. Name dips as dips. 1×30 is measurement, not qualification.
-3. **Competitor compare (detailed)** — required every cycle, **in** [cycle-closeout.md](docs/research/competitive/cycle-closeout.md). README gets a short same-pin summary that outlinks [docs/benchmarks/README.md](docs/benchmarks/README.md). Same-pin only for lead/trail. See [competitive/README.md](docs/research/competitive/README.md).
+3. **Competitor compare (detailed)** — required every cycle, **in** [cycle-closeout.md](docs/research/competitive/cycle-closeout.md). README gets published-% (sourced) plus same-pin, outlinking [docs/benchmarks/README.md](docs/benchmarks/README.md). Same-pin only for lead/trail. See [competitive/README.md](docs/research/competitive/README.md).
    - For each trailing axis: the product mechanism and the PoR step that closes it. For each leading axis: what we must not regress.
    - Unpublished vendors: write **no pin** unless we ran them. Published headlines are **context**, never scoreboard rows.
 4. **Why the delta** — product mechanism (compiler coverage, provenance crowding, reader). Not vibes.

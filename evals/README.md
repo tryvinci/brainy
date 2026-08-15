@@ -57,7 +57,9 @@ Docker smoke: `.github/workflows/docker-smoke.yml`.
 
 ## Same-pin vs Mem0
 
-Scoreboard and caveats: [docs/benchmarks/README.md](../docs/benchmarks/README.md).
+Scoreboard: [docs/benchmarks/README.md](../docs/benchmarks/README.md)
+(published % + same-pin). Sourced vendor percents:
+[published-claims.md](../docs/benchmarks/published-claims.md).
 Public-suite peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)
 (`UnifiedResult`). Do not mix their published 90%+ LoCoMo with our 1×30 pin.
 
