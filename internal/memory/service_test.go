@@ -16,6 +16,12 @@ type memoryStoreStub struct {
 	records     map[string]MemoryRecord
 	jobs        map[string]ExtractionJob
 	entityLinks map[string][]string
+	relations   []MemoryRelation
+	atoms       []stubAtom
+}
+
+type stubAtom struct {
+	pred, val, memID string
 }
 
 func newMemoryStoreStub() *memoryStoreStub {
@@ -130,6 +136,59 @@ func (s *memoryStoreStub) EntityHubBoosts(_ context.Context, _, _ string, queryE
 			if out[id] > 0.5 {
 				out[id] = 0.5
 			}
+		}
+	}
+	return out, nil
+}
+
+func (s *memoryStoreStub) UpsertMemoryRelation(_ context.Context, rel MemoryRelation) error {
+	s.relations = append(s.relations, rel)
+	return nil
+}
+
+func (s *memoryStoreStub) ListRelationsFrom(_ context.Context, tenantID, subjectID, srcEntity, relation string, limit int) ([]MemoryRelation, error) {
+	srcEntity = strings.ToLower(strings.TrimSpace(srcEntity))
+	out := make([]MemoryRelation, 0)
+	for _, rel := range s.relations {
+		if rel.TenantID != tenantID || rel.SubjectID != subjectID {
+			continue
+		}
+		if strings.ToLower(rel.SrcEntity) != srcEntity {
+			continue
+		}
+		if relation != "" && rel.Relation != relation {
+			continue
+		}
+		out = append(out, rel)
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (s *memoryStoreStub) UpsertMemoryAtom(_ context.Context, _, _, predicate, value, memoryID string, _ *time.Time) error {
+	s.atoms = append(s.atoms, stubAtom{pred: predicate, val: value, memID: memoryID})
+	return nil
+}
+
+func (s *memoryStoreStub) ListAtomMemoryIDs(_ context.Context, _, _ string, predicate, valueNorm string, limit int) ([]string, error) {
+	out := make([]string, 0)
+	seen := map[string]struct{}{}
+	for _, a := range s.atoms {
+		if predicate != "" && a.pred != predicate {
+			continue
+		}
+		if valueNorm != "" && !strings.EqualFold(a.val, valueNorm) {
+			continue
+		}
+		if _, ok := seen[a.memID]; ok {
+			continue
+		}
+		seen[a.memID] = struct{}{}
+		out = append(out, a.memID)
+		if limit > 0 && len(out) >= limit {
+			break
 		}
 	}
 	return out, nil

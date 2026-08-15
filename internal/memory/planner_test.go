@@ -38,6 +38,31 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if !foundRel {
 		t.Fatalf("expected follow_relation activity hop, hops=%+v intents=%v", acts.Hops, acts.Intents)
 	}
+
+	origin := PlanQuery("Where did Jordan move from 4 years ago?", nil)
+	foundOrigin := false
+	for _, hop := range origin.Hops {
+		if hop.Kind == "follow_relation" && hop.Predicate == PredicateOrigin && hop.Output == "ans" {
+			foundOrigin = true
+		}
+	}
+	if !foundOrigin {
+		t.Fatalf("expected origin follow_relation as ans, hops=%+v", origin.Hops)
+	}
+
+	career := PlanQuery("What career path has Jordan decided to pursue?", nil)
+	foundOcc, foundID := false, false
+	for _, hop := range career.Hops {
+		if hop.Kind == "follow_relation" && hop.Predicate == PredicateOccupation {
+			foundOcc = true
+		}
+		if hop.Predicate == PredicateIdentity {
+			foundID = true
+		}
+	}
+	if !foundOcc || !foundID {
+		t.Fatalf("expected occupation+identity hops, hops=%+v", career.Hops)
+	}
 }
 
 func TestBuildEvidencePacket(t *testing.T) {

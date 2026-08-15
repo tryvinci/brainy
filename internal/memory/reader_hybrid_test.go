@@ -238,12 +238,12 @@ func TestFormatHybridMemoryLinesIncludesHopChain(t *testing.T) {
 	}
 }
 
-func TestFormatHybridMemoryLinesLeadsWithContext(t *testing.T) {
+func TestFormatHybridMemoryLinesLeadsWithStructuredSlots(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []string{"Alex lives in New York", "Alex later moved to Austin"},
 		Coverage: map[string]any{
 			"hop_results": []HopResult{
-				{HopIndex: 0, Kind: "fetch_predicate", Value: "Austin", Source: "typed_store", Contents: []string{"Alex lives in Austin"}},
+				{HopIndex: 0, Kind: "fetch_predicate", Predicate: PredicateResidence, Value: "Austin", Source: "typed_store", Contents: []string{"Alex lives in Austin"}},
 			},
 		},
 	}
@@ -251,7 +251,11 @@ func TestFormatHybridMemoryLinesLeadsWithContext(t *testing.T) {
 	if len(lines) < 2 {
 		t.Fatalf("lines=%v", lines)
 	}
-	if !strings.Contains(lines[0], "New York") {
-		t.Fatalf("context must lead, first=%q", lines[0])
+	if lines[0] != "Structured:" {
+		t.Fatalf("structured slots must lead, first=%q", lines[0])
+	}
+	joined := strings.Join(lines, "\n")
+	if !strings.Contains(joined, "New York") {
+		t.Fatalf("context must still be present, lines=%v", lines)
 	}
 }

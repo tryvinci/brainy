@@ -196,3 +196,79 @@ func TestAsARoleEmitsIdentityAtom(t *testing.T) {
 		t.Fatalf("expected as-a-role identity atom, got %q", joined)
 	}
 }
+
+func TestKidsPreferenceFindAllSkipsTemporalJunk(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: The kids were wild about fossils at the museum."},
+			{Role: "user", Content: "Riley: The kids love nature."},
+			{Role: "user", Content: "Riley: The kids were talking about our last one over summer break."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "fossils") {
+		t.Fatalf("expected fossils preference, got %q", joined)
+	}
+	if !strings.Contains(joined, "nature") {
+		t.Fatalf("expected nature preference, got %q", joined)
+	}
+	if strings.Contains(joined, "kids like our last") || strings.Contains(joined, "kids like summer") {
+		t.Fatalf("junk preference compiled: %q", joined)
+	}
+}
+
+func TestWorkWithGroupEmitsOccupationQualifier(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Jordan: I'm thinking of working with elderly patients."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "elderly patients") {
+		t.Fatalf("expected career-for group, got %q", joined)
+	}
+}
+
+func TestUnquotedTitleRunAndOneWordQuote(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: This book I read last year, The Hidden Garden, still stays with me."},
+			{Role: "user", Content: `Riley: I read "Perfect"`},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "hidden garden") {
+		t.Fatalf("expected title-case run, got %q", joined)
+	}
+	if strings.Contains(joined, `"perfect"`) {
+		t.Fatalf("one-word quote should not compile, got %q", joined)
+	}
+}

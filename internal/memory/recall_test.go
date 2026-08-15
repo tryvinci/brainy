@@ -214,3 +214,146 @@ func TestRecallUsesMaxEvidenceTokensBudget(t *testing.T) {
 		t.Fatalf("expected max_evidence_tokens to win budget, explain=%v", out.Explain)
 	}
 }
+
+func TestRecallOriginHopAnswersPlaceNotAnaphora(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-origin", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Jordan: This necklace is from my home country, Portugal."},
+			{Role: "user", Content: "Jordan: I've known these friends for four years, since I moved from my home country."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-origin", SubjectID: "u1",
+		Query: "Where did Jordan move from 4 years ago?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.ToLower(out.Answer + " " + strings.Join(func() []string {
+		vals := make([]string, 0, len(out.Items))
+		for _, it := range out.Items {
+			vals = append(vals, it.Value)
+		}
+		return vals
+	}(), " "))
+	if !strings.Contains(joined, "portugal") {
+		t.Fatalf("expected origin place in answer, got answer=%q items=%#v explain_hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(strings.ToLower(out.Answer), "home country") && !strings.Contains(joined, "portugal") {
+		t.Fatalf("anaphora leaked without place: %q", out.Answer)
+	}
+}
+
+func TestRecallCareerEnumeratesFieldAndPopulation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-career", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Jordan: I'm looking into counseling and mental health as a career."},
+			{Role: "user", Content: "Jordan: I'm thinking of working with elderly patients."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-career", SubjectID: "u1",
+		Query: "What career path has Jordan decided to pursue?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.ToLower(out.Answer + " " + out.ContextBlock)
+	for _, it := range out.Items {
+		joined += " " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(joined, "counseling") {
+		t.Fatalf("expected counseling, items=%#v answer=%q", out.Items, out.Answer)
+	}
+	if !strings.Contains(joined, "elderly") {
+		t.Fatalf("expected population qualifier, items=%#v answer=%q", out.Items, out.Answer)
+	}
+}
+
+func TestRecallKidsLikesSkipsJunkAndKeepsExhibitNoun(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-kids", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: The kids were wild about fossils at the museum."},
+			{Role: "user", Content: "Riley: The kids love nature."},
+			{Role: "user", Content: "Riley: The kids were talking about our last one over summer break."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-kids", SubjectID: "u1",
+		Query: "What do Riley's kids like?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.ToLower(out.ContextBlock)
+	for _, it := range out.Items {
+		joined += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(joined, "fossil") {
+		t.Fatalf("expected fossils, items=%#v", out.Items)
+	}
+	if !strings.Contains(joined, "nature") {
+		t.Fatalf("expected nature, items=%#v", out.Items)
+	}
+	if strings.Contains(joined, "summer break") || strings.Contains(joined, "our last one") {
+		t.Fatalf("junk preference leaked: %#v", out.Items)
+	}
+}
+
+func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-books", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: `Riley: I loved reading "The Little Prince" as a kid.`},
+			{Role: "user", Content: "Riley: This book I read last year, The Hidden Garden, still stays with me."},
+			{Role: "user", Content: `Riley: I read "Perfect"`},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-books", SubjectID: "u1",
+		Query: "What books has Riley read?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.ToLower(out.ContextBlock)
+	for _, it := range out.Items {
+		joined += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(joined, "little prince") {
+		t.Fatalf("expected quoted title, items=%#v", out.Items)
+	}
+	if !strings.Contains(joined, "hidden garden") {
+		t.Fatalf("expected unquoted title run, items=%#v", out.Items)
+	}
+	if strings.Contains(joined, `"perfect"`) || itemHas(out.Items, "Perfect") {
+		t.Fatalf("one-word quote should be rejected, items=%#v", out.Items)
+	}
+}

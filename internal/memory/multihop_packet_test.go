@@ -160,3 +160,35 @@ func TestBuildTypedHopsResolveThenFetch(t *testing.T) {
 	}
 }
 
+func TestComposeMultiHopAnswerPrefersHopSlotValues(t *testing.T) {
+	pkt := EvidencePacket{
+		Items: []PacketItem{
+			{Role: "direct", Content: "I've known these friends for 4 years, since I moved from my home country"},
+			{Role: "bridge", Content: "Jordan plans career in counseling"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{Kind: "resolve_entity", OutputKey: "e1", Value: "Jordan", Source: "typed_store"},
+				{Kind: "follow_relation", OutputKey: "ans", Entity: "Jordan", Predicate: PredicateOrigin, Value: "portugal", Values: []string{"portugal"}, Source: "typed_store", DependsOn: []string{"e1"}},
+			},
+		},
+	}
+	ans := composeMultiHopAnswer(pkt)
+	if !strings.Contains(strings.ToLower(ans), "portugal") {
+		t.Fatalf("expected hop destination, got %q", ans)
+	}
+	if strings.Contains(strings.ToLower(ans), "home country") {
+		t.Fatalf("anaphora must not win over hop value, got %q", ans)
+	}
+}
+
+func TestGroundHybridToHopValues(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "follow_relation", Predicate: PredicateOrigin, Value: "portugal", Values: []string{"portugal"}, Source: "typed_store"},
+	}
+	got := groundToHopValues("I moved from my home country", hops)
+	if !strings.Contains(strings.ToLower(got), "portugal") {
+		t.Fatalf("got %q", got)
+	}
+}
+
