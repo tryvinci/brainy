@@ -167,6 +167,26 @@ class DatasetParserTests(unittest.TestCase):
         qs = iter_questions(conv)
         self.assertEqual(qs[0]["category"], 2)
 
+    def test_iter_sessions_keeps_image_alt_text(self) -> None:
+        from public.locomo.dataset import iter_sessions
+
+        conv = {
+            "conversation": {
+                "session_1": [
+                    {
+                        "speaker": "A",
+                        "text": "Yesterday I took the kids to the museum.",
+                        "query": "kids laughing fossils exhibit museum",
+                    },
+                    {"speaker": "B", "query": "painted canvas follow your dreams"},
+                ]
+            }
+        }
+        sessions = iter_sessions(conv)
+        texts = [t[1] for t in sessions[0]["turns"]]
+        self.assertTrue(any("fossils exhibit" in t for t in texts))
+        self.assertTrue(any("painted canvas" in t for t in texts))
+
 
 class BackendHelperTests(unittest.TestCase):
     def test_probe_token_prefers_year(self) -> None:

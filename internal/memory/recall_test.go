@@ -322,6 +322,39 @@ func TestRecallKidsLikesSkipsJunkAndKeepsExhibitNoun(t *testing.T) {
 	}
 }
 
+func TestRecallResearchEnumeratesTopicNotIdentity(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-research", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Jordan: I am a marine biologist."},
+			{Role: "user", Content: "Jordan: Researching scholarship programs — it's been a dream to help."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-research", SubjectID: "u1",
+		Query: "What did Jordan research?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.ToLower(out.Answer + " " + out.ContextBlock)
+	for _, it := range out.Items {
+		joined += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(joined, "scholarship") {
+		t.Fatalf("expected researched topic, items=%#v answer=%q", out.Items, out.Answer)
+	}
+	if strings.Contains(joined, "marine biologist") {
+		t.Fatalf("identity leaked into research enumerate: %#v", out.Items)
+	}
+}
+
 func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

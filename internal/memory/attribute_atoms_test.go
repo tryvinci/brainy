@@ -253,6 +253,26 @@ func TestKidsPronounBindsAfterMention(t *testing.T) {
 	}
 }
 
+func TestPronounExcitedEmitsSpeakerPreferenceWithoutKids(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Dana: They were stoked for the fossils exhibit!"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "fossils") {
+		t.Fatalf("expected speaker enjoys exhibit noun, got %q", joined)
+	}
+}
+
 func TestKidsPronounBindsStokedExhibitInSameBatch(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{
@@ -292,6 +312,26 @@ func TestWorkWithGroupEmitsOccupationQualifier(t *testing.T) {
 	}
 	if !strings.Contains(joined, "elderly patients") {
 		t.Fatalf("expected career-for group, got %q", joined)
+	}
+}
+
+func TestResearchingTopicEmitsPlanAtom(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Jordan: Researching scholarship programs — it's been a dream to help."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "researched scholarship programs") {
+		t.Fatalf("expected researched topic, got %q", joined)
 	}
 }
 

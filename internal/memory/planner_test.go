@@ -82,6 +82,20 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if !strings.EqualFold(ent, "riley") {
 		t.Fatalf("expected entity riley, got %q hops=%+v", ent, kids.Hops)
 	}
+
+	research := PlanQuery("What did Jordan research?", nil)
+	foundPlan := false
+	for _, hop := range research.Hops {
+		if hop.Predicate == PredicatePlan && strings.Contains(strings.ToLower(hop.Probe), "research") {
+			foundPlan = true
+		}
+		if hop.Predicate == PredicateIdentity {
+			t.Fatalf("research hops must not fetch identity, hops=%+v", research.Hops)
+		}
+	}
+	if !foundPlan {
+		t.Fatalf("expected plan hop with research probe, hops=%+v intents=%v", research.Hops, research.Intents)
+	}
 }
 
 func TestBuildEvidencePacket(t *testing.T) {
