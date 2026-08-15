@@ -307,19 +307,19 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.85, "attribute_titled_work")
 	}
 
-	if m := activityGerund.FindStringSubmatch(body); m != nil {
+	if m := activityGerund.FindStringSubmatch(lexicalBody); m != nil {
 		act := strings.ToLower(NormalizeText(m[1]))
 		if _, stop := activityGerundStop[act]; !stop && len(act) >= 5 {
 			emit(fmt.Sprintf("%s participates in %s", who, act), 0.82, "attribute_activity")
 		}
 	}
-	if m := loveActivityRE.FindStringSubmatch(body); m != nil {
+	if m := loveActivityRE.FindStringSubmatch(lexicalBody); m != nil {
 		act := clipActivityTail(NormalizeText(m[1]))
 		if utf8.RuneCountInString(act) >= 4 && utf8.RuneCountInString(act) <= 40 && !strings.Contains(act, " that ") {
 			emit(fmt.Sprintf("%s enjoys %s", who, act), 0.82, "attribute_activity")
 		}
 	}
-	if matches := placeWithActRE.FindAllStringSubmatch(body, 6); len(matches) > 0 {
+	if matches := placeWithActRE.FindAllStringSubmatch(lexicalBody, 6); len(matches) > 0 {
 		for _, m := range matches {
 			act := strings.ToLower(NormalizeText(m[1]))
 			place, ok := normalizePlace(m[2])
@@ -328,7 +328,7 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			}
 		}
 	}
-	if matches := tripPlaceRE.FindAllStringSubmatch(body, 4); len(matches) > 0 {
+	if matches := tripPlaceRE.FindAllStringSubmatch(lexicalBody, 4); len(matches) > 0 {
 		for _, m := range matches {
 			act := strings.ToLower(NormalizeText(m[1]))
 			place, ok := normalizePlace(m[2])
@@ -337,19 +337,19 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			}
 		}
 	}
-	if m := goGerundRE.FindStringSubmatch(body); m != nil {
+	if m := goGerundRE.FindStringSubmatch(lexicalBody); m != nil {
 		act := strings.ToLower(NormalizeText(m[1]))
 		if _, stop := activityGerundStop[act]; !stop && len(act) >= 5 {
 			emit(fmt.Sprintf("%s participates in %s", who, act), 0.84, "attribute_activity")
 		}
 	}
-	if m := workshopRE.FindStringSubmatch(body); m != nil {
+	if m := workshopRE.FindStringSubmatch(lexicalBody); m != nil {
 		act := strings.ToLower(NormalizeText(m[1]))
 		if _, stop := activityGerundStop[act]; !stop && utf8.RuneCountInString(act) >= 4 {
 			emit(fmt.Sprintf("%s participates in %s", who, act), 0.88, "attribute_activity")
 		}
 	}
-	if m := planningActRE.FindStringSubmatch(body); m != nil {
+	if m := planningActRE.FindStringSubmatch(lexicalBody); m != nil {
 		act := strings.ToLower(NormalizeText(m[1]))
 		if _, stop := activityGerundStop[act]; !stop && len(act) >= 5 {
 			emit(fmt.Sprintf("%s plans %s", who, act), 0.86, "attribute_plan")
@@ -733,17 +733,27 @@ func titleFromVisibleText(raw string) (string, bool) {
 	consider := func(cand string) {
 		words := strings.Fields(cand)
 		n := len(words)
-		if n < 2 || n > 5 || words[0][0] >= '0' && words[0][0] <= '9' {
+		if n < 2 || n > 5 {
+			return
+		}
+		if words[0][0] >= '0' && words[0][0] <= '9' {
 			return
 		}
 		hasFn := false
+		content := 0
 		for _, w := range words {
-			if _, ok := titleFunctionWord[w]; ok {
+			up := strings.ToUpper(w)
+			letters := titleLetterCount(up)
+			if _, ok := titleFunctionWord[up]; ok {
 				hasFn = true
-				break
+				continue
 			}
+			if letters < 3 || !titleHasVowel(up) {
+				return
+			}
+			content++
 		}
-		if !hasFn {
+		if !hasFn || content < 2 {
 			return
 		}
 		rank := titleLenRank(n)
@@ -772,16 +782,13 @@ func titleFromVisibleText(raw string) (string, bool) {
 	if best == "" {
 		for _, m := range bookTitleRunRE.FindAllStringSubmatch(raw, 8) {
 			title := NormalizeText(strings.TrimSpace(m[1]))
-			if titleLeadStopped(title) || !looksLikeWorkTitle(title) || looksBrokenQuotedTitle(title) {
+			if titleLeadStopped(title) || looksBrokenQuotedTitle(title) {
 				continue
 			}
 			if utf8.RuneCountInString(title) < 8 {
 				continue
 			}
-			rank := titleLenRank(len(strings.Fields(title)))
-			if rank > bestRank || (rank == bestRank && len(title) > len(best)) {
-				best, bestRank = title, rank
-			}
+			consider(strings.ToUpper(title))
 		}
 	}
 	if best == "" || bestRank <= 0 {
@@ -792,6 +799,26 @@ func titleFromVisibleText(raw string) (string, bool) {
 		return "", false
 	}
 	return titled, true
+}
+
+func titleLetterCount(w string) int {
+	n := 0
+	for _, r := range w {
+		if r >= 'A' && r <= 'Z' {
+			n++
+		}
+	}
+	return n
+}
+
+func titleHasVowel(w string) bool {
+	for _, r := range w {
+		switch r {
+		case 'A', 'E', 'I', 'O', 'U', 'Y':
+			return true
+		}
+	}
+	return false
 }
 
 func isAllCapsWord(w string) bool {

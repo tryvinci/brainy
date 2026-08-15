@@ -23,6 +23,17 @@ func TestTitleFromVisibleTextPrefersFunctionWordPhrase(t *testing.T) {
 	}
 }
 
+func TestTitleFromVisibleTextRejectsOCRShards(t *testing.T) {
+	if title, ok := titleFromVisibleText(`der!" xtraordinary lea IS VV it |`); ok {
+		t.Fatalf("shard should not be a title, got %q", title)
+	}
+	mixed := "der IS VV it oe THE QUIET ORCHARD FOREWORD"
+	got, ok := titleFromVisibleText(mixed)
+	if !ok || !strings.Contains(strings.ToLower(got), "quiet orchard") {
+		t.Fatalf("expected orchard title over shards, got %q ok=%v", got, ok)
+	}
+}
+
 func TestNeedsImageOCRDeixis(t *testing.T) {
 	if !needsImageOCR(Message{
 		Content:   "Riley: This book I read last year reminds me to keep going.",
@@ -53,10 +64,9 @@ func TestFixtureCoverOCR(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	crop := cropUpperCenterPNG(img)
-	got := ocrTesseract(context.Background(), crop, "11") + " " + ocrTesseract(context.Background(), img, "11")
-	title, ok := titleFromVisibleText(got)
-	if !ok || !strings.Contains(strings.ToLower(title), "impossible") {
-		t.Fatalf("ocr=%q title=%q ok=%v", got, title, ok)
+	got := ocrAttachedWorkTitle(context.Background(), img)
+	low := strings.ToLower(got)
+	if !strings.Contains(low, "nothing") || !strings.Contains(low, "impossible") || strings.Contains(low, "is vv") {
+		t.Fatalf("cover title=%q", got)
 	}
 }

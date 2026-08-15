@@ -286,8 +286,15 @@ func splitSentences(text string) []string {
 		if len(out) == 0 {
 			return []string{vis}
 		}
+		attached := false
 		for i := range out {
-			out[i] = strings.TrimSpace(out[i] + " " + vis)
+			if hasDeicticBookCue(out[i]) {
+				out[i] = strings.TrimSpace(out[i] + " " + vis)
+				attached = true
+			}
+		}
+		if !attached {
+			out[len(out)-1] = strings.TrimSpace(out[len(out)-1] + " " + vis)
 		}
 	}
 	return out

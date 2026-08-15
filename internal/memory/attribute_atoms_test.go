@@ -389,3 +389,26 @@ func TestDeicticVisibleTextCompilesTitledWork(t *testing.T) {
 		t.Fatalf("author/foreword should not win over title, got %q", joined)
 	}
 }
+
+func TestVisibleTextDumpDoesNotCompileActivities(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: so glad you got the support. This book I read last year reminds me to keep going. [visible text: IS VV TOP GRASS CHAIRS]"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		c := strings.ToLower(m.Content)
+		if strings.Contains(c, "is vv") || strings.Contains(c, "participates in grass") || strings.Contains(c, "enjoys top") {
+			t.Fatalf("OCR shards compiled as atom: %q rule=%s", m.Content, rule)
+		}
+	}
+}

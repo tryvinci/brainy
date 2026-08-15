@@ -131,6 +131,19 @@ func TestExtractorKeepsAssistantStatedFacts(t *testing.T) {
 	}
 }
 
+func TestSplitSentencesAttachesVisibleTextToDeixisOnly(t *testing.T) {
+	units := splitSentences("Riley: so glad you got the support. This book I read last year reminds me. [visible text: THE QUIET ORCHARD]")
+	if len(units) < 2 {
+		t.Fatalf("expected split, got %#v", units)
+	}
+	if strings.Contains(units[0], "visible text") {
+		t.Fatalf("support sentence should not carry OCR, got %#v", units)
+	}
+	if !strings.Contains(units[len(units)-1], "visible text") || !strings.Contains(strings.ToLower(units[len(units)-1]), "this book") {
+		t.Fatalf("deictic sentence should carry OCR, got %#v", units)
+	}
+}
+
 func TestSplitUtterancesKeepsNewlinesAtomic(t *testing.T) {
 	units := splitUtterances("Caroline: went on 7 May 2023\nMelanie: cool show about LGBTQ")
 	if len(units) != 2 {

@@ -65,11 +65,12 @@ func EnrichImageText(ctx context.Context, messages []Message) []Message {
 		if len(chunks) == 0 {
 			continue
 		}
-		joined := sanitizeVisibleText(strings.Join(chunks, "\n"))
-		if joined == "" {
+		joined := sanitizeVisibleText(strings.Join(chunks, " "))
+		title, ok := titleFromVisibleText(joined)
+		if !ok {
 			continue
 		}
-		marker := visibleTextMarker + " " + joined + "]"
+		marker := visibleTextMarker + " " + strings.ToUpper(title) + "]"
 		if strings.TrimSpace(out[i].Content) == "" {
 			out[i].Content = marker
 			continue
@@ -79,6 +80,12 @@ func EnrichImageText(ctx context.Context, messages []Message) []Message {
 	return out
 }
 
+func hasDeicticBookCue(s string) bool {
+	lower := strings.ToLower(s)
+	return strings.Contains(lower, "this book") || strings.Contains(lower, "this novel") ||
+		strings.Contains(lower, "this title")
+}
+
 func needsImageOCR(msg Message) bool {
 	if len(msg.ImageURLs) == 0 {
 		return false
@@ -86,9 +93,7 @@ func needsImageOCR(msg Message) bool {
 	if strings.Contains(msg.Content, visibleTextMarker) {
 		return false
 	}
-	lower := strings.ToLower(msg.Content)
-	return strings.Contains(lower, "this book") || strings.Contains(lower, "this novel") ||
-		strings.Contains(lower, "this title")
+	return hasDeicticBookCue(msg.Content)
 }
 
 func visibleTextFromURL(ctx context.Context, raw string) string {
@@ -96,19 +101,39 @@ func visibleTextFromURL(ctx context.Context, raw string) string {
 	if err != nil || len(img) < 64 {
 		return ""
 	}
-	parts := make([]string, 0, 2)
-	if crop := cropUpperCenterPNG(img); len(crop) > 64 {
+	return ocrAttachedWorkTitle(ctx, img)
+}
+
+// coverTitleCrops are overlapping upper-center windows. 3D cover renders
+// put the title on the face, not the full frame; one window is not enough.
+var coverTitleCrops = [][4]int{
+	{30, 16, 35, 40},
+	{22, 10, 55, 42},
+	{25, 12, 45, 42},
+}
+
+func ocrAttachedWorkTitle(ctx context.Context, img []byte) string {
+	var texts []string
+	for _, w := range coverTitleCrops {
+		crop := cropRectPNG(img, w[0], w[1], w[2], w[3])
+		if len(crop) < 64 {
+			continue
+		}
 		if text := ocrTesseract(ctx, crop, "11"); text != "" {
-			parts = append(parts, text)
-			if _, ok := titleFromVisibleText(text); ok {
-				return strings.Join(parts, "\n")
-			}
+			texts = append(texts, text)
 		}
 	}
-	if text := ocrTesseract(ctx, img, "11"); text != "" {
-		parts = append(parts, text)
+	joined := strings.Join(texts, " ")
+	if title, ok := titleFromVisibleText(joined); ok {
+		return strings.ToUpper(title)
 	}
-	return strings.Join(parts, "\n")
+	if text := ocrTesseract(ctx, img, "11"); text != "" {
+		joined = strings.TrimSpace(joined + " " + text)
+		if title, ok := titleFromVisibleText(joined); ok {
+			return strings.ToUpper(title)
+		}
+	}
+	return ""
 }
 
 func fetchImage(ctx context.Context, raw string) ([]byte, error) {
@@ -176,6 +201,10 @@ func imageURLHostAllowed(host string) bool {
 }
 
 func cropUpperCenterPNG(img []byte) []byte {
+	return cropRectPNG(img, 22, 10, 55, 42)
+}
+
+func cropRectPNG(img []byte, xpct, ypct, wpct, hpct int) []byte {
 	src, _, err := image.Decode(bytes.NewReader(img))
 	if err != nil {
 		return nil
@@ -185,10 +214,16 @@ func cropUpperCenterPNG(img []byte) []byte {
 	if w < 80 || h < 80 {
 		return nil
 	}
-	x0 := b.Min.X + w*22/100
-	y0 := b.Min.Y + h*10/100
-	x1 := x0 + w*55/100
-	y1 := y0 + h*42/100
+	x0 := b.Min.X + w*xpct/100
+	y0 := b.Min.Y + h*ypct/100
+	x1 := x0 + w*wpct/100
+	y1 := y0 + h*hpct/100
+	if x1 > b.Max.X {
+		x1 = b.Max.X
+	}
+	if y1 > b.Max.Y {
+		y1 = b.Max.Y
+	}
 	if x1 <= x0+20 || y1 <= y0+20 {
 		return nil
 	}
@@ -237,7 +272,7 @@ func ocrTesseract(ctx context.Context, img []byte, psm string) string {
 	if err := os.WriteFile(path, img, 0o600); err != nil {
 		return ""
 	}
-	ocrCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	ocrCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	if psm == "" {
 		psm = "11"
