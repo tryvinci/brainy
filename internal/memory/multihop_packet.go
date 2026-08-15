@@ -234,6 +234,11 @@ func orderBridgeChain(items []PacketItem, targets []string) []PacketItem {
 
 // composeMultiHopAnswer builds a short deterministic answer from a bridge+direct chain.
 func composeMultiHopAnswer(pkt EvidencePacket) string {
+	if hops := hopResultsFromPacket(pkt); len(hops) > 0 {
+		if composed := composeFromHopValues(hops); composed != "" {
+			return composed
+		}
+	}
 	var bridge, direct string
 	for _, it := range pkt.Items {
 		if it.Role == "bridge" && bridge == "" {
@@ -255,6 +260,21 @@ func composeMultiHopAnswer(pkt EvidencePacket) string {
 	default:
 		return ""
 	}
+}
+
+func hopResultsFromPacket(pkt EvidencePacket) []HopResult {
+	if pkt.Coverage == nil {
+		return nil
+	}
+	raw, ok := pkt.Coverage["hop_results"]
+	if !ok {
+		return nil
+	}
+	hops, ok := raw.([]HopResult)
+	if !ok {
+		return nil
+	}
+	return hops
 }
 
 func uncoveredTargets(pkt EvidencePacket) []string {

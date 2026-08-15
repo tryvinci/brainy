@@ -86,15 +86,14 @@ func PlanQuery(query string, intents []string) QueryPlan {
 	return plan
 }
 
-// buildTypedHops emits resolve_entity → fetch_predicate subgoals for multi-hop.
+// buildTypedHops emits resolve_entity → follow_relation/fetch_predicate subgoals.
 func buildTypedHops(query string) []HopStep {
 	toks := contentBearingTokens(tokenize(query))
 	names := nameLikeTokens(toks)
 	preds := predicateHintsFromQuery(query)
-	hops := make([]HopStep, 0, 3)
-	entity := ""
-	if len(names) > 0 {
-		entity = names[0]
+	hops := make([]HopStep, 0, 4)
+	entity := hopEntityName(names)
+	if entity != "" {
 		hops = append(hops, HopStep{
 			Kind:   "resolve_entity",
 			Entity: entity,
@@ -102,71 +101,109 @@ func buildTypedHops(query string) []HopStep {
 			Output: "e1",
 		})
 	}
-	pred := ""
-	if len(preds) > 0 {
-		pred = preds[0]
-	}
 	bridge := ""
 	if len(names) > 1 {
 		bridge = names[1]
 	}
-	probeParts := make([]string, 0, 3)
-	if bridge != "" {
-		probeParts = append(probeParts, bridge)
-	} else if entity != "" {
-		probeParts = append(probeParts, entity)
-	}
-	if pred != "" {
-		probeParts = append(probeParts, pred)
-	}
-	if len(probeParts) == 0 {
-		// Fall back to longest content token distinct from entity.
-		for _, t := range toks {
-			if t == entity {
-				continue
+	if len(preds) == 0 {
+		probeParts := make([]string, 0, 2)
+		if bridge != "" {
+			probeParts = append(probeParts, bridge)
+		} else if entity != "" {
+			probeParts = append(probeParts, entity)
+		}
+		if len(probeParts) == 0 {
+			for _, t := range toks {
+				if t == entity {
+					continue
+				}
+				probeParts = append(probeParts, t)
+				break
 			}
-			probeParts = append(probeParts, t)
+		}
+		if len(probeParts) > 0 {
+			fetch := HopStep{
+				Kind:   "fetch_predicate",
+				Entity: firstNonEmpty(bridge, entity),
+				Probe:  strings.Join(probeParts, " "),
+				Output: "ans",
+			}
+			if entity != "" {
+				fetch.DependsOn = []string{"e1"}
+			}
+			if looksPlaceOrPersonSlot(query) {
+				fetch.Kind = "answer_slot"
+			}
+			hops = append(hops, fetch)
+		}
+		return hops
+	}
+	for i, pred := range preds {
+		if i >= 3 {
 			break
 		}
-	}
-	if pred != "" {
+		probeParts := make([]string, 0, 3)
+		if entity != "" {
+			probeParts = append(probeParts, entity)
+		}
+		probeParts = append(probeParts, pred)
+		outKey := "ans"
+		if i > 0 {
+			outKey = "ans" + itoa(i+1)
+		}
 		fetch := HopStep{
 			Kind:      "fetch_predicate",
-			Entity:    firstNonEmpty(bridge, entity),
+			Entity:    firstNonEmpty(entity, bridge),
 			Predicate: pred,
 			Probe:     strings.Join(probeParts, " "),
-			Output:    "ans",
+			Output:    outKey,
 		}
 		if entity != "" {
 			fetch.DependsOn = []string{"e1"}
 		}
-		if pred == PredicateOrigin || pred == PredicateResidence || pred == PredicateActivity ||
-			pred == PredicateMediaConsumed || pred == PredicateOccupation ||
-			pred == PredicateFamilyMember || pred == PredicateEducation ||
-			pred == PredicatePlan || pred == PredicateEvent {
+		if relationFollowPredicate(pred) {
 			fetch.Kind = "follow_relation"
-		}
-		if looksPlaceOrPersonSlot(query) && fetch.Kind != "follow_relation" {
-			fetch.Kind = "answer_slot"
-		}
-		hops = append(hops, fetch)
-	} else if len(probeParts) > 0 {
-		fetch := HopStep{
-			Kind:      "fetch_predicate",
-			Entity:    firstNonEmpty(bridge, entity),
-			Predicate: pred,
-			Probe:     strings.Join(probeParts, " "),
-			Output:    "ans",
-		}
-		if entity != "" {
-			fetch.DependsOn = []string{"e1"}
-		}
-		if looksPlaceOrPersonSlot(query) {
+		} else if looksPlaceOrPersonSlot(query) {
 			fetch.Kind = "answer_slot"
 		}
 		hops = append(hops, fetch)
 	}
 	return hops
+}
+
+func hopEntityName(names []string) string {
+	for _, n := range names {
+		if _, stop := hopEntityStop[strings.ToLower(n)]; stop {
+			continue
+		}
+		return n
+	}
+	if len(names) > 0 {
+		return names[0]
+	}
+	return ""
+}
+
+var hopEntityStop = map[string]struct{}{
+	"career": {}, "path": {}, "occupation": {}, "job": {}, "work": {},
+	"books": {}, "book": {}, "activities": {}, "activity": {},
+	"hobbies": {}, "hobby": {}, "kids": {}, "children": {}, "child": {},
+	"country": {}, "years": {}, "year": {}, "identity": {},
+	"relationship": {}, "status": {}, "likes": {}, "like": {},
+	"places": {}, "place": {}, "enjoy": {}, "enjoys": {},
+	"read": {}, "reading": {}, "moved": {}, "move": {},
+	"pursue": {}, "decided": {},
+}
+
+func relationFollowPredicate(pred string) bool {
+	switch pred {
+	case PredicateOrigin, PredicateResidence, PredicateActivity,
+		PredicateMediaConsumed, PredicateOccupation, PredicateFamilyMember,
+		PredicateEducation, PredicatePlan, PredicateEvent, PredicateIdentity,
+		PredicatePreference, PredicateRelationshipStatus:
+		return true
+	}
+	return false
 }
 
 func looksPlaceOrPersonSlot(query string) bool {

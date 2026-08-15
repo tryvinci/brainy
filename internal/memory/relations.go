@@ -44,7 +44,8 @@ func projectMemoryRelation(record MemoryRecord) (MemoryRelation, bool) {
 	switch pred {
 	case PredicateOrigin, PredicateResidence, PredicateFamilyMember,
 		PredicateActivity, PredicateMediaConsumed, PredicateOccupation,
-		PredicateEducation, PredicatePlan, PredicateEvent, PredicateRelationshipStatus:
+		PredicateEducation, PredicatePlan, PredicateEvent, PredicateRelationshipStatus,
+		PredicateIdentity, PredicatePreference:
 	default:
 		return MemoryRelation{}, false
 	}

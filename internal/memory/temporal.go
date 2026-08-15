@@ -161,11 +161,16 @@ func predicateHintsFromQuery(query string) []string {
 		out = append(out, p)
 	}
 	switch {
-	case strings.Contains(lower, "live") || strings.Contains(lower, "reside") || strings.Contains(lower, "city") || strings.Contains(lower, "moved") || strings.Contains(lower, "from") || strings.Contains(lower, "country"):
+	case strings.Contains(lower, "moved") || strings.Contains(lower, "country") ||
+		(strings.Contains(lower, "where") && strings.Contains(lower, "from")):
+		add(PredicateOrigin)
+		add(PredicateResidence)
+	case strings.Contains(lower, "live") || strings.Contains(lower, "reside") || strings.Contains(lower, "city"):
 		add(PredicateResidence)
 		add(PredicateOrigin)
 	case strings.Contains(lower, "job") || strings.Contains(lower, "work") || strings.Contains(lower, "occupation") || strings.Contains(lower, "career") || strings.Contains(lower, "pursue") || strings.Contains(lower, "educat"):
 		add(PredicateOccupation)
+		add(PredicateIdentity)
 		add(PredicateEducation)
 		add(PredicatePlan)
 	case strings.Contains(lower, "married") || strings.Contains(lower, "relationship") || strings.Contains(lower, "partner") || strings.Contains(lower, "single"):

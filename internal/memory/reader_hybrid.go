@@ -122,18 +122,25 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 			lines = append(lines, "- "+content)
 		}
 	}
-	// Broad search context first — hops must not starve the reader.
-	for _, c := range pkt.ContextEvidence {
-		add(c, "")
-	}
-	if len(pkt.ContextEvidence) == 0 {
-		for _, c := range pkt.Contents {
-			add(c, "")
-		}
-	}
-	// Structured hop chain is proof, not a replacement for context.
 	if raw, ok := pkt.Coverage["hop_results"]; ok {
 		if hops, ok := raw.([]HopResult); ok && len(hops) > 0 {
+			if vals := hopSlotValues(hops); len(vals) > 0 {
+				lines = append(lines, "Structured:")
+				for _, h := range hops {
+					if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+						continue
+					}
+					slot := firstNonEmpty(h.Predicate, h.OutputKey, h.Kind)
+					val := firstNonEmpty(h.Value, "")
+					if val == "" && len(h.Values) > 0 {
+						val = strings.Join(h.Values, ", ")
+					}
+					if strings.TrimSpace(val) == "" {
+						continue
+					}
+					lines = append(lines, "- "+slot+" = "+val)
+				}
+			}
 			lines = append(lines, "Hop chain:")
 			for _, h := range hops {
 				dep := ""
@@ -163,6 +170,15 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 	}
 	for _, it := range pkt.ProofChain {
 		add(it.Content, it.MemoryID)
+	}
+	// Broad search context after structured proof so slot values are not crowded out.
+	for _, c := range pkt.ContextEvidence {
+		add(c, "")
+	}
+	if len(pkt.ContextEvidence) == 0 {
+		for _, c := range pkt.Contents {
+			add(c, "")
+		}
 	}
 	for _, it := range pkt.Items {
 		add(it.Content, it.MemoryID)
@@ -200,6 +216,7 @@ func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan
 	// Proven harness semantics (_llm_answer): answer from memories; keep structured
 	// fields for observability but treat answer text as primary (soft grounding).
 	system := `Answer the question using only the memories below.
+Prefer Structured slot values (places, names, lists) over anaphoric phrases like "home country".
 Prefer a concrete short answer (dates, names, places, lists).
 When several memories support different parts of the answer, combine every distinct supported item — do not stop at the first memory.
 Never invent facts that are not in the memories.

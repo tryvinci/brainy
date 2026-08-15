@@ -31,7 +31,7 @@ var (
 	ranEventRE        = regexp.MustCompile(`(?i)\b(?:ran|run)\s+(?:a|an)\s+([a-z][a-z\s-]{3,40})\b`)
 	trainingForRE     = regexp.MustCompile(`(?i)\btraining\s+for\s+(?:a |an )?([a-z][a-z\s-]{3,40})\b`)
 	kidsLikeRE        = regexp.MustCompile(`(?i)\b(?:kids?|children)\s+(?:love|like|enjoy|are into|were\s+\w+\s+(?:about|for))\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
-	kidsAboutRE       = regexp.MustCompile(`(?i)\b(?:kids?|children).{0,48}?\b(?:love|like|enjoy|into|about)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
+	kidsAboutRE       = regexp.MustCompile(`(?i)\b(?:kids?|children).{0,48}?\b(?:love|like|enjoy|into|about|obsessed with)\s+(?:the\s+)?([a-z][a-z\s-]{2,40})`)
 	homeCountryRE     = regexp.MustCompile(`(?i)\bhome country[,:]?\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)?)\b`)
 	homeCountryBareRE = regexp.MustCompile(`(?i)\bhome country\b`)
 	originallyFromRE  = regexp.MustCompile(`(?i)\boriginally from\s+([A-Za-z][A-Za-z\s-]{1,40})`)
@@ -39,6 +39,7 @@ var (
 	lookingIntoRE     = regexp.MustCompile(`(?i)\b(?:looking into|keen on|interested in)\s+([^,.!?]{3,70})`)
 	careerFieldRE     = regexp.MustCompile(`(?i)\b(?:career|profession)\s+(?:in|as)\s+([^,.!?]{3,50})`)
 	wantToBeRE        = regexp.MustCompile(`(?i)\b(?:want to|wanted to|hope to|plan to|planning to)\s+(?:be|become|pursue|work as)\s+(?:a |an )?([^,.!?]{3,50})`)
+	workWithGroupRE   = regexp.MustCompile(`(?i)\b(?:thinking of working with|working with|work with)\s+([a-z][a-z\s-]{1,40}(?:people|community|patients|clients|families))\b`)
 	planningActRE     = regexp.MustCompile(`(?i)\b(?:planning on|planning to|going to)\s+(?:go(?:ing)?\s+)?([a-z]+ing)\b`)
 	workshopRE        = regexp.MustCompile(`(?i)\b([a-z][a-z-]{2,30})\s+(?:workshop|class|lesson)s?\b`)
 	goGerundRE        = regexp.MustCompile(`(?i)\b(?:go|going|went|off to go)\s+([a-z]+ing)\b`)
@@ -46,6 +47,7 @@ var (
 	collectsRE        = regexp.MustCompile(`(?i)\b(?:collect(?:s|ing)?|collection of)\s+([^,.!?]{3,50})`)
 	educationRE       = regexp.MustCompile(`(?i)\b(?:studying|degree in|certification in|certified in)\s+([^,.!?]{3,50})`)
 	readUnquotedRE    = regexp.MustCompile(`(?i)\b(?:read|reading|loved reading)\s+([A-Z][^"“”'.]{2,60})`)
+	bookTitleRunRE    = regexp.MustCompile(`\b((?:The|A|An)\s+[A-Z][A-Za-z']+(?:\s+[A-Z][A-Za-z']+){0,5}|[A-Z][A-Za-z']+(?:\s+(?:is|the|a|an|of|and|in|to|for|on)\s+[A-Z][A-Za-z']+|\s+[A-Z][A-Za-z']+){1,5})\b`)
 
 	// Activity gerunds that are usually not hobbies (skip).
 	activityGerundStop = map[string]struct{}{
@@ -79,6 +81,23 @@ var (
 		"in": {}, "at": {}, "on": {}, "of": {}, "for": {}, "with": {}, "and": {}, "or": {},
 		"but": {}, "that": {}, "since": {}, "then": {}, "the": {},
 		"going": {}, "planning": {},
+	}
+
+	preferenceHeadStop = map[string]struct{}{
+		"our": {}, "my": {}, "their": {}, "his": {}, "her": {}, "its": {},
+		"the": {}, "this": {}, "that": {}, "these": {}, "those": {},
+		"one": {}, "ones": {}, "last": {}, "next": {}, "some": {}, "any": {},
+		"it": {}, "them": {}, "stuff": {}, "things": {}, "thing": {},
+		"time": {}, "day": {}, "week": {}, "month": {}, "year": {},
+		"break": {}, "summer": {}, "winter": {}, "spring": {}, "fall": {},
+		"morning": {}, "evening": {}, "afternoon": {}, "night": {},
+	}
+
+	titleLeadStop = map[string]struct{}{
+		"i": {}, "we": {}, "my": {}, "our": {}, "last": {}, "next": {},
+		"every": {}, "on": {}, "in": {}, "at": {}, "after": {}, "before": {},
+		"this": {}, "that": {}, "monday": {}, "tuesday": {}, "wednesday": {},
+		"thursday": {}, "friday": {}, "saturday": {}, "sunday": {},
 	}
 )
 
@@ -232,22 +251,36 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		if utf8.RuneCountInString(title) < 4 || looksBrokenQuotedTitle(title) {
 			continue
 		}
-		if !(strings.Contains(lowerBody, "read") || strings.Contains(lowerBody, "reading") ||
-			strings.Contains(lowerBody, "book") || looksLikeWorkTitle(title)) {
+		bookCue := strings.Contains(lowerBody, "read") || strings.Contains(lowerBody, "reading") ||
+			strings.Contains(lowerBody, "book") || strings.Contains(lowerBody, "title") ||
+			strings.Contains(lowerBody, "novel") || strings.Contains(lowerBody, "story")
+		if !bookCue {
 			continue
 		}
-		verb := "mentioned"
-		if strings.Contains(lowerBody, "read") || strings.Contains(lowerBody, "reading") || strings.Contains(lowerBody, "book") {
-			verb = "read"
+		if len(strings.Fields(title)) < 2 {
+			continue
 		}
+		verb := "read"
 		emit(fmt.Sprintf("%s %s \"%s\"", who, verb, title), 0.86, "attribute_titled_work")
 	}
 	if m := readUnquotedRE.FindStringSubmatch(body); m != nil {
 		title := NormalizeText(strings.TrimSpace(m[1]))
 		title = strings.TrimSuffix(title, " as a kid")
 		title = strings.TrimSuffix(title, " last year")
-		if looksLikeWorkTitle(title) && utf8.RuneCountInString(title) >= 4 && !looksBrokenQuotedTitle(title) {
+		if looksLikeWorkTitle(title) && utf8.RuneCountInString(title) >= 4 && !looksBrokenQuotedTitle(title) && !titleLeadStopped(title) {
 			emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.84, "attribute_titled_work")
+		}
+	}
+	if strings.Contains(lowerBody, "book") || strings.Contains(lowerBody, "read") {
+		for _, m := range bookTitleRunRE.FindAllStringSubmatch(body, 4) {
+			title := NormalizeText(strings.TrimSpace(m[1]))
+			if titleLeadStopped(title) || !looksLikeWorkTitle(title) || looksBrokenQuotedTitle(title) {
+				continue
+			}
+			if utf8.RuneCountInString(title) < 8 {
+				continue
+			}
+			emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.82, "attribute_titled_work")
 		}
 	}
 
@@ -300,16 +333,24 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			emit(fmt.Sprintf("%s participates in %s", who, act), 0.8, "attribute_activity")
 		}
 	}
-	if m := kidsLikeRE.FindStringSubmatch(body); m != nil {
-		like := clipPreferenceTail(NormalizeText(m[1]))
-		if utf8.RuneCountInString(like) >= 3 && utf8.RuneCountInString(like) <= 40 {
-			emit(fmt.Sprintf("%s's kids like %s", who, like), 0.84, "attribute_preference")
+	seenLikes := map[string]struct{}{}
+	emitLike := func(raw string, conf float64) {
+		like := clipPreferenceTail(NormalizeText(raw))
+		if !validPreferenceValue(like) {
+			return
 		}
-	} else if m := kidsAboutRE.FindStringSubmatch(body); m != nil {
-		like := clipPreferenceTail(NormalizeText(m[1]))
-		if utf8.RuneCountInString(like) >= 3 && utf8.RuneCountInString(like) <= 40 && !strings.Contains(like, " that ") {
-			emit(fmt.Sprintf("%s's kids like %s", who, like), 0.82, "attribute_preference")
+		key := strings.ToLower(like)
+		if _, ok := seenLikes[key]; ok {
+			return
 		}
+		seenLikes[key] = struct{}{}
+		emit(fmt.Sprintf("%s's kids like %s", who, like), conf, "attribute_preference")
+	}
+	for _, m := range kidsLikeRE.FindAllStringSubmatch(body, 6) {
+		emitLike(m[1], 0.84)
+	}
+	for _, m := range kidsAboutRE.FindAllStringSubmatch(body, 6) {
+		emitLike(m[1], 0.82)
 	}
 	emitCareer := func(field string, conf float64, rule string) {
 		field = clipCareerTail(field)
@@ -334,6 +375,12 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 	}
 	if m := educationRE.FindStringSubmatch(body); m != nil {
 		emitCareer(NormalizeText(m[1]), 0.86, "attribute_education")
+	}
+	if m := workWithGroupRE.FindStringSubmatch(body); m != nil {
+		group := clipCareerTail(NormalizeText(m[1]))
+		if utf8.RuneCountInString(group) >= 5 && utf8.RuneCountInString(group) <= 50 {
+			emit(fmt.Sprintf("%s plans career for %s", who, group), 0.86, "attribute_occupation")
+		}
 	}
 	emitEvent := func(raw string, conf float64) {
 		ev := clipEventTail(NormalizeText(raw))
@@ -632,7 +679,7 @@ func valueNormFromAtomContent(content string) string {
 	for _, sep := range []string{
 		" moved from ", " moved to ", " is from ", " participates in ", " enjoys ",
 		" kids like ", " read \"", " mentioned \"", " is a ", " is ",
-		" plans career in ", " plans ", " studies ", " collects ",
+		" plans career in ", " plans career for ", " plans ", " studies ", " collects ",
 		" has known friends for ", " has done ", " attended ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
@@ -785,6 +832,9 @@ func looksLikeWorkTitle(title string) bool {
 	if len(words) == 0 || len(words) > 8 {
 		return false
 	}
+	if titleLeadStopped(title) {
+		return false
+	}
 	caps := 0
 	for _, w := range words {
 		if len(w) > 0 && w[0] >= 'A' && w[0] <= 'Z' {
@@ -792,4 +842,32 @@ func looksLikeWorkTitle(title string) bool {
 		}
 	}
 	return caps >= 1 && caps >= len(words)/2
+}
+
+func titleLeadStopped(title string) bool {
+	words := strings.Fields(strings.TrimSpace(title))
+	if len(words) == 0 {
+		return true
+	}
+	head := strings.ToLower(strings.Trim(words[0], ",.;:!?\"'"))
+	if head == "the" || head == "a" || head == "an" {
+		return len(words) < 2
+	}
+	_, stop := titleLeadStop[head]
+	return stop
+}
+
+func validPreferenceValue(like string) bool {
+	like = strings.TrimSpace(like)
+	if utf8.RuneCountInString(like) < 3 || utf8.RuneCountInString(like) > 40 {
+		return false
+	}
+	if strings.Contains(strings.ToLower(like), " that ") {
+		return false
+	}
+	head, _, _ := strings.Cut(strings.ToLower(like), " ")
+	if _, stop := preferenceHeadStop[head]; stop {
+		return false
+	}
+	return true
 }

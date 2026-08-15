@@ -121,9 +121,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	}
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
 	bindPacketToTargets(&pkt, search.Results, req.Query, plan.CoverageTargets)
+	var hopResults []HopResult
 	// Typed hop executor: bind packet from hop joins when hops exist.
-	if plan.NeedsMultiHop && len(plan.Hops) > 0 {
-		hopResults, byKey := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration) && len(plan.Hops) > 0 {
+		var byKey map[string]HopResult
+		hopResults, byKey = s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
 		bindPacketFromHopResults(&pkt, hopResults, byKey)
 		out.Explain["hop_results"] = hopResults
 		out.Explain["hop_join_proven"] = hopJoinProven(hopResults)
@@ -157,10 +159,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 						merged := mergeSearchResults(search.Results, second.Results, topK)
 						search.Results = merged
 						out.Memories = merged
-						// Re-run hops with richer corpus via search fallback path already used.
 						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
 						pkt = BuildEvidencePacket(plan, merged, out.Explain)
 						bindPacketFromHopResults(&pkt, hopResults2, byKey2)
+						hopResults = hopResults2
 						out.Explain["second_pass"] = map[string]any{
 							"probe":           probe,
 							"hit_count":       len(second.Results),
@@ -282,7 +284,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Answer = firstStatementFromPacket(pkt)
 			return out, nil
 		case "coverage":
-			items := s.enumerateFromSearch(ctx, req, search.Results)
+			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 			out.Items = items
 			out.Explain["oracle_coverage"] = true
 			out.Explain["oracle_item_count"] = len(items)
@@ -317,7 +319,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	switch mode {
 	case "enumerate":
 		enumerated = true
-		items := s.enumerateFromSearch(ctx, req, search.Results)
+		items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 		out.Items = items
 		out.ContextBlock = formatEnumerateContext(items)
 		out.Explain["item_count"] = len(items)
@@ -335,7 +337,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		out.ContextBlock = assembleContextFromPacket(pkt, budget)
 		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) {
 			enumerated = true
-			items := s.enumerateFromSearch(ctx, req, search.Results)
+			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 			out.Items = items
 			if len(items) > 0 {
 				vals := make([]string, 0, len(items))
@@ -450,7 +452,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 		}
 		if hybrid.OK {
-			out.Answer = hybrid.Answer
+			grounded := groundToHopValues(hybrid.Answer, hopResults)
+			out.Answer = grounded
+			if composed := composeFromHopValues(hopResults); composed != "" && grounded == composed && grounded != strings.TrimSpace(hybrid.Answer) {
+				out.Explain["hybrid_grounded_to_hops"] = true
+			}
 			out.Abstained = false
 			out.AnswerStatus = hybridAnswerStatus(hybrid, plan, pkt, packetOK)
 			out.Explain["reader_source"] = "hybrid_llm_packet"
@@ -458,10 +464,17 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
 		} else if hybrid.Abstain {
-			out.Abstained = true
-			out.Answer = "not in memory"
-			out.AnswerStatus = AnswerInsufficient
-			out.Explain["reader_source"] = "hybrid_llm_packet"
+			if composed := composeFromHopValues(hopResults); composed != "" {
+				out.Answer = composed
+				out.Abstained = false
+				out.AnswerStatus = AnswerSupported
+				out.Explain["reader_source"] = "multihop_bridge_chain"
+			} else {
+				out.Abstained = true
+				out.Answer = "not in memory"
+				out.AnswerStatus = AnswerInsufficient
+				out.Explain["reader_source"] = "hybrid_llm_packet"
+			}
 		}
 	}
 	pkt.Plan = plan
@@ -627,16 +640,31 @@ func hasIntent(intents []string, want string) bool {
 	return false
 }
 
-func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, results []SearchResult) []RecallItem {
+func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, results []SearchResult, hops []HopResult) []RecallItem {
 	tokens := tokenize(req.Query)
 	pred := predicateFromListQuery(tokens)
+	if pred == "" {
+		if hints := predicateHintsFromQuery(req.Query); len(hints) > 0 {
+			pred = hints[0]
+		}
+	}
 	seen := map[string]RecallItem{}
 	order := make([]string, 0)
+	entity := hopEntityName(nameLikeTokens(contentBearingTokens(tokens)))
 
 	add := func(value, predicate, memoryID, observed string) {
 		v := strings.TrimSpace(value)
-		if v == "" {
+		if extracted, ok := slotValueFromMemoryContent(v); ok {
+			v = extracted
+		}
+		if v == "" || anaphoricSlotValue(v) || !validEnumeratedValue(v) {
 			return
+		}
+		if predicate == PredicateFamilyMember || predicate == PredicatePreference {
+			head, _, _ := strings.Cut(strings.ToLower(v), " ")
+			if _, stop := preferenceHeadStop[head]; stop {
+				return
+			}
 		}
 		key := strings.ToLower(v)
 		if existing, ok := seen[key]; ok {
@@ -653,7 +681,39 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		order = append(order, key)
 	}
 
-	// Prefer indexed atoms when available.
+	typedHops := false
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+			continue
+		}
+		if pred != "" && h.Predicate != "" && !strings.EqualFold(h.Predicate, pred) &&
+			h.Predicate != PredicateIdentity && h.Predicate != PredicatePreference {
+			// Keep identity/preference joins; skip unrelated hop predicates.
+			if h.OutputKey != "ans" {
+				continue
+			}
+		}
+		slotPred := firstNonEmpty(h.Predicate, pred)
+		if len(h.Values) > 0 {
+			typedHops = true
+			for i, v := range h.Values {
+				id := ""
+				if i < len(h.MemoryIDs) {
+					id = h.MemoryIDs[i]
+				} else if len(h.MemoryIDs) > 0 {
+					id = h.MemoryIDs[0]
+				}
+				add(v, slotPred, id, "")
+			}
+			continue
+		}
+		if v := strings.TrimSpace(h.Value); v != "" && utf8.RuneCountInString(v) <= 80 {
+			typedHops = h.Source == "typed_store"
+			add(v, slotPred, firstID(h.MemoryIDs), "")
+		}
+	}
+
+	// Prefer indexed atoms when hops missed or to fill additional values.
 	if pred != "" {
 		if indexer, ok := s.store.(AtomIndexer); ok {
 			ids, err := indexer.ListAtomMemoryIDs(ctx, req.TenantID, req.SubjectID, pred, "", 40)
@@ -663,33 +723,58 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 					byID[r.MemoryID] = r
 				}
 				for _, id := range ids {
-					if r, ok := byID[id]; ok {
-						val := valueFromMemoryContent(r.Content)
-						obs := ""
+					rec, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, id)
+					content := ""
+					obs := ""
+					if err == nil {
+						content = rec.Content
+						if rec.ObservedAt != nil {
+							obs = rec.ObservedAt.UTC().Format(time.RFC3339)
+						}
+						if entity != "" && !memoryMentionsEntity(rec, entity) {
+							continue
+						}
+					} else if r, ok := byID[id]; ok {
+						content = r.Content
 						if r.ObservedAt != nil {
 							obs = r.ObservedAt.UTC().Format(time.RFC3339)
 						}
-						add(val, pred, id, obs)
 					}
+					if content == "" {
+						continue
+					}
+					val, ok := slotValueFromMemoryContent(content)
+					if !ok {
+						continue
+					}
+					add(val, pred, id, obs)
 				}
 			}
 		}
 	}
 
-	for _, r := range results {
-		if primitive, _ := r.Explain["primitive"].(string); primitive == PrimitiveEpisode {
-			continue
+	if !typedHops || len(order) == 0 {
+		for _, r := range results {
+			if primitive, _ := r.Explain["primitive"].(string); primitive == PrimitiveEpisode {
+				continue
+			}
+			if entity != "" && !strings.Contains(strings.ToLower(r.Content), strings.ToLower(entity)) {
+				continue
+			}
+			obs := ""
+			if r.ObservedAt != nil {
+				obs = r.ObservedAt.UTC().Format(time.RFC3339)
+			}
+			val, ok := slotValueFromMemoryContent(r.Content)
+			if !ok {
+				continue
+			}
+			p := pred
+			if p == "" {
+				p = "fact"
+			}
+			add(val, p, r.MemoryID, obs)
 		}
-		obs := ""
-		if r.ObservedAt != nil {
-			obs = r.ObservedAt.UTC().Format(time.RFC3339)
-		}
-		val := valueFromMemoryContent(r.Content)
-		p := pred
-		if p == "" {
-			p = "fact"
-		}
-		add(val, p, r.MemoryID, obs)
 	}
 
 	items := make([]RecallItem, 0, len(order))
@@ -697,6 +782,24 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		items = append(items, seen[key])
 	}
 	return items
+}
+
+func memoryMentionsEntity(rec MemoryRecord, entity string) bool {
+	if strings.EqualFold(entitySubjectOf(rec), entity) {
+		return true
+	}
+	return strings.Contains(strings.ToLower(rec.Content), strings.ToLower(entity))
+}
+
+func validEnumeratedValue(v string) bool {
+	v = strings.TrimSpace(v)
+	if v == "" || utf8.RuneCountInString(v) < 3 || utf8.RuneCountInString(v) > 80 {
+		return false
+	}
+	if strings.HasSuffix(v, "?") {
+		return false
+	}
+	return true
 }
 
 type representationOracleCounts struct {
@@ -795,20 +898,38 @@ func formatEvidenceOracle(rows []map[string]any, budgetTokens int) string {
 }
 
 func valueFromMemoryContent(content string) string {
+	if v, ok := slotValueFromMemoryContent(content); ok {
+		return v
+	}
+	v := speakerPrefixRe.ReplaceAllString(content, "")
+	return strings.TrimSpace(v)
+}
+
+func slotValueFromMemoryContent(content string) (string, bool) {
 	lower := strings.ToLower(content)
-	for _, sep := range []string{" participates in ", " enjoys ", " moved from ", " is from ", " kids like ", " read \"", " has done ", " is a ", " is "} {
+	for _, sep := range []string{
+		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
+		" read \"", " has done ", " plans career in ", " plans career for ",
+		" unwinds via ", " is a ", " is ",
+	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			v := strings.TrimSpace(content[i+len(sep):])
 			v = strings.Trim(v, "\"")
 			if j := strings.IndexAny(v, ".(["); j > 0 {
 				v = strings.TrimSpace(v[:j])
 			}
-			return v
+			if sep == " has done " {
+				if _, place, ok := strings.Cut(v, " at "); ok {
+					v = strings.TrimSpace(place)
+				}
+			}
+			if strings.TrimSpace(v) == "" {
+				return "", false
+			}
+			return v, true
 		}
 	}
-	// Fall back to full statement without speaker prefix.
-	v := speakerPrefixRe.ReplaceAllString(content, "")
-	return strings.TrimSpace(v)
+	return "", false
 }
 
 func assembleContextBlock(results []SearchResult, budgetTokens int) string {

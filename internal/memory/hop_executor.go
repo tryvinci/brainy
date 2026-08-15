@@ -11,6 +11,7 @@ type HopResult struct {
 	Kind       string   `json:"kind"`
 	OutputKey  string   `json:"output_key,omitempty"`
 	Value      string   `json:"value,omitempty"`
+	Values     []string `json:"values,omitempty"` // all typed destinations (enumeration)
 	Entity     string   `json:"entity,omitempty"`
 	Predicate  string   `json:"predicate,omitempty"`
 	MemoryIDs  []string `json:"memory_ids,omitempty"`
@@ -112,6 +113,8 @@ func (s *Service) resolveEntityHop(
 ) {
 	mention := firstNonEmpty(res.Entity, hop.Entity, hop.Probe)
 	res.Entity = mention
+	// R4: resolved entity ID is the mention, not a random hub record's subject.
+	res.Value = mention
 	if linker, ok := s.store.(EntityLinker); ok && mention != "" {
 		boosts, err := linker.EntityHubBoosts(ctx, tenantID, subjectID, []string{mention})
 		if err == nil && len(boosts) > 0 {
@@ -123,13 +126,6 @@ func (s *Service) resolveEntityHop(
 			if len(ids) > 0 {
 				if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, ids[0]); err == nil {
 					res.Contents = append(res.Contents, rec.Content)
-					if subj := entitySubjectOf(rec); subj != "" {
-						res.Value = subj
-					} else {
-						res.Value = mention
-					}
-				} else {
-					res.Value = mention
 				}
 			}
 			res.Source = "typed_store"
@@ -159,20 +155,31 @@ func (s *Service) followRelationHop(
 	if indexer, ok := s.store.(RelationIndexer); ok && entity != "" {
 		rels, err := indexer.ListRelationsFrom(ctx, tenantID, subjectID, strings.ToLower(entity), pred, topK)
 		if err == nil && len(rels) > 0 {
+			seenDst := map[string]struct{}{}
 			for _, rel := range rels {
+				dst := strings.TrimSpace(rel.DstEntity)
+				if dst == "" || anaphoricSlotValue(dst) {
+					continue
+				}
+				key := strings.ToLower(dst)
+				if _, ok := seenDst[key]; !ok {
+					seenDst[key] = struct{}{}
+					res.Values = append(res.Values, dst)
+				}
 				if rel.MemoryID != "" {
 					res.MemoryIDs = append(res.MemoryIDs, rel.MemoryID)
 				}
-				if rel.DstEntity != "" {
-					res.Contents = append(res.Contents, rel.SrcEntity+" "+rel.Relation+" "+rel.DstEntity)
-				}
 				if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, rel.MemoryID); err == nil {
-					res.Contents = append(res.Contents, rec.Content)
+					if strings.Contains(strings.ToLower(rec.Content), key) || !anaphoricSlotValue(rec.Content) {
+						res.Contents = append(res.Contents, rec.Content)
+					}
 				}
 			}
-			res.Value = rels[0].DstEntity
-			res.Source = "typed_store"
-			return
+			if len(res.Values) > 0 {
+				res.Value = strings.Join(res.Values, ", ")
+				res.Source = "typed_store"
+				return
+			}
 		}
 	}
 	s.fetchPredicateHop(ctx, tenantID, subjectID, vertical, includeHistorical, hop, res, topK)
@@ -305,27 +312,35 @@ func (s *Service) searchFallbackHop(
 	}
 }
 
-// hopJoinProven is true when resolve produced an entity/value and fetch produced
-// evidence that consumes it (typed or fallback content present).
+// hopJoinProven is true when a fetch/follow hop produced a typed slot value.
+// When a resolve hop exists, the fetch entity must be that resolved ID
+// (hop[i].output_entity_id == hop[i+1].input_entity_id).
 func hopJoinProven(results []HopResult) bool {
-	var resolved, fetched bool
+	resolved := ""
+	var fetched, idJoin bool
 	for _, r := range results {
 		switch r.Kind {
 		case "resolve_entity":
-			if r.Source != "unresolved" && (r.Value != "" || len(r.MemoryIDs) > 0) {
-				resolved = true
+			if r.Source != "unresolved" && strings.TrimSpace(r.Value) != "" {
+				resolved = strings.ToLower(strings.TrimSpace(r.Value))
 			}
 		case "follow_relation", "fetch_predicate", "answer_slot":
-			if r.Source != "unresolved" && (r.Value != "" || len(r.Contents) > 0 || len(r.MemoryIDs) > 0) {
-				fetched = true
+			if r.Source == "unresolved" {
+				continue
+			}
+			if strings.TrimSpace(r.Value) == "" && len(r.Values) == 0 && len(r.Contents) == 0 && len(r.MemoryIDs) == 0 {
+				continue
+			}
+			fetched = true
+			if resolved != "" && strings.ToLower(strings.TrimSpace(r.Entity)) == resolved {
+				idJoin = true
 			}
 		}
 	}
-	if resolved && fetched {
-		return true
+	if resolved != "" {
+		return idJoin && fetched
 	}
-	// Single fetch hop with typed store hit still counts as grounded join.
-	if !resolved && fetched {
+	if fetched {
 		for _, r := range results {
 			if (r.Kind == "fetch_predicate" || r.Kind == "answer_slot" || r.Kind == "follow_relation") && r.Source == "typed_store" {
 				return true
@@ -333,6 +348,88 @@ func hopJoinProven(results []HopResult) bool {
 		}
 	}
 	return false
+}
+
+func anaphoricSlotValue(s string) bool {
+	lower := strings.ToLower(strings.TrimSpace(s))
+	if lower == "" {
+		return true
+	}
+	switch {
+	case strings.Contains(lower, "home country"), strings.Contains(lower, "my country"),
+		lower == "there", lower == "here", lower == "home":
+		return true
+	}
+	return false
+}
+
+// hopSlotValues returns typed destinations from answer hops (not resolve).
+func hopSlotValues(results []HopResult) []string {
+	out := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" || anaphoricSlotValue(v) {
+			return
+		}
+		if utf8Len(v) > 80 {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			if r.Source == "unresolved" {
+				continue
+			}
+			if len(r.Values) > 0 {
+				for _, v := range r.Values {
+					add(v)
+				}
+				continue
+			}
+			add(r.Value)
+		}
+	}
+	return out
+}
+
+func composeFromHopValues(results []HopResult) string {
+	vals := hopSlotValues(results)
+	if len(vals) == 0 {
+		return ""
+	}
+	titled := make([]string, 0, len(vals))
+	for _, v := range vals {
+		titled = append(titled, titleCaseWords(v))
+	}
+	return strings.Join(titled, ", ")
+}
+
+func groundToHopValues(answer string, results []HopResult) string {
+	vals := hopSlotValues(results)
+	if len(vals) == 0 {
+		return strings.TrimSpace(answer)
+	}
+	lower := strings.ToLower(answer)
+	missing := false
+	for _, v := range vals {
+		if !strings.Contains(lower, strings.ToLower(v)) {
+			missing = true
+			break
+		}
+	}
+	composed := composeFromHopValues(results)
+	if missing || strings.TrimSpace(answer) == "" {
+		return composed
+	}
+	return strings.TrimSpace(answer)
 }
 
 // bindPacketFromHopResults assigns bridge/direct roles from hop bindings.
@@ -365,12 +462,15 @@ func bindPacketFromHopResults(pkt *EvidencePacket, hopResults []HopResult, byKey
 	for _, r := range hopResults {
 		role := "context"
 		switch r.Kind {
-		case "resolve_entity", "follow_relation":
+		case "resolve_entity":
 			role = "bridge"
-		case "fetch_predicate", "answer_slot":
+		case "follow_relation", "fetch_predicate", "answer_slot":
 			role = "direct"
 		}
 		targets := []string{r.OutputKey}
+		if r.Value != "" && (r.Kind == "follow_relation" || r.Kind == "fetch_predicate" || r.Kind == "answer_slot") {
+			add(role, firstNonEmpty(firstID(r.MemoryIDs), ""), r.Value, r.Predicate, targets)
+		}
 		if len(r.Contents) == 0 && r.Value != "" {
 			add(role, firstNonEmpty(firstID(r.MemoryIDs), ""), r.Value, r.Predicate, targets)
 			continue
