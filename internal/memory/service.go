@@ -1046,7 +1046,7 @@ func looksListQuery(tokens []string) bool {
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "books", "book",
 			"places", "place", "stress", "camping", "camped",
-			"kids", "children", "likes":
+			"kids", "children", "likes", "identity":
 			return true
 		}
 	}
@@ -1063,6 +1063,8 @@ func predicateFromListQuery(tokens []string) string {
 			return PredicateMediaConsumed
 		case "kids", "children", "likes":
 			return PredicateFamilyMember
+		case "identity":
+			return PredicateIdentity
 		}
 	}
 	return ""

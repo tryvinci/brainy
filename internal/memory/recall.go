@@ -452,10 +452,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 		}
 		if hybrid.OK {
-			grounded := groundToHopValues(hybrid.Answer, hopResults)
-			out.Answer = grounded
-			if composed := composeFromHopValues(hopResults); composed != "" && grounded == composed && grounded != strings.TrimSpace(hybrid.Answer) {
-				out.Explain["hybrid_grounded_to_hops"] = true
+			out.Answer = strings.TrimSpace(hybrid.Answer)
+			if hopComposeAllowed(req.Query) {
+				grounded := groundToHopValues(hybrid.Answer, hopResults)
+				out.Answer = grounded
+				if composed := composeFromHopValues(hopResults); composed != "" && grounded == composed && grounded != strings.TrimSpace(hybrid.Answer) {
+					out.Explain["hybrid_grounded_to_hops"] = true
+				}
 			}
 			out.Abstained = false
 			out.AnswerStatus = hybridAnswerStatus(hybrid, plan, pkt, packetOK)
@@ -464,11 +467,23 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
 		} else if hybrid.Abstain {
-			if composed := composeFromHopValues(hopResults); composed != "" {
-				out.Answer = composed
+			if hopComposeAllowed(req.Query) {
+				if composed := composeFromHopValues(hopResults); composed != "" {
+					out.Answer = composed
+					out.Abstained = false
+					out.AnswerStatus = AnswerSupported
+					out.Explain["reader_source"] = "multihop_bridge_chain"
+				} else {
+					out.Abstained = true
+					out.Answer = "not in memory"
+					out.AnswerStatus = AnswerInsufficient
+					out.Explain["reader_source"] = "hybrid_llm_packet"
+				}
+			} else if ta, _ := out.Explain["temporal_answer"].(string); strings.TrimSpace(ta) != "" && !strings.Contains(strings.ToLower(ta), "::") {
+				out.Answer = ta
 				out.Abstained = false
 				out.AnswerStatus = AnswerSupported
-				out.Explain["reader_source"] = "multihop_bridge_chain"
+				out.Explain["reader_source"] = "temporal_resolve"
 			} else {
 				out.Abstained = true
 				out.Answer = "not in memory"

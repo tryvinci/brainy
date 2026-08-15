@@ -79,7 +79,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if plan.NeedsMultiHop || plan.NeedsEnumeration {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration) && hopComposeAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -173,13 +173,17 @@ func buildTypedHops(query string) []HopStep {
 
 func hopEntityName(names []string) string {
 	for _, n := range names {
+		n = strings.TrimSpace(n)
+		n = strings.TrimSuffix(n, "'s")
+		n = strings.TrimSuffix(n, "’s")
+		n = strings.Trim(n, "'\"")
+		if n == "" {
+			continue
+		}
 		if _, stop := hopEntityStop[strings.ToLower(n)]; stop {
 			continue
 		}
 		return n
-	}
-	if len(names) > 0 {
-		return names[0]
 	}
 	return ""
 }
@@ -193,6 +197,8 @@ var hopEntityStop = map[string]struct{}{
 	"places": {}, "place": {}, "enjoy": {}, "enjoys": {},
 	"read": {}, "reading": {}, "moved": {}, "move": {},
 	"pursue": {}, "decided": {},
+	"long": {}, "ago": {}, "current": {}, "currently": {},
+	"group": {}, "friends": {}, "friend": {},
 }
 
 func relationFollowPredicate(pred string) bool {
@@ -208,12 +214,20 @@ func relationFollowPredicate(pred string) bool {
 
 func looksPlaceOrPersonSlot(query string) bool {
 	q := strings.ToLower(query)
-	for _, cue := range []string{"where ", "who ", "when ", "which "} {
+	for _, cue := range []string{"where ", "who ", "which "} {
 		if strings.Contains(q, cue) {
 			return true
 		}
 	}
 	return false
+}
+
+func hopComposeAllowed(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if strings.HasPrefix(q, "when ") || strings.HasPrefix(q, "how long") || strings.HasPrefix(q, "how old") {
+		return false
+	}
+	return true
 }
 
 func firstNonEmpty(vals ...string) string {

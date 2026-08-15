@@ -177,7 +177,7 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateRelationshipStatus)
 	case strings.Contains(lower, "name") || strings.Contains(lower, "who is") || strings.Contains(lower, "identity"):
 		add(PredicateIdentity)
-	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop"):
+	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop") || strings.Contains(lower, "do to"):
 		add(PredicateActivity)
 		add(PredicateEvent)
 	case strings.Contains(lower, "book") || strings.Contains(lower, "read") || strings.Contains(lower, "library"):
