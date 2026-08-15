@@ -11,16 +11,20 @@ Honest rule: we do **not** invent scores. Suites without a run are marked **not 
 
 ---
 
-## Current results (staging, 2026-07-14)
+## Current results (local R4h pin, 2026-08-15)
 
-| Suite | Brainy | Mem0 | Verbatim | Report |
-| --- | ---: | ---: | ---: | --- |
-| Parity | 4/4 | 4/4 | — | [staging competitive](./staging-competitive-report.md) |
-| OpMem v0 | **12/12** | 9/12 | 9/12 | [staging competitive](./staging-competitive-report.md) |
-| Marketing vertical | 16/16 | N/A (moat) | — | [moat report](./marketing-moat-report.md) |
-| LOCOMO | **7/30 smoke** (1 convo / 30 Q) | — | — | [locomo-smoke.md](./locomo-smoke.md) · [ladder](../research/public-bench-ladder.md) |
-| LongMemEval | **not run** | — | — | [ladder](../research/public-bench-ladder.md) |
-| BEAM | **not run** | — | — | [ladder](../research/public-bench-ladder.md) |
+1×30 LoCoMo is **measurement, not qualification**. Same dataset SHA as the
+frozen Mem0 Platform pin. Open-domain still trails. Not SOTA.
+
+| Suite | Brainy | Mem0 same-pin | Report |
+| --- | ---: | ---: | --- |
+| LoCoMo 1×30 (conv-26) | **20/30** (MH 10/10, OD 0/4, temporal 10/16) | 12/30 (MH 7/10, OD 3/4, temporal 2/16) | [R4h](./artifacts/locomo-mh-r4h-dev-1x30-20260815.md) · [Mem0 freeze](./artifacts/locomo-mem0-samepin-pr10-20260813.md) |
+| OpMem | **13/13** | — | [R4h OpMem](./artifacts/opmem-mh-r4h-local-20260815.md) |
+| Marketing vertical | **17/17** | — | [R4h marketing](./artifacts/marketing-mh-r4h-local-20260815.md) · [moat](./marketing-moat-report.md) |
+| LongMemEval-20 | **0/20** integrity (not re-run this cycle) | — | [cycle closeout](../research/competitive/cycle-closeout.md) |
+| BEAM | **not run** | — | [ladder](../research/public-bench-ladder.md) |
+
+Historical staging smoke (2026-07, do not mix with R4h): [locomo-smoke.md](./locomo-smoke.md) · [staging competitive](./staging-competitive-report.md).
 
 Full write-up style target (accuracy + p95 latency + tokens): [SuperMemory research](https://supermemory.ai/research/) · Mem0 LOCOMO blog format.
 

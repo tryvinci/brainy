@@ -29,6 +29,9 @@ git config user.email "you@example.com"
 Commits are attributed to you, not the maintainer. Only override this if you are
 authoring commits on the maintainer's behalf.
 
+Cloud / maintainer agents follow [`AGENTS.md`](AGENTS.md) (they commit as the
+maintainer). Do not copy that identity onto a personal checkout.
+
 ## Pull requests
 
 1. Branch from `dev`.

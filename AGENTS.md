@@ -4,17 +4,20 @@ Notes for automated coding agents working in this repository.
 
 ## Git identity
 
-Use the contributor's locally configured git identity for commits, not a forced
-one:
+Maintainer and cloud agents author commits as:
 
-```bash
-git config user.name "Your Name"
-git config user.email "you@example.com"
+```text
+Siddhant Singh <s@siddhant.site>
 ```
 
-Commits are attributed to whoever owns the local checkout. Only commit as the
-maintainer (`s@siddhant.site`) if they have explicitly asked you to author a
-commit on their behalf.
+```bash
+git config user.name "Siddhant Singh"
+git config user.email "s@siddhant.site"
+```
+
+Human contributors use their own locally configured identity — see
+`CONTRIBUTING.md`. Do not rewrite someone else's commits as the maintainer
+unless they asked you to author on their behalf.
 
 ## Cloud / ephemeral VM notes
 

@@ -11,11 +11,13 @@ Use this checklist before onboarding design partners or accepting payment.
 
 | Item | Status | Notes |
 | --- | --- | --- |
-| Stable ingest/search/correct/suppress | Done | Go API on `main` |
+| Stable ingest/search/correct/suppress | Done | Go API on `main`; `/recall`; current-state projections on mutate |
 | Marketing vertical pack | Done | `packs/marketing/v1/pack.yaml` |
-| Async worker + DLQ | Done | `cmd/worker` |
+| Async worker + DLQ | Done | `cmd/worker`; fenced leases (`lease_owner` + heartbeat, migration v21) |
+| HTTP boundary | Done | Default 5 MiB body cap + server timeouts |
+| Evidence plane | Done | Opt-in fail-closed via `BRAINY_EVIDENCE_STRICT=true` |
 | API versioning policy | Done | v0.x preview; breaking changes documented in releases |
-| Migration policy | Partial | Postgres migrations include `observed_at` (v10); document backup before upgrade |
+| Migration policy | Partial | Latest additive: fenced job leases (v21); document backup before upgrade |
 
 ---
 
@@ -72,8 +74,8 @@ Clients send `Authorization: Bearer sk_live_partner_a` on all routes except `/he
 
 | Item | Status | Notes |
 | --- | --- | --- |
-| README quickstart | Done | 5-minute Docker path |
-| Benchmark reports | Done | OpMem 12/12 + marketing moat + [LOCOMO smoke 7/30](./benchmarks/locomo-smoke.md) (honest mid; not SOTA) |
+| README quickstart | Done | Docker Compose API+worker; ingest / search / recall |
+| Benchmark reports | Done | OpMem **13/13**, marketing **17/17**, LoCoMo 1×30 **20/30** (MH 10/10, OD 0/4) — [R4h pin](./benchmarks/artifacts/locomo-mh-r4h-dev-1x30-20260815.md). 1×30 is measurement; not SOTA. Historical smoke: [locomo-smoke.md](./benchmarks/locomo-smoke.md) |
 | Launch narrative | Done | [launch-narrative.md](./benchmarks/launch-narrative.md) |
 | Design partner Slack | Ready | Manual onboarding |
 | Ticketing | Todo | Before GA |
@@ -85,7 +87,7 @@ Clients send `Authorization: Bearer sk_live_partner_a` on all routes except `/he
 Minimum bar to onboard **2–3 design partners**:
 
 - [x] Track A — `v0.1.0` on `main`
-- [x] Track B — OpMem 12/12 + launch narrative published
+- [x] Track B — OpMem 13/13 + launch narrative published
 - [x] Track C — API key auth implemented (#11)
 - [x] This checklist documented (#12)
 - [ ] ToS + privacy policy published
