@@ -25,7 +25,7 @@ Style: **reproducible, cited, honest about gaps**. The product README may carry 
 | **OpMem** (operational) | **13/13** |
 | **Marketing vertical** | **17/17** |
 | **LOCOMO 1×30** | **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) — measurement, not qualification |
-| **LongMemEval-20** | **0/20** integrity pin (not re-run this cycle) |
+| **LongMemEval-20** | **4/20** product `/recall` (lift vs 0/20 integrity; not vs published 94.4%) |
 | **Next** | **R5** structured-first OD. [sota-representation-path.md](./sota-representation-path.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)

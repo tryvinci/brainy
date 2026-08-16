@@ -22,7 +22,7 @@ Industry format: one percent per public suite. **Not same-pin.**
 
 | | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
 | --- | ---: | ---: | ---: | ---: |
-| **Brainy** | **11.4%** full `/recall` (n=1540) · **70.0%** 1×30 | **4%** (n=100) · **0%** LME-20 | not run (40% on 100K/20q) | not run |
+| **Brainy** | **11.4%** full `/recall` (n=1540) · **70.0%** 1×30 | **20%** LME-20 `/recall` (4/20) · **4%** (n=100 hist.) | not run (100K remasure in flight; hist. 40% on 100K/20q) | not run |
 | **Mem0 Platform** | **92.5%** | **94.4%** | **64.1** | **48.6** |
 | **Zep** | **75.14%** | 71.2% | — | — |
 | **SuperMemory** | 77.1% | 95% Recall@15 | — | — |
@@ -37,7 +37,7 @@ Sources, n, metric type, and the Zep LoCoMo dispute:
 
 Pin date for Brainy: **fresh remasure, 2026-08-15** (`1b5ab3e` product SHA).
 Mem0 LoCoMo / OpMem / marketing freeze: **this cycle**. Full LoCoMo n=1540
-landed at **11.4%** product `/recall` (see published %). LME and BEAM still running.
+landed at **11.4%** product `/recall`. LME-20 landed at **4/20**. BEAM still running. LME-500 not run.
 
 | Suite | Brainy | Mem0 Platform | Graphiti OSS / Zep Platform | Stand |
 | --- | ---: | ---: | ---: | --- |
@@ -47,8 +47,8 @@ landed at **11.4%** product `/recall` (see published %). LME and BEAM still runn
 | Temporal | **11/16** | **2/16** | no same-pin | Lead this freeze |
 | OpMem | **13/13** | **10/13** | no pin | Lead ops |
 | Marketing vertical | **17/17** | **4/17** empirical | no pin | Lead governed vertical |
-| LongMemEval-20 | remasure in flight (last integrity **0/20**) | no fair pin on this harness | no pin | Neither is a quality win |
-| BEAM | remasure in flight | published elsewhere; not our pin | no pin | — |
+| LongMemEval-20 | **4/20 (20.0%)** product `/recall` | no fair pin on this harness | no pin | Lift vs 0/20 integrity; **not** vs published 94.4% |
+| BEAM | remasure in flight (hist. 8/20 on 100K) | published elsewhere; not our pin | no pin | 1M/10M not run |
 
 Search p50 on the LoCoMo 1×30 pin: Brainy **175 ms** local vs Mem0 Platform
 **492 ms**. That is a harness observation, **not** a production SLO.
@@ -69,8 +69,8 @@ vendor their repo.
 | Benchmark | What it tests | Upstream | Our runner |
 | --- | --- | --- | --- |
 | **LOCOMO** | Long multi-session dialogues; factual / multi-hop / temporal QA | [snap-research/locomo](https://github.com/snap-research/locomo) · [ACL 2024](https://aclanthology.org/2024.acl-long.747/) | `evals/public/locomo/` (`--system brainy` or `mem0`) |
-| **LongMemEval** | Long-term extraction, temporal, multi-session | LongMemEval dataset | `evals/public/longmemeval/` — quality still **0/20** on `/recall` |
-| **BEAM** | Retrieval across 100K–10M token chats | HuggingFace `Mohammadta/BEAM` | `evals/public/beam/` — **not re-run** this cycle (historical 8/20 on 100K/20q: [beam-100k-c0-async](./artifacts/beam-100k-c0-async.md)) |
+| **LongMemEval** | Long-term extraction, temporal, multi-session | LongMemEval dataset | `evals/public/longmemeval/` — this cycle **4/20** on `/recall` ([pin](./artifacts/lme20-fresh-20260815.md)); LME-500 not run |
+| **BEAM** | Retrieval across 100K–10M token chats | HuggingFace `Mohammadta/BEAM` | `evals/public/beam/` — 100K remasure in flight (historical 8/20: [beam-100k-c0-async](./artifacts/beam-100k-c0-async.md)); 1M/10M not run |
 | Harness peer | Ingest → search → LLM answer/judge; `UnifiedResult` JSON | **[mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)** | `evals/public/schema.py` · Brainy drop-in: `evals/public/backends/memory_benchmarks_brainy.py` |
 
 Also outlinked (not in the comparison table): [LongMemBench](https://supermemory.ai/research/longmembench/).
@@ -130,6 +130,7 @@ Ladder: [research/public-bench-ladder.md](../research/public-bench-ladder.md).
 | --- | --- |
 | LoCoMo 1×30 | [locomo-fresh-1x30-20260815.md](./artifacts/locomo-fresh-1x30-20260815.md) |
 | LoCoMo full n=1540 | [locomo-fresh-full-20260815.md](./artifacts/locomo-fresh-full-20260815.md) |
+| LongMemEval-20 | [lme20-fresh-20260815.md](./artifacts/lme20-fresh-20260815.md) |
 | Mem0 LoCoMo freeze | [locomo-mem0-fresh-1x30-20260815.md](./artifacts/locomo-mem0-fresh-1x30-20260815.md) |
 | OpMem | [opmem-fresh-local-20260815.md](./artifacts/opmem-fresh-local-20260815.md) · [Mem0](./artifacts/opmem-mem0-fresh-20260815.md) |
 | Marketing | [marketing-fresh-local-20260815.md](./artifacts/marketing-fresh-local-20260815.md) · [Mem0](./artifacts/marketing-mem0-fresh-20260815.md) · [moat](./marketing-moat-report.md) |

@@ -12,7 +12,7 @@ Do not write SOTA / beats-Mem0 from this table.
 
 | System | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
 | --- | ---: | ---: | ---: | ---: |
-| **Brainy** (our last pin on that suite) | **11.4%** full `/recall` (175/1540, 2026-08-15) · **70.0%** current 1×30 · *hist. 49.8% search+harness 2026-07-31* | **4%** (4/100, 2026-08-01) · **0%** LME-20 `/recall` | not run (40% on 100K/20q) | not run |
+| **Brainy** (our last pin on that suite) | **11.4%** full `/recall` (175/1540, 2026-08-15) · **70.0%** current 1×30 · *hist. 49.8% search+harness 2026-07-31* | **20%** LME-20 `/recall` (4/20, 2026-08-16) · **4%** (4/100, 2026-08-01) | not run (100K remasure in flight; hist. 40% on 100K/20q) | not run |
 | **Mem0 Platform** | **92.5%** (1425/1540, top-k 200) | **94.4%** (472/500, top-k 200) | **64.1** mean (70.1% pass) | **48.6** mean (50.5% pass) |
 | **Mem0 OSS** | no current published full LoCoMo % | **91.0%** (GPT-5 extract; other extractors 88.6–89.8) | — | — |
 | **Zep** | **75.14%** ±0.17 | **71.2%** (in SuperMemory’s GPT-4o table, not a Zep paper) | — | — |
@@ -48,7 +48,8 @@ Do not write SOTA / beats-Mem0 from this table.
 | Brainy | LoCoMo full (historical) | 49.8 mean | LLM-judge, cats 1–4, search+harness | 3 seeds × 1540; old stack 2026-07-31 | [summary](./artifacts/locomo-full-publish-summary.json) |
 | Brainy | LoCoMo 1×30 | 70.0 | LLM-judge | 30 Q, remasure 2026-08-15 | [fresh](./artifacts/locomo-fresh-1x30-20260815.md) |
 | Brainy | LongMemEval-S | 4.0 | LLM-judge | 100 Q, 2026-08-01 | [lme-s-100](./artifacts/lme-s-100.md) |
-| Brainy | LongMemEval-20 | 0.0 | `/recall` integrity | 20 Q | cycle closeout |
+| Brainy | LongMemEval-20 | 20.0 | `/recall` product path | 20 Q, same seed/SHA as 0/20 integrity | [fresh](./artifacts/lme20-fresh-20260815.md) |
+| Brainy | LongMemEval-20 (historical) | 0.0 | `/recall` integrity | 20 Q, 2026-08-12 | [integrity](./artifacts/lme20-product-recall-pr1-20260812-pin.md) |
 | Brainy | BEAM 100K | 40.0 | 20 probing Q, 1 convo | not 1M/10M | [beam-100k](./artifacts/beam-100k-c0-async.md) |
 
 ## LoCoMo category % (published full-suite only)
@@ -68,7 +69,7 @@ Mem0’s own weak axis on the published full suite is **open-domain** (72.7). Ou
 
 - **92.5 vs 11.4** is the industry-format LoCoMo compare on **this** stack (full n=1540, product `/recall`). **92.5 vs 49.8** is the old search+harness pin.
 - **92.5 vs 70.0** is **not** that compare (n=1540 vs n=30).
-- **94.4 vs 4** is the industry-format LongMemEval compare (hundreds of Q vs our 100-Q pin). **94.4 vs 0/20** is worse: integrity pin, not quality.
+- **94.4 vs 4** is the industry-format LongMemEval compare (500 Q vs our 100-Q pin). **94.4 vs 4/20** is still not same-pin: n=20, our harness, not their top-k 200.
 - **95% Recall@15** is not an LLM-judge percent. Do not rank SuperMemory 95 against Mem0 94.4 as if the same metric.
 - **64.1** on BEAM is Mem0’s mean score; their harness also prints **70.1% pass**. Hindsight’s 73.9 / 64.1 are a different published BEAM run.
 

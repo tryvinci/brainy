@@ -99,7 +99,7 @@ Harness peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchm
 
 | | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
 | --- | ---: | ---: | ---: | ---: |
-| **Brainy** | **11.4%** full `/recall` (n=1540) · 70.0% 1×30 | **4%** (n=100) · 0% LME-20 | not run (40% on 100K/20q) | not run |
+| **Brainy** | **11.4%** full `/recall` (n=1540) · 70.0% 1×30 | **20%** LME-20 `/recall` (4/20) · **4%** (n=100 hist.) | not run (100K remasure in flight; hist. 40% on 100K/20q) | not run |
 | **Mem0 Platform** | **92.5%** | **94.4%** | **64.1** | **48.6** |
 | **Zep** | **75.14%** | 71.2% | — | — |
 | **SuperMemory** | 77.1% | 95% Recall@15 | — | — |
@@ -122,15 +122,16 @@ open-domain** on this pin.
 | LoCoMo 1×30 | **70.0%** (21/30; MH 10/10, OD **0/4**, temporal 11/16) | **36.7%** (11/30; MH 6/10, OD 3/4, temporal 2/16) this cycle | no same-pin |
 | OpMem | **100%** (13/13) | **76.9%** (10/13) this cycle | no pin |
 | Marketing vertical | **100%** (17/17) | **23.5%** (4/17 empirical) this cycle | no pin |
-| LongMemEval-20 | 0% integrity (not yet re-run this remasure) | no fair pin on this harness | no pin |
-| BEAM | remasure in flight | see published % above | no pin |
+| LongMemEval-20 | **20%** (4/20) product `/recall` | no fair pin on this harness | no pin |
+| BEAM | remasure in flight (hist. 8/20 on 100K) | see published % above | no pin |
 
 Mem0 **OSS** was not re-measured. Reproduce and artifacts:
 **[docs/benchmarks](docs/benchmarks/README.md)**. Pins:
 [LoCoMo](docs/benchmarks/artifacts/locomo-fresh-1x30-20260815.md) ·
 [Mem0 same-pin](docs/benchmarks/artifacts/locomo-mem0-fresh-1x30-20260815.md) ·
 [OpMem](docs/benchmarks/artifacts/opmem-fresh-local-20260815.md) ·
-[marketing](docs/benchmarks/artifacts/marketing-fresh-local-20260815.md).
+[marketing](docs/benchmarks/artifacts/marketing-fresh-local-20260815.md) ·
+[LME-20](docs/benchmarks/artifacts/lme20-fresh-20260815.md).
 
 ## Status
 
