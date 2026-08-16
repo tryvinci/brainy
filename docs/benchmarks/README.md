@@ -22,7 +22,7 @@ Industry format: one percent per public suite. **Not same-pin.**
 
 | | LoCoMo | LongMemEval | BEAM 1M | BEAM 10M |
 | --- | ---: | ---: | ---: | ---: |
-| **Brainy** | **11.4%** full `/recall` (n=1540) · **70.0%** 1×30 | **20%** LME-20 `/recall` (4/20) · **4%** (n=100 hist.) | not run (100K remasure in flight; hist. 40% on 100K/20q) | not run |
+| **Brainy** | **11.4%** full `/recall` (n=1540) · **70.0%** 1×30 | **20%** LME-20 `/recall` (4/20) · **4%** (n=100 hist.) | not run (40% on 100K/20q this cycle) | not run |
 | **Mem0 Platform** | **92.5%** | **94.4%** | **64.1** | **48.6** |
 | **Zep** | **75.14%** | 71.2% | — | — |
 | **SuperMemory** | 77.1% | 95% Recall@15 | — | — |
@@ -37,7 +37,8 @@ Sources, n, metric type, and the Zep LoCoMo dispute:
 
 Pin date for Brainy: **fresh remasure, 2026-08-15** (`1b5ab3e` product SHA).
 Mem0 LoCoMo / OpMem / marketing freeze: **this cycle**. Full LoCoMo n=1540
-landed at **11.4%** product `/recall`. LME-20 landed at **4/20**. BEAM still running. LME-500 not run.
+landed at **11.4%** product `/recall`. LME-20 landed at **4/20**. BEAM 100K
+landed at **8/20**. LME-500 and BEAM 1M/10M not run.
 
 | Suite | Brainy | Mem0 Platform | Graphiti OSS / Zep Platform | Stand |
 | --- | ---: | ---: | ---: | --- |
@@ -48,7 +49,7 @@ landed at **11.4%** product `/recall`. LME-20 landed at **4/20**. BEAM still run
 | OpMem | **13/13** | **10/13** | no pin | Lead ops |
 | Marketing vertical | **17/17** | **4/17** empirical | no pin | Lead governed vertical |
 | LongMemEval-20 | **4/20 (20.0%)** product `/recall` | no fair pin on this harness | no pin | Lift vs 0/20 integrity; **not** vs published 94.4% |
-| BEAM | remasure in flight (hist. 8/20 on 100K) | published elsewhere; not our pin | no pin | 1M/10M not run |
+| BEAM 100K | **8/20 (40.0%)** search+harness | published elsewhere; not our pin | no pin | Non-reg vs hist. 8/20; 1M/10M not run |
 
 Search p50 on the LoCoMo 1×30 pin: Brainy **175 ms** local vs Mem0 Platform
 **492 ms**. That is a harness observation, **not** a production SLO.
@@ -70,7 +71,7 @@ vendor their repo.
 | --- | --- | --- | --- |
 | **LOCOMO** | Long multi-session dialogues; factual / multi-hop / temporal QA | [snap-research/locomo](https://github.com/snap-research/locomo) · [ACL 2024](https://aclanthology.org/2024.acl-long.747/) | `evals/public/locomo/` (`--system brainy` or `mem0`) |
 | **LongMemEval** | Long-term extraction, temporal, multi-session | LongMemEval dataset | `evals/public/longmemeval/` — this cycle **4/20** on `/recall` ([pin](./artifacts/lme20-fresh-20260815.md)); LME-500 not run |
-| **BEAM** | Retrieval across 100K–10M token chats | HuggingFace `Mohammadta/BEAM` | `evals/public/beam/` — 100K remasure in flight (historical 8/20: [beam-100k-c0-async](./artifacts/beam-100k-c0-async.md)); 1M/10M not run |
+| **BEAM** | Retrieval across 100K–10M token chats | HuggingFace `Mohammadta/BEAM` | `evals/public/beam/` — this cycle **8/20** on 100K conv-0 ([pin](./artifacts/beam-100k-fresh-20260815.md)); 1M/10M not run |
 | Harness peer | Ingest → search → LLM answer/judge; `UnifiedResult` JSON | **[mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchmarks)** | `evals/public/schema.py` · Brainy drop-in: `evals/public/backends/memory_benchmarks_brainy.py` |
 
 Also outlinked (not in the comparison table): [LongMemBench](https://supermemory.ai/research/longmembench/).
@@ -135,7 +136,8 @@ Ladder: [research/public-bench-ladder.md](../research/public-bench-ladder.md).
 | OpMem | [opmem-fresh-local-20260815.md](./artifacts/opmem-fresh-local-20260815.md) · [Mem0](./artifacts/opmem-mem0-fresh-20260815.md) |
 | Marketing | [marketing-fresh-local-20260815.md](./artifacts/marketing-fresh-local-20260815.md) · [Mem0](./artifacts/marketing-mem0-fresh-20260815.md) · [moat](./marketing-moat-report.md) |
 | Cycle closeout (detailed why) | [cycle-closeout.md](../research/competitive/cycle-closeout.md) |
-| BEAM 100K historical | [beam-100k-c0-async.md](./artifacts/beam-100k-c0-async.md) — superseded when this remasure's BEAM pin lands |
+| BEAM 100K this cycle | [beam-100k-fresh-20260815.md](./artifacts/beam-100k-fresh-20260815.md) |
+| BEAM 100K historical | [beam-100k-c0-async.md](./artifacts/beam-100k-c0-async.md) |
 
 Historical staging smoke (2026-07, do not mix with R4h): [locomo-smoke.md](./locomo-smoke.md).
 

@@ -26,6 +26,7 @@ Style: **reproducible, cited, honest about gaps**. The product README may carry 
 | **Marketing vertical** | **17/17** |
 | **LOCOMO 1×30** | **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) — measurement, not qualification |
 | **LongMemEval-20** | **4/20** product `/recall` (lift vs 0/20 integrity; not vs published 94.4%) |
+| **BEAM 100K** | **8/20** search+harness (non-reg; 1M/10M not run) |
 | **Next** | **R5** structured-first OD. [sota-representation-path.md](./sota-representation-path.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
@@ -41,6 +42,8 @@ Details: [competitive verdict](./external-reviews/2026-08-11-competitive-archite
 | Marketing vertical moat | Live results | [moat report](../benchmarks/marketing-moat-report.md) |
 | Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
 | LOCOMO 1×30 | Live measurement | [fresh pin](../benchmarks/artifacts/locomo-fresh-1x30-20260815.md) |
+| LongMemEval-20 | Live measurement | [fresh pin](../benchmarks/artifacts/lme20-fresh-20260815.md) |
+| BEAM 100K | Live measurement | [fresh pin](../benchmarks/artifacts/beam-100k-fresh-20260815.md) |
 | Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
 | Proveable eval framework | Spec + harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
 | External agent assessment pack | **Preferred handoff** | [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) |
