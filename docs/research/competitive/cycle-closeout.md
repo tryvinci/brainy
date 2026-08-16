@@ -436,3 +436,128 @@ Vs Mem0: we lead this freeze on overall, MH, and temporal. We still trail OD hyp
 | LME 0/20 | R6 after representation + OD reader | Compare 0/20 to published LME headlines |
 
 Kill list stays in force. Do not write SOTA / beats-Mem0. Do not call the **product** “MH solved” while OD is 0/4; this pin’s 1×30 MH axis is 10/10.
+
+---
+
+## Cycle 2026-08-15/16 — fresh full remasure (no product change)
+
+**Landed:** remasure-only on product SHA `1b5ab3e` (`dev`/`main` at start of this cycle). **No product change** in this PR. Dedicated local API+worker on a fresh DB (`brainy_bench`), async ingest, `BRAINY_USE_RECALL=1`. Docs branch `pr/fresh-full-bench-a6c7`.
+
+This is a measurement cycle: re-pin every in-tree suite at full (or max affordable) size, with a same-cycle Mem0 Platform counter-run on OpMem, marketing, and LoCoMo 1×30.
+
+### Own pins (this cycle)
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13 (100%)** | Non-reg. [pin](../../benchmarks/artifacts/opmem-fresh-local-20260815.md) |
+| Marketing vertical | **17/17 (100%)** | Non-reg. [pin](../../benchmarks/artifacts/marketing-fresh-local-20260815.md) |
+| Parity | **4/4** | Non-reg. [pin](../../benchmarks/artifacts/parity-fresh-local-20260815.md) |
+| LoCoMo 1×30 conv-26 | **21/30 (70.0%)** | MH **10/10** · OD **0/4** · temporal **11/16**. +1 vs R4h 20/30. All 30 via `/recall`. [pin](../../benchmarks/artifacts/locomo-fresh-1x30-20260815.md) |
+| LoCoMo full 10×all | **175/1540 (11.4%)** | **Dip.** Product `/recall`, 1 seed. Do not mix with 2026-07-31 **49.8%** search+harness. [pin](../../benchmarks/artifacts/locomo-fresh-full-20260815.md) |
+| LongMemEval-20 | **4/20 (20.0%)** | Product `/recall`; jobs 4829=4829; same seed/SHA as 0/20 integrity. [pin](../../benchmarks/artifacts/lme20-fresh-20260815.md) |
+| LongMemEval-500 | **not run** | ~12–20 min and ~250 extract jobs per item; 500 items is tens of hours |
+| BEAM 100K conv-0 | **8/20 (40.0%)** | Search + harness answerer; **non-reg** vs hist. 8/20. [pin](../../benchmarks/artifacts/beam-100k-fresh-20260815.md) |
+| BEAM 1M / 10M | **not run** | Not affordable this cycle |
+
+1×30 is **measurement, not qualification**. Publishing 70% as if it were full LoCoMo would be a lie.
+
+### Competitor compare (detailed)
+
+#### 1. LoCoMo 1×30 — only fair conversational QA pin this cycle
+
+Mem0 Platform **re-run this cycle** (same dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`, same judge temp 0.0, conv-26 1×30): [locomo-mem0-fresh-1x30-20260815.md](../../benchmarks/artifacts/locomo-mem0-fresh-1x30-20260815.md).
+
+| Axis | Brainy now (`1b5ab3e`) | Mem0 Platform (this cycle) | Graphiti OSS / Zep Platform | Stand |
+| --- | ---: | ---: | --- | --- |
+| LoCoMo 1×30 overall | **21/30 (70.0%)** | **11/30 (36.7%)** | **no same-pin** | **Lead this freeze**; **not** SOTA |
+| Multi-hop | **10/10 (100%)** | **6/10 (60.0%)** | no same-pin | **Lead this freeze** |
+| Open-domain | **0/4 (0.0%)** | **3/4 (75.0%)** | no same-pin | **Trail** |
+| Temporal | **11/16 (68.8%)** | **2/16 (12.5%)** | no same-pin | **Lead this freeze** |
+| Search p50 / p95 | 175 / 201 ms (local) | 492 ms p50 (platform) | no same-pin | Faster locally; **not** a platform SLO claim |
+
+**Multi-hop (lead 10/10 vs 6/10).** R4h recoveries held (q15, q23, q26, q10). 1×30 MH axis stays closed on this pin. Do not generalize to “MH solved” as a product: OD is still 0/4, n=30, and full-suite multi-hop is **21/282 (7.4%)**.
+
+**Open-domain (trail 0/4 vs 3/4).** Unchanged. All four OD items are WRITE_MISS (two also abstain). Hypothetical / “likely” questions. R5 structured-first yes/no from compiled facts. Do not restore OD by stuffing episodes into top-k.
+
+**Temporal (lead 11/16 vs 2/16).** +1 vs R4h 10/16. q29 pottery/workshop date remains RETRIEVAL_MISS. Keep the lead by scoring dated **facts**, not LoCoMo-named date rules.
+
+**Overall (lead 21 vs 11 on this freeze).** +1 vs R4h. Still **must not** say beats-Mem0 / SOTA: OD is 0/4, n=30, full `/recall` is 11.4%.
+
+**Latency.** Local p50 175 ms vs Mem0 platform 492 ms is a harness observation, not a production SLO.
+
+**Mem0 OSS** was not re-measured. Do not mix this 1×30 with Mem0 blog 90+ or Brainy full 11.4%.
+
+#### 2. LoCoMo full n=1540 — named dip, not a Mem0 same-pin
+
+| Path | Overall | MH | OD | SH | Temporal |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| This `/recall` (`1b5ab3e`, 1 seed) | **175/1540 (11.4%)** | 21/282 (7.4%) | 5/96 (5.2%) | 88/841 (10.5%) | 61/321 (19.0%) |
+| 2026-07-31 search+harness (seed-0) | 761/1540 (49.4%) | 71/282 (25.2%) | 37/96 (38.5%) | 477/841 (56.7%) | 176/321 (54.8%) |
+
+Mem0 Platform **published** 92.5% (n=1540, top-k 200) is **context only** — not this harness, not this top-k. Same 30-item head inside the full run scored **20/30** (judge flake vs the dedicated 21/30 pin); rest of conv-26 was **12/122**. Product `/recall` returns slogans, lists, or `not in memory` on single-hop that the July harness answerer extracted from search hits.
+
+#### 3. OpMem — lead (Mem0 re-run this cycle)
+
+| | Brainy this cycle | Mem0 Platform this cycle |
+| --- | ---: | ---: |
+| OpMem | **13/13 (100%)** | **10/13 (76.9%)** |
+
+Source: [opmem-mem0-fresh-20260815.md](../../benchmarks/artifacts/opmem-mem0-fresh-20260815.md). Mem0 fails: `cor02` (ruby), `sup03` (forget leak), `upd02` (sms). Prior ops pin was 9/12 on a 12-task set; this is a new 13-task empirical pin.
+
+Stand: **lead ops**. Do not spend the next cycle matching Mem0 on packs.
+
+#### 4. Marketing vertical — lead (Mem0 re-run this cycle)
+
+| | Brainy this cycle | Mem0 Platform this cycle |
+| --- | ---: | ---: |
+| Marketing fixtures | **17/17 (100%)** | **4/17 (23.5%)** empirical |
+| Parity (content-level) | **4/4** | **4/4** |
+
+Source: [marketing-mem0-fresh-20260815.md](../../benchmarks/artifacts/marketing-mem0-fresh-20260815.md). Schema-only misses under `strict_schema=True` are the moat definition.
+
+Stand: **lead governed vertical**.
+
+#### 5. LME-20 — lift vs own integrity pin; not vs published 94.4%
+
+| Pin | Score | Path |
+| --- | ---: | --- |
+| 2026-08-12 integrity | **0/20** | `/recall`, jobs 4829=4829 |
+| **This cycle** | **4/20 (20.0%)** | `/recall`, same seed/SHA, jobs 4829=4829 |
+
+CORRECT: two single-session-user, two temporal-reasoning. Multi-session **0/5**, knowledge-update **0/3**. No fair Mem0 pin on **this** harness. Do not compare 4/20 to Mem0 94.4% (500 Q, top-k 200) or SuperMemory 95% Recall@15. LME-500 **not run**. Quality LME still waits on representation + OD/multi-session reader (R6).
+
+#### 6. BEAM — 100K non-reg; 1M/10M not run
+
+**8/20 (40.0%)** search + harness answerer on conv-0, all 20 probes. Matches historical 8/20; ability swaps (abstention/preference up; knowledge_update/summarization down). **Not** a `/recall` fail-closed pin. BEAM 1M/10M **not run**. Mem0 published 64.1 (BEAM 1M, 700 Q) is context only.
+
+#### 7. Graphiti / Zep — architecture target, not a scoreboard
+
+**No same-pin.** Do not invent a LoCoMo or LME number for Graphiti OSS or Zep Platform. Published headlines stay context only.
+
+### Why
+
+This cycle did not change the compiler, hops, or reader. Scores moved because we **re-measured** on the current stack:
+
+- **1×30 21/30** is the R4h MH/OD/temporal head on product `/recall`. OD is still WRITE_MISS. The +1 vs R4h is temporal, not OD.
+- **Full 11.4%** is the same `/recall` path on 841 single-hop items the 1×30 never sees. Recall often emits a nearby slogan, enumerate list, or abstain instead of the atomic fact the July search+harness answerer produced. That is a **path label**, not a hidden harness glitch.
+- **LME 4/20** is the first non-zero publishable product-recall pin on the same 20-item sample as 0/20. Multi-session still 0: long haystacks, compiled facts still thin.
+- **BEAM 8/20** is harness-answerer non-reg on a 188-turn 100K slice. It does not speak to 1M/10M.
+
+Vs Mem0: we lead the axes that are already Brainy-native on this freeze (ops mutation, vertical governance, 1×30 MH/temporal/overall). We trail OD hypotheticals on the same pin, and we trail every published full-suite percent. That split is still the program.
+
+### Next
+
+**One step:** R5 structured-first yes/no from compiled career/possession facts (OD 0/4 vs Mem0 3/4). Do not spend the next cycle on another full remasure, on fusion fishing, or on treating 21/30 as qualification.
+
+| Trailing vs Mem0 | Product next (PoR) | Explicitly not next |
+| --- | --- | --- |
+| OD 0/4 vs 3/4 | R5 structured-first yes/no from compiled facts | Restore OD by raising episode top-k |
+| Full LoCoMo 11.4% `/recall` | Keep the path label; lift single-hop by compiling atomic facts the reader can cite | Silently restore 49.8% as current; publish 70% as full LoCoMo |
+| Overall lead 21 vs 11 | Keep; do not declare beats-Mem0 | Treat 21/30 as qualification or SOTA |
+| MH lead 10 vs 6 | Keep 1×30 MH; do not claim MH-solved while full MH is 7.4% and OD is 0/4 | Hardcode titled-work gold |
+| Temporal lead 11 vs 2 | Restore q29 onto the dated fact | LoCoMo-named date rules |
+| Ops / vertical lead | Keep 13/13 and 17/17 green | Spend a cycle matching Mem0 on packs |
+| LME 4/20 (multi-session 0/5) | R6 after representation + OD reader | Compare 4/20 to published LME headlines; run LME-500 as a quality claim |
+| BEAM 8/20 | Leave 100K as a sample; 1M/10M only after OD/reader work | Publish 40% as BEAM 1M |
+
+Kill list stays in force. Do not write SOTA / beats-Mem0. Do not mix 1×30 with n=1540 or with vendor 90+. Mem0 OSS ≠ Mem0 Platform.
