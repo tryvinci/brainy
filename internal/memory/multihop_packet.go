@@ -235,17 +235,21 @@ func orderBridgeChain(items []PacketItem, targets []string) []PacketItem {
 // composeMultiHopAnswer builds a short deterministic answer from a bridge+direct chain.
 func composeMultiHopAnswer(pkt EvidencePacket) string {
 	if hops := hopResultsFromPacket(pkt); len(hops) > 0 {
-		if composed := composeFromHopValues(hops); composed != "" {
-			return composed
-		}
+		// Typed hop slots only. Resolve-only mentions and raw packet
+		// sentences are not factual answers.
+		return composeFromHopValues(hops)
 	}
 	var bridge, direct string
 	for _, it := range pkt.Items {
+		content := strings.TrimSpace(it.Content)
+		if content == "" || looksTitleCaseSlogan(content) {
+			continue
+		}
 		if it.Role == "bridge" && bridge == "" {
-			bridge = it.Content
+			bridge = content
 		}
 		if it.Role == "direct" && direct == "" {
-			direct = it.Content
+			direct = content
 		}
 	}
 	switch {
@@ -255,8 +259,6 @@ func composeMultiHopAnswer(pkt EvidencePacket) string {
 		return direct
 	case bridge != "":
 		return bridge
-	case len(pkt.Contents) > 0:
-		return pkt.Contents[0]
 	default:
 		return ""
 	}

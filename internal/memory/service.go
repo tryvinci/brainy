@@ -716,6 +716,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if s.entityRankingEnabled {
 			entitiesByID[record.MemoryID] = recordEntities(record)
 		}
+		copyRecordSemantics(explain, record)
 		ranked = append(ranked, rankedSearchResult{
 			result: SearchResult{
 				MemoryID:   record.MemoryID,
@@ -2367,6 +2368,26 @@ func (s *Service) extractOrLabel(ctx context.Context, req IngestRequest) []Extra
 			"rule": "pack_label_direct",
 		},
 	}}
+}
+
+func copyRecordSemantics(explain map[string]any, record MemoryRecord) {
+	if explain == nil {
+		return
+	}
+	if pred := metadataString(record.Metadata, "predicate"); pred != "" {
+		explain["predicate"] = pred
+	} else if record.Explain != nil {
+		if pred, _ := record.Explain["predicate"].(string); strings.TrimSpace(pred) != "" {
+			explain["predicate"] = strings.TrimSpace(pred)
+		}
+	}
+	if val := metadataString(record.Metadata, "value_norm"); val != "" {
+		explain["value_norm"] = val
+	} else if record.Explain != nil {
+		if val, _ := record.Explain["value_norm"].(string); strings.TrimSpace(val) != "" {
+			explain["value_norm"] = strings.TrimSpace(val)
+		}
+	}
 }
 
 func validateIngestRequest(req IngestRequest) error {

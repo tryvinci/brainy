@@ -71,10 +71,10 @@ func TestHopJoinBindingSatisfiesCoverage(t *testing.T) {
 func TestHopBindKeepsContextEvidence(t *testing.T) {
 	plan := PlanQuery("What is Melanie's occupation according to Caroline?", nil)
 	pkt := EvidencePacket{
-		Plan:     plan,
-		Contents: []string{"Caroline mentioned Melanie last week", "Weather was nice in Seattle"},
+		Plan:      plan,
+		Contents:  []string{"Caroline mentioned Melanie last week", "Weather was nice in Seattle"},
 		MemoryIDs: []string{"c1", "c2"},
-		Coverage: map[string]any{},
+		Coverage:  map[string]any{},
 	}
 	hops := []HopResult{
 		{HopIndex: 0, Kind: "resolve_entity", OutputKey: "e1", Value: "Melanie", MemoryIDs: []string{"m1"}, Contents: []string{"Caroline knows Melanie"}, Source: "typed_store"},
@@ -182,6 +182,25 @@ func TestComposeMultiHopAnswerPrefersHopSlotValues(t *testing.T) {
 	}
 }
 
+func TestComposeMultiHopAnswerIgnoresResolveOnlyMention(t *testing.T) {
+	pkt := EvidencePacket{
+		Items: []PacketItem{
+			{Role: "bridge", Content: "melanie"},
+			{Role: "direct", Content: "We Can Really Accept Who We Are And Be Content"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{Kind: "resolve_entity", OutputKey: "e1", Value: "melanie", Source: "search_fallback"},
+				{Kind: "fetch_predicate", OutputKey: "ans", Entity: "melanie", Source: "unresolved"},
+			},
+		},
+	}
+	ans := composeMultiHopAnswer(pkt)
+	if ans != "" {
+		t.Fatalf("resolve-only / slogan packet must not compose a factual answer, got %q", ans)
+	}
+}
+
 func TestGroundHybridToHopValues(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "follow_relation", Predicate: PredicateOrigin, Value: "portugal", Values: []string{"portugal"}, Source: "typed_store"},
@@ -191,4 +210,3 @@ func TestGroundHybridToHopValues(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
-

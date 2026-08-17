@@ -7,17 +7,17 @@ import (
 
 // HopResult is the typed output of one executed HopStep.
 type HopResult struct {
-	HopIndex   int      `json:"hop_index"`
-	Kind       string   `json:"kind"`
-	OutputKey  string   `json:"output_key,omitempty"`
-	Value      string   `json:"value,omitempty"`
-	Values     []string `json:"values,omitempty"` // all typed destinations (enumeration)
-	Entity     string   `json:"entity,omitempty"`
-	Predicate  string   `json:"predicate,omitempty"`
-	MemoryIDs  []string `json:"memory_ids,omitempty"`
-	Contents   []string `json:"contents,omitempty"`
-	Source     string   `json:"source,omitempty"` // typed_store | search_fallback | unresolved
-	DependsOn  []string `json:"depends_on,omitempty"`
+	HopIndex  int      `json:"hop_index"`
+	Kind      string   `json:"kind"`
+	OutputKey string   `json:"output_key,omitempty"`
+	Value     string   `json:"value,omitempty"`
+	Values    []string `json:"values,omitempty"` // all typed destinations (enumeration)
+	Entity    string   `json:"entity,omitempty"`
+	Predicate string   `json:"predicate,omitempty"`
+	MemoryIDs []string `json:"memory_ids,omitempty"`
+	Contents  []string `json:"contents,omitempty"`
+	Source    string   `json:"source,omitempty"` // typed_store | search_fallback | unresolved
+	DependsOn []string `json:"depends_on,omitempty"`
 }
 
 // executeTypedHops runs plan hops against typed stores, falling back to SearchOpt
@@ -319,6 +319,7 @@ func (s *Service) searchFallbackHop(
 		return
 	}
 	res.Source = "search_fallback"
+	seenVal := map[string]struct{}{}
 	for _, r := range search.Results {
 		if r.MemoryID != "" {
 			res.MemoryIDs = append(res.MemoryIDs, r.MemoryID)
@@ -326,9 +327,28 @@ func (s *Service) searchFallbackHop(
 		if c := strings.TrimSpace(r.Content); c != "" {
 			res.Contents = append(res.Contents, c)
 		}
+		if hop.Predicate != "" {
+			recPred := searchResultPredicate(r)
+			if recPred != "" && !strings.EqualFold(recPred, hop.Predicate) && !hopUsefulForList(recPred, hop.Predicate) {
+				continue
+			}
+		}
+		v := structuredValueOf(r)
+		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) {
+			continue
+		}
+		if hop.Entity != "" && strings.EqualFold(v, hop.Entity) {
+			continue
+		}
+		key := strings.ToLower(v)
+		if _, ok := seenVal[key]; ok {
+			continue
+		}
+		seenVal[key] = struct{}{}
+		res.Values = append(res.Values, v)
 	}
-	if len(res.Contents) > 0 && res.Value == "" {
-		res.Value = res.Contents[0]
+	if len(res.Values) > 0 && res.Value == "" {
+		res.Value = strings.Join(res.Values, ", ")
 	}
 }
 
@@ -387,9 +407,12 @@ func anaphoricSlotValue(s string) bool {
 func hopSlotValues(results []HopResult) []string {
 	out := make([]string, 0, 8)
 	seen := map[string]struct{}{}
-	add := func(v string) {
+	add := func(v, entity string) {
 		v = strings.TrimSpace(v)
-		if v == "" || anaphoricSlotValue(v) {
+		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) {
+			return
+		}
+		if entity != "" && strings.EqualFold(v, entity) {
 			return
 		}
 		if utf8Len(v) > 80 {
@@ -410,11 +433,11 @@ func hopSlotValues(results []HopResult) []string {
 			}
 			if len(r.Values) > 0 {
 				for _, v := range r.Values {
-					add(v)
+					add(v, r.Entity)
 				}
 				continue
 			}
-			add(r.Value)
+			add(r.Value, r.Entity)
 		}
 	}
 	return out

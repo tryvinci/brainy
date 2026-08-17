@@ -263,7 +263,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.ContextBlock = rep.factBlob
 			}
 			out.AnswerStatus = AnswerSupported
-			out.Answer = firstStatementFromPacket(pkt)
+			out.Answer = pickStructuredAnswer(req.Query, search.Results)
+			if strings.TrimSpace(out.Answer) == "" {
+				out.Answer = firstFactLine(rep.factBlob)
+			}
 			return out, nil
 		case "retrieval":
 			factN, epN := countSearchRepresentation(search.Results)
@@ -281,7 +284,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 			out.ContextBlock = assembleContextFromPacket(pkt, budget)
 			out.AnswerStatus = AnswerSupported
-			out.Answer = firstStatementFromPacket(pkt)
+			out.Answer = pickStructuredAnswer(req.Query, search.Results)
+			if strings.TrimSpace(out.Answer) == "" {
+				out.Answer = firstFactLine(joinSearchFacts(search.Results))
+			}
 			return out, nil
 		case "coverage":
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
@@ -367,11 +373,21 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "multihop_bridge_chain"
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" && out.ContextBlock != "" {
-			out.Answer = firstStatementFromPacket(pkt)
-			out.AnswerStatus = AnswerPartiallySupported
+		if strings.TrimSpace(out.Answer) == "" {
+			if ans := pickStructuredAnswer(req.Query, search.Results); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["structured_answer"] = true
+			}
 		}
-		if strings.TrimSpace(out.Answer) == "" || (!packetOK && plan.NeedsAbstention) || (!packetOK && plan.NeedsMultiHop && strings.TrimSpace(out.Answer) == "") {
+		if strings.TrimSpace(out.Answer) == "" {
+			if ans := pickEpisodeFallback(req.Query, search.Results); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["episode_fallback"] = true
+			}
+		}
+		if strings.TrimSpace(out.Answer) == "" {
 			out.Abstained = true
 			out.Answer = "not in memory"
 			out.AnswerStatus = AnswerInsufficient
@@ -698,7 +714,6 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		order = append(order, key)
 	}
 
-	typedHops := false
 	for _, h := range hops {
 		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
 			continue
@@ -708,7 +723,6 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		}
 		slotPred := firstNonEmpty(h.Predicate, pred)
 		if len(h.Values) > 0 {
-			typedHops = true
 			for i, v := range h.Values {
 				id := ""
 				if i < len(h.MemoryIDs) {
@@ -721,7 +735,6 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			continue
 		}
 		if v := strings.TrimSpace(h.Value); v != "" && utf8.RuneCountInString(v) <= 80 {
-			typedHops = h.Source == "typed_store"
 			add(v, slotPred, firstID(h.MemoryIDs), "")
 		}
 	}
@@ -788,23 +801,30 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		}
 	}
 
-	if !typedHops || len(order) == 0 {
+	if len(order) == 0 {
 		for _, r := range results {
-			if primitive, _ := r.Explain["primitive"].(string); primitive == PrimitiveEpisode {
+			if searchResultIsEpisode(r) {
 				continue
 			}
 			if entity != "" && !strings.Contains(strings.ToLower(r.Content), strings.ToLower(entity)) {
+				continue
+			}
+			recPred := searchResultPredicate(r)
+			if pred != "" && recPred != "" && !hopUsefulForList(recPred, pred) {
 				continue
 			}
 			obs := ""
 			if r.ObservedAt != nil {
 				obs = r.ObservedAt.UTC().Format(time.RFC3339)
 			}
-			val, ok := slotValueFromMemoryContent(r.Content)
-			if !ok {
+			val := structuredValueOf(r)
+			if val == "" {
 				continue
 			}
-			p := pred
+			p := recPred
+			if p == "" {
+				p = pred
+			}
 			if p == "" {
 				p = "fact"
 			}
@@ -1090,17 +1110,201 @@ func assembleContextFromPacket(pkt EvidencePacket, budgetTokens int) string {
 	return strings.TrimSpace(b.String())
 }
 
-func firstStatementFromPacket(pkt EvidencePacket) string {
-	if ta := strings.TrimSpace(pkt.TemporalAnswer); ta != "" {
-		return ta
+func searchResultIsEpisode(r SearchResult) bool {
+	if r.Explain == nil {
+		return false
 	}
-	for _, c := range pkt.Contents {
-		c = strings.TrimSpace(c)
-		if c != "" && !strings.HasSuffix(c, "?") {
-			return c
+	p, _ := r.Explain["primitive"].(string)
+	return p == PrimitiveEpisode
+}
+
+func searchResultPredicate(r SearchResult) string {
+	if r.Explain == nil {
+		return ""
+	}
+	p, _ := r.Explain["predicate"].(string)
+	return strings.TrimSpace(p)
+}
+
+func searchResultValueNorm(r SearchResult) string {
+	if r.Explain == nil {
+		return ""
+	}
+	v, _ := r.Explain["value_norm"].(string)
+	return strings.TrimSpace(v)
+}
+
+func looksTitleCaseSlogan(s string) bool {
+	words := strings.Fields(strings.TrimSpace(s))
+	if len(words) < 4 {
+		return false
+	}
+	for _, w := range words {
+		r := w[0]
+		if r < 'A' || r > 'Z' {
+			return false
 		}
 	}
+	return true
+}
+
+func structuredValueOf(r SearchResult) string {
+	if searchResultIsEpisode(r) {
+		return ""
+	}
+	if looksTitleCaseSlogan(r.Content) {
+		return ""
+	}
+	if v := searchResultValueNorm(r); v != "" && !anaphoricSlotValue(v) {
+		return v
+	}
+	if val, ok := slotValueFromMemoryContent(r.Content); ok && !anaphoricSlotValue(val) {
+		return val
+	}
 	return ""
+}
+
+func pickStructuredAnswer(query string, results []SearchResult) string {
+	preds := predicateHintsFromQuery(query)
+	predSet := map[string]struct{}{}
+	for _, p := range preds {
+		predSet[p] = struct{}{}
+	}
+	qtoks := map[string]struct{}{}
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		if len(t) > 2 {
+			qtoks[t] = struct{}{}
+		}
+	}
+	var matched, overlapped, rest []string
+	seen := map[string]struct{}{}
+	add := func(dst *[]string, v string) {
+		v = strings.TrimSpace(v)
+		if v == "" || looksTitleCaseSlogan(v) {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		*dst = append(*dst, v)
+	}
+	for _, r := range results {
+		v := structuredValueOf(r)
+		if v == "" || looksLikeQueryNameEcho(query, v) {
+			continue
+		}
+		recPred := searchResultPredicate(r)
+		if len(predSet) > 0 && recPred != "" {
+			if _, ok := predSet[recPred]; ok {
+				add(&matched, v)
+				continue
+			}
+		}
+		blob := strings.ToLower(v + " " + r.Content)
+		hit := false
+		for tok := range qtoks {
+			if strings.Contains(blob, tok) {
+				hit = true
+				break
+			}
+		}
+		if hit {
+			add(&overlapped, v)
+		} else {
+			add(&rest, v)
+		}
+	}
+	switch {
+	case len(matched) == 1:
+		return matched[0]
+	case len(matched) > 1 && len(matched) <= 6:
+		return strings.Join(matched, ", ")
+	case len(overlapped) == 1:
+		return overlapped[0]
+	case len(overlapped) > 1 && len(overlapped) <= 4:
+		return strings.Join(overlapped, ", ")
+	case len(rest) == 1:
+		return rest[0]
+	default:
+		return ""
+	}
+}
+
+func pickEpisodeFallback(query string, results []SearchResult) string {
+	qtoks := map[string]struct{}{}
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		if len(t) > 2 {
+			qtoks[t] = struct{}{}
+		}
+	}
+	if len(qtoks) == 0 {
+		return ""
+	}
+	best := ""
+	bestHits := 0
+	for _, r := range results {
+		if !searchResultIsEpisode(r) {
+			continue
+		}
+		c := strings.TrimSpace(r.Content)
+		if c == "" || strings.HasSuffix(c, "?") || looksTitleCaseSlogan(c) || looksLikeQueryNameEcho(query, c) {
+			continue
+		}
+		hits := 0
+		lower := strings.ToLower(c)
+		for tok := range qtoks {
+			if strings.Contains(lower, tok) {
+				hits++
+			}
+		}
+		if hits > bestHits {
+			bestHits = hits
+			best = c
+		}
+	}
+	if bestHits < 1 {
+		return ""
+	}
+	return best
+}
+
+func looksLikeQueryNameEcho(query, value string) bool {
+	vv := strings.ToLower(strings.TrimSpace(value))
+	if vv == "" {
+		return true
+	}
+	if strings.ContainsAny(vv, " \t") {
+		return false
+	}
+	return strings.Contains(strings.ToLower(query), vv)
+}
+
+func firstFactLine(blob string) string {
+	for _, line := range strings.Split(blob, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasSuffix(line, "?") || looksTitleCaseSlogan(line) {
+			continue
+		}
+		return line
+	}
+	return ""
+}
+
+func joinSearchFacts(results []SearchResult) string {
+	parts := make([]string, 0, len(results))
+	for _, r := range results {
+		if searchResultIsEpisode(r) {
+			continue
+		}
+		c := strings.TrimSpace(r.Content)
+		if c == "" {
+			continue
+		}
+		parts = append(parts, c)
+	}
+	return joinBounded(parts, 80000)
 }
 
 func formatEnumerateContext(items []RecallItem) string {
@@ -1113,16 +1317,6 @@ func formatEnumerateContext(items []RecallItem) string {
 	}
 	sort.Strings(parts)
 	return strings.Join(parts, ", ")
-}
-
-func firstStatement(results []SearchResult) string {
-	for _, r := range results {
-		c := strings.TrimSpace(r.Content)
-		if c != "" && !strings.HasSuffix(c, "?") {
-			return c
-		}
-	}
-	return ""
 }
 
 func appendUnique(ids []string, id string) []string {

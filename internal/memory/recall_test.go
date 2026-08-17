@@ -426,3 +426,130 @@ func TestRecallBooksRejectOneWordQuoteAndKeepTitleCaseRun(t *testing.T) {
 		t.Fatalf("one-word quote should be rejected, items=%#v", out.Items)
 	}
 }
+
+func TestRecallPrefersStructuredValueOverSlogan(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["slogan"] = MemoryRecord{
+		MemoryID: "mem_s", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Melanie after the charity race: We Can Really Accept Who We Are And Be Content",
+		DedupeKey: "s", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"primitive": PrimitiveEpisode, "rule": "conversation_episode"},
+	}
+	store.records["fact"] = MemoryRecord{
+		MemoryID: "mem_f", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Melanie realized that self-care is important",
+		DedupeKey: "f", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateBelief, "value_norm": "self-care is important"},
+		Explain:  map[string]any{"predicate": PredicateBelief, "value_norm": "self-care is important"},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t1", SubjectID: "u1",
+		Query: "What did Melanie realize after the charity race?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if strings.Contains(got, "we can really accept") {
+		t.Fatalf("slogan must not be the answer, got %q", out.Answer)
+	}
+	if !strings.Contains(got, "self-care") {
+		t.Fatalf("expected structured value, got answer=%q abstained=%v", out.Answer, out.Abstained)
+	}
+}
+
+func TestRecallAbstainsOnEpisodeOnlySlogan(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["slogan"] = MemoryRecord{
+		MemoryID: "mem_s", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "We Can Really Accept Who We Are And Be Content",
+		DedupeKey: "s", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"primitive": PrimitiveEpisode},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t1", SubjectID: "u1",
+		Query: "What did Melanie realize after the charity race?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Abstained || out.Answer != "not in memory" {
+		t.Fatalf("expected abstain without structured facts, got answer=%q abstained=%v", out.Answer, out.Abstained)
+	}
+}
+
+func TestRecallEnumerateSkipsOtherPredicates(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["plan"] = MemoryRecord{
+		MemoryID: "mem_p", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Caroline researched adoption agencies",
+		DedupeKey: "p", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePlan, "value_norm": "adoption agencies"},
+		Explain:  map[string]any{"predicate": PredicatePlan, "value_norm": "adoption agencies"},
+	}
+	store.records["media"] = MemoryRecord{
+		MemoryID: "mem_m", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Caroline read Wicked",
+		DedupeKey: "m", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateMediaConsumed, "value_norm": "wicked"},
+		Explain:  map[string]any{"predicate": PredicateMediaConsumed, "value_norm": "wicked"},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t1", SubjectID: "u1",
+		Query: "What are Caroline's summer plans?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " " + strings.ToLower(it.Value)
+	}
+	if strings.Contains(got, "wicked") {
+		t.Fatalf("media fact leaked into plans answer: answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if !strings.Contains(strings.ToLower(out.Answer), "adoption") {
+		t.Fatalf("expected plan value, got answer=%q items=%#v", out.Answer, out.Items)
+	}
+}
+
+func TestPickStructuredAnswerPrefersPredicateMatch(t *testing.T) {
+	results := []SearchResult{
+		{
+			MemoryID: "ep", Content: "We Can Really Accept Who We Are And Be Content",
+			Explain: map[string]any{"primitive": PrimitiveEpisode},
+		},
+		{
+			MemoryID: "media", Content: "Caroline read Wicked",
+			Explain: map[string]any{"predicate": PredicateMediaConsumed, "value_norm": "wicked"},
+		},
+		{
+			MemoryID: "plan", Content: "Caroline researched adoption agencies",
+			Explain: map[string]any{"predicate": PredicatePlan, "value_norm": "adoption agencies"},
+		},
+	}
+	got := pickStructuredAnswer("What are Caroline's summer plans?", results)
+	if !strings.Contains(strings.ToLower(got), "adoption") {
+		t.Fatalf("got %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "wicked") {
+		t.Fatalf("media leaked: %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "we can really") {
+		t.Fatalf("slogan leaked: %q", got)
+	}
+}
