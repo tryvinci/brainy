@@ -7,7 +7,7 @@ Not a single public-suite number. Not benchmax.
 **Program of record (2026-08-11): [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md)** — compile interactions into facts/entities/relations; retrieve those; keep episodes as provenance.
 **Internal competitive archaeology:** [competitive/README.md](./competitive/README.md) · **[cycle closeout (required)](./competitive/cycle-closeout.md)**
 **Prior PoR:** [sota-end-to-end-program.md](./sota-end-to-end-program.md) — still useful history; next sequence follows the competitive verdict.
-**External review intake:** [external-reviews/](./external-reviews/) · **this-pass self-review prompt:** [2026-08-17-full-recall-self-review-prompt.md](./external-reviews/2026-08-17-full-recall-self-review-prompt.md) · historical hardening prompt: [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)
+**External review intake:** [external-reviews/](./external-reviews/) · **this-pass verdict:** [2026-08-17-competitive-archaeology-verdict.md](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) · prompt: [2026-08-17-full-recall-self-review-prompt.md](./external-reviews/2026-08-17-full-recall-self-review-prompt.md) · historical hardening prompt: [2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)
 **External agent handoff (preferred): [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)** — start from **CURRENT 2026-08-17**; architecture context below that.
 **Codebase graph: [codebase-graph.md](./codebase-graph.md)** · machine-readable [codebase-graph.json](./codebase-graph.json).
 **Prior master plan: [master-plan.md](./master-plan.md)** — still useful for W1–W7 history; new work follows the end-to-end program.
@@ -28,7 +28,7 @@ Style: **reproducible, cited, honest about gaps**. The product README may carry 
 | **LOCOMO full n=1540** | **175/1540 (11.4%)** product `/recall` — **dip** vs July search+harness **49.8%**; not vs Mem0 **92.5%** on the same path. [why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) |
 | **LongMemEval-20** | **4/20** product `/recall` (lift vs 0/20 integrity; not vs published 94.4%). LME-500 not run |
 | **BEAM 100K** | **8/20** search+harness (non-reg; 1M/10M not run) |
-| **Next** | Make `/recall` cite compiled facts (mass: 11.4%→~50%) **and** **R5** structured-first OD. External review: [2026-08-17 prompt](./external-reviews/2026-08-17-full-recall-self-review-prompt.md). Path: [sota-representation-path.md](./sota-representation-path.md) |
+| **Next** | **R5** structured-first: `/recall` cites compiled facts (11.4%→~50% **and** OD 0/4). Two lanes. Do not re-queue R0-R4. [verdict](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) · [sota-representation-path.md](./sota-representation-path.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
 
@@ -44,7 +44,8 @@ Details: [competitive verdict](./external-reviews/2026-08-11-competitive-archite
 | Launch narrative | Draft | [launch narrative](../benchmarks/launch-narrative.md) |
 | LOCOMO 1×30 | Live measurement | [fresh pin](../benchmarks/artifacts/locomo-fresh-1x30-20260815.md) |
 | LOCOMO full n=1540 | Live measurement + dip why | [fresh full](../benchmarks/artifacts/locomo-fresh-full-20260815.md) · [why 11.4%](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) |
-| Full-recall self-review prompt | **Commission this pass** | [2026-08-17 prompt](./external-reviews/2026-08-17-full-recall-self-review-prompt.md) |
+| Full-recall self-review prompt | Historical (answered) | [2026-08-17 prompt](./external-reviews/2026-08-17-full-recall-self-review-prompt.md) |
+| Archaeology verdict | **This pass received** | [2026-08-17 verdict](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) |
 | LongMemEval-20 | Live measurement | [fresh pin](../benchmarks/artifacts/lme20-fresh-20260815.md) |
 | BEAM 100K | Live measurement | [fresh pin](../benchmarks/artifacts/beam-100k-fresh-20260815.md) |
 | Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |

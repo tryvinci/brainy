@@ -5,7 +5,7 @@ Standing process for inspecting Mem0 / Graphiti (and peers) before inventing Bra
 **Program of record (execution):** [sota-representation-path.md](../sota-representation-path.md) — compile interactions into facts/entities/relations; retrieve those; keep episodes as provenance + fallback. Wave 1 ranking PRs are not the SOTA bet. **Mem0 OSS ≠ Mem0 Platform; Graphiti ≠ Zep Platform.**  
 **Gap matrix:** [competitive-gap-matrix.md](./competitive-gap-matrix.md)  
 **Cycle closeout (required every remasure):** [cycle-closeout.md](./cycle-closeout.md)  
-**Full `/recall` dip (2026-08-17):** [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · commission: [2026-08-17-full-recall-self-review-prompt.md](../external-reviews/2026-08-17-full-recall-self-review-prompt.md)  
+**Full `/recall` dip (2026-08-17):** [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · verdict: [2026-08-17-competitive-archaeology-verdict.md](../external-reviews/2026-08-17-competitive-archaeology-verdict.md)  
 **Borrow log:** [implementation-borrow-log.md](./implementation-borrow-log.md)
 
 ## Principle

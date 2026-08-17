@@ -16,16 +16,15 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 
 ## How to commission the next external pass
 
-1. Hand the reviewer the **dedicated self-review prompt** (not a chat dump):  
-   **[2026-08-17-full-recall-self-review-prompt.md](./2026-08-17-full-recall-self-review-prompt.md)**
-2. Attach the dip diagnosis:  
-   [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md)
-3. Attach the assessment pack as architecture context (read **CURRENT 2026-08-17** first; Gate 0 / R1b / LME 0/20 are not live):  
-   [external-agent-assessment-pack.md](../external-agent-assessment-pack.md)
-4. Require the [TEMPLATE.md](./TEMPLATE.md) return shape (verdict + findings table + next sequence + kill list).
-5. Adjudicate findings with code evidence before queueing PRs.
+This pass is **received**: [2026-08-17-competitive-archaeology-verdict.md](./2026-08-17-competitive-archaeology-verdict.md).
 
-Historical prompt (hardening cutover, not this pass): [2026-08-11-hardening-self-review-prompt.md](./2026-08-11-hardening-self-review-prompt.md)
+For a later pass (after R5):
+
+1. Write a **new** dedicated self-review prompt (do not reuse the 2026-08-11 hardening prompt or treat a `bd987fa`-pinned report as live).
+2. Attach the dip diagnosis and this verdict.
+3. Attach the assessment pack as architecture context (read **CURRENT 2026-08-17** first).
+4. Require the [TEMPLATE.md](./TEMPLATE.md) return shape.
+5. Adjudicate findings with code evidence before queueing PRs. Historical prompts: [2026-08-17-full-recall-self-review-prompt.md](./2026-08-17-full-recall-self-review-prompt.md) · [2026-08-11-hardening-self-review-prompt.md](./2026-08-11-hardening-self-review-prompt.md)
 
 ## Default priority after 2026-08-04 architecture verdict
 
@@ -44,6 +43,9 @@ Historical prompt (hardening cutover, not this pass): [2026-08-11-hardening-self
 
 **Competitive SOP:** [../competitive/README.md](../competitive/README.md) · [gap matrix](../competitive/competitive-gap-matrix.md)
 
+**This-pass verdict (received):**  
+[2026-08-17-competitive-archaeology-verdict.md](./2026-08-17-competitive-archaeology-verdict.md)
+
 **This-pass self-review prompt:**  
 [2026-08-17-full-recall-self-review-prompt.md](./2026-08-17-full-recall-self-review-prompt.md)
 
@@ -55,17 +57,17 @@ Historical prompt (hardening cutover, not this pass): [2026-08-11-hardening-self
 
 **Representation-path amendment (2026-08-14):** [2026-08-14-representation-path-additions.md](./2026-08-14-representation-path-additions.md) — accepted. Execution: [sota-representation-path.md](../sota-representation-path.md).
 
-**R0–R4 landed as measurement** (1×30 MH 10/10; OD still 0/4). Do not re-queue them.
+**R0–R4 landed as measurement** (1×30 MH 10/10; OD still 0/4). Do not re-queue them. A 2026-08-17 archaeology report pinned to Wave 1 `bd987fa` asked for P0-P7 of that sequence — **rejected as live work**. Verdict: [2026-08-17-competitive-archaeology-verdict.md](./2026-08-17-competitive-archaeology-verdict.md).
 
-**Next work (in order) — 2026-08-17:**
+**Next work (in order) — after 2026-08-17 adjudication:**
 
-1. **Answer-path (mass)** — Make product `/recall` cite compiled facts, not `firstStatementFromPacket` slogans / list-cue enumerate / abstain when the fact exists. Lever: full LoCoMo **11.4% → ~50%** on current memory.
-2. **R5** — Structured-first OD yes/no from compiled career/possession facts (1×30 OD **0/4 vs Mem0 3/4**).
-3. **Remaining WRITE_MISS compiler coverage** — durable claims as facts. Lever: **~50 → Mem0-class** (July search+harness was already 49.8% vs Mem0 92.5% n=1540 top-k 200).
-4. **R6** — 1×30 diagnostic → **3×90** → remasure full `/recall` → LME-20 quality → LME-500 only after that.
-5. Keep OpMem 13/13 and marketing 17/17 green.
+1. **R5 structured-first** — Make product `/recall` cite compiled facts (deterministic operators), not `firstStatementFromPacket` slogans / list-cue enumerate / abstain when the fact exists. This is the **11.4% → ~50%** lever **and** the 1×30 OD **0/4 vs Mem0 3/4** trail. Not a transcript reader.
+2. **Remaining WRITE_MISS compiler coverage** — durable claims as facts. Lever: **~50 → Mem0-class** (July search+harness was already 49.8% vs Mem0 92.5% n=1540 top-k 200).
+3. **R2 full entity IDs** when identity misses show up — not ahead of R5.
+4. **R6 two-lane remasure** — 1×30 diagnostic → **3×90** → full `/recall` *and* search+harness, labeled separately → LME-20 quality → LME-500 only after that.
+5. Keep OpMem 13/13 and marketing 17/17 green. Small parallel: latency histogram sum (`metrics.go`).
 
-External reviewer should adjudicate whether (1) or (2) is the first product PR. Do **not** spend the next cycle on another full remasure or on LME-500 as a quality claim.
+Do **not** spend the next cycle on another full remasure, on LME-500 as a quality claim, or on re-implementing R0-R4.
 
 Do **not** default to fusion retune, graph DB, category dictionaries, hop-heuristic sprawl, or re-opening architect PR1–PR7.
 

@@ -1,9 +1,9 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` = `8492ad3` after 2026-08-17 production FF. Fresh remasure (`1b5ab3e`): LoCoMo 1×30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler); LME-20 **4/20**; BEAM 100K **8/20**. Next is **`/recall` citing compiled facts** (mass: 11.4%→~50%) **and** **R5** structured-first OD. [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md). Commission: [2026-08-17 prompt](./external-reviews/2026-08-17-full-recall-self-review-prompt.md).  
+**Tips:** `main` = `dev` = `8492ad3` after 2026-08-17 production FF. Fresh remasure (`1b5ab3e`): LoCoMo 1×30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler); LME-20 **4/20**; BEAM 100K **8/20**. Archaeology review: keep R0-R4 closed. Next is **R5 structured-first** (`/recall` citing compiled facts; OD trail is the same family). Two lanes. [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · [verdict](./external-reviews/2026-08-17-competitive-archaeology-verdict.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
 **Does not claim:** SOTA, or a LoCoMo/LME target score  
-**Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md)
+**Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) (R1c amendment) · [external-reviews/2026-08-17-competitive-archaeology-verdict.md](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) (do not re-queue R0-R4; R5 next)
 
 ## Competitive thesis
 
@@ -341,7 +341,7 @@ SourceEvidence:
 
 The answer model primarily consumes structured values. Source text remains to resolve ambiguity, verify provenance, expose qualification, handle incomplete representation, and explain where memory came from. That is Brainy's evidence-plane advantage over a pure fact-store.
 
-**Mass vs same-pin trail (2026-08-17):** full LoCoMo single-hop is **88/841 (10.5%)** on product `/recall` because `firstStatementFromPacket` / enumerate / abstain cite slogans instead of those structured values. R5 is still the 1×30 OD trail (0/4 vs Mem0 3/4). The external reviewer should adjudicate which lands first. Do not restore SH/OD by stuffing episodes into top-k.
+**Mass vs same-pin trail (2026-08-17):** full LoCoMo single-hop is **88/841 (10.5%)** on product `/recall` because `firstStatementFromPacket` / enumerate / abstain cite slogans instead of those structured values. R5 is that packet contract (cite compiled facts) **and** the 1×30 OD trail (0/4 vs Mem0 3/4). Archaeology review: same family, not two bets; not a transcript reader. Do not restore SH/OD by stuffing episodes into top-k.
 
 ### R6 — Freeze and qualify
 

@@ -94,3 +94,5 @@ Two product moves, in order of **mass**:
 Then R6: 1×30 diagnostic → **3×90** → remasure full `/recall` → LME-20 quality → LME-500 only after that. Keep OpMem 13/13 and marketing 17/17 green. No SOTA / beats-Mem0.
 
 Do **not** spend the next cycle on another full remasure or on LME-500 as a quality claim.
+
+Archaeology review (2026-08-17): two published lanes (product `/recall` vs search+harness); cite-facts and R5 OD are the same structured-first family. [verdict](../../research/external-reviews/2026-08-17-competitive-archaeology-verdict.md).
