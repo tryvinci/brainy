@@ -1,11 +1,13 @@
-# Program execution status — competitive program (2026-08-13)
+# Program execution status — competitive program (2026-08-17)
 
 **External handoff:** [external-agent-assessment-pack.md](./external-agent-assessment-pack.md)  
+**This-pass self-review prompt:** [external-reviews/2026-08-17-full-recall-self-review-prompt.md](./external-reviews/2026-08-17-full-recall-self-review-prompt.md)  
+**Dip diagnosis:** [locomo-full-recall-dip-why-20260817.md](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md)  
 **Accepted competitive verdict:** [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md)  
 **Competitive SOP / gap matrix:** [competitive/README.md](./competitive/README.md) · [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md)  
 **Hardening self-review prompt (historical):** [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md)  
 **Intake SOP:** [external-reviews/README.md](./external-reviews/README.md)  
-**Tips:** `main` = `dev` after 2026-08-15 production FF (R4 hops; LoCoMo **19/30**, MH **9/10**). Next is **R5** OD structured-first, not more MH regex. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
+**Tips:** `main` = `dev` = `8492ad3` after 2026-08-17 production FF (remasure docs). Product SHA for pins is still **`1b5ab3e`**. Live: LoCoMo 1×30 **21/30** (MH **10/10**, OD **0/4**); full `/recall` **11.4%** (dip vs July search+harness 49.8%). Next is **answer-path (`/recall` cites facts)** and **R5** OD structured-first — external reviewer adjudicates order. Every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
 
 **Course-correction (2026-08-14):** [sota-representation-path.md](./sota-representation-path.md) — Wave 1 was ranking around a transcript index. Next is **representation-first**: compile interactions into facts/entities/relations, retrieve those, keep episodes as provenance + fallback. Not reader-first, not retrieval-tuning-first.  
 **External amendment (same day):** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) — R1c is fact-priority with episode fallback on incomplete coverage, **not** hard episode drop before R1b. R0 coverage oracle before the next LoCoMo category read.
@@ -25,6 +27,7 @@
 11. **2026-08-14 later:** `dev` fast-forwarded onto **`main`** with explicit approval (compiler-quality + cycle-closeout SOP). Competitor compare is required every cycle: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).
 12. **2026-08-14 later:** R1b coverage + R3 relation projection. Held-out audit green. Local remasure LoCoMo **15/30 (50.0%)**, MH **6/10 (60.0%)**, OD **0/4**, temporal **9/16 (56.2%)** vs Mem0 same-pin **12/30 (40.0%) / 7/10 (70.0%) / 3/4 (75.0%) / 2/16 (12.5%)**. OpMem **13/13**, marketing **17/17**. Lead overall this pin; trail MH by 1. **Not SOTA.** Next: R4 ID hops. [pin](../benchmarks/artifacts/locomo-r1b-dev-1x30-20260814.md).
 13. **2026-08-15:** R4 hops + leftover coverage. Local remasure LoCoMo **19/30 (63.3%)**, MH **9/10 (90.0%)**, OD **0/4**, temporal **10/16 (62.5%)** vs Mem0 same-pin **12/30 / 7/10 / 3/4 / 2/16**. OpMem **13/13**, marketing **17/17**. Lead overall **and** MH this pin. Remaining MH miss is image-gold. **Not SOTA.** Next: R5 OD. [pin](../benchmarks/artifacts/locomo-mh-r4c-dev-1x30-20260815.md).
+14. **2026-08-15/16 remasure + 2026-08-17 dip diagnosis:** No product change (`1b5ab3e`). OpMem **13/13** vs Mem0 **10/13**; marketing **17/17** vs Mem0 **4/17**; LoCoMo 1×30 **21/30** vs Mem0 **11/30** (MH **10/10**, OD **0/4**, temporal **11/16**) — 1×30 did **not** drop vs R4h 20/30. Full LoCoMo **175/1540 (11.4%)** product `/recall` — **did** drop vs July search+harness **49.8%** because the path changed (`firstStatementFromPacket` slogans / enumerate / 188 abstains), not because the compiler vanished. LME-20 **4/20** `/recall` (lift vs 0/20). BEAM 100K **8/20**. LME-500 and BEAM 1M/10M **not run** (cost; would not change the diagnosis). Two stacked gaps: answer-path (11.4%→~50%) then representation (~50→Mem0-class; July was already 49.8% vs Mem0 92.5% n=1540 top-k 200). Commission: [2026-08-17 prompt](./external-reviews/2026-08-17-full-recall-self-review-prompt.md). [why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md).
 
 ## Hardening cycle — closed
 
@@ -84,20 +87,20 @@ LoCoMo 1×30 remasure on merged Wave 1 (`a7a5184`): **14/30** (MH **3/10**, OD 2
 | PR5 Context vs proof split | EVIDENCE_COVERAGE_MISS | **Merged to `dev`** (#102) | `ContextEvidence` + `ProofChain`. Failures still READER_MISS with coverage supported. |
 | PR6 Canonical entity store V2 | ENTITY_LINK_MISS | **R2 first slice** | subject/value on atoms + entity links. Canonical IDs still next |
 | PR7 Relation memory V1 | RELATION_MISS | **R3 first slice** | `memory_relations` projection; MH 6/10 vs Mem0 7/10 |
-| PR8 Hop executor V3 | PROOF_MISS / PLANNING_MISS | **R4 next** | q11 origin is READER_MISS with gold in facts |
+| PR8 Hop executor V3 | PROOF_MISS / PLANNING_MISS | **R4 landed (measurement)** | 1×30 MH **10/10**; full-suite MH still 21/282 (7.4%) |
 | PR9 Assistant-generated memories | EXTRACTION_COVERAGE_MISS | **Merged to `dev`** (#105) | Skip phatic assistant `conversation_episode`; keep `assistant_stated` |
-| PR10 Frozen competitive qualification | — | **Measured; not claimed** | Fresh Mem0 **12/30** (MH 70%) vs Wave 1 local **14/30** (MH **30%**). Mem0 still leads MH. LME-20 quality still **0/20**. **No SOTA / beats-Mem0.** |
+| PR10 Frozen competitive qualification | — | **Measured; not claimed** | Fresh Mem0 **11/30** (MH 6/10, OD 3/4) vs Brainy **21/30** (MH 10/10, OD **0/4**). Lead this freeze; trail OD. Full `/recall` **11.4%**. LME-20 quality **4/20**. **No SOTA / beats-Mem0.** |
 
 ## Still open (honest)
 
-- Conversational quality (LME-20 **0/20** publishable; LoCoMo staging 15/30 / 33/90; local PR2 **6/30**; Wave 1 local **14/30**, MH **3/10**; R1c local **10/30**; compiler-quality local **11/30**, MH **2/10**; R1b local **15/30 (50.0%)**, MH **6/10**; **R4 local 19/30 (63.3%)**, MH **9/10 (90.0%)** — lead Mem0 same-pin overall and MH; OD still 0/4; remaining MH miss is image-gold)
-- Reader-only as the SOTA bet is **rejected**. Remaining conversational gap is **representation** (compiler coverage, then entities/edges). Hard episode-drop before R1b is also **rejected**. See [sota-representation-path.md](./sota-representation-path.md).
-- Optional cleaner compare: staging 1×30 vs post-cutover 15/30 after `main` deploy
-- PR10: Mem0 **12/30** same-pin; Wave 1 local **14/30** is not a qualification (MH 3/10 vs 7/10)
+- Conversational quality: LoCoMo 1×30 **21/30** (lead Mem0 11/30 this freeze; trail OD **0/4 vs 3/4**); full `/recall` **11.4%** (dip vs July search+harness 49.8%; not vs Mem0 92.5% on the same path); LME-20 **4/20** (multi-session 0/5); BEAM 100K **8/20**. 1×30 is measurement, not qualification.
+- Two stacked gaps: **answer-path** (`/recall` slogans/enumerate/abstain) then **representation** (WRITE_MISS / thin facts; even 49.8% vs 92.5%). See [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md).
+- Reader-only as the SOTA bet is **rejected**. Hard episode-drop before compiler coverage is also **rejected**. See [sota-representation-path.md](./sota-representation-path.md).
+- LME-500 and BEAM 1M/10M not run; do not invent those scores.
 - Pack authority / procedures / conflict packets (deferred behind conversational parity)
 - Hash/128 re-embed residue
 
 ## Claims discipline
 
-- Allowed: Gate 0 18/30 + 32/90; post-cutover 15/30 + 33/90 with honesty; local PR2 remasure **6/30**; Wave 1 local **14/30** (MH 3/10, temporal 9/16) with hybrid-reader confound vs 6/30; R1c local **10/30** (MH 2/10, OD 0/4, temporal 8/16) as an honest dip after PR #113; compiler-quality local **11/30** (q10 recovered; junk 45→6; still a dip vs Wave 1); R1b local **15/30 (50.0%)** (MH 6/10, OD 0/4, temporal 9/16) as **lead this Mem0 freeze overall** and **trail MH 6 vs 7**; R4 local **19/30 (63.3%)** (MH 9/10, OD 0/4, temporal 10/16) as **lead this freeze overall and MH** — not SOTA / not qualification; remaining MH miss is image-gold; fresh Mem0 **12/30 (40.0%)** (MH 7/10); OpMem/marketing non-reg; **publishable LME-20 0/20** (integrity, not quality); PR #113 on `dev`+`main` (`21a632b`); Wave D histogram.
-- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; inventing LME accuracy; calling 0/20 a quality improvement; calling post-cutover 1×30, local 6/30, Wave 1 14/30, R1c 10/30, compiler-quality 11/30, R1b 15/30, or R4 19/30 an improvement vs Gate 0; calling 3×90 MH 50%; promising 75% LoCoMo/LME; treating Wave 1 ranking PRs as the SOTA architecture; treating R1c’s 19 `SOURCE_MISS` ledger labels as a write-pipeline outage.
+- Allowed: remasure pins above; 1×30 **21/30** as **lead this freeze** overall/MH/temporal and **trail OD**; full **11.4%** as a named dip vs July 49.8% search+harness; LME **4/20** as lift vs own 0/20 integrity, not vs published 94.4%; OpMem/marketing non-reg vs Mem0 this cycle; historical Gate 0 / harden / Wave 1 / R-series pins as history only.
+- Forbidden: unqualified “beats Mem0”; SOTA; “MH solved”; publishing 70% as full LoCoMo; restoring 49.8% as current; calling 11.4% a harness glitch; mixing 92.5 vs 70; comparing LME 4/20 to Mem0 94.4% or SuperMemory 95 Recall@15; comparing BEAM 8/20 to Mem0 64.1 (1M); inventing LME-500 / BEAM 1M; LoCoMo-named product rules; stuffing episodes to restore OD/SH.

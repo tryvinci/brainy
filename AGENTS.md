@@ -120,6 +120,15 @@ Every remasure, merge, or “where we landed” cycle must report **in this orde
    - For each trailing axis: the product mechanism and the PoR step that closes it. For each leading axis: what we must not regress.
    - Unpublished vendors: write **no pin** unless we ran them. Published headlines are **context**, never scoreboard rows.
 4. **Why the delta** — product mechanism (compiler coverage, provenance crowding, reader). Not vibes.
-5. **Next** — one step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md), mapped to the largest gap (today: OD 0/4 → R5 structured-first answer). Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA claims.
+5. **Next** — the step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md) mapped to the largest gap. Today that is two stacked gaps: **answer-path** (full LoCoMo `/recall` 11.4% slogans/enumerate/abstain → ~50% on current memory) **and** **R5** structured-first OD (1×30 0/4 vs Mem0 3/4). Do not spend a cycle on another full remasure or on LME-500 as a quality claim. Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA claims.
+
+## External review
+
+Commission the next architecture/measurement pass with
+[docs/research/external-reviews/2026-08-17-full-recall-self-review-prompt.md](docs/research/external-reviews/2026-08-17-full-recall-self-review-prompt.md)
+(not the 2026-08-11 hardening prompt). Attach the dip diagnosis and the
+assessment pack; require [TEMPLATE.md](docs/research/external-reviews/TEMPLATE.md).
+The pack's **CURRENT (2026-08-17)** block is live truth — Gate 0 / “next is R1b” /
+LME 0/20 are history.
 
 `dev` is staging. `main` is production — only fast-forward `main` with explicit user approval.

@@ -1,20 +1,25 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-11 (architect PR1–PR7 **closed**; V3 hardening **landed**; **competitive program accepted**)  
-**How to use:** Start from the competitive verdict + gap matrix. Use this pack for architecture context + reproduce commands.
+**Date:** 2026-08-17 (full-remasure dip diagnosis; architect PR1–PR7 **closed**; representation R0–R4 **landed as measurement**)  
+**How to use:** Commission the next pass with the **2026-08-17 self-review prompt**. Use this pack for architecture context + reproduce commands. Do **not** treat Gate 0 / “next is R1b” / “LME 0/20” / “READER_MISS-dominated” language below as live truth.
 
 | Related doc | Role |
 | --- | --- |
-| [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md) | **Start here** — accepted competitive program (KEEP V3; adjust next sequence) |
+| [external-reviews/2026-08-17-full-recall-self-review-prompt.md](./external-reviews/2026-08-17-full-recall-self-review-prompt.md) | **Commission this pass** — copy/paste prompt |
+| [locomo-full-recall-dip-why-20260817.md](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) | Why full LoCoMo is 11.4% on `/recall` (two stacked gaps) |
+| [sota-representation-path.md](./sota-representation-path.md) | Accepted execution path (R5 next on 1×30 OD; answer-path is the mass lever) |
+| [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md) | Accepted competitive program (KEEP V3; adjust next sequence) |
 | [competitive/README.md](./competitive/README.md) | Competitive archaeology SOP |
 | [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md) | Living Mem0/Graphiti/Brainy gap matrix |
-| [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) | Hardening cutover self-review prompt (historical) |
+| [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) | Required cycle closeout (see **2026-08-15/16**) |
 | [external-reviews/README.md](./external-reviews/README.md) | Standing intake SOP + current priority |
+| [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) | Accepted R1c amendment (historical) |
+| [external-reviews/2026-08-11-hardening-self-review-prompt.md](./external-reviews/2026-08-11-hardening-self-review-prompt.md) | Hardening cutover self-review prompt (historical) |
 | [external-reviews/2026-08-10-v3-rereview-brief.md](./external-reviews/2026-08-10-v3-rereview-brief.md) | Prior V3 re-review brief (historical) |
 | [external-reviews/2026-08-07-recall-contract-verdict.md](./external-reviews/2026-08-07-recall-contract-verdict.md) | Accepted recall-contract course correction |
 | [external-reviews/2026-08-04-architecture-verdict.md](./external-reviews/2026-08-04-architecture-verdict.md) | Architecture course correction (accepted; **sequence closed**) |
-| [recall-contract-v3-hardening-qualification-20260811.md](../benchmarks/artifacts/recall-contract-v3-hardening-qualification-20260811.md) | Hardening qualification + pins |
+| [recall-contract-v3-hardening-qualification-20260811.md](../benchmarks/artifacts/recall-contract-v3-hardening-qualification-20260811.md) | Hardening qualification + pins (historical) |
 | [codebase-graph.md](./codebase-graph.md) | Visual/structural map |
 | [codebase-graph.json](./codebase-graph.json) | Machine-readable graph |
 | [sota-end-to-end-program.md](./sota-end-to-end-program.md) | Prior program of record (superseded for next sequence by competitive verdict) |
@@ -22,7 +27,36 @@
 
 ---
 
-## Architecture verdict (read this first)
+## CURRENT (2026-08-17) — live truth; read this first
+
+**Repo tips:** `dev` = `main` = `8492ad3` (docs remasure + production FF 2026-08-17, explicit approval). Product code for those pins is still **`1b5ab3e`**. No product change in the remasure.
+
+**Do not use as live:** Gate 0 18/30, harden 14/30, “next is R1b”, LME **0/20**, Wave 1 “READER_MISS-dominated”, Mem0 same-pin **12/30**.
+
+### Live pins (2026-08-15 remasure)
+
+| Suite | Brainy | Mem0 this cycle / published |
+| --- | ---: | ---: |
+| OpMem | **13/13** | **10/13** |
+| Marketing | **17/17** | **4/17** empirical |
+| LoCoMo 1×30 | **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) | **11/30** (MH 6, OD **3/4**, temporal 2) |
+| LoCoMo full n=1540 | **175/1540 (11.4%)** product `/recall` | published **92.5%** (top-k 200, their harness) — not this pin |
+| LME-20 | **4/20** product `/recall` | no fair pin on this harness |
+| LME-500 / BEAM 1M/10M | **not run** (cost; LME-20 4/20 and BEAM 100K 8/20 already diagnose) | — |
+| BEAM 100K | **8/20** search+harness | published 64.1 is BEAM **1M** |
+
+1×30 did **not** drop vs R4h 20/30. Full LoCoMo **did** drop vs July **49.8%** because this remasure scored product `POST /recall` instead of search-hits + harness LLM answerer. Diagnosis: [locomo-full-recall-dip-why-20260817.md](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md).
+
+### Two stacked gaps
+
+1. **Answer-path:** `/recall` cites slogans / enumerate / abstain (`firstStatementFromPacket` in `recall.go`). Lever: **11.4% → ~50%** on current memory.
+2. **Representation:** even July search+harness was 49.8% vs Mem0 Platform 92.5% (n=1540, top-k 200). Lever: **~50 → Mem0-class**. 1×30 OD still **0/4 WRITE_MISS**.
+
+**Implication for next agent:** R0–R4 landed as measurement. Next product work is make `/recall` cite compiled facts (mass) **and** R5 structured-first OD (same-pin trail). External reviewer should adjudicate order. Do **not** claim beats-Mem0 / SOTA. Still reject: fusion retune, graph DB default, category dictionaries, LoCoMo-named rules, episode top-k to restore OD/SH, LME-500 as a quality claim, another full remasure this cycle.
+
+---
+
+## Architecture verdict (context; live pins are CURRENT above)
 
 **Approve the five-plane target. Do not treat the current implementation as SOTA-ready.**
 
@@ -50,7 +84,7 @@ The **2026-08-04 architect sequence (PR1–PR7) is complete for that pass.** Bra
 
 Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority / procedures / conflict packets; evidence-as-search-primary; hash/128 re-embed residue; finished LME-100 under contract; Phase-6 multi-seed SOTA gates. Fresh LoCoMo same-pin under recall-contract is recorded (Brainy 16/30 vs Mem0 11/30) — re-pin on staging after deploy.
 
-### Latest measurements
+### Historical measurements (pre-remasure; do not use as live)
 
 | Pin | Result |
 | --- | ---: |
@@ -69,7 +103,8 @@ Still **explicitly open** (not part of claiming PR1–PR7 done): pack authority 
 | R1c local LoCoMo 1×30 (`21a632b`, PR #113) | **10/30**, MH **2/10**, OD **0/4**, temporal **8/16** — [pin](../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md) (dip vs Wave 1; not a compiler win) |
 | R1c local OpMem / marketing (`21a632b`) | **13/13** / **17/17** — [opmem](../benchmarks/artifacts/opmem-r1c-local-20260814.md) · [marketing](../benchmarks/artifacts/marketing-r1c-local-20260814.md) |
 
-**Implication for next agent (2026-08-14):** PR #113 is on `dev`+`main`. R0/R1a/coverage-gated R1c landed. Local remasure **10/30** is a dip, not a reason to retune ranking. Next is **R1b** (atomic compiler + held-out coverage). Do **not** hard-drop episodes before that coverage. Do **not** claim beats-Mem0 / SOTA. Still reject: fusion retune, graph DB default, category dictionaries.
+**Historical implication (2026-08-14, superseded):** that paragraph said next was R1b. R1b–R4 have since landed. Use **CURRENT (2026-08-17)** above.
+
 ---
 
 ## 0. One-paragraph product definition
@@ -82,11 +117,12 @@ Brainy is a **Go + Postgres memory service** for agents and products. It stores 
 
 Please return structured feedback covering:
 
-1. **Architecture fit** — Are the five planes (source → evidence → semantic → projection → recall) the right substrate for both conversational and vertical SOTA on Postgres?
-2. **Diagnosis** — Given measured gaps (esp. multi-hop / LongMemEval) and the new **READER_MISS-dominant** ledger, is the failure taxonomy and Phase ordering still correct?
-3. **Missing techniques** — What 2025–26 papers/systems should we borrow next for **reader/synthesis over packets** (without graph-DB default)?
-4. **Risks** — Where is Brainy over-fitted, under-instrumented, or claiming more than evidence supports?
-5. **Concrete next PRs** — Name 3–7 reviewable changes with expected failure-class impact (prefer `READER_MISS` / multi-hop composition).
+1. **Architecture fit** — Are the five planes still the right substrate? (Assume yes unless new evidence.)
+2. **Diagnosis** — Is the two-gap split (answer-path 11.4%→~50%, then representation ~50→Mem0-class) correct, or is 11.4% mostly WRITE_MISS with slogans as a symptom?
+3. **Published metric** — Should the README bake-off row stay product `/recall`, also pin search+harness as industry-format, or both?
+4. **First product PR** — `/recall` cites facts first, or R5-on-OD-0/4 first, given full single-hop 10.5% is the mass?
+5. **Fair Mem0 stack** — n=1540, top-k 200, LLM-over-search, how many seeds — without calling it current.
+6. **Concrete next PRs** — Name 3–7 reviewable changes with expected failure-class impact. Prefer answer-path + R5 + WRITE_MISS coverage. Not fusion, not graph DB, not LME-500-as-quality.
 
 **Do not** propose LOCOMO-named regexes, held-out conversation prompt tuning, or “just add a graph database” without a measured gate.
 
@@ -322,31 +358,38 @@ go test ./internal/memory/ ./internal/api/ ./internal/store/postgres/ ./internal
 
 Pins: Brainy commit SHA, dataset hash, answerer/judge models, top-k, Fusion flags — see manifests under `docs/benchmarks/runs/` and `docs/benchmarks/artifacts/`.
 
-**Git lines:** staging Render auto-deploys from **`dev`** (live `1f2f26f`); **`main`** is production (hardening cutover `308d3a1`).
+**Git lines:** `dev` = GitHub homepage / staging; `main` = production. Both currently **`8492ad3`**. Product SHA for the remasure pins is **`1b5ab3e`**. (Historical: Gate 0 staging `9bad898`; hardening cutover `308d3a1` / `1f2f26f`.)
 
 ---
 
 ## 10. Explicit open questions for external agents
 
-1. Given **READER_MISS + supported oracles**, should the next PR be a **deterministic packet compiler** (enumeration/temporal/multi-hop) or an **LLM reader bound to packet IDs only**?  
-2. Is multi-hop still partly a **representation** miss that oracles cannot see (atoms present but wrong shape)?  
-3. Should **`memory_evidence` become the searchable primary** before more ranking work?  
-4. For vertical SOTA, is deepening **procedures/gotchas** higher ROI than a third pack?  
-5. What is a fair **Mem0 comparable stack** we should re-run under identical judge/budget?  
-6. Which latency cut (index, candidate generation, or fusion) is most likely to hit p50 &lt; 500 ms now that smoke p50 ≈ 807 ms?  
-7. Are answer_status / abstention semantics complete enough for enterprise agents?  
-8. What would you delete from `service.go` to reduce complexity without losing OpMem/vertical wins?
+**This pass (2026-08-17) — prefer these:**
+
+1. Is product `/recall` the right **published** LoCoMo metric, or should we also pin search+harness as the industry-format number (n=1540)?
+2. How do we make `/recall` cite compiled facts (`firstStatementFromPacket` / enumerate / abstain) without benchmax?
+3. Is **R5-on-OD-0/4** still the right *first* 1×30 step given full single-hop **10.5%** is the mass?
+4. What is a fair Mem0 stack for a future n=1540 compare (top-k **200** + LLM-over-search, seeds)?
+5. Was skipping LME-500 and BEAM 1M/10M correct?
+
+**Still open (lower priority this pass):**
+
+6. Should **`memory_evidence` become the searchable primary** before more ranking work?
+7. For vertical SOTA, is deepening **procedures/gotchas** higher ROI than a third pack?
+8. Which latency cut (index, candidate generation, or fusion) is most likely to hit p50 &lt; 500 ms?
+9. Are answer_status / abstention semantics complete enough for enterprise agents? (188 full-LoCoMo abstains; OD q14/q27 abstain with WRITE_MISS.)
+10. What would you delete from `service.go` to reduce complexity without losing OpMem/vertical wins?
 
 ---
 
 ## 11. Handoff checklist for the receiving agent
 
-- [ ] Read [2026-08-11 hardening self-review prompt](./external-reviews/2026-08-11-hardening-self-review-prompt.md) first  
-- [ ] Read **Architecture verdict** + latest measurement shift (§ top)  
-- [ ] Read Gate 0 + harden pins under `docs/benchmarks/artifacts/*20260811*`  
+- [ ] Read [2026-08-17 full-recall self-review prompt](./external-reviews/2026-08-17-full-recall-self-review-prompt.md) first  
+- [ ] Read [dip diagnosis](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md)  
+- [ ] Read **CURRENT (2026-08-17)** at the top of this pack (ignore Gate 0 / R1b / LME 0/20 as live)  
+- [ ] Read remasure pins: `locomo-fresh-full-20260815.md`, `locomo-fresh-1x30-20260815.md`, `lme20-fresh-20260815.md`  
 - [ ] Skim [codebase-graph.md](./codebase-graph.md) diagrams  
-- [ ] Inspect `hop_executor.go`, `reader_hybrid.go`, `provider_extractor.go`, claim serialization in `store.go`  
-- [ ] Review latest artifacts in `docs/benchmarks/artifacts/` and `docs/benchmarks/runs/`  
+- [ ] Inspect `recall.go` (`firstStatementFromPacket`, enumerate, abstain), `reader_hybrid.go`, compiler/extract  
 - [ ] Produce TEMPLATE verdict + findings table + next 3–7 PRs + kill list  
 
 ---
@@ -371,4 +414,4 @@ docs/research/adr/           architecture decisions
 
 ---
 
-*Prepared so an external agent can assess Brainy without tribal knowledge. Prefer citing SHAs and artifacts over vibes. Latest conversational signal for this cutover: Gate 0 staging 18/30 + harden local 14/30 (honest dip) — not publishable SOTA.*
+*Prepared so an external agent can assess Brainy without tribal knowledge. Prefer citing SHAs and artifacts over vibes. Live conversational signal (2026-08-17): LoCoMo 1×30 **21/30** vs Mem0 **11/30** this freeze (trail OD); full `/recall` **11.4%** (dip vs July search+harness 49.8%; not vs Mem0 92.5% on the same path). Not publishable SOTA.*

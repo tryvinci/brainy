@@ -17,11 +17,15 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 ## How to commission the next external pass
 
 1. Hand the reviewer the **dedicated self-review prompt** (not a chat dump):  
-   **[2026-08-11-hardening-self-review-prompt.md](./2026-08-11-hardening-self-review-prompt.md)**
-2. Attach the assessment pack only as architecture context:  
+   **[2026-08-17-full-recall-self-review-prompt.md](./2026-08-17-full-recall-self-review-prompt.md)**
+2. Attach the dip diagnosis:  
+   [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md)
+3. Attach the assessment pack as architecture context (read **CURRENT 2026-08-17** first; Gate 0 / R1b / LME 0/20 are not live):  
    [external-agent-assessment-pack.md](../external-agent-assessment-pack.md)
-3. Require the [TEMPLATE.md](./TEMPLATE.md) return shape (verdict + findings table + next sequence + kill list).
-4. Adjudicate findings with code evidence before queueing PRs.
+4. Require the [TEMPLATE.md](./TEMPLATE.md) return shape (verdict + findings table + next sequence + kill list).
+5. Adjudicate findings with code evidence before queueing PRs.
+
+Historical prompt (hardening cutover, not this pass): [2026-08-11-hardening-self-review-prompt.md](./2026-08-11-hardening-self-review-prompt.md)
 
 ## Default priority after 2026-08-04 architecture verdict
 
@@ -40,7 +44,10 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 
 **Competitive SOP:** [../competitive/README.md](../competitive/README.md) · [gap matrix](../competitive/competitive-gap-matrix.md)
 
-**Prior handoff / self-review prompt:**  
+**This-pass self-review prompt:**  
+[2026-08-17-full-recall-self-review-prompt.md](./2026-08-17-full-recall-self-review-prompt.md)
+
+**Prior handoff / self-review prompt (historical):**  
 [2026-08-11-hardening-self-review-prompt.md](./2026-08-11-hardening-self-review-prompt.md)
 
 **Prior briefs (historical):**  
@@ -48,15 +55,17 @@ Standing process for architecture / SOTA reviews from external agents or humans.
 
 **Representation-path amendment (2026-08-14):** [2026-08-14-representation-path-additions.md](./2026-08-14-representation-path-additions.md) — accepted. Execution: [sota-representation-path.md](../sota-representation-path.md).
 
-**Next work (in order):**
+**R0–R4 landed as measurement** (1×30 MH 10/10; OD still 0/4). Do not re-queue them.
 
-1. **R0** — Representation coverage oracle + earliest-stage taxonomy (before another LoCoMo category read)
-2. **R1a** — Stop tagging real facts/atoms as episodes
-3. **R1b** — Atomic semantic compiler; held-out coverage audit is the milestone
-4. **R1c** — Fact-primary recall with episode fallback on incomplete coverage (**not** hard drop)
-5. **R2–R5** — Canonical entities → relation projection → entity-ID hops → structured-first answers
-6. **R6** — 1×30 diagnostic → 3×90 → LME-20 quality (after representation gates)
-7. Wave 1 PR1–PR5/PR9 — **landed**; keep temporal_score on the new representation rather than ripping it out
+**Next work (in order) — 2026-08-17:**
+
+1. **Answer-path (mass)** — Make product `/recall` cite compiled facts, not `firstStatementFromPacket` slogans / list-cue enumerate / abstain when the fact exists. Lever: full LoCoMo **11.4% → ~50%** on current memory.
+2. **R5** — Structured-first OD yes/no from compiled career/possession facts (1×30 OD **0/4 vs Mem0 3/4**).
+3. **Remaining WRITE_MISS compiler coverage** — durable claims as facts. Lever: **~50 → Mem0-class** (July search+harness was already 49.8% vs Mem0 92.5% n=1540 top-k 200).
+4. **R6** — 1×30 diagnostic → **3×90** → remasure full `/recall` → LME-20 quality → LME-500 only after that.
+5. Keep OpMem 13/13 and marketing 17/17 green.
+
+External reviewer should adjudicate whether (1) or (2) is the first product PR. Do **not** spend the next cycle on another full remasure or on LME-500 as a quality claim.
 
 Do **not** default to fusion retune, graph DB, category dictionaries, hop-heuristic sprawl, or re-opening architect PR1–PR7.
 
@@ -64,11 +73,15 @@ Do **not** default to fusion retune, graph DB, category dictionaries, hop-heuris
 
 | Pin family | Rule |
 | --- | --- |
-| Gate 0 staging (`9bad898`) | 1×30 **18/30**; 3×90 **32/90** with MH **19.4%** (not 50%) |
-| Harden local (#93–#97) | 1×30 **14/30** — **dip**, not a win vs Gate 0 |
-| Post-cutover staging (`1f2f26f`) | 1×30 **15/30**; 3×90 **33/90** with MH **22.2%** |
-| LME | Path `/recall` proven; aborted/partial runs are **not** accuracy claims |
-| Production | `main` `308d3a1` holds the hardening cutover — still no conversational SOTA language |
+| **Live (2026-08-15 remasure, product `1b5ab3e`)** | OpMem **13/13**; marketing **17/17**; LoCoMo 1×30 **21/30** (MH 10/10, OD **0/4**, temporal 11/16) vs Mem0 **11/30**; full `/recall` **175/1540 (11.4%)**; LME-20 **4/20**; BEAM 100K **8/20**. `dev`=`main`=`8492ad3` |
+| Full LoCoMo 11.4% | Named **dip** vs July search+harness **49.8%**. Not a harness glitch. Not current 49.8%. Not 70% as full LoCoMo. |
+| Vendor 90+ | Mem0 92.5% is n=1540, **top-k 200**, LLM-over-search — **not** Brainy `/recall`. SuperMemory 95 LME is Recall@15. |
+| LME-500 / BEAM 1M | **Not run** (cost). Do not invent scores. |
+| Gate 0 staging (`9bad898`) | Historical. 1×30 **18/30**; 3×90 **32/90** with MH **19.4%** (not 50%) |
+| Harden local (#93–#97) | Historical. 1×30 **14/30** — **dip**, not a win vs Gate 0 |
+| Post-cutover staging (`1f2f26f`) | Historical. 1×30 **15/30**; 3×90 **33/90** with MH **22.2%** |
+| LME integrity | 0/20 was integrity; quality pin is now **4/20** |
+| Production | `main` = `dev` = `8492ad3` — still no conversational SOTA language |
 
 ## Rejected by default (unless new evidence)
 
@@ -80,3 +93,6 @@ Do **not** default to fusion retune, graph DB, category dictionaries, hop-heuris
 - Top-k inflation as architecture substitute
 - Calling harden scores an improvement when they dipped
 - Publishable LME / SOTA / “beats Mem0” without matching artifacts
+- Publishing 70% as full LoCoMo; restoring 49.8% as current; mixing 92.5 vs 70
+- Restoring OD/SH by stuffing episodes into top-k
+- LME-500 or BEAM 1M as a quality claim while LME-20 is 4/20 and BEAM 100K is 8/20

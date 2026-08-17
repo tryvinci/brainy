@@ -1,7 +1,7 @@
 # Competitive gap matrix
 
-**Updated:** 2026-08-14  
-**Source:** Competitive architecture review §23, adjudicated in [../external-reviews/2026-08-11-competitive-architecture-verdict.md](../external-reviews/2026-08-11-competitive-architecture-verdict.md)
+**Updated:** 2026-08-17  
+**Source:** Competitive architecture review §23, adjudicated in [../external-reviews/2026-08-11-competitive-architecture-verdict.md](../external-reviews/2026-08-11-competitive-architecture-verdict.md). Live pins: 2026-08-15 remasure. Dip diagnosis: [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md).
 
 Update continuously as PRs land. Prefer measured pins over vibes.
 
@@ -18,29 +18,23 @@ Update continuously as PRs land. Prefer measured pins over vibes.
 | Entity retrieval | strong | strong | partial (hub boosts) | **strong** | PR4/PR6 |
 | Canonical entities | graph-backed | native | partial (`memory_entity_links` + subject/value identity on atoms) | **native Postgres identity (IDs, aliases, ranked resolution)** | R2 first slice landed; IDs still next |
 | Relation memory | platform graph | **core** | **partial** (`memory_relations` projection + `follow_relation`) | **projection of entity-valued atomic facts** | R3 first slice landed |
-| Multi-hop traversal | entity graph | **native** | early (`follow_relation` + hop V2) | **entity-ID dependency joins** | R4 after R3 |
+| Multi-hop traversal | entity graph | **native** | **1×30 MH 10/10**; full-suite MH 21/282 (7.4%) | **entity-ID dependency joins** | R4 landed (measurement); do not claim MH-solved |
 | Governed answer sufficiency | limited | not core | **strong** | **strong** | keep |
 | Evidence proof chain | limited | provenance | **context + proof split on `dev`** | **context + proof split** | PR5 **landed on `dev`** |
 | Vertical packs | no equivalent | ontology | **strong** | **strong** | keep |
 | Operational state machines | weak | weak | **strong** | **strong** | keep |
 | Context token discipline | strong | strong | **MaxEvidenceTokens + pool 30/50/100/200 cap 200** | **strong** | PR4 **landed on `dev`** |
-| LME publish integrity | n/a | n/a | path proven; aborted publish | **publishable LME-20 0/20** (jobs 4829=4829) | PR1 **done** |
+| LME publish integrity | n/a | n/a | **4/20** `/recall` (jobs 4829=4829); LME-500 not run | **quality LME after answer-path + representation** | PR1 integrity done; quality still open |
+| Product `/recall` synthesis | LLM-over-search | LLM-over-search | **firstStatementFromPacket / enumerate / abstain** (full LoCoMo 11.4%) | **cite compiled facts; R5 structured-first** | answer-path + R5 |
 | Assistant-generated memories | strong | strong | **skip phatic assistant episodes** | **qualified** | PR9 **landed on `dev`** |
 
 ## Current conversational pins (honesty)
 
 | Pin | Result |
 | --- | ---: |
-| Gate 0 staging 1×30 (`9bad898`) | 18/30 · MH 50% · OD 25% |
-| Post-cutover staging 1×30 (`1f2f26f`) | 15/30 · MH 50% · OD 25% |
-| Post-cutover staging 3×90 (`1f2f26f`) | 33/90 · MH **22.2%** · OD 42.9% |
-| OpMem / marketing post-cutover | 13/13 / passed |
-| OpMem / marketing PR2 local (`10a31e3`) | 13/13 / passed — [opmem](../../benchmarks/artifacts/opmem-pr2-local-20260813.md) · [marketing](../../benchmarks/artifacts/marketing-pr2-local-20260813.md) |
-| Local PR2 LoCoMo 1×30 (`24be5ab`) | **6/30** · MH 4/10 · temporal 1/16 — [pin](../../benchmarks/artifacts/locomo-pr2-dev-1x30-20260813.md) |
-| Wave 1 local LoCoMo 1×30 (`a7a5184`) | **14/30** · MH **3/10** · OD 2/4 · temporal **9/16** — [pin](../../benchmarks/artifacts/locomo-wave1-dev-1x30-20260813.md) (hybrid-reader confound vs 6/30; not vs Gate 0) |
-| Wave 1 local OpMem / marketing (`a7a5184`) | 13/13 / passed — [opmem](../../benchmarks/artifacts/opmem-wave1-local-20260813.md) · [marketing](../../benchmarks/artifacts/marketing-wave1-local-20260813.md) |
-| R1c local LoCoMo 1×30 (`21a632b`) | **10/30** · MH **2/10** · OD **0/4** · temporal **8/16** — [pin](../../benchmarks/artifacts/locomo-r1c-dev-1x30-20260814.md) (honest dip vs Wave 1; not a compiler win) |
-| R1c local OpMem / marketing (`21a632b`) | 13/13 / 17/17 — [opmem](../../benchmarks/artifacts/opmem-r1c-local-20260814.md) · [marketing](../../benchmarks/artifacts/marketing-r1c-local-20260814.md) |
-| Compiler-quality local LoCoMo 1×30 (`d82f7d6`) | **11/30 (36.7%)** · MH **2/10 (20.0%)** · OD **0/4** · temporal **9/16 (56.2%)** — [pin](../../benchmarks/artifacts/locomo-atomq-dev-1x30-20260814.md) (q10 recovered; junk 45→6; still a dip vs Wave 1) |
-| R1b local LoCoMo 1×30 (`5c5f561`) | **15/30 (50.0%)** · MH **6/10 (60.0%)** · OD **0/4** · temporal **9/16 (56.2%)** — [pin](../../benchmarks/artifacts/locomo-r1b-dev-1x30-20260814.md) (lead Mem0 same-pin overall 15 vs 12; trail MH 6 vs 7; not SOTA) |
-| LME-20 | **Publishable 0/20** `/recall` — [pin](../../benchmarks/artifacts/lme20-product-recall-pr1-20260812-pin.md) |
+| **Live remasure (`1b5ab3e`, 2026-08-15)** | OpMem **13/13**; marketing **17/17**; LoCoMo 1×30 **21/30** (MH 10/10, OD **0/4**, temporal 11/16) vs Mem0 **11/30**; full `/recall` **175/1540 (11.4%)**; LME-20 **4/20**; BEAM 100K **8/20** |
+| Full LoCoMo path label | 11.4% is product `/recall`. July **49.8%** was search+harness on an older stack. Mem0 **92.5%** is n=1540 top-k 200 LLM-over-search — not this pin. [why](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) |
+| Gate 0 staging 1×30 (`9bad898`) | historical 18/30 · MH 50% · OD 25% |
+| Post-cutover staging 1×30 (`1f2f26f`) | historical 15/30 · MH 50% · OD 25% |
+| Post-cutover staging 3×90 (`1f2f26f`) | historical 33/90 · MH **22.2%** · OD 42.9% |
+| LME-20 integrity (2026-08-12) | **0/20** `/recall` — superseded as quality by **4/20** |

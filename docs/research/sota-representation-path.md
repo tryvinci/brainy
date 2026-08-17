@@ -1,7 +1,7 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` after 2026-08-15 production FF. Fresh remasure (`1b5ab3e`): LoCoMo 1×30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** (dip vs hist. 49.8% search+harness); LME-20 **4/20**; BEAM 100K **8/20**. Next is **R5** structured-first OD. Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
+**Tips:** `main` = `dev` = `8492ad3` after 2026-08-17 production FF. Fresh remasure (`1b5ab3e`): LoCoMo 1×30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler); LME-20 **4/20**; BEAM 100K **8/20**. Next is **`/recall` citing compiled facts** (mass: 11.4%→~50%) **and** **R5** structured-first OD. [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md). Commission: [2026-08-17 prompt](./external-reviews/2026-08-17-full-recall-self-review-prompt.md).  
 **Does not claim:** SOTA, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md)
 
@@ -341,9 +341,13 @@ SourceEvidence:
 
 The answer model primarily consumes structured values. Source text remains to resolve ambiguity, verify provenance, expose qualification, handle incomplete representation, and explain where memory came from. That is Brainy's evidence-plane advantage over a pure fact-store.
 
+**Mass vs same-pin trail (2026-08-17):** full LoCoMo single-hop is **88/841 (10.5%)** on product `/recall` because `firstStatementFromPacket` / enumerate / abstain cite slogans instead of those structured values. R5 is still the 1×30 OD trail (0/4 vs Mem0 3/4). The external reviewer should adjudicate which lands first. Do not restore SH/OD by stuffing episodes into top-k.
+
 ### R6 — Freeze and qualify
 
-Order: LoCoMo 1×30 **diagnostic** → LoCoMo 3×90 qualification slice → multi-seed/full → LME-20 **quality** → larger LME.
+Order: LoCoMo 1×30 **diagnostic** → LoCoMo 3×90 qualification slice → multi-seed/full **product `/recall`** → LME-20 **quality** → larger LME.
+
+Do not run LME-500 or BEAM 1M as a quality claim while LME-20 is 4/20 and BEAM 100K is 8/20. Remeasure full `/recall` after the answer-path + representation work, not instead of it.
 
 Representation health (R0 audit) is a merge gate **before** these scores. 1×30 is never qualification. OpMem/marketing must stay green. No SOTA / beats-Mem0 language.
 
