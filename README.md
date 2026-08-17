@@ -89,9 +89,10 @@ Start at **[docs/README.md](docs/README.md)**.
 
 ## Benchmarks
 
-Vendors publish a **percent per suite** (LoCoMo / LongMemEval / BEAM). That is
-the industry scoreboard. **Not SOTA.** Cells below are **sourced claims**, not
-a same-pin bake-off (n, top-k, judge, and sometimes the metric differ).
+**As of 2026-08-16 remasure** on product SHA `1b5ab3e`. Vendors publish a
+**percent per suite** (LoCoMo / LongMemEval / BEAM). That is the industry
+scoreboard. **Not SOTA.** Cells below are **sourced claims**, not a same-pin
+bake-off (n, top-k, judge, and sometimes the metric differ).
 
 Full sourced table:
 **[docs/benchmarks/published-claims.md](docs/benchmarks/published-claims.md)**.

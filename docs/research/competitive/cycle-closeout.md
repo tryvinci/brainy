@@ -441,7 +441,7 @@ Kill list stays in force. Do not write SOTA / beats-Mem0. Do not call the **prod
 
 ## Cycle 2026-08-15/16 — fresh full remasure (no product change)
 
-**Landed:** remasure-only on product SHA `1b5ab3e` (`dev`/`main` at start of this cycle). **No product change** in this PR. Dedicated local API+worker on a fresh DB (`brainy_bench`), async ingest, `BRAINY_USE_RECALL=1`. Docs branch `pr/fresh-full-bench-a6c7`.
+**Landed:** remasure-only on product SHA `1b5ab3e`. **No product change.** Dedicated local API+worker on a fresh DB (`brainy_bench`), async ingest, `BRAINY_USE_RECALL=1`. Docs branch `pr/fresh-full-bench-a6c7`. Production FF of these docs to `dev` (GitHub homepage / default branch) and `main` is this cycle (explicit approval 2026-08-17).
 
 This is a measurement cycle: re-pin every in-tree suite at full (or max affordable) size, with a same-cycle Mem0 Platform counter-run on OpMem, marketing, and LoCoMo 1×30.
 
