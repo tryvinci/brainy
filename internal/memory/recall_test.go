@@ -553,3 +553,86 @@ func TestPickStructuredAnswerPrefersPredicateMatch(t *testing.T) {
 		t.Fatalf("slogan leaked: %q", got)
 	}
 }
+
+func TestRecallIngestPrefersResearchedPlanOverMedia(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-plan", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Caroline researched adoption agencies"},
+			{Role: "user", Content: "Caroline read Wicked"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-plan", SubjectID: "u1",
+		Query: "What are Caroline's summer plans?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if out.Abstained || strings.Contains(got, "wicked") {
+		t.Fatalf("media leaked or abstained: answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if !strings.Contains(got, "adoption") {
+		t.Fatalf("expected researched plan value, got %q", out.Answer)
+	}
+}
+
+func TestRecallIngestSloganOnlyAbstains(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-slogan", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "We Can Really Accept Who We Are And Be Content"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-slogan", SubjectID: "u1",
+		Query: "What did Melanie realize after the charity race?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Abstained || out.Answer != "not in memory" {
+		t.Fatalf("expected abstain on slogan-only ingest, got answer=%q abstained=%v", out.Answer, out.Abstained)
+	}
+}
+
+func TestRecallIngestPointFactFromWorksAs(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-nurse", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Alex currently works as a nurse in Seattle."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-nurse", SubjectID: "u1",
+		Query: "what does Alex currently do?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Abstained || strings.TrimSpace(out.Answer) == "" || out.Answer == "not in memory" {
+		t.Fatalf("point fact blanked: %#v", out)
+	}
+	if !strings.Contains(strings.ToLower(out.Answer), "nurse") {
+		t.Fatalf("expected occupation, got %q", out.Answer)
+	}
+}

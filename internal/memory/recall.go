@@ -995,7 +995,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 	for _, sep := range []string{
 		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
-		" researched ", " unwinds via ", " is a ", " is ",
+		" researched ", " unwinds via ", " works as ", " is a ", " is ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			if sep == " is " && titleLikeCopula(content) {
@@ -1025,7 +1025,7 @@ func hasSlotTemplate(v string) bool {
 	for _, sep := range []string{
 		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
-		" researched ", " unwinds via ", " is a ",
+		" researched ", " unwinds via ", " works as ", " is a ",
 	} {
 		if strings.Contains(low, sep) {
 			return true
@@ -1149,9 +1149,6 @@ func looksTitleCaseSlogan(s string) bool {
 }
 
 func structuredValueOf(r SearchResult) string {
-	if searchResultIsEpisode(r) {
-		return ""
-	}
 	if looksTitleCaseSlogan(r.Content) {
 		return ""
 	}
@@ -1196,9 +1193,23 @@ func pickStructuredAnswer(query string, results []SearchResult) string {
 			continue
 		}
 		recPred := searchResultPredicate(r)
+		if recPred == "" {
+			for _, h := range predicateHintsFromQuery(r.Content) {
+				if recPred == "" {
+					recPred = h
+				}
+				if _, ok := predSet[h]; ok {
+					recPred = h
+					break
+				}
+			}
+		}
 		if len(predSet) > 0 && recPred != "" {
 			if _, ok := predSet[recPred]; ok {
 				add(&matched, v)
+				continue
+			}
+			if !hopUsefulForList(recPred, firstHint(preds)) {
 				continue
 			}
 		}
@@ -1232,6 +1243,13 @@ func pickStructuredAnswer(query string, results []SearchResult) string {
 	}
 }
 
+func firstHint(preds []string) string {
+	if len(preds) == 0 {
+		return ""
+	}
+	return preds[0]
+}
+
 func pickEpisodeFallback(query string, results []SearchResult) string {
 	qtoks := map[string]struct{}{}
 	for _, t := range contentBearingTokens(tokenize(query)) {
@@ -1245,7 +1263,14 @@ func pickEpisodeFallback(query string, results []SearchResult) string {
 	best := ""
 	bestHits := 0
 	for _, r := range results {
-		if !searchResultIsEpisode(r) {
+		if searchResultPredicate(r) != "" && searchResultValueNorm(r) != "" {
+			continue
+		}
+		prim := ""
+		if r.Explain != nil {
+			prim, _ = r.Explain["primitive"].(string)
+		}
+		if prim != "" && prim != PrimitiveEpisode {
 			continue
 		}
 		c := strings.TrimSpace(r.Content)
@@ -1264,7 +1289,7 @@ func pickEpisodeFallback(query string, results []SearchResult) string {
 			best = c
 		}
 	}
-	if bestHits < 1 {
+	if bestHits < 2 {
 		return ""
 	}
 	return best
