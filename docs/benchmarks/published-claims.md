@@ -6,7 +6,9 @@ what they claim, on which metric, with a source. It is **not** a same-pin bake-o
 Lead/trail vs Mem0 Platform uses [same-pin](./README.md#same-pin-comparison) only.
 Do not write SOTA / beats-Mem0 from this table.
 
-**As-of:** 2026-08-15. Re-check primary URLs before quoting in a new cycle.
+**As-of:** 2026-08-17. Re-check primary URLs before quoting in a new cycle.
+
+**Path labels (binding):** vendor LoCoMo percents are **ingest → search → LLM answer → LLM judge**, usually **n=1540**, often **top-k 200**. Brainy’s **11.4%** is product `POST /recall` (abstain/enumerate allowed). Brainy’s **49.8%** is July search+harness on an older stack — not current. **70%** is n=30, not full LoCoMo. Why: [locomo-full-recall-dip-why-20260817.md](./artifacts/locomo-full-recall-dip-why-20260817.md).
 
 ## Headline percents
 
@@ -44,7 +46,7 @@ Do not write SOTA / beats-Mem0 from this table.
 | Hindsight | LoCoMo | 92.0 | LLM-judge, single-query, v0.4.19 | AMB manifesto | [AMB](https://hindsight.vectorize.io/blog/2026/03/23/agent-memory-benchmark) |
 | Hindsight | LongMemEval | 94.6 | same | same | same |
 | Hindsight | BEAM 1M / 10M | 73.9 / 64.1 | published BEAM tiers | [BEAM compare](https://hindsight.vectorize.io/guides/2026/04/21/comparison-agent-memory-benchmark-hindsight-vs-alternatives) |
-| Brainy | LoCoMo full | 11.4 | LLM-judge, cats 1–4, product `/recall` | 1 seed × 1540; current stack | [fresh full](./artifacts/locomo-fresh-full-20260815.md) |
+| Brainy | LoCoMo full | 11.4 | LLM-judge, cats 1–4, product `/recall` | 1 seed × 1540; current stack | [fresh full](./artifacts/locomo-fresh-full-20260815.md) · [why](./artifacts/locomo-full-recall-dip-why-20260817.md) |
 | Brainy | LoCoMo full (historical) | 49.8 mean | LLM-judge, cats 1–4, search+harness | 3 seeds × 1540; old stack 2026-07-31 | [summary](./artifacts/locomo-full-publish-summary.json) |
 | Brainy | LoCoMo 1×30 | 70.0 | LLM-judge | 30 Q, remasure 2026-08-15 | [fresh](./artifacts/locomo-fresh-1x30-20260815.md) |
 | Brainy | LongMemEval-S | 4.0 | LLM-judge | 100 Q, 2026-08-01 | [lme-s-100](./artifacts/lme-s-100.md) |
@@ -68,7 +70,7 @@ Mem0’s own weak axis on the published full suite is **open-domain** (72.7). Ou
 
 ## How to read this vs same-pin
 
-- **92.5 vs 11.4** is the industry-format LoCoMo compare on **this** stack (full n=1540, product `/recall`). **92.5 vs 49.8** is the old search+harness pin.
+- **92.5 vs 11.4** is the industry-format LoCoMo compare on **this** stack (full n=1540) but **not the same answer path / top-k** (product `/recall` vs their LLM-over-search at top-k 200). **92.5 vs 49.8** is the old search+harness pin (still far behind).
 - **92.5 vs 70.0** is **not** that compare (n=1540 vs n=30).
 - **94.4 vs 4** is the industry-format LongMemEval compare (500 Q vs our 100-Q pin). **94.4 vs 4/20** is still not same-pin: n=20, our harness, not their top-k 200.
 - **95% Recall@15** is not an LLM-judge percent. Do not rank SuperMemory 95 against Mem0 94.4 as if the same metric.

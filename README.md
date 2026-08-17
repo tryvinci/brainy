@@ -109,7 +109,9 @@ Harness peer: [mem0ai/memory-benchmarks](https://github.com/mem0ai/memory-benchm
 
 Brainy’s **11.4%** is this cycle’s **full** LoCoMo on product `/recall` (n=1540).
 The 2026-07-31 **49.8%** was search + harness answerer on an older stack — do not
-mix. SuperMemory’s 95 is **Recall@15**, not LLM-judge. Graphiti OSS has no
+mix. Vendor 90+ percents are also n=1540-class **LLM-over-search** (Mem0 top-k 200),
+not Brainy `/recall`. Why the dip: [docs/benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md](docs/benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md).
+SuperMemory’s 95 is **Recall@15**, not LLM-judge. Graphiti OSS has no
 published %. Zep LoCoMo was disputed (Mem0 re-ran Zep at 58.44%; Zep publishes
 75.14%).
 

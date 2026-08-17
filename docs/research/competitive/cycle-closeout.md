@@ -561,3 +561,15 @@ Vs Mem0: we lead the axes that are already Brainy-native on this freeze (ops mut
 | BEAM 8/20 | Leave 100K as a sample; 1M/10M only after OD/reader work | Publish 40% as BEAM 1M |
 
 Kill list stays in force. Do not write SOTA / beats-Mem0. Do not mix 1×30 with n=1540 or with vendor 90+. Mem0 OSS ≠ Mem0 Platform.
+
+---
+
+## Addendum 2026-08-17 — full `/recall` dip diagnosis + external review
+
+Product SHA unchanged (`1b5ab3e`). This is documentation of *why* 11.4%, not a new remasure.
+
+**1×30 did not drop** (R4h 20/30 → 21/30). **Full LoCoMo did drop** because we scored product `POST /recall` (175/1540) instead of July search+harness (49.8%). Smoking gun: `firstStatementFromPacket` / enumerate / 188 abstains cite nearby slogans (`conv-26-q83`–`q86`). Two stacked gaps: answer-path (11.4%→~50% on current memory) then representation (even 49.8% vs Mem0 92.5% n=1540 top-k 200). LME-500 and BEAM 1M were skipped for cost given LME-20 **4/20** and BEAM 100K **8/20**.
+
+Vendor percents are **not** the same run as Brainy `/recall`. Closest industry format is Mem0 Platform 92.5% (n=1540, top-k 200, LLM-over-search). **92.5 vs 70** is invalid. **92.5 vs 11.4** is honest n=1540 on this stack but not the same answer path.
+
+**Next (clarified):** the 2026-08-15/16 closeout named R5-on-OD as the one step. The mass lever is **`/recall` citing compiled facts**. Keep R5 as the same-pin OD trail. External reviewer adjudicates order via [2026-08-17-full-recall-self-review-prompt.md](../external-reviews/2026-08-17-full-recall-self-review-prompt.md). Full write-up: [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md).

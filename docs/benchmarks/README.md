@@ -130,7 +130,7 @@ Ladder: [research/public-bench-ladder.md](../research/public-bench-ladder.md).
 | Suite | Report |
 | --- | --- |
 | LoCoMo 1×30 | [locomo-fresh-1x30-20260815.md](./artifacts/locomo-fresh-1x30-20260815.md) |
-| LoCoMo full n=1540 | [locomo-fresh-full-20260815.md](./artifacts/locomo-fresh-full-20260815.md) |
+| LoCoMo full n=1540 | [locomo-fresh-full-20260815.md](./artifacts/locomo-fresh-full-20260815.md) · [why 11.4%](./artifacts/locomo-full-recall-dip-why-20260817.md) |
 | LongMemEval-20 | [lme20-fresh-20260815.md](./artifacts/lme20-fresh-20260815.md) |
 | Mem0 LoCoMo freeze | [locomo-mem0-fresh-1x30-20260815.md](./artifacts/locomo-mem0-fresh-1x30-20260815.md) |
 | OpMem | [opmem-fresh-local-20260815.md](./artifacts/opmem-fresh-local-20260815.md) · [Mem0](./artifacts/opmem-mem0-fresh-20260815.md) |

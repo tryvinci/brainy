@@ -2,6 +2,8 @@
 
 **Honest pin.** Product `/recall` on current `1b5ab3e` is **175/1540 (11.4%)**. That is a **dip** vs the last full pin **49.8%** (3-seed mean, 2026-07-31, search + harness answerer, old stack). Do not mix the two. Do not hide the dip. Not SOTA.
 
+**Why (2026-08-17):** answer-path (`firstStatementFromPacket` / enumerate / abstain) on top of a still-real representation gap. Full write-up: [locomo-full-recall-dip-why-20260817.md](./locomo-full-recall-dip-why-20260817.md).
+
 **Timestamp:** 2026-08-15T20:00:29Z
 **Run:** `locomo-fresh-full-20260815-s0-33161a` (1 seed)
 **Stack:** dedicated local API+worker rebuilt from `1b5ab3e`; async ingest; `BRAINY_USE_RECALL=1`; `BRAINY_RECALL_LLM=1`
