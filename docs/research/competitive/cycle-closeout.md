@@ -573,3 +573,29 @@ Product SHA unchanged (`1b5ab3e`). This is documentation of *why* 11.4%, not a n
 Vendor percents are **not** the same run as Brainy `/recall`. Closest industry format is Mem0 Platform 92.5% (n=1540, top-k 200, LLM-over-search). **92.5 vs 70** is invalid. **92.5 vs 11.4** is honest n=1540 on this stack but not the same answer path.
 
 **Next (clarified after 2026-08-17 current-SHA review):** first PR is **R5A structured-first `/recall`** (retire `firstStatementFromPacket` as a normal factual strategy). R5-on-OD is a diagnostic, not the PR name. Then R5B typed packet, R6 coverage V2, R7-R9 identity/relations/hops, R10 dual-path freeze. Do not re-queue R0-R4 from a `bd987fa`-pinned report. Two published lanes. Full write-up: [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md). Live verdict: [2026-08-17-parity-gap-verdict.md](../external-reviews/2026-08-17-parity-gap-verdict.md). Archaeology verdict: [historical](../external-reviews/2026-08-17-competitive-archaeology-verdict.md).
+
+---
+
+## 2026-08-17 — R5A structured-first `/recall` landed
+
+### Landed
+
+Product change on `dev`/`main`: `/recall` no longer uses first-packet slogans as the normal factual strategy. Scalar/list/hop answers consume typed `value_norm` / slot values; resolve-only mentions abstain; untyped ingest sentences can still yield a non-slogan slot (`researched`, `works as`). Episodes stay provenance plus overlap fallback. SHA of this land is the R5A merge (branch `pr/r5a-structured-first-a6c7`).
+
+### Own pins
+
+- OpMem **13/13** (search path, local API, this SHA) — non-reg.
+- Marketing vertical **17/17** plus parity **4/4** (search path, local API, this SHA) — non-reg.
+- LoCoMo 1×30 / full n=1540 / LME-20 / BEAM **not re-run**. Prior pins stand: 1×30 **21/30** (OD **0/4** diagnostic), full `/recall` **11.4%**, LME-20 **4/20**, BEAM 100K **8/20**.
+
+### Competitor compare
+
+No new same-pin vs Mem0. Keep the previous freeze split: ops/vertical/1×30 MH lead; OD trail; do not mix 11.4% with Mem0 92.5% as the same path.
+
+### Why
+
+`firstStatementFromPacket` was citing slogans and resolve-only names. R5A makes `/recall` cite structured values first so later compiler/entity work is observable.
+
+### Next
+
+**One step:** R5B typed EvidencePacket + spans. Do not remasure n=1540 this cycle. Do not land v2 DDL. Kill list unchanged.
