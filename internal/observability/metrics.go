@@ -10,14 +10,14 @@ import (
 )
 
 type Metrics struct {
-	ingestTotal       atomic.Int64
-	ingestErrors      atomic.Int64
-	searchTotal       atomic.Int64
-	searchErrors      atomic.Int64
-	extractionTotal   atomic.Int64
-	jobQueueDepth     atomic.Int64
-	ingestLatencies   latencyHistogram
-	searchLatencies   latencyHistogram
+	ingestTotal     atomic.Int64
+	ingestErrors    atomic.Int64
+	searchTotal     atomic.Int64
+	searchErrors    atomic.Int64
+	extractionTotal atomic.Int64
+	jobQueueDepth   atomic.Int64
+	ingestLatencies latencyHistogram
+	searchLatencies latencyHistogram
 }
 
 type latencyHistogram struct {
@@ -35,7 +35,13 @@ func newLatencyHistogram(buckets []float64) latencyHistogram {
 }
 
 func (h *latencyHistogram) observe(seconds float64) {
-	h.sum.Add(math.Float64bits(seconds))
+	for {
+		old := h.sum.Load()
+		next := math.Float64bits(math.Float64frombits(old) + seconds)
+		if h.sum.CompareAndSwap(old, next) {
+			break
+		}
+	}
 	h.count.Add(1)
 	for i, b := range h.buckets {
 		if seconds <= b {
