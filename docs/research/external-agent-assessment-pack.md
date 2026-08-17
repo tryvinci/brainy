@@ -1,15 +1,17 @@
 # Brainy — External Agent Assessment Pack
 
 **Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-17 (archaeology review received; R0-R4 **closed**; next is R5 structured-first)  
-**How to use:** Start from **CURRENT (2026-08-17)** and the [archaeology verdict](./external-reviews/2026-08-17-competitive-archaeology-verdict.md). Use this pack for architecture context + reproduce commands. Do **not** treat Gate 0 / “next is R1b” / “LME 0/20” / “READER_MISS-dominated” language below as live truth. Do **not** re-queue R0-R4 because a review was pinned to `bd987fa`.
+**Date:** 2026-08-17 (current-SHA parity-gap review received; R0-R4 **closed**; next is **R5A** structured-first `/recall`)  
+**How to use:** Start from **CURRENT (2026-08-17)** and the [parity-gap verdict](./external-reviews/2026-08-17-parity-gap-verdict.md). Use this pack for architecture context + reproduce commands. Do **not** treat Gate 0 / "next is R1b" / "LME 0/20" / Wave 1 P0-P7 / "cite-facts vs R5 OD as two bets" language below as live truth. Do **not** re-queue R0-R4 because a review was pinned to `bd987fa`.
 
 | Related doc | Role |
 | --- | --- |
-| [external-reviews/2026-08-17-competitive-archaeology-verdict.md](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) | **This pass received** — keep R0-R4 closed; next is R5 structured-first; two-lane eval |
+| [external-reviews/2026-08-17-parity-gap-verdict.md](./external-reviews/2026-08-17-parity-gap-verdict.md) | **This pass received (live)** — keep course; adjust sequence R5A-R10; 49.8% is not a current-SHA ceiling |
+| [external-reviews/2026-08-17-parity-gap-review.md](./external-reviews/2026-08-17-parity-gap-review.md) | Source report (docs `8492ad3`, product `1b5ab3e`) |
+| [external-reviews/2026-08-17-competitive-archaeology-verdict.md](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) | **Historical** — Wave 1 `bd987fa`; keep "do not re-queue P0-P7" |
 | [external-reviews/2026-08-17-full-recall-self-review-prompt.md](./external-reviews/2026-08-17-full-recall-self-review-prompt.md) | Commission prompt used for the dip (now answered) |
-| [locomo-full-recall-dip-why-20260817.md](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) | Why full LoCoMo is 11.4% on `/recall` (two stacked gaps) |
-| [sota-representation-path.md](./sota-representation-path.md) | Accepted execution path (R5 next on 1×30 OD; answer-path is the mass lever) |
+| [locomo-full-recall-dip-why-20260817.md](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) | Why full LoCoMo is 11.4% on `/recall` (two stacked gaps; ceiling honesty) |
+| [sota-representation-path.md](./sota-representation-path.md) | Accepted execution path (R5A first; R5B-R10 follow) |
 | [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md) | Accepted competitive program (KEEP V3; adjust next sequence) |
 | [competitive/README.md](./competitive/README.md) | Competitive archaeology SOP |
 | [competitive/competitive-gap-matrix.md](./competitive/competitive-gap-matrix.md) | Living Mem0/Graphiti/Brainy gap matrix |
@@ -50,10 +52,10 @@
 
 ### Two stacked gaps
 
-1. **Answer-path:** `/recall` cites slogans / enumerate / abstain (`firstStatementFromPacket` in `recall.go`). Lever: **11.4% → ~50%** on current memory.
-2. **Representation:** even July search+harness was 49.8% vs Mem0 Platform 92.5% (n=1540, top-k 200). Lever: **~50 → Mem0-class**. 1×30 OD still **0/4 WRITE_MISS**.
+1. **Answer-path:** `/recall` cites slogans / enumerate / abstain (`firstStatementFromPacket` in `recall.go`). Directionally the first lever. **Modify:** 11.4% to ~50% is **not** a measured ceiling on current storage — July 49.8% was a different stack. Size it with a **current-SHA search+harness** diagnostic (stratified subset after R5A).
+2. **Representation:** compiler coverage does not generalize (1×30 21/30 vs full SH 10.5%; LME multi-session 0/5). Even July search+harness was 49.8% vs Mem0 Platform 92.5% (n=1540, top-k 200). Canonical identity is the largest **structural** gap after the answer path (`entities.go` string keys; hops join mentions).
 
-**Implication for next agent:** Archaeology review received 2026-08-17 ([verdict](./external-reviews/2026-08-17-competitive-archaeology-verdict.md)). R0-R4 stay closed. Next product work is **R5 structured-first** (`/recall` cites compiled facts; OD 0/4 is the same family). Two published lanes: product `/recall` vs search+harness; do not mix with Mem0 92.5%. Do **not** claim beats-Mem0 / SOTA. Still reject: fusion retune, graph DB default, category dictionaries, LoCoMo-named rules, episode top-k to restore OD/SH, LME-500 as a quality claim, another full remasure this cycle, re-queue of the Wave 1 P0-P7 list.
+**Implication for next agent:** Current-SHA parity-gap review received 2026-08-17 ([verdict](./external-reviews/2026-08-17-parity-gap-verdict.md)). R0-R4 stay closed. Next product work is **R5A structured-first `/recall`** (retire `firstStatementFromPacket` as a normal factual strategy). OD 0/4 is a diagnostic, not the PR name. Then R5B typed packet, R6 coverage V2, R7-R9 identity/relations/hops, R10 dual-path freeze. Two published lanes: product `/recall` vs search+harness; do not mix with Mem0 92.5%. Do **not** claim beats-Mem0 / SOTA. Still reject: fusion retune, graph DB default, category dictionaries, LoCoMo-named rules, episode top-k to restore OD/SH, LME-500 as a quality claim, another full remasure this cycle, re-queue of the Wave 1 P0-P7 list, v2 DDL in R5A.
 
 ---
 
@@ -119,11 +121,11 @@ Brainy is a **Go + Postgres memory service** for agents and products. It stores 
 Please return structured feedback covering:
 
 1. **Architecture fit** — Are the five planes still the right substrate? (Assume yes unless new evidence.)
-2. **Diagnosis** — Two-gap split stands; archaeology review (2026-08-17) keeps representation-first and rejects re-queue of R0-R4.
+2. **Diagnosis** — Two-gap split is directional; 49.8% is not a current-SHA ceiling. Keep representation-first. Reject re-queue of R0-R4.
 3. **Published metric** — Two lanes: product `/recall` on the bake-off row; search+harness as industry-format, labeled separately.
-4. **First product PR** — R5 structured-first (`/recall` cites compiled facts). OD 0/4 is the same family.
+4. **First product PR** — R5A structured-first `/recall`. OD 0/4 is a diagnostic, not the PR name.
 5. **Fair Mem0 stack** — n=1540 component lane, top-k 200, LLM-over-search, Platform vs OSS labeled, after a freeze.
-6. **Concrete next PRs** — R5, remaining WRITE_MISS, R2 IDs when identity misses, histogram sum, then two-lane R6. Not fusion, not graph DB, not LME-500-as-quality, not Wave 1 P0-P7.
+6. **Concrete next PRs** — R5A-R10 as in the parity-gap verdict. Not fusion, not graph DB, not LME-500-as-quality, not Wave 1 P0-P7, not v2 schema in R5A.
 
 **Do not** propose LOCOMO-named regexes, held-out conversation prompt tuning, or “just add a graph database” without a measured gate.
 
@@ -367,10 +369,10 @@ Pins: Brainy commit SHA, dataset hash, answerer/judge models, top-k, Fusion flag
 
 **This pass (2026-08-17) — answered; remaining:**
 
-1. Land R5 structured-first so `/recall` cites compiled facts without benchmax. (Verdict: same family as OD 0/4, not a transcript reader.)
-2. Keep two published lanes: product `/recall` vs search+harness (n=1540). Do not mix 11.4% with Mem0 92.5% as retrieval.
-3. Remaining WRITE_MISS coverage after R5 (the ~50 to Mem0-class lever).
-4. Fair future Mem0 stack: top-k 200 + LLM-over-search on the *component* lane, labeled Platform vs OSS, after a freeze.
+1. Land **R5A** so `/recall` consumes typed values (not `firstStatementFromPacket`). OD 0/4 is a diagnostic inside that PR.
+2. Keep two published lanes: product `/recall` vs search+harness (n=1540). Do not mix 11.4% with Mem0 92.5% as retrieval. Size the answer-path ceiling with current-SHA search+harness on a stratified subset (not a full remasure every PR).
+3. Then R5B typed packet, R6 compiler coverage V2, R7-R9 canonical identity / relation V2 / hop ID joins.
+4. Fair future Mem0 stack: top-k 200 + LLM-over-search on the *component* lane, labeled Platform vs OSS, after a freeze (R10).
 5. LME-500 / BEAM 1M remain skipped until LME-20 quality and BEAM 100K justify the spend.
 
 **Still open (lower priority this pass):**
@@ -385,14 +387,15 @@ Pins: Brainy commit SHA, dataset hash, answerer/judge models, top-k, Fusion flag
 
 ## 11. Handoff checklist for the receiving agent
 
-- [ ] Read [2026-08-17 archaeology verdict](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) (this pass; do not re-queue R0-R4)
+- [ ] Read [2026-08-17 parity-gap verdict](./external-reviews/2026-08-17-parity-gap-verdict.md) (live next-work; R5A first)
+- [ ] Skim [Wave 1 archaeology verdict](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) only as history (do not re-queue P0-P7)
 - [ ] Read [2026-08-17 full-recall self-review prompt](./external-reviews/2026-08-17-full-recall-self-review-prompt.md) for pin honesty
-- [ ] Read [dip diagnosis](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md)  
-- [ ] Read **CURRENT (2026-08-17)** at the top of this pack (ignore Gate 0 / R1b / LME 0/20 as live)  
-- [ ] Read remasure pins: `locomo-fresh-full-20260815.md`, `locomo-fresh-1x30-20260815.md`, `lme20-fresh-20260815.md`  
-- [ ] Skim [codebase-graph.md](./codebase-graph.md) diagrams  
-- [ ] Inspect `recall.go` (`firstStatementFromPacket`, enumerate, abstain), `reader_hybrid.go`, compiler/extract  
-- [ ] Produce TEMPLATE verdict + findings table + next 3–7 PRs + kill list  
+- [ ] Read [dip diagnosis](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) (49.8% is not a current-SHA ceiling)
+- [ ] Read **CURRENT (2026-08-17)** at the top of this pack (ignore Gate 0 / R1b / LME 0/20 / Wave 1 P0-P7 as live)
+- [ ] Read remasure pins: `locomo-fresh-full-20260815.md`, `locomo-fresh-1x30-20260815.md`, `lme20-fresh-20260815.md`
+- [ ] Skim [codebase-graph.md](./codebase-graph.md) diagrams
+- [ ] Inspect `recall.go` (`firstStatementFromPacket`), `hop_executor.go` (mention-as-ID, unscoped fallback), `entities.go`, `relations.go`
+- [ ] Produce TEMPLATE verdict + findings table + next 3-7 PRs + kill list  
 
 ---
 
@@ -416,4 +419,4 @@ docs/research/adr/           architecture decisions
 
 ---
 
-*Prepared so an external agent can assess Brainy without tribal knowledge. Prefer citing SHAs and artifacts over vibes. Live conversational signal (2026-08-17): LoCoMo 1×30 **21/30** vs Mem0 **11/30** this freeze (trail OD); full `/recall` **11.4%** (dip vs July search+harness 49.8%; not vs Mem0 92.5% on the same path). Archaeology review: keep R0-R4 closed; next is R5 structured-first. Not publishable SOTA.*
+*Prepared so an external agent can assess Brainy without tribal knowledge. Prefer citing SHAs and artifacts over vibes. Live conversational signal (2026-08-17): LoCoMo 1x30 **21/30** vs Mem0 **11/30** this freeze (trail OD); full `/recall` **11.4%** (dip vs July search+harness 49.8%; 49.8% is not a current-SHA ceiling; not vs Mem0 92.5% on the same path). Parity-gap review: keep R0-R4 closed; next is R5A structured-first `/recall`. Not publishable SOTA.*

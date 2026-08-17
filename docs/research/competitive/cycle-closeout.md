@@ -547,17 +547,17 @@ Vs Mem0: we lead the axes that are already Brainy-native on this freeze (ops mut
 
 ### Next
 
-**One step:** R5 structured-first yes/no from compiled career/possession facts (OD 0/4 vs Mem0 3/4). Do not spend the next cycle on another full remasure, on fusion fishing, or on treating 21/30 as qualification.
+**One step:** R5A structured-first `/recall` (retire `firstStatementFromPacket` as a normal factual strategy). OD 0/4 is a diagnostic, not the PR name. Do not spend the next cycle on another full remasure, on fusion fishing, or on treating 21/30 as qualification.
 
 | Trailing vs Mem0 | Product next (PoR) | Explicitly not next |
 | --- | --- | --- |
-| OD 0/4 vs 3/4 | R5 structured-first yes/no from compiled facts | Restore OD by raising episode top-k |
-| Full LoCoMo 11.4% `/recall` | Keep the path label; lift single-hop by compiling atomic facts the reader can cite | Silently restore 49.8% as current; publish 70% as full LoCoMo |
+| OD 0/4 vs 3/4 | R5A structured-first `/recall` (OD is a diagnostic) | Restore OD by raising episode top-k |
+| Full LoCoMo 11.4% `/recall` | Keep the path label; lift single-hop by citing compiled facts; size ceiling with current-SHA search+harness on a subset | Silently restore 49.8% as current; publish 70% as full LoCoMo |
 | Overall lead 21 vs 11 | Keep; do not declare beats-Mem0 | Treat 21/30 as qualification or SOTA |
 | MH lead 10 vs 6 | Keep 1×30 MH; do not claim MH-solved while full MH is 7.4% and OD is 0/4 | Hardcode titled-work gold |
 | Temporal lead 11 vs 2 | Restore q29 onto the dated fact | LoCoMo-named date rules |
 | Ops / vertical lead | Keep 13/13 and 17/17 green | Spend a cycle matching Mem0 on packs |
-| LME 4/20 (multi-session 0/5) | R6 after representation + OD reader | Compare 4/20 to published LME headlines; run LME-500 as a quality claim |
+| LME 4/20 (multi-session 0/5) | R10 after R5A-R9; not LME-500-as-quality | Compare 4/20 to published LME headlines; run LME-500 as a quality claim |
 | BEAM 8/20 | Leave 100K as a sample; 1M/10M only after OD/reader work | Publish 40% as BEAM 1M |
 
 Kill list stays in force. Do not write SOTA / beats-Mem0. Do not mix 1×30 with n=1540 or with vendor 90+. Mem0 OSS ≠ Mem0 Platform.
@@ -568,8 +568,8 @@ Kill list stays in force. Do not write SOTA / beats-Mem0. Do not mix 1×30 with 
 
 Product SHA unchanged (`1b5ab3e`). This is documentation of *why* 11.4%, not a new remasure.
 
-**1×30 did not drop** (R4h 20/30 → 21/30). **Full LoCoMo did drop** because we scored product `POST /recall` (175/1540) instead of July search+harness (49.8%). Smoking gun: `firstStatementFromPacket` / enumerate / 188 abstains cite nearby slogans (`conv-26-q83`–`q86`). Two stacked gaps: answer-path (11.4%→~50% on current memory) then representation (even 49.8% vs Mem0 92.5% n=1540 top-k 200). LME-500 and BEAM 1M were skipped for cost given LME-20 **4/20** and BEAM 100K **8/20**.
+**1x30 did not drop** (R4h 20/30 -> 21/30). **Full LoCoMo did drop** because we scored product `POST /recall` (175/1540) instead of July search+harness (49.8%). Smoking gun: `firstStatementFromPacket` / enumerate / 188 abstains cite nearby slogans (`conv-26-q83`-`q86`). Two stacked gaps: answer-path (directional; 49.8% is **not** a current-SHA ceiling) then representation (even July search+harness 49.8% vs Mem0 92.5% n=1540 top-k 200; identity/relations still v1 strings). LME-500 and BEAM 1M were skipped for cost given LME-20 **4/20** and BEAM 100K **8/20**.
 
 Vendor percents are **not** the same run as Brainy `/recall`. Closest industry format is Mem0 Platform 92.5% (n=1540, top-k 200, LLM-over-search). **92.5 vs 70** is invalid. **92.5 vs 11.4** is honest n=1540 on this stack but not the same answer path.
 
-**Next (clarified after 2026-08-17 archaeology review):** cite-facts and R5-on-OD are the **same family** (structured-first `/recall`). Do not re-queue R0-R4 from a `bd987fa`-pinned report. Two published lanes. Full write-up: [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md). Verdict: [2026-08-17-competitive-archaeology-verdict.md](../external-reviews/2026-08-17-competitive-archaeology-verdict.md).
+**Next (clarified after 2026-08-17 current-SHA review):** first PR is **R5A structured-first `/recall`** (retire `firstStatementFromPacket` as a normal factual strategy). R5-on-OD is a diagnostic, not the PR name. Then R5B typed packet, R6 coverage V2, R7-R9 identity/relations/hops, R10 dual-path freeze. Do not re-queue R0-R4 from a `bd987fa`-pinned report. Two published lanes. Full write-up: [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md). Live verdict: [2026-08-17-parity-gap-verdict.md](../external-reviews/2026-08-17-parity-gap-verdict.md). Archaeology verdict: [historical](../external-reviews/2026-08-17-competitive-archaeology-verdict.md).

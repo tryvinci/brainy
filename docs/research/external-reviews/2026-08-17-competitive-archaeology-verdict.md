@@ -1,5 +1,7 @@
 # External review — competitive archaeology (pinned to Wave 1)
 
+**Status:** **historical.** Source pin was Wave 1 `bd987fa`. Keep: do not re-queue P0-P7. **Live next-work** is [2026-08-17-parity-gap-verdict.md](./2026-08-17-parity-gap-verdict.md) (current SHA `8492ad3` / product `1b5ab3e`).
+
 **Date:** 2026-08-17
 **Source:** uploaded deep-research report ("Brainy Competitive Code Archaeology and Technical Gap Plan")
 **Adjudicator:** coding agent on `pr/full-recall-dip-review-a6c7`

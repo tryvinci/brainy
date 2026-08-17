@@ -1,9 +1,9 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** `main` = `dev` = `8492ad3` after 2026-08-17 production FF. Fresh remasure (`1b5ab3e`): LoCoMo 1×30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler); LME-20 **4/20**; BEAM 100K **8/20**. Archaeology review: keep R0-R4 closed. Next is **R5 structured-first** (`/recall` citing compiled facts; OD trail is the same family). Two lanes. [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · [verdict](./external-reviews/2026-08-17-competitive-archaeology-verdict.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
+**Tips:** `main` = `dev` = `8492ad3` after 2026-08-17 production FF. Fresh remasure (`1b5ab3e`): LoCoMo 1x30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler; **49.8% is not a current-SHA ceiling**). LME-20 **4/20**; BEAM 100K **8/20**. Archaeology (Wave 1) is historical: keep R0-R4 closed. Live next is **R5A structured-first `/recall`** (retire `firstStatementFromPacket` as a normal factual strategy; OD trail is a diagnostic). Then R5B-R10. Two lanes. [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · [live verdict](./external-reviews/2026-08-17-parity-gap-verdict.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
 **Does not claim:** SOTA, or a LoCoMo/LME target score  
-**Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) (R1c amendment) · [external-reviews/2026-08-17-competitive-archaeology-verdict.md](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) (do not re-queue R0-R4; R5 next)
+**Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) (R1c amendment) · [external-reviews/2026-08-17-parity-gap-verdict.md](./external-reviews/2026-08-17-parity-gap-verdict.md) (live: R5A first; do not re-queue R0-R4) · [external-reviews/2026-08-17-competitive-archaeology-verdict.md](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) (historical Wave 1 pin)
 
 ## Competitive thesis
 
@@ -288,7 +288,7 @@ Not: mention → matching memories → first memory ID → inferred entity.
 
 Identity remains tenant/subject scoped unless an explicit cross-scope policy exists. **REJECT** Neo4j.
 
-**First slice (landed):** compiler `subject` / `value_norm` are copied onto record metadata and entity links. Not yet canonical IDs + aliases + ranked resolution.
+**First slice (landed):** compiler `subject` / `value_norm` are copied onto record metadata and entity links. Not yet canonical IDs + aliases + ranked resolution. Remaining work is **R7**.
 
 ### R3 — Relation projection (not a second extractor)
 
@@ -313,7 +313,7 @@ Caroline currently lives in London.  fact_type=state  valid_from=2025-07
 
 Keep `temporal_score`, `IncludeHistorical`, and current-state resolution — score **dated semantic records**, not conversational prose.
 
-**First slice (landed):** `memory_relations` (mig v20) + `follow_relation` hops. Edges are projected from compiler facts on **both** sync ingest and async extract. R4 remasure MH **9/10**.
+**First slice (landed):** `memory_relations` (mig v20) + `follow_relation` hops. Edges are projected from compiler facts on **both** sync ingest and async extract. R4 remasure MH **9/10**. Remaining quality work is **R8** (canonical-ID endpoints, validity, spans).
 
 ### R4 — Relation-aware hops (actual joins) — landed (measurement)
 
@@ -323,11 +323,11 @@ Invariant:
 hop[i].output_entity_id == hop[i+1].input_entity_id
 ```
 
-Local 1×30 (`d48e202`): MH **9/10 (90.0%)** vs Mem0 freeze **7/10**. Remaining MH miss is image-gold, not a hop miss. Canonical entity IDs (R2 full) are still not claimed done.
+Local 1x30 (`d48e202`): MH **9/10 (90.0%)** vs Mem0 freeze **7/10**. Remaining MH miss is image-gold, not a hop miss. Canonical entity IDs (R2 full / **R9**) are still not claimed done.
 
 Proof chain holds **entity IDs, relation IDs, fact IDs, evidence IDs** so the join is inspectable. This is not “hop 1 retrieved a relevant memory and hop 2 retrieved another.” Earlier `hop_join_proven` was too permissive when it allowed that.
 
-### R5 — Structured-first answer, not structured-only (POV 10)
+### R5A — Structured-first `/recall` (first product PR)
 
 ```text
 StructuredEvidence:
@@ -339,26 +339,52 @@ SourceEvidence:
   provenance snippets supporting each fact
 ```
 
-The answer model primarily consumes structured values. Source text remains to resolve ambiguity, verify provenance, expose qualification, handle incomplete representation, and explain where memory came from. That is Brainy's evidence-plane advantage over a pure fact-store.
+The product answer path consumes structured values first. Source text remains to resolve ambiguity, verify provenance, expose qualification, handle incomplete representation, and explain where memory came from. That is Brainy's evidence-plane advantage over a pure fact-store.
 
-**Mass vs same-pin trail (2026-08-17):** full LoCoMo single-hop is **88/841 (10.5%)** on product `/recall` because `firstStatementFromPacket` / enumerate / abstain cite slogans instead of those structured values. R5 is that packet contract (cite compiled facts) **and** the 1×30 OD trail (0/4 vs Mem0 3/4). Archaeology review: same family, not two bets; not a transcript reader. Do not restore SH/OD by stuffing episodes into top-k.
+**What to change:** retire `firstStatementFromPacket` as a **normal factual** strategy (`recall.go`: first non-question `pkt.Contents` / `TemporalAnswer`). Scalar answers cite typed fact/atom/relation values; lists enumerate structured values; hops consume proof-chain outputs; abstain only after structured support is assessed. Hybrid reader handles synthesis/composition. Episodes stay provenance + fallback. **Bounded:** not a reader-prompt sprint, not LLM-over-episodes, not a PR named "fix OD".
 
-### R6 — Freeze and qualify
+**Mass vs same-pin trail (2026-08-17):** full LoCoMo single-hop is **88/841 (10.5%)** on product `/recall` because slogan/enumerate/abstain cite chat text instead of structured values. 1x30 OD **0/4 vs Mem0 3/4** is a **diagnostic** inside R5A's test plan (and still WRITE_MISS on some items). Do not restore SH/OD by stuffing episodes into top-k.
 
-Order: LoCoMo 1×30 **diagnostic** → LoCoMo 3×90 qualification slice → multi-seed/full **product `/recall`** → LME-20 **quality** → larger LME.
+**Ceiling honesty:** 11.4% toward ~50% is **directional**. July 49.8% was search+harness on an older stack, not a measured oracle on current storage. After R5A, run a **current-SHA search+harness** on the same stratified 100-200 subset as product `/recall` to size answer-path vs WRITE_MISS. Not a full n=1540 remasure.
 
-Do not run LME-500 or BEAM 1M as a quality claim while LME-20 is 4/20 and BEAM 100K is 8/20. Remeasure full `/recall` after the answer-path + representation work, not instead of it.
+**Exit (early checkpoint):** OpMem 13/13 and marketing 17/17 stay green; 1x30 diagnostic; stratified SH/OD/temporal subset; explainable remaining failures.
 
-Representation health (R0 audit) is a merge gate **before** these scores. 1×30 is never qualification. OpMem/marketing must stay green. No SOTA / beats-Mem0 language.
+### R5B — Typed EvidencePacket + spans
+
+`EvidencePacket` already has `ContextEvidence` and `ProofChain` (`planner.go`). Context is still `[]string`; legacy `Contents` still feed `firstStatementFromPacket`. Upgrade context entries to typed objects with fact/relation/evidence/source-span IDs. Legacy `Contents` become compatibility-only.
+
+### R6 — Compiler Coverage V2
+
+Generalize past conv-26. Full-suite SH 10.5% and LME multi-session 0/5 show R0-R4 work where facts compile, but coverage does not travel. ADAPT Mem0 recent-session + existing-memory context and ADD-only semantics (not verbatim prompts). Durable assistant facts stay first-class. Held-out representation audit is the merge gate, not a LoCoMo bump.
+
+### R7 — Canonical Entity V2
+
+R2 first slice already copies `subject` / `value_norm` onto metadata and entity links. The remaining gap is durable identity: IDs, aliases, mentions, ranked resolution, merge lifecycle. `entities.go` is still quoted/proper-noun/year string keys plus `memory_entity_links`. Names are not unique identities (two Johns). Tenant/subject scoped. Dual-write the hub. Proposed v2 DDL in the 2026-08-17 review is **later**, not R5A.
+
+### R8 — Relation V2
+
+R3 first slice (`memory_relations`, mig v20) is v1 **string** endpoints (`MemoryRelation.SrcEntity` / `DstEntity`). Upgrade to canonical-ID edges with validity and evidence spans. Copy Graphiti **semantics**, not Neo4j. Dual-write v1 strings.
+
+### R9 — Hop Executor V3 (canonical ID joins)
+
+Invariant remains `hop[i].output_entity_id == hop[i+1].input_entity_id`. Today `resolveEntityHop` sets `res.Value = mention`; predicate lookup can fall back to unscoped `GetCurrentState(..., pred)`; the atom path keeps all predicate hits if the entity-filtered subset is empty. Unscoped/fuzzy matches may enrich **context** but cannot yield `typed_exact` proof. Do not claim MH-solved from 1x30 10/10 while full MH is 7.4%.
+
+### R10 — Frozen dual-path qualification
+
+Order: LoCoMo 1x30 **diagnostic** -> LoCoMo 3x90 qualification slice -> multi-seed/full **product `/recall`** and a separately labeled **industry-format** search+shared-answerer+shared-judge (n=1540, top-k 200, 3 seeds, report retrieved tokens) -> LME-20 **quality** -> larger LME.
+
+Do not run LME-500 or BEAM 1M as a quality claim while LME-20 is 4/20 and BEAM 100K is 8/20. Do not remasure full n=1540 before R5A.
+
+Representation health (R0 audit) is a merge gate **before** these scores. 1x30 is never qualification. OpMem/marketing must stay green. No SOTA / beats-Mem0 language.
 
 ## Kill list (unchanged)
 
-No fusion-constant fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA / beats-Mem0 language, no treating 1×30 as the qualification, no hard episode-suppression before R1b coverage, no second unrelated relation extractor, no treating phatic-skip as “assistant is not memory.”
+No fusion-constant fishing (including copying `ENTITY_BOOST_WEIGHT=0.5`), no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA / beats-Mem0 language, no treating 1x30 as the qualification, no hard episode-suppression before coverage, no second unrelated relation extractor, no treating phatic-skip as "assistant is not memory," no spaCy requirement, no v2 schema DDL in R5A, no calendar-week commitments in PoR, no reopening R0-R4 as if missing.
 
 ## Linear
 
 - ENG-168 conversational long-memory epic — this path is the engineering response
-- ENG-176 multi-hop synthesis — after R1–R3 (real entity-ID joins), not instead of them
-- ENG-69 Graphiti temporal fact model — input to R3
-- ENG-71 academic survey — annotate, do not block R0–R1
-- ENG-60 graph layer — **Postgres graph-shaped** (ADR-004), not “build Neo4j”
+- ENG-176 multi-hop synthesis — after canonical-ID hops (R9), not instead of R5A
+- ENG-69 Graphiti temporal fact model — input to R8
+- ENG-71 academic survey — annotate, do not block R5A
+- ENG-60 graph layer — **Postgres graph-shaped** (ADR-004), not "build Neo4j"

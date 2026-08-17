@@ -1,11 +1,11 @@
 # Why full LoCoMo is 11.4% on product `/recall` (2026-08-17)
 
 **Status:** diagnosis of the 2026-08-15 remasure. Product SHA `1b5ab3e` (no product change in that remasure).  
-**Does not claim:** SOTA, a restored 49.8%, or that 11.4% is a harness glitch.
+**Does not claim:** SOTA, a restored 49.8%, that 11.4% is a harness glitch, or that 49.8% is a current-SHA `/recall` ceiling.
 
 ## One paragraph
 
-We did **not** drop the 1×30. Conv-26 head is **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs the R4h pin **20/30**. We **did** drop full LoCoMo because this remasure scored **product `POST /recall`** (175/1540 = **11.4%**) instead of the July **search-hits + harness LLM answerer** path (mean **49.8%**, seed-0 **49.4%**). Sampling the gitignored run JSON shows `/recall` often returning a nearby **slogan**, an enumerate **word-salad**, or **`not in memory`**, while the compiled fact (or at least the gold substring in an episode) sits in the packet. That is an **answer-path** failure on top of the still-real **representation** gap (July 49.8% vs Mem0 Platform **92.5%** on n=1540).
+We did **not** drop the 1x30. Conv-26 head is **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs the R4h pin **20/30**. We **did** drop full LoCoMo because this remasure scored **product `POST /recall`** (175/1540 = **11.4%**) instead of the July **search-hits + harness LLM answerer** path (mean **49.8%**, seed-0 **49.4%**). Sampling the gitignored run JSON shows `/recall` often returning a nearby **slogan**, an enumerate **word-salad**, or **`not in memory`**, while the compiled fact (or at least the gold substring in an episode) sits in the packet. That is an **answer-path** failure on top of the still-real **representation** gap (July 49.8% vs Mem0 Platform **92.5%** on n=1540). **Honesty:** 49.8% is that older path, **not** a measured ceiling on current storage. A current-SHA search+harness diagnostic is required to size the answer-path lever.
 
 ## What we measured this freeze
 
@@ -50,10 +50,10 @@ Do not restore OD/SH by stuffing episodes into top-k. Do not add LoCoMo-named pr
 
 ## Two stacked gaps (do not collapse)
 
-1. **Answer-path gap.** Product `/recall` cites slogans / enumerate / abstain instead of compiled facts. Closing this is what could move **11.4% back toward ~50%** on *current* memory. This is product reader/synthesis, not “run more benches.”
-2. **Representation gap.** Even July search+harness was **49.8% vs Mem0 Platform 92.5%** (n=1540, their harness, **top-k 200**). That is WRITE_MISS / thin compiled facts / they retrieve atomic memories at top-k 200. Closing this is the **~50 → 90** path. 1×30 OD is still **0/4 WRITE_MISS**.
+1. **Answer-path gap.** Product `/recall` cites slogans / enumerate / abstain instead of compiled facts. Closing this is **directionally** what could move 11.4% toward the old search+harness level. **49.8% is not a current-SHA oracle** (different stack). Size the lever with a current-SHA search+harness run on a stratified subset after R5A. Slogan/enumerate/abstain failures are still causal on a meaningful subset (`recall.go` `firstStatementFromPacket`). This is product synthesis, not "run more benches."
+2. **Representation gap.** Even July search+harness was **49.8% vs Mem0 Platform 92.5%** (n=1540, their harness, **top-k 200**). That is WRITE_MISS / thin compiled facts / they retrieve atomic memories at top-k 200. Compiler coverage does not generalize (1x30 21/30 vs full SH 10.5%). Canonical identity is the largest structural follow-on. 1x30 OD is still **0/4 WRITE_MISS**.
 
-11.4% is not a harness glitch. 49.8% is not “current.” 70% is not full LoCoMo.
+11.4% is not a harness glitch. 49.8% is not "current." 70% is not full LoCoMo.
 
 ## Are vendor percents the same kind of run?
 
@@ -88,11 +88,11 @@ Accepted path: [sota-representation-path.md](../../research/sota-representation-
 
 Two product moves, in order of **mass**:
 
-1. **Make `/recall` cite compiled facts** (not `firstStatementFromPacket` slogans, not list-cue enumerate, not abstain when the fact exists). That is the **11.4% → ~50%** lever. Related to **R5 structured-first** (POV 10: answer model consumes structured values; source text is provenance).
-2. **Compiler coverage (WRITE_MISS)** so durable claims exist as facts: career/possession/dated plans, then remaining R2 canonical IDs, R3 projection, R4 hops as needed. That is the **~50% → Mem0-class** lever. 1×30 OD 0/4 is the visible WRITE_MISS slice; full single-hop 10.5% is the mass.
+1. **R5A — make `/recall` cite compiled facts** (not `firstStatementFromPacket` slogans, not list-cue enumerate, not abstain when the fact exists). Directionally the first lever. Related to structured-first (POV 10: answer model consumes structured values; source text is provenance). OD 0/4 is a diagnostic, not the PR name. After R5A: OpMem/marketing, 1x30, stratified 100-200 subset, **current-SHA search+harness on that subset**.
+2. **R5B-R9 — typed packet, compiler coverage, canonical IDs, relation V2, hop ID joins.** That is the Mem0-class lever on the *component* lane. 1x30 OD 0/4 is the visible WRITE_MISS slice; full single-hop 10.5% is the mass.
 
-Then R6: 1×30 diagnostic → **3×90** → remasure full `/recall` → LME-20 quality → LME-500 only after that. Keep OpMem 13/13 and marketing 17/17 green. No SOTA / beats-Mem0.
+Then **R10**: 1x30 diagnostic -> **3x90** -> remasure full `/recall` *and* search+harness, labeled separately -> LME-20 quality -> LME-500 only after that. Keep OpMem 13/13 and marketing 17/17 green. No SOTA / beats-Mem0.
 
-Do **not** spend the next cycle on another full remasure or on LME-500 as a quality claim.
+Do **not** spend the next cycle on another full remasure or on LME-500 as a quality claim. Do not land proposed v2 DDL in R5A.
 
-Archaeology review (2026-08-17): two published lanes (product `/recall` vs search+harness); cite-facts and R5 OD are the same structured-first family. [verdict](../../research/external-reviews/2026-08-17-competitive-archaeology-verdict.md).
+Current-SHA review (2026-08-17): two published lanes (product `/recall` vs search+harness); keep R0-R4 closed. [live verdict](../../research/external-reviews/2026-08-17-parity-gap-verdict.md). Wave 1 archaeology verdict is [historical](../../research/external-reviews/2026-08-17-competitive-archaeology-verdict.md).

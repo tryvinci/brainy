@@ -13,7 +13,8 @@ Track BORROW / ADAPT / REJECT decisions before inventing Brainy mechanisms.
 | 2026-08-14 | Fact-primary vs transcript index | Mem0 ADD facts + Graphiti episode/entity split | **ADAPT** | Default search drops `conversation_episode` when facts exist; episodes remain provenance. Do not copy Mem0 prompts. | R1 / this PR |
 | 2026-08-14 | R1b held-out compiler coverage | Mem0 ADD-only atoms | **ADAPT** | Generic linguistic extractors + relative-date stamps; no LoCoMo names | `571cc1a` |
 | 2026-08-14 | Relation edges from facts | Graphiti entity/edge projection | **ADAPT** into Postgres | `memory_relations` + `follow_relation`; **REJECT** Neo4j | `5c5f561` |
-| 2026-08-17 | Two eval lanes; do not mix product `/recall` with Mem0 search+harness | Mem0 memory-benchmarks + Platform | **ADAPT** | Keep `/recall` as product number; pin search+harness as industry-format separately; **REJECT** re-queue of Wave 1 P0-P7 | [verdict](../external-reviews/2026-08-17-competitive-archaeology-verdict.md) |
+| 2026-08-17 | Two eval lanes; do not mix product `/recall` with Mem0 search+harness | Mem0 memory-benchmarks + Platform | **ADAPT** | Keep `/recall` as product number; pin search+harness as industry-format separately; **REJECT** re-queue of Wave 1 P0-P7 | [historical archaeology](../external-reviews/2026-08-17-competitive-archaeology-verdict.md) |
+| 2026-08-17 | Structured-first `/recall` before another compiler wave; Graphiti semantics not Neo4j; identity is the structural gap | Mem0 OSS extract + Graphiti EntityNode/EntityEdge | **ADAPT** | R5A first (retire `firstStatementFromPacket`); copy Graphiti **semantics**; **REJECT** fusion constants, spaCy requirement, v2 DDL in R5A | [parity-gap verdict](../external-reviews/2026-08-17-parity-gap-verdict.md) |
 
 ## How to append
 
