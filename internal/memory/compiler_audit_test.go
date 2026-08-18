@@ -123,6 +123,7 @@ func TestHeldOutNamedSubjectAndAddresseeAudit(t *testing.T) {
 		Messages: []Message{
 			{Role: "user", Content: "Casey: I work as a paramedic in Denver."},
 			{Role: "user", Content: "Riley: Casey researched wildfire recovery last spring."},
+			{Role: "user", Content: "Riley: She lives in Denver now."},
 			{Role: "user", Content: "Riley: You realized that rest is part of training."},
 			{Role: "user", Content: "Morgan: Dana lives in Portland and is a carpenter."},
 		},
@@ -153,6 +154,7 @@ func TestHeldOutNamedSubjectAndAddresseeAudit(t *testing.T) {
 	mustContain := []string{
 		"casey works as paramedic",
 		"casey researched wildfire recovery",
+		"casey lives in denver",
 		"casey realized that rest is part of training",
 		"dana lives in portland",
 		"dana is a carpenter",
@@ -162,7 +164,8 @@ func TestHeldOutNamedSubjectAndAddresseeAudit(t *testing.T) {
 			t.Errorf("coverage miss %q in %q", needle, joined)
 		}
 	}
-	if strings.Contains(joined, "riley researched") || strings.Contains(joined, "morgan lives") {
+	if strings.Contains(joined, "riley researched") || strings.Contains(joined, "morgan lives") ||
+		strings.Contains(joined, "riley lives") {
 		t.Fatalf("wrong-subject atoms: %q", joined)
 	}
 }
@@ -236,6 +239,12 @@ func TestProjectMemoryRelationFromOriginAtom(t *testing.T) {
 	}
 	if rel.SrcEntity != "alex" || rel.Relation != PredicateOrigin || rel.DstEntity != "sweden" {
 		t.Fatalf("got %+v", rel)
+	}
+	if rel.SrcEntityID == "" || rel.DstEntityID == "" || rel.SrcEntityID == rel.DstEntityID {
+		t.Fatalf("expected distinct canonical IDs, got %+v", rel)
+	}
+	if CanonicalEntityID("t1", "u1", "Alex") != rel.SrcEntityID {
+		t.Fatalf("src id, got %q", rel.SrcEntityID)
 	}
 }
 

@@ -238,6 +238,13 @@ func ProjectCurrentStateIfApplicable(ctx context.Context, store Store, record Me
 		return
 	}
 	keyed := statePredicateKey(entitySubjectOf(record), pred)
+	writeCurrentState(ctx, cs, store, record, keyed, val, pred)
+	if eid := entityIDOf(record); eid != "" {
+		writeCurrentState(ctx, cs, store, record, statePredicateKey(eid, pred), val, pred)
+	}
+}
+
+func writeCurrentState(ctx context.Context, cs CurrentStateStore, store Store, record MemoryRecord, keyed, val, pred string) {
 	if existingID, _, _, found, _ := cs.GetCurrentState(ctx, record.TenantID, record.SubjectID, keyed); found && existingID != "" && existingID != record.MemoryID {
 		existing, err := store.GetMemory(ctx, record.TenantID, record.SubjectID, existingID)
 		if err == nil && !shouldReplaceCurrentState(record, existing) {
@@ -282,11 +289,8 @@ func ReprojCurrentStateForMutation(ctx context.Context, store Store, record Memo
 		value = strings.ToLower(NormalizeText(record.Content))
 	}
 	keyed := statePredicateKey(entitySubjectOf(record), pred)
-	if existingID, _, _, found, _ := cs.GetCurrentState(ctx, record.TenantID, record.SubjectID, keyed); found && existingID != "" && existingID != record.MemoryID {
-		existing, err := store.GetMemory(ctx, record.TenantID, record.SubjectID, existingID)
-		if err == nil && !shouldReplaceCurrentState(record, existing) {
-			return
-		}
+	writeCurrentState(ctx, cs, store, record, keyed, value, pred)
+	if eid := entityIDOf(record); eid != "" {
+		writeCurrentState(ctx, cs, store, record, statePredicateKey(eid, pred), value, pred)
 	}
-	_ = cs.UpsertCurrentState(ctx, record.TenantID, record.SubjectID, keyed, record.MemoryID, value, string(PredicatePolicy(pred)))
 }

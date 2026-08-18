@@ -204,6 +204,7 @@ func (p *Processor) persistEntityLinks(ctx context.Context, record memory.Memory
 			_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
 		}
 	}
+	memory.PersistCanonicalEntity(ctx, p.store, record)
 
 	// Mirror Service.persistEntityLinks: typed extract must land on atoms for
 	// async LoCoMo/LME (default eval path), not only sync /ingest.

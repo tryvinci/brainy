@@ -33,13 +33,35 @@ func TestClauseBindYouFallsBackToPriorSpeaker(t *testing.T) {
 	}
 }
 
-func TestClauseBindSkipsThirdPersonPronoun(t *testing.T) {
+func TestClauseBindSheIsLastNamedPerson(t *testing.T) {
 	speakers := map[string]string{"riley": "Riley", "casey": "Casey"}
+	bind := newClauseBind("Riley", speakers)
+	bind.lastNamed = "Casey"
+	body := "she researched wildfire recovery"
+	subj, ok := bind.subjectAt(body, 4, true)
+	if !ok || subj != "Casey" {
+		t.Fatalf("she → last named, got %q ok=%v", subj, ok)
+	}
+}
+
+func TestClauseBindSheWithoutAntecedentSkips(t *testing.T) {
+	speakers := map[string]string{"riley": "Riley"}
 	bind := newClauseBind("Riley", speakers)
 	body := "she researched wildfire recovery"
 	subj, ok := bind.subjectAt(body, 4, true)
 	if ok || subj != "" {
-		t.Fatalf("must not steal she-clause, got %q ok=%v", subj, ok)
+		t.Fatalf("must not steal she-clause without antecedent, got %q ok=%v", subj, ok)
+	}
+}
+
+func TestClauseBindTheyDoesNotStealLastNamed(t *testing.T) {
+	speakers := map[string]string{"riley": "Riley", "casey": "Casey"}
+	bind := newClauseBind("Riley", speakers)
+	bind.lastNamed = "Casey"
+	body := "they researched wildfire recovery"
+	subj, ok := bind.subjectAt(body, 5, true)
+	if ok || subj != "" {
+		t.Fatalf("they must skip, got %q ok=%v", subj, ok)
 	}
 }
 

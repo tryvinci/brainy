@@ -36,7 +36,7 @@ type HopStep struct {
 type EvidencePacket struct {
 	MemoryIDs       []string       `json:"memory_ids"`
 	Contents        []string       `json:"contents,omitempty"`
-	ContextEvidence []string       `json:"context_evidence,omitempty"`
+	ContextEvidence []PacketItem   `json:"context_evidence,omitempty"`
 	ProofChain      []PacketItem   `json:"proof_chain,omitempty"`
 	Items           []PacketItem   `json:"items,omitempty"`
 	Predicates      []string       `json:"predicates,omitempty"`
@@ -364,18 +364,22 @@ func preferredModeHint(plan QueryPlan) string {
 }
 
 // BuildEvidencePacket projects search hits + temporal explain into a packet.
+// ContextEvidence is typed (R5B); Contents is a compatibility projection.
 func BuildEvidencePacket(plan QueryPlan, results []SearchResult, explain map[string]any) EvidencePacket {
 	pkt := EvidencePacket{
-		Plan:      plan,
-		MemoryIDs: make([]string, 0, len(results)),
-		Contents:  make([]string, 0, len(results)),
+		Plan:            plan,
+		MemoryIDs:       make([]string, 0, len(results)),
+		Contents:        make([]string, 0, len(results)),
+		ContextEvidence: make([]PacketItem, 0, len(results)),
 	}
 	for _, r := range results {
-		if r.MemoryID != "" {
-			pkt.MemoryIDs = append(pkt.MemoryIDs, r.MemoryID)
+		item := packetItemFromSearch(r)
+		if item.MemoryID != "" {
+			pkt.MemoryIDs = append(pkt.MemoryIDs, item.MemoryID)
 		}
-		if c := strings.TrimSpace(r.Content); c != "" && !strings.HasSuffix(c, "?") {
-			pkt.Contents = append(pkt.Contents, c)
+		if item.Content != "" {
+			pkt.Contents = append(pkt.Contents, item.Content)
+			pkt.ContextEvidence = append(pkt.ContextEvidence, item)
 		}
 	}
 	if explain != nil {
@@ -405,6 +409,64 @@ func BuildEvidencePacket(plan QueryPlan, results []SearchResult, explain map[str
 		"hit_count": len(pkt.MemoryIDs),
 	}
 	return pkt
+}
+
+func packetItemFromSearch(r SearchResult) PacketItem {
+	content := strings.TrimSpace(r.Content)
+	if strings.HasSuffix(content, "?") {
+		content = ""
+	}
+	pred := searchResultPredicate(r)
+	val := searchResultValueNorm(r)
+	if val == "" {
+		val = structuredValueOf(r)
+	}
+	subj := ""
+	eid := ""
+	if r.Explain != nil {
+		if s, ok := r.Explain["subject"].(string); ok {
+			subj = strings.TrimSpace(s)
+		}
+		if id, ok := r.Explain["entity_id"].(string); ok {
+			eid = strings.TrimSpace(id)
+		}
+	}
+	return PacketItem{
+		EvidenceID: r.MemoryID,
+		MemoryID:   r.MemoryID,
+		FactID:     r.MemoryID,
+		Content:    content,
+		Predicate:  pred,
+		Subject:    subj,
+		Value:      val,
+		EntityID:   eid,
+		Span:       content,
+		Role:       "context",
+		Score:      r.Score,
+	}
+}
+
+func packetItemsFromContents(contents, ids []string) []PacketItem {
+	out := make([]PacketItem, 0, len(contents))
+	for i, c := range contents {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			continue
+		}
+		id := ""
+		if i < len(ids) {
+			id = ids[i]
+		}
+		out = append(out, PacketItem{
+			EvidenceID: id,
+			MemoryID:   id,
+			FactID:     id,
+			Content:    c,
+			Span:       c,
+			Role:       "context",
+		})
+	}
+	return out
 }
 
 func packetCoverageSatisfied(plan QueryPlan, pkt EvidencePacket) bool {

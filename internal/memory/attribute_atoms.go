@@ -163,13 +163,15 @@ func extractAttributeAtoms(utterances []string, observedAt *time.Time) []Extract
 	}
 	speakers := collectSpeakers(turns)
 	var prior []string
+	lastNamed := ""
 	for _, t := range turns {
 		whoKey := strings.ToLower(t.who)
 		if t.who != "" && kidsMentionRE.MatchString(t.body) {
 			kidsBySpeaker[whoKey] = true
 		}
 		bind := newClauseBind(t.who, speakers).withAddressee(prior)
-		for _, atom := range attributeAtomsFromUtterance(t.who, t.body, t.utt, observedAt, bind) {
+		bind.lastNamed = lastNamed
+		for _, atom := range attributeAtomsFromUtterance(t.who, t.body, t.utt, observedAt, &bind) {
 			add(atom)
 			if pred, _ := atom.Explain["predicate"].(string); pred == PredicateOrigin {
 				if v, _ := atom.Explain["value_norm"].(string); v != "" && whoKey != "" {
@@ -181,6 +183,9 @@ func extractAttributeAtoms(utterances []string, observedAt *time.Time) []Extract
 			for _, like := range pronounPreferenceObjects(t.body) {
 				add(atomFact(t.who, fmt.Sprintf("%s's kids like %s", t.who, like), t.utt, 0.82, "attribute_preference", observedAt))
 			}
+		}
+		if bind.lastNamed != "" {
+			lastNamed = bind.lastNamed
 		}
 		if t.who != "" {
 			for _, like := range pronounExcitedObjects(t.body) {
@@ -219,7 +224,11 @@ func splitSpeaker(utterance string) (speaker, body string) {
 	return strings.TrimSpace(m[1]), NormalizeText(m[2])
 }
 
-func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time, bind clauseBind) []ExtractedMemory {
+func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time, bind *clauseBind) []ExtractedMemory {
+	if bind == nil {
+		tmp := newClauseBind(who, nil)
+		bind = &tmp
+	}
 	if bind.speaker == "" {
 		bind.speaker = who
 	}

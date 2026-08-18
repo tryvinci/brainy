@@ -60,10 +60,15 @@ func (s *Service) persistEntityLinks(ctx context.Context, record MemoryRecord) {
 	}
 	ents := recordEntities(record)
 	ents = appendIdentityEntities(ents, record)
+	if eid := entityIDOf(record); eid != "" {
+		ents = append(ents, eid)
+	}
 	if len(ents) == 0 {
 		return
 	}
 	_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
+
+	PersistCanonicalEntity(ctx, s.store, record)
 
 	if indexer, ok := s.store.(AtomIndexer); ok {
 		pred, _ := record.Explain["predicate"].(string)

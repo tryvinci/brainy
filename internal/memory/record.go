@@ -162,6 +162,7 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 			record.Metadata["subject"] = strings.TrimSpace(subj)
 		}
 	}
+	attachEntityIdentity(&record)
 	// Lineage: ingest metadata.supersedes_memory_id → new.supersedes_id; prior
 	// is marked superseded after upsert (Service.applyIngestSupersession).
 	if sid := supersedesMemoryIDFromMetadata(record.Metadata); sid != "" {

@@ -240,7 +240,10 @@ func TestFormatHybridMemoryLinesIncludesHopChain(t *testing.T) {
 
 func TestFormatHybridMemoryLinesLeadsWithStructuredSlots(t *testing.T) {
 	pkt := EvidencePacket{
-		ContextEvidence: []string{"Alex lives in New York", "Alex later moved to Austin"},
+		ContextEvidence: []PacketItem{
+			{Content: "Alex lives in New York", Role: "context"},
+			{Content: "Alex later moved to Austin", Role: "context"},
+		},
 		Coverage: map[string]any{
 			"hop_results": []HopResult{
 				{HopIndex: 0, Kind: "fetch_predicate", Predicate: PredicateResidence, Value: "Austin", Source: "typed_store", Contents: []string{"Alex lives in Austin"}},

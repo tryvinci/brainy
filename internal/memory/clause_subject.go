@@ -10,9 +10,18 @@ import (
 // clauseBind attributes a verb match to the speaker, the two-party addressee,
 // or a named person in the clause. First-person patterns stay speaker-bound.
 type clauseBind struct {
-	speaker string
-	partner string
-	known   map[string]string // lowercased display name → canonical
+	speaker   string
+	partner   string
+	known     map[string]string // lowercased display name → canonical
+	lastNamed string            // last named person for she/he coref
+}
+
+func (b *clauseBind) rememberNamed(name string) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return
+	}
+	b.lastNamed = name
 }
 
 func (b clauseBind) canonName(name string) string {
@@ -87,9 +96,13 @@ var (
 		"you": {}, "you're": {}, "you’re": {}, "you've": {}, "you’ve": {},
 		"you'd": {}, "you’d": {}, "you'll": {}, "you’ll": {},
 	}
-	thirdPersonPronoun = map[string]struct{}{
-		"he": {}, "she": {}, "they": {}, "him": {}, "her": {}, "them": {},
-		"his": {}, "hers": {}, "their": {},
+	// Singular third-person pronouns bind to the last named person (R6/R7).
+	singularCorefPronoun = map[string]struct{}{
+		"he": {}, "she": {}, "him": {}, "her": {}, "his": {}, "hers": {},
+	}
+	// Plural / demonstrative pronouns stay unbound (kids, groups, objects).
+	skipAnaphoraPronoun = map[string]struct{}{
+		"they": {}, "them": {}, "their": {},
 		"it": {}, "this": {}, "that": {}, "these": {}, "those": {},
 	}
 
@@ -127,7 +140,10 @@ var (
 
 // subjectAt returns the person the verb at matchStart belongs to.
 // defaultSpeaker is true for clause-initial gerunds ("Researching X").
-func (b clauseBind) subjectAt(body string, matchStart int, defaultSpeaker bool) (string, bool) {
+func (b *clauseBind) subjectAt(body string, matchStart int, defaultSpeaker bool) (string, bool) {
+	if b == nil {
+		return "", false
+	}
 	if matchStart < 0 {
 		matchStart = 0
 	}
@@ -180,16 +196,25 @@ func (b clauseBind) subjectAt(body string, matchStart int, defaultSpeaker bool) 
 		}
 		return b.partner, true
 	}
-	if _, ok := thirdPersonPronoun[low]; ok {
+	if _, ok := skipAnaphoraPronoun[low]; ok {
 		return "", false
+	}
+	if _, ok := singularCorefPronoun[low]; ok {
+		if strings.TrimSpace(b.lastNamed) == "" {
+			return "", false
+		}
+		return b.lastNamed, true
 	}
 	if b.known != nil {
 		if canon, ok := b.known[low]; ok {
+			b.rememberNamed(canon)
 			return canon, true
 		}
 	}
 	if likelyPersonName(tok) {
-		return titleCaseWords(tok), true
+		name := titleCaseWords(tok)
+		b.rememberNamed(name)
+		return name, true
 	}
 	if defaultSpeaker && strings.TrimSpace(b.speaker) != "" {
 		return b.speaker, true
