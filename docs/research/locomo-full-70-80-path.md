@@ -1,6 +1,6 @@
 # LoCoMo Full 70–80% — execution path
 
-**Status:** R6 first slice in progress (named-subject / addressee compiler). Not a score claim.  
+**Status:** R5B–R10 representation stack landed on this branch (typed packets, `she`/`he` coref, canonical entity/relation IDs, hop ID joins, dual-path freeze wiring). Not a score claim.  
 **Does not claim:** 70–80% on n=1540 this freeze; SOTA; beats-Mem0; 1×30 70% as full LoCoMo.
 
 ## Why 70–80% on n=1540 is two lanes
@@ -35,16 +35,16 @@ General linguistic forms only (`internal/memory/clause_subject.go`, `attribute_a
 
 Copula clip (`realized that` before adjective `is`) ships on the same branch so belief clauses keep their tails.
 
-## What 70–80% still requires after this slice
+## What 70–80% still requires after this stack
 
-1. **R5B** typed EvidencePacket + spans (hygiene; not SH mass).
-2. **R6 remainder** — provider extract with recent/related context already exists (`ContextualExtractor`); quality still depends on the model. No verbatim Mem0 prompts.
-3. **R7** canonical identity (two Johns; `she`/`he` after a named person).
-4. **R8–R9** relation V2 + hop ID joins (full MH is 7.4%, not the 1×30 10/10).
-5. **R10 freeze** — product `/recall` *and* current-SHA search+harness, labeled separately. Stratified 100–200 then 3×90; full n=1540 only after freeze.
-6. **Open-domain** stays a diagnostic. Do not restore OD/SH by stuffing episodes into top-k.
-7. Industry-format 70–80% likely still needs an LLM answerer on retrieved **atoms**, not slogans. Product `/recall` 70–80% without that lane is not promised.
+The stack in this pass is the **substrate** for an honest later claim. It is not the claim.
+
+1. **Compiler mass on the rest of SH** — named-subject + addressee + `she`/`he` last-named-person are in. Provider extract quality still depends on the model (`ContextualExtractor` already injects recent/related memories). Held-out audit stays the merge gate.
+2. **Identity joins on full MH** — hops now join `ent:` IDs; unscoped predicate hits are context only. Full MH is still **7.4%** until a freeze remasure. Do not treat 1×30 10/10 as MH-solved.
+3. **R10 freeze remasure** — product `/recall` *and* current-SHA search+harness (`--eval-lane`), labeled separately. Stratified 100–200 then 3×90; full n=1540 only after freeze. See [locomo-dual-path-freeze.md](./locomo-dual-path-freeze.md).
+4. **Open-domain** stays a diagnostic. Do not restore OD/SH by stuffing episodes into top-k.
+5. Industry-format 70–80% likely still needs an LLM answerer on retrieved **atoms**, not slogans. Product `/recall` 70–80% without that lane is not promised. Mem0 Platform 92.5% remains a different path (top-k 200, their harness).
 
 ## Kill list (unchanged)
 
-No fusion fishing, no graph DB, no LoCoMo-named product rules, no spaCy requirement, no mixing 11.4% with Mem0 92.5%, no publishing 1×30 70% as full LoCoMo, no LME-500/BEAM 1M as a quality claim, no v2 DDL in this PR.
+No fusion fishing, no graph DB, no LoCoMo-named product rules, no spaCy requirement, no mixing 11.4% with Mem0 92.5%, no publishing 1×30 70% as full LoCoMo, no LME-500/BEAM 1M as a quality claim. Additive `memory_entities` / relation ID columns are dual-write (ADR-004), not a graph DB.

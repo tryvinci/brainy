@@ -624,4 +624,30 @@ No new same-pin vs Mem0. Keep the freeze split: ops/vertical/1×30 MH lead; OD t
 
 ### Next
 
-**One step:** R5B typed EvidencePacket, then remaining R6 (provider context quality) and R7 canonical identity (`she`/`he`, two Johns). Stratified search+harness diagnostic before any n=1540 remasure. Kill list unchanged.
+**One step:** R10 freeze remasure only when requested (product `/recall` and industry search+harness labeled separately). Stratified search+harness diagnostic before any n=1540 remasure. Kill list unchanged.
+
+---
+
+## 2026-08-18 — R5B–R10 representation stack
+
+### Landed
+
+Product change on this branch: typed EvidencePacket context items; `she`/`he` bind to the last named person; tenant/subject `ent:` IDs with aliases (two Johns coexist when labels differ); relation edges dual-write canonical IDs + evidence span; hops join on entity IDs and refuse unscoped `typed_exact`; LoCoMo harness `--eval-lane product-recall|industry-search` (industry top-k 200). Additive Postgres mig v22. Path: [locomo-full-70-80-path.md](../locomo-full-70-80-path.md) · [locomo-dual-path-freeze.md](../locomo-dual-path-freeze.md).
+
+### Own pins
+
+- `go test ./...` including OpMem and marketing HTTP harnesses on this SHA.
+- LoCoMo 1×30 / full n=1540 / LME-20 / BEAM **not re-run**. Prior pins stand: 1×30 **21/30** (OD **0/4**), full `/recall` **11.4%**, LME-20 **4/20**, BEAM 100K **8/20**.
+- This is **not** a 70–80% full-LoCoMo claim and **not** SOTA.
+
+### Competitor compare
+
+No new same-pin vs Mem0. Keep the freeze split: ops/vertical/1×30 MH lead; OD trail; full MH 7.4% until remasure; do not mix 11.4% with Mem0 92.5%. Industry 70–80% still needs freeze search+harness on atoms at top-k 200.
+
+### Why
+
+SOTA-class conversational memory needs compiled facts bound to the right person, durable identity so hops do not join the wrong John, relations with ID endpoints, and an answer path that cites those values. This pass completes that substrate. Score movement waits on a labeled dual-path freeze.
+
+### Next
+
+**One step:** freeze remasure when requested. Kill list unchanged.
