@@ -367,6 +367,13 @@ func TestSlotValueKeepsQuotedTitleContainingIs(t *testing.T) {
 	if !ok || !strings.EqualFold(got, "single") {
 		t.Fatalf("identity copula, got %q ok=%v", got, ok)
 	}
+	got, ok = slotValueFromMemoryContent("Melanie realized that self-care is important")
+	if !ok || !strings.Contains(strings.ToLower(got), "self-care") {
+		t.Fatalf("realized-that clause, got %q ok=%v", got, ok)
+	}
+	if strings.EqualFold(strings.TrimSpace(got), "important") {
+		t.Fatalf("must not clip clause copula to adjective tail, got %q", got)
+	}
 	got, ok = slotValueFromMemoryContent("Riley: This book I read last year reminds me. [visible text: LIFE IS ELSEWHERE]")
 	if !ok || !strings.Contains(strings.ToLower(got), "life is elsewhere") {
 		t.Fatalf("visible-text title, got %q ok=%v", got, ok)
@@ -634,5 +641,38 @@ func TestRecallIngestPointFactFromWorksAs(t *testing.T) {
 	}
 	if !strings.Contains(strings.ToLower(out.Answer), "nurse") {
 		t.Fatalf("expected occupation, got %q", out.Answer)
+	}
+}
+
+func TestRecallIngestRealizedClauseNotAdjectiveTail(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-realize", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Melanie after the charity race: We Can Really Accept Who We Are And Be Content"},
+			{Role: "user", Content: "Melanie realized that self-care is important"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-realize", SubjectID: "u1",
+		Query: "What did Melanie realize after the charity race?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if out.Abstained || strings.Contains(got, "we can really accept") {
+		t.Fatalf("slogan or abstain: answer=%q abstained=%v", out.Answer, out.Abstained)
+	}
+	if got == "important" || got == "important." {
+		t.Fatalf("clipped copula tail: %q", out.Answer)
+	}
+	if !strings.Contains(got, "self-care") {
+		t.Fatalf("expected realized clause, got %q", out.Answer)
 	}
 }

@@ -995,10 +995,10 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 	for _, sep := range []string{
 		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
-		" researched ", " unwinds via ", " works as ", " is a ", " is ",
+		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
-			if sep == " is " && titleLikeCopula(content) {
+			if sep == " is " && (titleLikeCopula(content) || !identityCopulaSubject(stripped[:i])) {
 				continue
 			}
 			v := strings.TrimSpace(stripped[i+len(sep):])
@@ -1025,7 +1025,7 @@ func hasSlotTemplate(v string) bool {
 	for _, sep := range []string{
 		" participates in ", " enjoys ", " moved from ", " is from ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
-		" researched ", " unwinds via ", " works as ", " is a ",
+		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
 	} {
 		if strings.Contains(low, sep) {
 			return true
@@ -1046,6 +1046,23 @@ func titleLikeCopula(content string) bool {
 		}
 	}
 	return caps >= 2
+}
+
+// identityCopulaSubject is true when the left-hand side of " is " looks like
+// a short entity ("Riley is single"), not a clause ("realized that X is Y").
+func identityCopulaSubject(left string) bool {
+	left = strings.TrimSpace(speakerPrefixRe.ReplaceAllString(left, ""))
+	words := strings.Fields(left)
+	if len(words) == 0 || len(words) > 3 {
+		return false
+	}
+	lower := " " + strings.ToLower(left) + " "
+	for _, cue := range []string{" that ", " because ", " when ", " after ", " before ", " who ", " which ", " what "} {
+		if strings.Contains(lower, cue) {
+			return false
+		}
+	}
+	return true
 }
 
 func assembleContextBlock(results []SearchResult, budgetTokens int) string {
