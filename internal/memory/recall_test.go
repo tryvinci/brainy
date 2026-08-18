@@ -38,6 +38,7 @@ func TestRecallEnumerateDistinctValues(t *testing.T) {
 }
 
 func TestRecallUsesEvidencePacketAndModeHint(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
 	svc := NewService(store)
 	_, err := svc.Ingest(context.Background(), IngestRequest{
@@ -674,5 +675,38 @@ func TestRecallIngestRealizedClauseNotAdjectiveTail(t *testing.T) {
 	}
 	if !strings.Contains(got, "self-care") {
 		t.Fatalf("expected realized clause, got %q", out.Answer)
+	}
+}
+
+func TestRecallIngestNamedSubjectNotReporter(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-named", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: Casey researched wildfire recovery last spring."},
+			{Role: "user", Content: "Riley: I went swimming."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-named", SubjectID: "u1",
+		Query: "What did Casey research?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer + " " + out.ContextBlock)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if out.Abstained || !strings.Contains(got, "wildfire") {
+		t.Fatalf("expected named-subject research, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(strings.ToLower(out.Answer), "swimming") {
+		t.Fatalf("reporter activity leaked: %q", out.Answer)
 	}
 }

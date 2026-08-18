@@ -145,8 +145,10 @@ possession, health, plan, belief, skill, affiliation, contact_fact, metric.
 
 CRITICAL RULES:
 1. content must be a self-contained factual sentence usable months later WITHOUT the original turn.
-2. In multi-speaker dialogue ("Name: ..."), attribute facts to that speaker by name
-   (e.g. "Jordan is a nurse", "Sam participates in ceramics").
+2. In multi-speaker dialogue ("Name: ..."), first-person facts ("I am…") belong to that speaker.
+   When a turn reports a fact about another named person (Name researched / works as / lives in / realized that / is a),
+   attribute the memory to that person, not the reporter.
+   In two-party dialogue, second-person facts ("you are…", "you researched…") belong to the addressee.
 3. Emit ONE memory per distinct attribute, activity, place, titled work, preference, or plan.
    Split compound utterances. Prefer many small atoms over one long paraphrase.
 4. When possible set subject + predicate + value (normalized short value, not the full sentence).
