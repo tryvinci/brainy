@@ -599,3 +599,29 @@ No new same-pin vs Mem0. Keep the previous freeze split: ops/vertical/1×30 MH l
 ### Next
 
 **One step:** R5B typed EvidencePacket + spans. Do not remasure n=1540 this cycle. Do not land v2 DDL. Kill list unchanged.
+
+---
+
+## 2026-08-18 — R6a compiler coverage (named-subject / addressee)
+
+### Landed
+
+Product compiler binds clause subjects instead of always attributing to the dialogue speaker. Reports (`Casey researched …`), two-party `you …`, and `Name lives in / works as / realized that / is a` compile to that person. First-person speaker binding is unchanged. Provider extract prompt matches. Copula clip (`realized that` before adjective `is`) is included so belief tails are not clipped. Held-out audit is the merge gate. Path write-up: [locomo-full-70-80-path.md](../locomo-full-70-80-path.md).
+
+### Own pins
+
+- `go test ./...` green on this SHA, including `TestOpMemBenchmarkAgainstHTTPServer` and `TestMarketingMVPBenchmarkAgainstHTTPServer`.
+- LoCoMo 1×30 / full n=1540 / LME-20 / BEAM **not re-run**. Prior pins stand: 1×30 **21/30** (OD **0/4**), full `/recall` **11.4%**, LME-20 **4/20**, BEAM 100K **8/20**.
+- This is **not** a 70–80% full-LoCoMo claim.
+
+### Competitor compare
+
+No new same-pin vs Mem0. Keep the freeze split: ops/vertical/1×30 MH lead; OD trail; do not mix 11.4% with Mem0 92.5%. 70–80% on n=1540 remains R6 remainder + R7–R10, with industry search+harness labeled separately.
+
+### Why
+
+1×30 70% did not travel to full SH 10.5% because third-person reports were bound to the reporter or not compiled. Wrong-subject atoms make R5A structured-first cite the wrong person.
+
+### Next
+
+**One step:** R5B typed EvidencePacket, then remaining R6 (provider context quality) and R7 canonical identity (`she`/`he`, two Johns). Stratified search+harness diagnostic before any n=1540 remasure. Kill list unchanged.

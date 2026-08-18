@@ -64,11 +64,11 @@ For a later pass (after R5A):
 
 **Next work (in order) — after 2026-08-17 current-SHA adjudication:**
 
-1. **R5A structured-first `/recall`** — Retire `firstStatementFromPacket` as a normal factual strategy. Scalar/list/hop answers consume typed values. Not a transcript reader, not a prompt sprint, not a PR named "fix OD" (OD 0/4 is a diagnostic). Early checkpoint: OpMem 13, marketing 17, 1×30, stratified 100–200 SH/OD/temporal subset, **current-SHA search+harness on that subset**. 11.4%→~50% is directional; 49.8% is **not** a current-SHA ceiling.
-2. **R5B typed EvidencePacket + spans** — `ContextEvidence` as objects, not `[]string`.
-3. **R6 Compiler Coverage V2** — generalize past conv-26 (full SH 10.5%, LME multi-session 0/5).
-4. **R7 Canonical Entity V2 → R8 Relation V2 → R9 Hop Executor V3** — identity then canonical-ID joins; unscoped/fuzzy cannot be `typed_exact` proof.
-5. **R10 frozen dual-path qualification** — product `/recall` and industry-format search+harness, labeled separately. Not another full remasure before R5A.
+1. **R5A structured-first `/recall`** — **landed**. Retire `firstStatementFromPacket` as a normal factual strategy.
+2. **R6a named-subject compiler** — reports bind to the named person / addressee. Mass lever for full SH. Not a 70–80% n=1540 claim. [path](../locomo-full-70-80-path.md).
+3. **R5B typed EvidencePacket + spans** — `ContextEvidence` as objects, not `[]string`.
+4. **R6 remainder / R7 Canonical Entity V2 → R8 Relation V2 → R9 Hop Executor V3** — provider context quality, then identity then canonical-ID joins; unscoped/fuzzy cannot be `typed_exact` proof.
+5. **R10 frozen dual-path qualification** — product `/recall` and industry-format search+harness, labeled separately. Full n=1540 only after freeze.
 
 Keep OpMem 13/13 and marketing 17/17 green. Histogram sum already fixed on this branch.
 

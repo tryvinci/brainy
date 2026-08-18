@@ -120,7 +120,7 @@ Every remasure, merge, or “where we landed” cycle must report **in this orde
    - For each trailing axis: the product mechanism and the PoR step that closes it. For each leading axis: what we must not regress.
    - Unpublished vendors: write **no pin** unless we ran them. Published headlines are **context**, never scoreboard rows.
 4. **Why the delta** — product mechanism (compiler coverage, provenance crowding, reader). Not vibes.
-5. **Next** — the step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md) mapped to the largest gap. R5A structured-first `/recall` has landed. Next is **R5B typed EvidencePacket + spans**. OD 0/4 is a diagnostic. 11.4% to ~50% is directional; 49.8% is not a current-SHA ceiling. Do not re-queue R0-R4. Do not spend a cycle on another full remasure or on LME-500 as a quality claim. Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA claims.
+5. **Next** — the step on [docs/research/sota-representation-path.md](docs/research/sota-representation-path.md) mapped to the largest gap. R5A structured-first `/recall` has landed. **R6a named-subject compiler** is the mass lever toward full LoCoMo (not a 70–80% claim). Next hygiene is **R5B typed EvidencePacket**; remaining coverage is R7 identity. OD 0/4 is a diagnostic. 11.4% to ~50% is directional; 49.8% is not a current-SHA ceiling. Do not re-queue R0-R4. Do not spend a cycle on another full remasure or on LME-500 as a quality claim. Kill list: no fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no SOTA claims.
 
 ## External review
 

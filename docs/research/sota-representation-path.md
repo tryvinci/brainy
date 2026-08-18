@@ -1,7 +1,7 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** Fresh remasure (`1b5ab3e`): LoCoMo 1x30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler; **49.8% is not a current-SHA ceiling**). LME-20 **4/20**; BEAM 100K **8/20**. Archaeology (Wave 1) is historical: keep R0-R4 closed. **R5A structured-first `/recall` landed** (2026-08-17). Live next is **R5B typed EvidencePacket**. Then R6-R10. Two lanes. [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · [live verdict](./external-reviews/2026-08-17-parity-gap-verdict.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
+**Tips:** Fresh remasure (`1b5ab3e`): LoCoMo 1x30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler; **49.8% is not a current-SHA ceiling**). LME-20 **4/20**; BEAM 100K **8/20**. Archaeology (Wave 1) is historical: keep R0-R4 closed. **R5A structured-first `/recall` landed** (2026-08-17). **R6a named-subject compiler** is the mass lever for full SH (not a 70–80% n=1540 claim). Next hygiene **R5B typed EvidencePacket**, then R7-R10. Two lanes. [70–80% path](./locomo-full-70-80-path.md) · [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · [live verdict](./external-reviews/2026-08-17-parity-gap-verdict.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
 **Does not claim:** SOTA, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) (R1c amendment) · [external-reviews/2026-08-17-parity-gap-verdict.md](./external-reviews/2026-08-17-parity-gap-verdict.md) (live: R5A first; do not re-queue R0-R4) · [external-reviews/2026-08-17-competitive-archaeology-verdict.md](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) (historical Wave 1 pin)
 
@@ -355,7 +355,7 @@ The product answer path consumes structured values first. Source text remains to
 
 ### R6 — Compiler Coverage V2
 
-Generalize past conv-26. Full-suite SH 10.5% and LME multi-session 0/5 show R0-R4 work where facts compile, but coverage does not travel. ADAPT Mem0 recent-session + existing-memory context and ADD-only semantics (not verbatim prompts). Durable assistant facts stay first-class. Held-out representation audit is the merge gate, not a LoCoMo bump.
+Generalize past conv-26. Full-suite SH 10.5% and LME multi-session 0/5 show R0-R4 work where facts compile, but coverage does not travel. **R6a (this slice):** named-subject / addressee binding so reports are not attributed to the reporter; `works as` / `lives in` / `realized that`; held-out audit. ADAPT Mem0 recent-session + existing-memory context and ADD-only semantics (not verbatim prompts) remains the R6 remainder (`ContextualExtractor` already injects prior memories). Durable assistant facts stay first-class. Held-out representation audit is the merge gate, not a LoCoMo bump. Honest 70–80% map: [locomo-full-70-80-path.md](./locomo-full-70-80-path.md).
 
 ### R7 — Canonical Entity V2
 
