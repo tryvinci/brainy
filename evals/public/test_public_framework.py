@@ -9,7 +9,16 @@ sys.path.insert(0, str(ROOT / "evals"))
 
 from public.judge import lexical_judge  # noqa: E402
 from public.llm import parse_judgment_json, resolve_config  # noqa: E402
-from public.proveability import RunManifest, require_pins, sha256_file  # noqa: E402
+from public.proveability import (  # noqa: E402
+    INDUSTRY_SEARCH_LANE,
+    PRODUCT_RECALL_LANE,
+    RunManifest,
+    default_lane_top_k,
+    lane_answer_path,
+    require_pins,
+    resolve_eval_lane,
+    sha256_file,
+)
 from public.schema import (  # noqa: E402
     CATEGORIES_TO_SCORE,
     EvalItem,
@@ -34,6 +43,17 @@ class ProveabilityTests(unittest.TestCase):
         gaps = require_pins(RunManifest())
         self.assertTrue(any("dataset_url" in g for g in gaps))
         self.assertTrue(any("judge_model" in g for g in gaps))
+
+    def test_eval_lane_labels(self) -> None:
+        self.assertEqual(resolve_eval_lane("product-recall"), PRODUCT_RECALL_LANE)
+        self.assertEqual(resolve_eval_lane("", "1"), PRODUCT_RECALL_LANE)
+        self.assertEqual(resolve_eval_lane("industry-search"), INDUSTRY_SEARCH_LANE)
+        self.assertEqual(resolve_eval_lane(""), INDUSTRY_SEARCH_LANE)
+        self.assertEqual(lane_answer_path(PRODUCT_RECALL_LANE), "/recall")
+        self.assertEqual(lane_answer_path(INDUSTRY_SEARCH_LANE), "search+harness")
+        self.assertEqual(default_lane_top_k(INDUSTRY_SEARCH_LANE, explicit=None, lane_flag_set=True), 200)
+        self.assertEqual(default_lane_top_k(INDUSTRY_SEARCH_LANE, explicit=None, lane_flag_set=False), 30)
+        self.assertEqual(default_lane_top_k(PRODUCT_RECALL_LANE, explicit=None, lane_flag_set=True), 30)
 
     def test_require_pins_product_recall_extras(self) -> None:
         base = dict(

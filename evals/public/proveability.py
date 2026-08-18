@@ -37,6 +37,40 @@ class RunManifest:
         path.write_text(json.dumps(self.to_dict(), indent=2) + "\n", encoding="utf-8")
 
 
+PRODUCT_RECALL_LANE = "product-recall"
+INDUSTRY_SEARCH_LANE = "industry-search"
+
+
+def resolve_eval_lane(eval_lane: str = "", use_recall_env: str = "") -> str:
+    """Label the two freeze paths. Do not mix them in one score.
+
+    product-recall: POST /recall (fail-closed when the lane is selected).
+    industry-search: search → shared answerer → shared judge (Mem0-style; top-k 200).
+    """
+    raw = (eval_lane or "").strip().lower()
+    if raw in {PRODUCT_RECALL_LANE, "product", "recall", "/recall"}:
+        return PRODUCT_RECALL_LANE
+    if raw in {INDUSTRY_SEARCH_LANE, "industry", "search", "search-harness"}:
+        return INDUSTRY_SEARCH_LANE
+    if (use_recall_env or "").strip().lower() in {"1", "true", "yes", "on"}:
+        return PRODUCT_RECALL_LANE
+    return INDUSTRY_SEARCH_LANE
+
+
+def default_lane_top_k(lane: str, *, explicit: int | None, lane_flag_set: bool) -> int:
+    if explicit is not None and explicit > 0:
+        return explicit
+    if lane == INDUSTRY_SEARCH_LANE and lane_flag_set:
+        return 200
+    return 30
+
+
+def lane_answer_path(lane: str) -> str:
+    if lane == PRODUCT_RECALL_LANE:
+        return "/recall"
+    return "search+harness"
+
+
 def sha256_file(path: pathlib.Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:

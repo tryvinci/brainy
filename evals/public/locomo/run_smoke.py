@@ -47,7 +47,13 @@ from public.locomo.dataset import (  # noqa: E402
     iter_sessions,
     load_conversations,
 )
-from public.proveability import RunManifest, require_pins  # noqa: E402
+from public.proveability import (  # noqa: E402
+    RunManifest,
+    default_lane_top_k,
+    lane_answer_path,
+    require_pins,
+    resolve_eval_lane,
+)
 from public.stage_oracle import probe_failure_stages, write_failure_record  # noqa: E402
 from public.schema import (  # noqa: E402
     CATEGORY_NAMES,
@@ -163,6 +169,19 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     nonce = uuid.uuid4().hex[:8]
     async_ingest = not bool(getattr(args, "sync_ingest", False))
     system = (getattr(args, "system", None) or "brainy").strip().lower()
+    lane_flag = str(getattr(args, "eval_lane", "") or "").strip()
+    eval_lane = resolve_eval_lane(lane_flag, os.environ.get("BRAINY_USE_RECALL", ""))
+    args.top_k = default_lane_top_k(
+        eval_lane,
+        explicit=getattr(args, "top_k", None),
+        lane_flag_set=bool(lane_flag),
+    )
+    answer_path = lane_answer_path(eval_lane)
+    if system != "mem0" and eval_lane == "product-recall":
+        os.environ["BRAINY_USE_RECALL"] = "1"
+        os.environ.setdefault("BRAINY_BASE_URL", base_url)
+    elif lane_flag and eval_lane == "industry-search":
+        os.environ.pop("BRAINY_USE_RECALL", None)
     if system == "mem0":
         from public.backends.mem0 import Mem0Backend  # local import — optional dependency path
 
@@ -178,6 +197,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         )
         print(
             f"system=brainy ingest_mode={'async' if async_ingest else 'sync'} "
+            f"eval_lane={eval_lane} answer_path={answer_path} top_k={args.top_k} "
             f"(provider extract only on async worker path)",
             flush=True,
         )
@@ -254,6 +274,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 config=answerer_cfg,
                 tenant_id=tenant_for_recall,
                 subject_id=user_id,
+                require_product_recall=(system == "brainy" and eval_lane == "product-recall"),
             )
             if use_llm and judge_cfg is not None:
                 judged = llm_judge(answer, qa["answer"], qa["question"], judge_cfg)
@@ -371,6 +392,8 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 "ingest_mode": "async" if async_ingest else "sync",
                 "locomo_upstream": LOCOMO_UPSTREAM,
                 "locomo_paper": LOCOMO_PAPER,
+                "eval_lane": eval_lane,
+                "answer_path": answer_path,
             },
         ),
         metrics=metrics,
@@ -390,10 +413,12 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         top_k=args.top_k,
         conversation_limit=args.conversations,
         question_limit=args.questions,
-        notes="Smoke run — not full LOCOMO. lexical judge is not publishable J-score.",
+        notes="Smoke run — not full LOCOMO. lexical judge is not publishable J-score. Dual-path: product-recall vs industry-search must not be mixed.",
         extras={
             "llm_base_url": (llm.base_url if llm else ""),
             "ingest_mode": "async" if async_ingest else "sync",
+            "eval_lane": eval_lane,
+            "answer_path": answer_path,
         },
     )
     gaps = require_pins(manifest)
@@ -485,9 +510,15 @@ def main() -> None:
     )
     parser.add_argument("--conversations", type=int, default=1)
     parser.add_argument("--questions", type=int, default=30, help="Max questions across all convos")
-    # Mem0 reports top_200; we keep a moderate default that balances recall vs
-    # answerer context. Override with --top-k for ablations.
-    parser.add_argument("--top-k", type=int, default=30)
+    parser.add_argument(
+        "--eval-lane",
+        choices=("product-recall", "industry-search"),
+        default="",
+        help="R10 freeze label: product POST /recall vs search+shared-answerer+shared-judge. "
+        "industry-search defaults --top-k 200 when --top-k is omitted.",
+    )
+    # Mem0 reports top_200; product /recall stays at 30 unless overridden.
+    parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument(
         "--answerer-model",
         default="",

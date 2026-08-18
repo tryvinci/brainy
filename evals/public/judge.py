@@ -159,8 +159,9 @@ def answer_from_memories(
 
     This is a *generic* memory-QA client for proveable evals — not a place to
     special-case public benchmark questions or pad answers from known GTs.
-    Prefer product POST /recall when BRAINY_USE_RECALL=1 (master-plan W4).
-    When ``require_product_recall`` is set, never fall back to harness answerer.
+    Prefer product POST /recall when BRAINY_USE_RECALL=1 or --eval-lane product-recall
+    (R10 product lane; fail-closed if require_product_recall). The industry lane is
+    search → shared answerer → shared judge and must stay labeled separately.
     """
     product = _product_recall_answer(question, tenant_id=tenant_id, subject_id=subject_id)
     if product is not None:
