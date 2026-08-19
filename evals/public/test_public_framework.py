@@ -39,6 +39,30 @@ class ProveabilityTests(unittest.TestCase):
         )
         self.assertEqual(require_pins(m), [])
 
+    def test_require_pins_fail_closed_runtime(self) -> None:
+        m = RunManifest(
+            benchmark="locomo-smoke",
+            dataset_url="https://example.com/d.json",
+            dataset_sha256="abc",
+            brainy_url="https://brainy.example",
+            judge_model="gpt-4o-mini",
+            judge_temperature=0.0,
+            extras={"fail_closed": True},
+        )
+        gaps = require_pins(m)
+        self.assertTrue(any("runtime" in g for g in gaps))
+        m.extras["runtime"] = {
+            "signatures": {"api": "openai-compatible|bge|768", "worker": "openai-compatible|bge|768"},
+            "fallbacks": {"api_embedder": 0, "api_extractor": 0, "worker_total": 0},
+            "ann": {"active": True, "mixed_dimensions": False},
+        }
+        self.assertEqual(require_pins(m), [])
+        m.extras["runtime"]["fallbacks"]["worker_total"] = 2
+        m.extras["runtime"]["ann"]["active"] = False
+        gaps = require_pins(m)
+        self.assertTrue(any("fallback" in g for g in gaps))
+        self.assertTrue(any("ANN" in g for g in gaps))
+
     def test_require_pins_gaps(self) -> None:
         gaps = require_pins(RunManifest())
         self.assertTrue(any("dataset_url" in g for g in gaps))
@@ -429,6 +453,40 @@ class StageOracleTests(unittest.TestCase):
         )
         self.assertEqual(label, "")
 
+    def test_paraphrase_gold_is_not_write_miss(self) -> None:
+        from public.stage_oracle import label_from_oracle_response
+
+        resp = {
+            "answer_status": "supported",
+            "explain": {
+                "oracle_fact_count": 1,
+                "oracle_atom_count": 0,
+                "oracle_fact_blob": "Caroline grew up in Sweden",
+                "oracle_episode_blob": "Yeah Caroline",
+            },
+        }
+        label = label_from_oracle_response(
+            "representation", resp, query="Where is Caroline from", gold="Sweden"
+        )
+        self.assertEqual(label, "")
+
+    def test_lexical_gold_miss_with_facts_defers_write_miss(self) -> None:
+        from public.stage_oracle import label_from_oracle_response
+
+        resp = {
+            "answer_status": "supported",
+            "explain": {
+                "oracle_fact_count": 4,
+                "oracle_atom_count": 1,
+                "oracle_fact_blob": "Caroline likes pottery",
+                "oracle_episode_blob": "",
+            },
+        }
+        label = label_from_oracle_response(
+            "representation", resp, query="Where is Caroline from", gold="Portugal"
+        )
+        self.assertEqual(label, "")
+
     def test_episode_only_store_is_write_miss(self) -> None:
         from public.stage_oracle import label_from_oracle_response
 
@@ -474,6 +532,56 @@ class StageOracleTests(unittest.TestCase):
             ),
             "READER_MISS",
         )
+
+
+class StratifiedLocomoTests(unittest.TestCase):
+    def test_stratified_questions_proportional(self) -> None:
+        from public.locomo.dataset import stratified_questions
+        from public.locomo.ledger_summary import summarize_ledger
+        import tempfile
+
+        pool = []
+        for i in range(84):
+            pool.append({"id": f"sh{i}", "group": "single-hop", "sample_id": "c0", "conv_idx": 0})
+        for i in range(28):
+            pool.append({"id": f"mh{i}", "group": "multi-hop", "sample_id": "c0", "conv_idx": 0})
+        for i in range(32):
+            pool.append({"id": f"t{i}", "group": "temporal", "sample_id": "c1", "conv_idx": 1})
+        for i in range(10):
+            pool.append({"id": f"od{i}", "group": "open-domain", "sample_id": "c1", "conv_idx": 1})
+        sample = stratified_questions(pool, 20, seed=1)
+        self.assertEqual(len(sample), 20)
+        again = stratified_questions(pool, 20, seed=1)
+        self.assertEqual([r["id"] for r in sample], [r["id"] for r in again])
+        groups = {r["group"] for r in sample}
+        self.assertTrue({"single-hop", "multi-hop"} <= groups)
+
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=True) as handle:
+            handle.write('{"primary":"WRITE_MISS","flags":{"group":"single-hop"}}\n')
+            handle.write('{"primary":"WRITE_MISS","flags":{"group":"multi-hop"}}\n')
+            handle.write('{"primary":"READER_MISS","flags":{"group":"temporal"}}\n')
+            handle.flush()
+            hist = summarize_ledger(handle.name)
+        self.assertEqual(hist["total"], 3)
+        self.assertEqual(hist["by_primary"]["WRITE_MISS"], 2)
+
+    def test_semantic_gold_tokens(self) -> None:
+        from public.oracle import gold_semantically_in_texts
+
+        self.assertTrue(gold_semantically_in_texts("Sweden", "Caroline grew up in Sweden"))
+        self.assertFalse(gold_semantically_in_texts("Portugal", "Caroline likes pottery"))
+
+    def test_sanitize_runtime_drops_keys(self) -> None:
+        from public.runtime_manifest import sanitize_runtime
+
+        clean = sanitize_runtime(
+            {"embedder": {"model": "bge"}, "api_key": "sk-secret", "nested": {"token": "x"}}
+        )
+        self.assertNotIn("api_key", clean)
+        self.assertNotIn("token", clean["nested"])
+        self.assertEqual(clean["embedder"]["model"], "bge")
+        with self.assertRaises(RuntimeError):
+            sanitize_runtime({"oops": "sk-live-not-a-real-key"})
 
 
 if __name__ == "__main__":

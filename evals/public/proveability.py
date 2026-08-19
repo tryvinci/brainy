@@ -118,4 +118,36 @@ def require_pins(manifest: RunManifest) -> list[str]:
                 )
         if extras.get("queue_precheck") not in {"idle", "assumed_idle"}:
             gaps.append("queue_precheck must be idle or assumed_idle for product-recall publish")
+    runtime = extras.get("runtime") or {}
+    fail_closed = bool(extras.get("fail_closed") or extras.get("publish_mode"))
+    if fail_closed:
+        gaps.extend(_runtime_gaps(runtime))
+    return gaps
+
+
+def _runtime_gaps(runtime: dict[str, Any]) -> list[str]:
+    gaps: list[str] = []
+    if not runtime:
+        gaps.append("runtime manifest missing")
+        return gaps
+    sigs = runtime.get("signatures") or {}
+    api_sig = str(sigs.get("api") or "")
+    worker_sig = str(sigs.get("worker") or "")
+    if not api_sig or not worker_sig:
+        gaps.append("runtime API/worker embedder signature missing")
+    elif api_sig != worker_sig:
+        gaps.append("API/worker runtime signature mismatch")
+    fallbacks = runtime.get("fallbacks") or {}
+    for key in ("api_embedder", "api_extractor", "worker_total"):
+        try:
+            n = int(fallbacks.get(key) or 0)
+        except (TypeError, ValueError):
+            n = 1
+        if n > 0:
+            gaps.append(f"runtime fallbacks {key}={n}")
+    ann = runtime.get("ann") or {}
+    if not ann.get("active"):
+        gaps.append("ANN expected but inactive")
+    if ann.get("mixed_dimensions") or (runtime.get("db") or {}).get("mixed_dimensions"):
+        gaps.append("mixed embedding dimensions")
     return gaps

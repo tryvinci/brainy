@@ -46,6 +46,8 @@ from public.locomo.dataset import (  # noqa: E402
     iter_questions,
     iter_sessions,
     load_conversations,
+    scored_question_pool,
+    stratified_questions,
 )
 from public.proveability import (  # noqa: E402
     RunManifest,
@@ -54,6 +56,7 @@ from public.proveability import (  # noqa: E402
     require_pins,
     resolve_eval_lane,
 )
+from public.runtime_manifest import attach_runtime_extras, fetch_runtime  # noqa: E402
 from public.stage_oracle import probe_failure_stages, write_failure_record  # noqa: E402
 from public.schema import (  # noqa: E402
     CATEGORY_NAMES,
@@ -189,15 +192,17 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         base_url = "https://api.mem0.ai"
         print("system=mem0 (Platform API; same-pin compare GAP-M1)", flush=True)
     else:
+        prefix = str(getattr(args, "tenant_prefix", "") or "").strip() or f"locomo-{nonce}"
         backend = BrainyBackend(
             base_url,
-            tenant_prefix=f"locomo-{nonce}",
+            tenant_prefix=prefix,
             async_ingest=async_ingest,
             async_timeout_s=float(getattr(args, "async_timeout", 180.0)),
         )
         print(
             f"system=brainy ingest_mode={'async' if async_ingest else 'sync'} "
             f"eval_lane={eval_lane} answer_path={answer_path} top_k={args.top_k} "
+            f"tenant_prefix={prefix} skip_ingest={bool(getattr(args, 'skip_ingest', False))} "
             f"(provider extract only on async worker path)",
             flush=True,
         )
@@ -227,11 +232,32 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         print("LLM unset — lexical judge + retrieval-concat (not publishable J-score)", flush=True)
 
     items: list[EvalItem] = []
+    selected_ids: set[tuple[str, str]] | None = None
+    stratified_n = int(getattr(args, "stratified", 0) or 0)
+    if stratified_n > 0:
+        pool = scored_question_pool(conversations)
+        sample = stratified_questions(pool, stratified_n, int(getattr(args, "seed", 1) or 1))
+        selected_ids = {(row["sample_id"], row["id"]) for row in sample}
+        keep_idx = {int(row["conv_idx"]) for row in sample}
+        conversations = [conversations[i] for i in sorted(keep_idx)]
+        print(
+            f"stratified n={len(sample)} seed={getattr(args, 'seed', 1)} "
+            f"convs={len(conversations)} groups="
+            + ",".join(
+                f"{g}={sum(1 for r in sample if r.get('group') == g)}"
+                for g in sorted({str(r.get('group')) for r in sample})
+            ),
+            flush=True,
+        )
+
     # When evaluating multiple conversations, distribute the question budget
     # across them. Otherwise a large --questions value is exhausted by conv[0]
     # and later conversations never run (breaks L4-style multi-convo runs).
     n_conv = max(1, len(conversations))
-    if args.questions is None or args.questions <= 0:
+    if selected_ids is not None:
+        per_conv_budget = None
+        global_budget = None
+    elif args.questions is None or args.questions <= 0:
         per_conv_budget = None
         global_budget = None
     elif n_conv > 1:
@@ -246,12 +272,18 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         user_id = f"{sample_id}"
         sessions = iter_sessions(conversation)
         n_turns = sum(len(s.get("turns") or []) for s in sessions)
-        n_ingested = ingest_conversation(backend, user_id, sessions)
-        print(f"[{sample_id}] ingested {n_ingested} turns ({n_turns} total, {len(sessions)} sessions)", flush=True)
+        if getattr(args, "skip_ingest", False):
+            n_ingested = 0
+            print(f"[{sample_id}] skip-ingest ({n_turns} turns, {len(sessions)} sessions)", flush=True)
+        else:
+            n_ingested = ingest_conversation(backend, user_id, sessions)
+            print(f"[{sample_id}] ingested {n_ingested} turns ({n_turns} total, {len(sessions)} sessions)", flush=True)
 
         questions = iter_questions(conversation)
         used_this_conv = 0
         for qa in questions:
+            if selected_ids is not None and (sample_id, qa["id"]) not in selected_ids:
+                continue
             if global_budget is not None and len(items) >= global_budget:
                 break
             if per_conv_budget is not None and used_this_conv >= per_conv_budget:
@@ -394,6 +426,8 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 "locomo_paper": LOCOMO_PAPER,
                 "eval_lane": eval_lane,
                 "answer_path": answer_path,
+                "stratified": int(getattr(args, "stratified", 0) or 0),
+                "seed": int(getattr(args, "seed", 1) or 1),
             },
         ),
         metrics=metrics,
@@ -414,13 +448,31 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         conversation_limit=args.conversations,
         question_limit=args.questions,
         notes="Smoke run — not full LOCOMO. lexical judge is not publishable J-score. Dual-path: product-recall vs industry-search must not be mixed.",
-        extras={
+        extras={},
+    )
+    runtime: dict = {}
+    if system == "brainy":
+        try:
+            runtime = fetch_runtime(base_url)
+        except Exception as exc:  # noqa: BLE001
+            runtime = {"error": str(exc)}
+    manifest.extras = attach_runtime_extras(
+        {
             "llm_base_url": (llm.base_url if llm else ""),
             "ingest_mode": "async" if async_ingest else "sync",
             "eval_lane": eval_lane,
             "answer_path": answer_path,
+            "tenant_prefix": getattr(backend, "tenant_prefix", ""),
+            "skip_ingest": bool(getattr(args, "skip_ingest", False)),
+            "embedder": ((runtime.get("api") or {}).get("embedder") or {}),
+            "extractor": ((runtime.get("worker") or {}).get("extractor") or {}),
+            "ann_active": bool((runtime.get("ann") or {}).get("active")),
         },
+        runtime,
     )
+    if getattr(args, "fail_closed", False):
+        manifest.extras["fail_closed"] = True
+        manifest.extras["publish_mode"] = True
     gaps = require_pins(manifest)
     out_dir = pathlib.Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -440,6 +492,9 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         print("proveability gaps:", "; ".join(gaps))
     if not use_llm:
         print("NOTE: lexical judge — do not cite as LOCOMO J-score in public posts")
+    if gaps and (manifest.extras.get("fail_closed") or manifest.extras.get("publish_mode")):
+        print("fail-closed: proveability gaps abort the publishable run", flush=True)
+        raise SystemExit(2)
     return result
 
 
@@ -511,6 +566,13 @@ def main() -> None:
     parser.add_argument("--conversations", type=int, default=1)
     parser.add_argument("--questions", type=int, default=30, help="Max questions across all convos")
     parser.add_argument(
+        "--stratified",
+        type=int,
+        default=0,
+        help="S0: sample N scored items proportional SH/MH/temporal/OD (0=off)",
+    )
+    parser.add_argument("--seed", type=int, default=1, help="Stratified sample seed")
+    parser.add_argument(
         "--eval-lane",
         choices=("product-recall", "industry-search"),
         default="",
@@ -548,6 +610,21 @@ def main() -> None:
         help="Seconds to wait for async extract to become searchable (LOCOMO-sized queues need ~10m)",
     )
     parser.add_argument("--run-id", default="")
+    parser.add_argument(
+        "--tenant-prefix",
+        default="",
+        help="Reuse a frozen ingest tenant prefix (default: locomo-<nonce>)",
+    )
+    parser.add_argument(
+        "--skip-ingest",
+        action="store_true",
+        help="Score an already-ingested tenant prefix without writing again",
+    )
+    parser.add_argument(
+        "--fail-closed",
+        action="store_true",
+        help="Abort if runtime signatures mismatch, fallbacks>0, or ANN inactive",
+    )
     parser.add_argument(
         "--out-dir",
         default=str(ROOT / "docs" / "benchmarks" / "runs"),
