@@ -1,0 +1,1098 @@
+{
+  "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "n": 180,
+  "seed": 1,
+  "arms": {
+    "deterministic": {
+      "tenant_prefix": "ceil-det-1",
+      "async_ingest": false,
+      "ingested_turns": 5882,
+      "skip_ingest": false,
+      "covered": 139,
+      "n": 180,
+      "coverage": 0.7722222222222223,
+      "items": [
+        {
+          "id": "conv-47-q46",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1132
+        },
+        {
+          "id": "conv-26-q5",
+          "group": "temporal",
+          "covered": true,
+          "facts": 826
+        },
+        {
+          "id": "conv-26-q101",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 809
+        },
+        {
+          "id": "conv-26-q67",
+          "group": "temporal",
+          "covered": true,
+          "facts": 826
+        },
+        {
+          "id": "conv-44-q44",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 1162
+        },
+        {
+          "id": "conv-48-q138",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-48-q44",
+          "group": "temporal",
+          "covered": false,
+          "facts": 1019
+        },
+        {
+          "id": "conv-49-q25",
+          "group": "temporal",
+          "covered": false,
+          "facts": 865
+        },
+        {
+          "id": "conv-26-q36",
+          "group": "temporal",
+          "covered": true,
+          "facts": 826
+        },
+        {
+          "id": "conv-44-q117",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-44-q38",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1168
+        },
+        {
+          "id": "conv-50-q118",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-48-q109",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 998
+        },
+        {
+          "id": "conv-47-q10",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1132
+        },
+        {
+          "id": "conv-49-q91",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 865
+        },
+        {
+          "id": "conv-47-q14",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1132
+        },
+        {
+          "id": "conv-48-q82",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-26-q126",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 826
+        },
+        {
+          "id": "conv-50-q113",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-43-q91",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 1285
+        },
+        {
+          "id": "conv-49-q95",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 865
+        },
+        {
+          "id": "conv-48-q132",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1019
+        },
+        {
+          "id": "conv-48-q190",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 998
+        },
+        {
+          "id": "conv-43-q151",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-41-q110",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-50-q81",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-44-q107",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-30-q57",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 591
+        },
+        {
+          "id": "conv-44-q26",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-42-q131",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1008
+        },
+        {
+          "id": "conv-41-q32",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-48-q21",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1019
+        },
+        {
+          "id": "conv-43-q95",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-41-q147",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-43-q136",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-48-q169",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-50-q112",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1073
+        },
+        {
+          "id": "conv-48-q77",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 998
+        },
+        {
+          "id": "conv-49-q18",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 865
+        },
+        {
+          "id": "conv-44-q51",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-43-q38",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 1270
+        },
+        {
+          "id": "conv-30-q58",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 591
+        },
+        {
+          "id": "conv-43-q48",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1285
+        },
+        {
+          "id": "conv-41-q145",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-42-q159",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 1008
+        },
+        {
+          "id": "conv-41-q29",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-26-q39",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 809
+        },
+        {
+          "id": "conv-41-q102",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-42-q29",
+          "group": "temporal",
+          "covered": false,
+          "facts": 1015
+        },
+        {
+          "id": "conv-48-q37",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1019
+        },
+        {
+          "id": "conv-47-q12",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 1117
+        },
+        {
+          "id": "conv-47-q32",
+          "group": "temporal",
+          "covered": false,
+          "facts": 1117
+        },
+        {
+          "id": "conv-47-q102",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-26-q65",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 809
+        },
+        {
+          "id": "conv-50-q110",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1073
+        },
+        {
+          "id": "conv-43-q162",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-49-q87",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-30-q49",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 591
+        },
+        {
+          "id": "conv-47-q33",
+          "group": "open-domain",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-47-q137",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-42-q56",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1008
+        },
+        {
+          "id": "conv-42-q95",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 1008
+        },
+        {
+          "id": "conv-48-q142",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1019
+        },
+        {
+          "id": "conv-30-q44",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 591
+        },
+        {
+          "id": "conv-44-q118",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-48-q98",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1019
+        },
+        {
+          "id": "conv-42-q4",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 1008
+        },
+        {
+          "id": "conv-41-q94",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-43-q49",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-44-q39",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-49-q99",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 865
+        },
+        {
+          "id": "conv-41-q98",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-47-q88",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-26-q24",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 809
+        },
+        {
+          "id": "conv-48-q124",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-42-q13",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1015
+        },
+        {
+          "id": "conv-44-q46",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-50-q59",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-48-q172",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-49-q128",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-44-q82",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-26-q75",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 809
+        },
+        {
+          "id": "conv-43-q135",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 1270
+        },
+        {
+          "id": "conv-42-q17",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1008
+        },
+        {
+          "id": "conv-26-q90",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 826
+        },
+        {
+          "id": "conv-49-q133",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-48-q14",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 998
+        },
+        {
+          "id": "conv-49-q152",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-30-q32",
+          "group": "temporal",
+          "covered": true,
+          "facts": 593
+        },
+        {
+          "id": "conv-42-q116",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1008
+        },
+        {
+          "id": "conv-48-q116",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-47-q13",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1132
+        },
+        {
+          "id": "conv-41-q67",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-26-q30",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 809
+        },
+        {
+          "id": "conv-26-q45",
+          "group": "temporal",
+          "covered": true,
+          "facts": 826
+        },
+        {
+          "id": "conv-48-q16",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-48-q106",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-50-q90",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-49-q52",
+          "group": "temporal",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-26-q74",
+          "group": "temporal",
+          "covered": true,
+          "facts": 826
+        },
+        {
+          "id": "conv-48-q27",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1019
+        },
+        {
+          "id": "conv-43-q113",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-47-q103",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-49-q125",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 876
+        },
+        {
+          "id": "conv-49-q37",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 876
+        },
+        {
+          "id": "conv-49-q155",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-43-q63",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1285
+        },
+        {
+          "id": "conv-48-q120",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 998
+        },
+        {
+          "id": "conv-30-q19",
+          "group": "temporal",
+          "covered": true,
+          "facts": 593
+        },
+        {
+          "id": "conv-47-q141",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 1117
+        },
+        {
+          "id": "conv-48-q79",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-43-q163",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-50-q53",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-48-q85",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-41-q129",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-41-q135",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-43-q73",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-50-q101",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-49-q53",
+          "group": "temporal",
+          "covered": true,
+          "facts": 876
+        },
+        {
+          "id": "conv-42-q108",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1008
+        },
+        {
+          "id": "conv-50-q148",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-48-q155",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-47-q40",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-42-q143",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 1015
+        },
+        {
+          "id": "conv-49-q135",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-44-q110",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-47-q104",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 1132
+        },
+        {
+          "id": "conv-26-q130",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 809
+        },
+        {
+          "id": "conv-47-q52",
+          "group": "temporal",
+          "covered": false,
+          "facts": 1132
+        },
+        {
+          "id": "conv-26-q89",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 809
+        },
+        {
+          "id": "conv-48-q177",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-43-q53",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 1270
+        },
+        {
+          "id": "conv-41-q60",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-26-q52",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 809
+        },
+        {
+          "id": "conv-26-q60",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 809
+        },
+        {
+          "id": "conv-41-q7",
+          "group": "multi-hop",
+          "covered": false,
+          "facts": 1103
+        },
+        {
+          "id": "conv-42-q123",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1008
+        },
+        {
+          "id": "conv-42-q33",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1015
+        },
+        {
+          "id": "conv-48-q73",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-43-q99",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-48-q50",
+          "group": "temporal",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-42-q117",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 1008
+        },
+        {
+          "id": "conv-43-q173",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-26-q83",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 826
+        },
+        {
+          "id": "conv-43-q107",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-41-q74",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-49-q78",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-48-q145",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 998
+        },
+        {
+          "id": "conv-43-q25",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-43-q40",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-41-q53",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-50-q26",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1073
+        },
+        {
+          "id": "conv-49-q58",
+          "group": "temporal",
+          "covered": true,
+          "facts": 876
+        },
+        {
+          "id": "conv-50-q124",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-47-q22",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-47-q53",
+          "group": "temporal",
+          "covered": false,
+          "facts": 1132
+        },
+        {
+          "id": "conv-42-q146",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1008
+        },
+        {
+          "id": "conv-43-q102",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-42-q84",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 1008
+        },
+        {
+          "id": "conv-30-q0",
+          "group": "temporal",
+          "covered": true,
+          "facts": 593
+        },
+        {
+          "id": "conv-49-q49",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-48-q176",
+          "group": "single-hop",
+          "covered": false,
+          "facts": 998
+        },
+        {
+          "id": "conv-50-q125",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-50-q127",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-44-q37",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1168
+        },
+        {
+          "id": "conv-43-q3",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 1270
+        },
+        {
+          "id": "conv-44-q62",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-47-q94",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-48-q72",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1019
+        },
+        {
+          "id": "conv-50-q142",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1069
+        },
+        {
+          "id": "conv-26-q135",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 809
+        },
+        {
+          "id": "conv-43-q19",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 1270
+        },
+        {
+          "id": "conv-41-q20",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1117
+        },
+        {
+          "id": "conv-49-q15",
+          "group": "multi-hop",
+          "covered": true,
+          "facts": 865
+        },
+        {
+          "id": "conv-26-q81",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 809
+        },
+        {
+          "id": "conv-49-q71",
+          "group": "open-domain",
+          "covered": false,
+          "facts": 865
+        },
+        {
+          "id": "conv-44-q45",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1162
+        },
+        {
+          "id": "conv-41-q86",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1103
+        },
+        {
+          "id": "conv-43-q79",
+          "group": "single-hop",
+          "covered": true,
+          "facts": 1270
+        },
+        {
+          "id": "conv-42-q24",
+          "group": "temporal",
+          "covered": true,
+          "facts": 1015
+        }
+      ]
+    }
+  }
+}
