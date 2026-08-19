@@ -121,6 +121,21 @@ func BuildMemoryRecord(memoryID string, now time.Time, req IngestRequest, extrac
 	if record.ObservedAt != nil {
 		record.Content = EnrichRelativeEventTime(record.Content, *record.ObservedAt)
 		record.Content = sanitizeUTF8(record.Content)
+		if record.Metadata == nil {
+			record.Metadata = map[string]any{}
+		}
+		stamp := record.ObservedAt.UTC().Format(time.RFC3339)
+		if _, ok := record.Metadata["event_start"]; !ok {
+			record.Metadata["event_start"] = stamp
+		}
+		if _, ok := record.Metadata["valid_from"]; !ok {
+			record.Metadata["valid_from"] = stamp
+		}
+		if record.Explain != nil {
+			if _, ok := record.Explain["event_start"]; !ok {
+				record.Explain["event_start"] = stamp
+			}
+		}
 	}
 	// Link semantic objects to raw evidence captured at ingest.
 	if req.Metadata != nil {

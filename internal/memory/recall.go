@@ -341,7 +341,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	case "answer":
 		out.ContextBlock = assembleContextFromPacket(pkt, budget)
-		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) {
+		if !looksYesNoQuery(req.Query) && (plan.NeedsEnumeration || looksListQuery(tokenize(req.Query))) {
 			enumerated = true
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 			out.Items = items
@@ -362,7 +362,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.AnswerStatus = AnswerSupported
 			out.Coverage = map[string]any{"targets": 1, "satisfied": true, "source": "temporal_resolver"}
 		}
-		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop {
+		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop && !looksYesNoQuery(req.Query) {
 			if composed := composeMultiHopAnswer(pkt); composed != "" {
 				out.Answer = composed
 				if packetOK {
@@ -373,18 +373,32 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "multihop_bridge_chain"
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" {
+		if strings.TrimSpace(out.Answer) == "" && looksYesNoQuery(req.Query) {
+			if ans := synthesizeYesNoFromFacts(req.Query, search.Results); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["yes_no_from_facts"] = true
+			}
+		}
+		if strings.TrimSpace(out.Answer) == "" && !looksYesNoQuery(req.Query) {
 			if ans := pickStructuredAnswer(req.Query, search.Results); ans != "" {
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
 				out.Explain["structured_answer"] = true
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" {
+		if strings.TrimSpace(out.Answer) == "" && !looksYesNoQuery(req.Query) {
 			if ans := pickEpisodeFallback(req.Query, search.Results); ans != "" {
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
 				out.Explain["episode_fallback"] = true
+			}
+		}
+		if strings.TrimSpace(out.Answer) == "" && !looksYesNoQuery(req.Query) {
+			if ans := pickContextSupportedAnswer(req.Query, search.Results, pkt); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["context_supported"] = true
 			}
 		}
 		if strings.TrimSpace(out.Answer) == "" {
@@ -445,6 +459,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 
 	plan.Tools = ExecutedPlanTools(plan, temporalApplied, enumerated, out.Abstained)
 	out.Explain["query_plan"] = plan
+	out.Explain["hop_plan_count"] = len(plan.Hops)
+	out.Explain["hop_plan_emitted"] = len(plan.Hops) > 0
 	out.Explain["tools_executed"] = plan.Tools
 	out.Explain["reader_source"] = "evidence_packet"
 	out.Explain["memory_count"] = len(search.Results)
@@ -682,6 +698,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	seen := map[string]RecallItem{}
 	order := make([]string, 0)
 	entity := hopEntityName(nameLikeTokens(contentBearingTokens(tokens)))
+	resolved := ResolveCanonicalEntity(ctx, s.store, req.TenantID, req.SubjectID, entity)
 
 	add := func(value, predicate, memoryID, observed string) {
 		v := strings.TrimSpace(value)
@@ -780,7 +797,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 					if rec.ObservedAt != nil {
 						obs = rec.ObservedAt.UTC().Format(time.RFC3339)
 					}
-					if entity != "" && !memoryMentionsEntity(rec, entity) {
+					if entity != "" && !memoryMatchesEnumerateEntity(rec, entity, resolved) {
 						continue
 					}
 				} else if r, ok := byID[id]; ok {
@@ -806,8 +823,12 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			if searchResultIsEpisode(r) {
 				continue
 			}
-			if entity != "" && !strings.Contains(strings.ToLower(r.Content), strings.ToLower(entity)) {
-				continue
+			if entity != "" {
+				rec := MemoryRecord{Content: r.Content, Explain: r.Explain, Metadata: r.Explain}
+				if !memoryMatchesEnumerateEntity(rec, entity, resolved) &&
+					!memoryMentionsEntity(rec, entity) {
+					continue
+				}
 			}
 			recPred := searchResultPredicate(r)
 			if pred != "" && recPred != "" && !hopUsefulForList(recPred, pred) {
@@ -861,6 +882,30 @@ func memoryMentionsEntity(rec MemoryRecord, entity string) bool {
 		return true
 	}
 	return strings.Contains(strings.ToLower(rec.Content), strings.ToLower(entity))
+}
+
+func memoryMatchesEnumerateEntity(rec MemoryRecord, mention string, resolved MemoryEntity) bool {
+	if resolved.EntityID != "" {
+		if eid := entityIDOf(rec); eid != "" {
+			return eid == resolved.EntityID
+		}
+	}
+	subj := entitySubjectOf(rec)
+	if mention != "" && subj != "" {
+		if strings.EqualFold(subj, mention) ||
+			NormalizeEntityLabel(subj) == NormalizeEntityLabel(mention) {
+			return true
+		}
+		if resolved.CanonicalLabel != "" &&
+			NormalizeEntityLabel(subj) == NormalizeEntityLabel(resolved.CanonicalLabel) {
+			return true
+		}
+		return false
+	}
+	if mention == "" {
+		return true
+	}
+	return memoryMentionsEntity(rec, mention)
 }
 
 func validEnumeratedValue(v string) bool {
@@ -1347,6 +1392,143 @@ func joinSearchFacts(results []SearchResult) string {
 		parts = append(parts, c)
 	}
 	return joinBounded(parts, 80000)
+}
+
+func looksYesNoQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return false
+	}
+	for _, p := range []string{"would ", "will ", "could ", "is it likely", "do you think", "is it possible"} {
+		if strings.HasPrefix(q, p) || strings.Contains(q, " "+p) {
+			return true
+		}
+	}
+	return strings.Contains(q, "likely") || strings.Contains(q, "probably")
+}
+
+// synthesizeYesNoFromFacts answers hypothetical yes/no from compiled
+// occupation / possession / preference / activity facts (S2b). Absence is not no.
+func synthesizeYesNoFromFacts(query string, results []SearchResult) string {
+	if !looksYesNoQuery(query) {
+		return ""
+	}
+	entity := strings.ToLower(hopEntityName(nameLikeTokens(contentBearingTokens(tokenize(query)))))
+	qtoks := map[string]struct{}{}
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		if len(t) > 2 && t != entity && !yesNoStop[t] {
+			qtoks[t] = struct{}{}
+		}
+	}
+	if len(qtoks) == 0 {
+		return ""
+	}
+	yesHits := 0
+	for _, r := range results {
+		if searchResultIsEpisode(r) {
+			continue
+		}
+		pred := searchResultPredicate(r)
+		switch pred {
+		case PredicateOccupation, PredicateIdentity, PredicatePossession,
+			PredicatePreference, PredicateActivity, PredicatePlan, PredicateSkill:
+		default:
+			if pred != "" {
+				continue
+			}
+		}
+		v := structuredValueOf(r)
+		if v == "" {
+			continue
+		}
+		probe := strings.ToLower(v)
+		for tok := range qtoks {
+			if tokenOverlapsFact(probe, tok, v) {
+				yesHits++
+				break
+			}
+		}
+	}
+	if yesHits >= 1 {
+		return "yes"
+	}
+	return ""
+}
+
+func tokenOverlapsFact(blob, tok, value string) bool {
+	if tok == "" {
+		return false
+	}
+	if strings.Contains(blob, tok) {
+		return true
+	}
+	for _, part := range strings.Fields(strings.ToLower(value)) {
+		part = strings.Trim(part, ".,;:!?\"'`")
+		if shareTokenStem(tok, part) {
+			return true
+		}
+	}
+	return false
+}
+
+func shareTokenStem(a, b string) bool {
+	if len(a) < 4 || len(b) < 4 {
+		return false
+	}
+	return a[:4] == b[:4]
+}
+
+var yesNoStop = map[string]bool{
+	"would": true, "will": true, "could": true, "likely": true, "probably": true,
+	"enjoy": true, "like": true, "own": true, "have": true, "think": true,
+	"possible": true, "career": true, "path": true,
+}
+
+func pickContextSupportedAnswer(query string, results []SearchResult, pkt EvidencePacket) string {
+	if ans := pickStructuredAnswer(query, results); ans != "" {
+		return ans
+	}
+	qtoks := contentBearingTokens(tokenize(query))
+	if len(qtoks) == 0 {
+		return ""
+	}
+	best := ""
+	bestHit := 0
+	consider := func(content, value string) {
+		v := strings.TrimSpace(value)
+		if v == "" {
+			if extracted, ok := slotValueFromMemoryContent(content); ok {
+				v = extracted
+			}
+		}
+		if v == "" || looksTitleCaseSlogan(v) || looksLikeQueryNameEcho(query, v) {
+			return
+		}
+		blob := strings.ToLower(v + " " + content)
+		hit := 0
+		for _, tok := range qtoks {
+			if len(tok) > 2 && strings.Contains(blob, tok) {
+				hit++
+			}
+		}
+		if hit > bestHit {
+			bestHit = hit
+			best = v
+		}
+	}
+	for _, r := range results {
+		if searchResultIsEpisode(r) {
+			continue
+		}
+		consider(r.Content, structuredValueOf(r))
+	}
+	for _, it := range pkt.ContextEvidence {
+		consider(it.Content, it.Value)
+	}
+	if bestHit >= 2 {
+		return best
+	}
+	return ""
 }
 
 func formatEnumerateContext(items []RecallItem) string {

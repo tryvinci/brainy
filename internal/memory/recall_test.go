@@ -710,3 +710,107 @@ func TestRecallIngestNamedSubjectNotReporter(t *testing.T) {
 		t.Fatalf("reporter activity leaked: %q", out.Answer)
 	}
 }
+
+func TestRecallEnumerateScopesByEntityID(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-enum-eid", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Dana: I've been hiking every weekend"},
+			{Role: "user", Content: "Riley: I enjoy pottery on Sundays"},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-enum-eid", SubjectID: "u1",
+		Query: "What activities does Dana enjoy?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := strings.ToLower(out.ContextBlock + " " + out.Answer)
+	for _, it := range out.Items {
+		joined += " " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(joined, "hik") {
+		t.Fatalf("expected Dana activity, items=%#v", out.Items)
+	}
+	if strings.Contains(joined, "potter") {
+		t.Fatalf("Riley activity leaked into Dana enumerate: %#v", out.Items)
+	}
+}
+
+func TestSynthesizeYesNoFromFactsUnit(t *testing.T) {
+	q := "Would Alex be likely to enjoy a nursing career?"
+	r := SearchResult{
+		Content: "Alex works as nurse in Seattle",
+		Explain: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse in seattle"},
+	}
+	got := synthesizeYesNoFromFacts(q, []SearchResult{r})
+	if got != "yes" {
+		t.Fatalf("unit yes/no=%q", got)
+	}
+	got = synthesizeYesNoFromFacts("Would Alex be likely to own a sailboat?", []SearchResult{
+		{
+			Content: "Alex works as nurse in Seattle",
+			Explain: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse in seattle"},
+		},
+	})
+	if got != "" {
+		t.Fatalf("sailboat must not yes, got %q", got)
+	}
+}
+
+func TestRecallYesNoFromCompiledOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-od", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Alex currently works as a nurse in Seattle."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-od", SubjectID: "u1",
+		Query: "Would Alex be likely to enjoy a nursing career?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.ToLower(strings.TrimSpace(out.Answer)) != "yes" {
+		t.Fatalf("expected yes from compiled occupation, got answer=%q abstained=%v", out.Answer, out.Abstained)
+	}
+}
+
+func TestRecallStillAbstainsWithoutSupport(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-od-empty", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Alex currently works as a nurse in Seattle."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-od-empty", SubjectID: "u1",
+		Query: "Would Alex be likely to own a sailboat?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Abstained {
+		t.Fatalf("absence must not invent no/yes, got %q", out.Answer)
+	}
+}

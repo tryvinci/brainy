@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -46,5 +47,39 @@ func TestEntityAliasesIncludeFirstToken(t *testing.T) {
 	got := EntityAliases("John Smith")
 	if len(got) < 2 || got[0] != "john smith" || got[1] != "john" {
 		t.Fatalf("aliases=%v", got)
+	}
+}
+
+func TestExtractDialogueAliases(t *testing.T) {
+	pairs := ExtractDialogueAliases("call me Al", "Alex")
+	if len(pairs) != 1 || !strings.EqualFold(pairs[0][0], "Alex") || !strings.EqualFold(pairs[0][1], "Al") {
+		t.Fatalf("call-me pairs=%v", pairs)
+	}
+	pairs = ExtractDialogueAliases("Jordan is also known as Jo", "")
+	if len(pairs) != 1 || !strings.EqualFold(pairs[0][1], "Jo") {
+		t.Fatalf("aka pairs=%v", pairs)
+	}
+}
+
+func TestDialogueAliasResolvesNickname(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-alias", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Alex: friends call me Al when we hike."},
+			{Role: "user", Content: "Alex: I enjoy hiking every weekend."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ent := ResolveCanonicalEntity(context.Background(), store, "t-alias", "u1", "Al")
+	if ent.EntityID == "" {
+		t.Fatal("expected nickname to resolve")
+	}
+	alex := ResolveCanonicalEntity(context.Background(), store, "t-alias", "u1", "Alex")
+	if alex.EntityID == "" || alex.EntityID != ent.EntityID {
+		t.Fatalf("Al and Alex must share an ID, al=%+v alex=%+v", ent, alex)
 	}
 }

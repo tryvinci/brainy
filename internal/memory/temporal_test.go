@@ -54,6 +54,22 @@ func TestShouldReplaceCurrentStateExplicitSupersede(t *testing.T) {
 	}
 }
 
+func TestTemporalScorePrefersDatedFactsOverEpisodes(t *testing.T) {
+	obs := time.Date(2023, 7, 14, 0, 0, 0, 0, time.UTC)
+	fact := MemoryRecord{
+		ObservedAt: &obs,
+		Metadata:   map[string]any{"memory_type": "event"},
+	}
+	episode := MemoryRecord{
+		ObservedAt: &obs,
+		Primitive:  PrimitiveEpisode,
+	}
+	hist := []string{IntentTemporalSequence}
+	if TemporalScore(fact, hist, true) <= TemporalScore(episode, hist, true) {
+		t.Fatalf("dated semantic records must outrank dated episodes")
+	}
+}
+
 func TestParseAsOf(t *testing.T) {
 	if _, ok := ParseAsOf("2024-03-15"); !ok {
 		t.Fatal("date-only")

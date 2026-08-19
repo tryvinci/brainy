@@ -77,6 +77,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	}
 
 	mode := memory.WriteMutationModeOf(job.Request)
+	memory.PersistIngestAliases(ctx, p.store, job.Request)
 	for _, item := range extracted {
 		p.metrics.RecordExtraction()
 		if memory.MemoryEventOf(item) == memory.MemoryEventDelete {
@@ -205,6 +206,7 @@ func (p *Processor) persistEntityLinks(ctx context.Context, record memory.Memory
 		}
 	}
 	memory.PersistCanonicalEntity(ctx, p.store, record)
+	memory.PersistDialogueAliases(ctx, p.store, record.TenantID, record.SubjectID, "", record.Content)
 
 	// Mirror Service.persistEntityLinks: typed extract must land on atoms for
 	// async LoCoMo/LME (default eval path), not only sync /ingest.

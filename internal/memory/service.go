@@ -148,6 +148,7 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 	}
 
 	mode := WriteMutationModeOf(req)
+	PersistIngestAliases(ctx, s.store, req)
 	for _, extracted := range memories {
 		if MemoryEventOf(extracted) == MemoryEventDelete {
 			_ = ApplyDeleteMemoryEvent(ctx, s.store, req.TenantID, req.SubjectID, extracted, mode)
@@ -529,6 +530,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	if looksMultiHopQuery(queryTokens) {
 		if len(allMemories) > 0 {
 			expandSessionNeighbors(candidates, memories, allMemories, 16)
+			expandCrossSessionAtoms(candidates, memories, allMemories, 24)
 		}
 		// Seed the related-fact pass from lexical hits AND subject-bridge admits
 		// so supporting facts without the question verbs still expand.
@@ -985,6 +987,63 @@ func (s *Service) listSubjectCorpus(ctx context.Context, tenantID, subjectID str
 	return all, nil
 }
 
+func sameStateEntity(a, b MemoryRecord) bool {
+	if aid, bid := entityIDOf(a), entityIDOf(b); aid != "" && bid != "" {
+		return aid == bid
+	}
+	as, bs := entitySubjectOf(a), entitySubjectOf(b)
+	if as != "" && bs != "" {
+		return strings.EqualFold(as, bs)
+	}
+	return as == "" && bs == ""
+}
+
+// expandCrossSessionAtoms admits compiled (non-episode) facts from other
+// sessions that share an entity with lexical seeds (S4a multi-session).
+func expandCrossSessionAtoms(candidates map[string]MemoryRecord, seeds []MemoryRecord, all []MemoryRecord, limit int) {
+	entities := map[string]struct{}{}
+	for _, seed := range seeds {
+		if eid := entityIDOf(seed); eid != "" {
+			entities[eid] = struct{}{}
+		}
+		if subj := strings.ToLower(strings.TrimSpace(entitySubjectOf(seed))); subj != "" {
+			entities[subj] = struct{}{}
+		}
+	}
+	if len(entities) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		if record.Primitive == PrimitiveEpisode {
+			continue
+		}
+		if record.LifecycleState == LifecycleSuperseded {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		match := false
+		if eid := entityIDOf(record); eid != "" {
+			_, match = entities[eid]
+		}
+		if !match {
+			if subj := strings.ToLower(strings.TrimSpace(entitySubjectOf(record))); subj != "" {
+				_, match = entities[subj]
+			}
+		}
+		if !match {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
 func sessionIDOf(record MemoryRecord) string {
 	if record.Metadata == nil {
 		return ""
@@ -1051,6 +1110,8 @@ func looksMultiHopQuery(tokens []string) bool {
 func nameLikeTokens(tokens []string) []string {
 	out := make([]string, 0, len(tokens))
 	for _, token := range tokens {
+		token = strings.TrimSuffix(token, "'s")
+		token = strings.TrimSuffix(token, "’s")
 		if len(token) >= 4 && !isQueryStopword(token) {
 			out = append(out, token)
 		}
@@ -1658,6 +1719,9 @@ func AutoSupersedePriorState(ctx context.Context, store Store, record MemoryReco
 		// Same predicate, different value → supersede older.
 		pval, _ := prior.Metadata["value_norm"].(string)
 		if pval == "" || pval == val {
+			continue
+		}
+		if !sameStateEntity(record, prior) {
 			continue
 		}
 		if prior.ObservedAt != nil && record.ObservedAt != nil && !record.ObservedAt.After(*prior.ObservedAt) {
