@@ -1,0 +1,41 @@
+{
+  "arm": "hash-128",
+  "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "n": 180,
+  "seed": 1,
+  "tenant_prefix": "integrity-s0-1",
+  "runtime": {
+    "signatures": {
+      "match": true,
+      "api": "local-hash|local-hash-v1|128"
+    },
+    "ann": {
+      "active": true,
+      "has_pgvector": true,
+      "has_embedding_vec_768": true,
+      "mixed_dimensions": true,
+      "dim_histogram": {
+        "128": 39289,
+        "768": 5
+      }
+    },
+    "embedder": {
+      "dimensions": 128,
+      "strict": false,
+      "provider": "local-hash"
+    }
+  },
+  "recall": {
+    "@10": 0.2111111111111111,
+    "@30": 0.3055555555555556,
+    "@100": 0.4888888888888889,
+    "@200": 0.5833333333333334
+  },
+  "mrr": 0.15865000435349602,
+  "admission": {
+    "dense_mean": 151.71666666666667,
+    "lexical_mean": 30.91111111111111,
+    "candidates_mean": 182.62777777777777,
+    "context_tokens_mean": 2010.9166666666667
+  }
+}

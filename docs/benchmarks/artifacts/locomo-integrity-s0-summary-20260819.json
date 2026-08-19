@@ -1,0 +1,100 @@
+{
+  "tenant_prefix": "integrity-s0-1",
+  "runs": [
+    {
+      "lane": "product-recall",
+      "run_id": "locomo-integrity-s0-product-recall-s1-dee145",
+      "accuracy": 0.17777777777777778,
+      "correct": 32,
+      "total": 180,
+      "by_group": {
+        "temporal": {
+          "correct": 11,
+          "total": 38
+        },
+        "multi-hop": {
+          "correct": 1,
+          "total": 33
+        },
+        "open-domain": {
+          "correct": 1,
+          "total": 11
+        },
+        "single-hop": {
+          "correct": 19,
+          "total": 98
+        }
+      },
+      "failure_histogram": {
+        "total": 148,
+        "by_primary": {
+          "PROOF_MISS": 112,
+          "RETRIEVAL_MISS": 22,
+          "READER_MISS": 11,
+          "WRITE_MISS": 3
+        },
+        "by_group": {
+          "single-hop:PROOF_MISS": 66,
+          "multi-hop:PROOF_MISS": 26,
+          "temporal:PROOF_MISS": 11,
+          "temporal:RETRIEVAL_MISS": 9,
+          "open-domain:PROOF_MISS": 9,
+          "single-hop:RETRIEVAL_MISS": 7,
+          "multi-hop:RETRIEVAL_MISS": 6,
+          "temporal:READER_MISS": 6,
+          "single-hop:READER_MISS": 5,
+          "single-hop:WRITE_MISS": 1,
+          "open-domain:WRITE_MISS": 1,
+          "temporal:WRITE_MISS": 1
+        }
+      }
+    },
+    {
+      "lane": "industry-search",
+      "run_id": "locomo-integrity-s0-industry-search-s1-6c38c5",
+      "accuracy": 0.34444444444444444,
+      "correct": 62,
+      "total": 180,
+      "by_group": {
+        "temporal": {
+          "correct": 21,
+          "total": 38
+        },
+        "multi-hop": {
+          "correct": 4,
+          "total": 33
+        },
+        "open-domain": {
+          "correct": 4,
+          "total": 11
+        },
+        "single-hop": {
+          "correct": 33,
+          "total": 98
+        }
+      },
+      "failure_histogram": {
+        "total": 118,
+        "by_primary": {
+          "PROOF_MISS": 93,
+          "RETRIEVAL_MISS": 18,
+          "READER_MISS": 5,
+          "WRITE_MISS": 2
+        },
+        "by_group": {
+          "single-hop:PROOF_MISS": 58,
+          "multi-hop:PROOF_MISS": 23,
+          "temporal:RETRIEVAL_MISS": 8,
+          "multi-hop:RETRIEVAL_MISS": 6,
+          "open-domain:PROOF_MISS": 6,
+          "temporal:PROOF_MISS": 6,
+          "single-hop:RETRIEVAL_MISS": 4,
+          "temporal:READER_MISS": 3,
+          "single-hop:READER_MISS": 2,
+          "single-hop:WRITE_MISS": 1,
+          "open-domain:WRITE_MISS": 1
+        }
+      }
+    }
+  ]
+}
