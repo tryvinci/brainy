@@ -112,7 +112,7 @@ class BrainyBackend:
             return [job_id] if job_id else []
 
         response = post_json(self.base_url, "/ingest", payload, timeout=120)
-        return [m["memory_id"] for m in response.get("memories", [])]
+        return [m["memory_id"] for m in (response.get("memories") or [])]
 
     def wait_until_jobs_done(
         self,
