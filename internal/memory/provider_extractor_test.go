@@ -212,10 +212,26 @@ func TestProviderExtractorFailureWithEmptyBaselinePropagates(t *testing.T) {
 	}
 }
 
-func TestParseProviderMemoriesRejectsInvalidKind(t *testing.T) {
-	_, err := parseProviderMemories(`{"memories":[{"kind":"note","content":"x","source_text":"x"}]}`)
-	if err == nil {
-		t.Fatal("expected invalid kind error")
+func TestParseProviderMemoriesCoercesUnknownKind(t *testing.T) {
+	got, err := parseProviderMemories(`{"memories":[{"kind":"note","content":"x","source_text":"x"}]}`)
+	if err != nil {
+		t.Fatalf("unknown kind should coerce to fact, got %v", err)
+	}
+	if len(got) != 1 || got[0].Kind != KindFact {
+		t.Fatalf("expected fact, got %#v", got)
+	}
+}
+
+func TestParseProviderMemoriesPromotesPredicateKind(t *testing.T) {
+	got, err := parseProviderMemories(`{"memories":[{"kind":"plan","content":"Caroline plans a trip","source_text":"I am planning a trip"}]}`)
+	if err != nil {
+		t.Fatalf("predicate-as-kind should coerce, got %v", err)
+	}
+	if len(got) != 1 || got[0].Kind != KindFact {
+		t.Fatalf("expected fact, got %#v", got)
+	}
+	if got[0].Explain["predicate"] != PredicatePlan {
+		t.Fatalf("expected plan predicate, got %#v", got[0].Explain)
 	}
 }
 

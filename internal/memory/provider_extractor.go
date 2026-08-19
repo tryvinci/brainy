@@ -415,14 +415,9 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 				event = MemoryEventAdd
 			}
 		}
-		kind := strings.ToLower(strings.TrimSpace(item.Kind))
-		switch kind {
-		case KindFact, KindPreference, KindProfile, "":
-		default:
-			return nil, fmt.Errorf("provider extract: invalid kind %q", item.Kind)
-		}
-		if kind == "" {
-			kind = KindFact
+		kind, pred := coerceProviderKind(item.Kind, item.Predicate)
+		if pred != "" {
+			item.Predicate = pred
 		}
 		content := NormalizeText(item.Content)
 		if content == "" {
@@ -627,6 +622,20 @@ func sourceSpanOverlap(a, b string) bool {
 		minLen = len(bToks)
 	}
 	return shared*2 >= minLen && shared >= 3 // >= ~50% of shorter, at least 3 tokens
+}
+
+func coerceProviderKind(kind, predicate string) (string, string) {
+	k := strings.ToLower(strings.TrimSpace(kind))
+	switch k {
+	case KindFact, KindPreference, KindProfile:
+		return k, predicate
+	case "":
+		return KindFact, predicate
+	}
+	if pred := normalizeProviderPredicate(k); pred != "" && strings.TrimSpace(predicate) == "" {
+		return KindFact, pred
+	}
+	return KindFact, predicate
 }
 
 func truncate(s string, n int) string {
