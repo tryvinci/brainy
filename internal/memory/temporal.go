@@ -98,6 +98,7 @@ func TemporalScore(record MemoryRecord, intents []string, includeHistorical bool
 	}
 	superseded := record.LifecycleState == LifecycleSuperseded
 	memType := memoryTypeOf(record)
+	datedFact := record.ObservedAt != nil && memType != "episode"
 	switch {
 	case hist && superseded:
 		return 1.0
@@ -107,6 +108,8 @@ func TemporalScore(record MemoryRecord, intents []string, includeHistorical bool
 		return 0.7
 	case hist && memType == "state":
 		return 0.55
+	case hist && datedFact:
+		return 0.6
 	case hist && record.ObservedAt != nil:
 		return 0.45
 	default:

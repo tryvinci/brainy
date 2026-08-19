@@ -79,11 +79,57 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration) && hopComposeAllowed(query) {
-		plan.Hops = buildTypedHops(query)
+	if hopComposeAllowed(query) && !looksYesNoQuery(query) {
+		if plan.NeedsMultiHop || plan.NeedsEnumeration {
+			plan.Hops = buildTypedHops(query)
+		} else if shouldEmitTypedHops(query) {
+			plan.Hops = buildTypedHops(query)
+			if len(plan.Hops) > 0 {
+				plan.NeedsMultiHop = true
+				if plan.BudgetPasses < 2 {
+					plan.BudgetPasses = 2
+				}
+			}
+		}
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
 	return plan
+}
+
+// shouldEmitTypedHops covers MH-shaped questions the intent classifier misses
+// (possessive "X's Y", named person + predicate hint) without widening when-questions.
+func shouldEmitTypedHops(query string) bool {
+	if !hopComposeAllowed(query) {
+		return false
+	}
+	toks := contentBearingTokens(tokenize(query))
+	names := nameLikeTokens(toks)
+	if len(names) == 0 {
+		return false
+	}
+	if strings.Contains(query, "'s ") || strings.Contains(query, "’s ") {
+		return true
+	}
+	if len(names) >= 2 && queryHasNamedPerson(query) {
+		return true
+	}
+	return queryHasNamedPerson(query) && len(predicateHintsFromQuery(query)) > 0
+}
+
+func queryHasNamedPerson(query string) bool {
+	for _, raw := range strings.Fields(query) {
+		t := strings.Trim(raw, "?,.!\"'`")
+		t = strings.TrimSuffix(t, "'s")
+		t = strings.TrimSuffix(t, "’s")
+		if len(t) < 4 || isQueryStopword(strings.ToLower(t)) {
+			continue
+		}
+		r := t[0]
+		if r >= 'A' && r <= 'Z' {
+			return true
+		}
+	}
+	return false
 }
 
 // buildTypedHops emits resolve_entity → follow_relation/fetch_predicate subgoals.
@@ -224,6 +270,7 @@ var hopEntityStop = map[string]struct{}{
 	"places": {}, "place": {}, "enjoy": {}, "enjoys": {},
 	"read": {}, "reading": {}, "moved": {}, "move": {},
 	"pursue": {}, "decided": {},
+	"would": {}, "could": {}, "likely": {}, "probably": {},
 	"long": {}, "ago": {}, "current": {}, "currently": {},
 	"group": {}, "friends": {}, "friend": {},
 	"research": {}, "researched": {}, "researching": {},

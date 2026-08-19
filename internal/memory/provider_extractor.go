@@ -171,7 +171,10 @@ CRITICAL RULES:
 7. Skip pure greetings/acks ("Thanks!", "Yeah, Name", "Cool").
 8. When Prior context lists [memory_id] lines: prefer UPDATE/DELETE over duplicate ADD for the same subject/predicate; keep subject stable.
 9. When in doubt, EXTRACT as ADD — missed atoms destroy multi-attribute recall.
-10. return {"memories":[]} only if nothing durable exists.`
+10. return {"memories":[]} only if nothing durable exists.
+11. ADD-only for new durable facts. Use UPDATE only when Prior context already has the same subject+predicate with a different value; set when to the observation or stated date.
+12. When a speaker or assistant reports a fact about another named person (Name lives in / works as / researched / realized that / is a), subject is that person, never the reporter or the assistant.
+13. Durable assistant-role statements about a named person are facts about that person. Do not store the assistant's recap as an assistant-owned memory.`
 
 func buildProviderUserPrompt(req IngestRequest) string {
 	var b strings.Builder
@@ -306,6 +309,7 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 		}
 		if when := strings.TrimSpace(item.When); when != "" {
 			explain["when"] = when
+			explain["event_start"] = when
 		}
 		if duration := strings.TrimSpace(item.Duration); duration != "" {
 			explain["duration"] = duration
