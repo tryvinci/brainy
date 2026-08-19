@@ -39,7 +39,8 @@
 20. **2026-08-19 merge + plan:** PR #130 merge-committed onto `dev` (`fb3e166`); `dev` fast-forwarded onto **`main`** with explicit approval (2026-08-19). Execution now follows [sota-execution-plan.md](./sota-execution-plan.md): S0 stratified dual-lane baseline on this SHA first; full n=1540 only at S6 with a Mem0 Platform same-pin.
 21. **2026-08-19 S0–S5 product increments:** Stratified dual-lane harness (`run_s0`, `--stratified`); compiler coverage audit (`scripts/compiler-audit.sh`, ≥85% held-out gate); entity-id enumerate; OD yes/no from compiled facts; alias lifecycle; hop-plan coverage; KU entity-scoped supersede; cross-session atoms; industry atoms-first + token reporting. **Not a LoCoMo remasure.** S0 ledger / S6 freeze still required before any competitive language.
 22. **2026-08-19 S6 freeze wiring:** `python -m public.locomo.run_s6` (3×90 both lanes by default; `--full --lme20 --mem0` for the one-shot remasure). Gates on an S0 summary unless `--skip-s0-gate`. No published % until those runs finish.
-23. **2026-08-19 S0 product `/recall` ledger:** stratified n=180 seed=1 on `df42f65` = **17/180 (9.4%)**; WRITE_MISS 120 / RETRIEVAL_MISS 28 / PROOF_MISS 12 / READER_MISS 3; MH hop-plan 32/33. Industry lane still running. Not n=1540; not a competitive claim.
+23. **2026-08-19 S0 dual-lane ledger:** product `/recall` **17/180 (9.4%)**; industry search+harness **52/180 (28.9%)**, below July 49.8%. WRITE_MISS 120 vs 94. Not n=1540; not a competitive claim. [artifact](../benchmarks/artifacts/locomo-s0-20260819.md)
+24. **2026-08-19 S6 posture:** orchestrator ready; 3×90 may run; **n=1540 / Mem0 same-pin deferred** so the once-per-freeze slot is not burned at 9.4% / 28.9%. LME-20 remasure still outstanding.
 
 ## Hardening cycle — closed
 

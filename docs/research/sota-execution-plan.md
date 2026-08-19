@@ -1,6 +1,6 @@
 # SOTA execution plan — from landed substrate to a defensible claim
 
-**Status:** executing (2026-08-19). S1–S5 product increments landed on this SHA. S0 **product `/recall`** stratified n=180 is measured: **17/180 = 9.4%** ([artifact](../benchmarks/artifacts/locomo-s0-20260819-product-recall.md)); industry lane is still running. S6 orchestrator is `python -m public.locomo.run_s6` after both S0 lanes finish. Every score below is a *gate*, not a promise.  
+**Status:** executing (2026-08-19). S0 both lanes measured on this SHA ([artifact](../benchmarks/artifacts/locomo-s0-20260819.md)): product `/recall` **17/180 = 9.4%**, industry search+harness **52/180 = 28.9%** (below July 49.8% band). WRITE_MISS is the mass bucket. S6 3×90 may run; **do not burn n=1540** on these scores. Every score below is a *gate*, not a promise.  
 **Does not claim:** SOTA today, a LoCoMo/LME target score, or that any published vendor number is a same-pin.  
 **PoR:** [sota-representation-path.md](./sota-representation-path.md) · [70–80% path](./locomo-full-70-80-path.md) · [dual-path freeze](./locomo-dual-path-freeze.md)
 

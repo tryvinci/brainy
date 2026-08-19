@@ -670,8 +670,8 @@ Product + harness on this branch (not a remasure):
 ### Own pins
 
 - Prior full-suite pins stand (pre-stack SHA `1b5ab3e`): 1×30 **21/30** (OD **0/4**), full `/recall` **11.4%**, LME-20 **4/20**.
-- **S0 product `/recall` stratified n=180** (this SHA `df42f65`, seed=1): **17/180 = 9.4%** — SH **5/98**, MH **3/33**, temporal **9/38**, OD **0/11**. Ledger: WRITE_MISS **120**, RETRIEVAL_MISS **28**, PROOF_MISS **12**, READER_MISS **3**. MH hop-plan coverage **32/33**. [artifact](../../benchmarks/artifacts/locomo-s0-20260819-product-recall.md). **Not n=1540. Not a competitive lead/trail.**
-- S0 industry lane still running. S6 n=1540 still required before any competitive language.
+- **S0 dual-lane stratified n=180** (seed=1, this SHA): product `/recall` **17/180 = 9.4%** (SH 5/98 · MH 3/33 · temporal 9/38 · OD 0/11; WRITE_MISS 120); industry search+harness **52/180 = 28.9%** (SH 30/98 · MH 9/33 · temporal 10/38 · OD 3/11; WRITE_MISS 94). [artifact](../../benchmarks/artifacts/locomo-s0-20260819.md). **Not n=1540. Not a competitive lead/trail.** Industry is **below** the July 49.8% old-stack band.
+- S6 n=1540 is **not** started on these scores (once-per-freeze slot). 3×90 qualification may still run.
 - OpMem / marketing remain merge gates (`go test ./...` green on this SHA).
 
 ### Competitor compare
@@ -684,4 +684,4 @@ S0–S5 attack WRITE_MISS, answer residue, hop-plan coverage, KU/multi-session, 
 
 ### Next
 
-Finish the in-flight S0 industry lane on the same 180 items. Histogram already says spend the next product increment on WRITE_MISS (S1), not hop-planner absence. Then S6 (`python -m public.locomo.run_s6`, add `--full --lme20 --mem0` for the one-shot freeze). Kill list unchanged.
+S0 histogram: WRITE_MISS is still the mass bucket — next product increment is compiler coverage, not hop-planner absence and not n=1540. S6 3×90 is optional qualification; `--full` waits until WRITE_MISS moves. Kill list unchanged.

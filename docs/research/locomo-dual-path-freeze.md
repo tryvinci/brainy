@@ -1,6 +1,6 @@
 # LoCoMo dual-path freeze (R10 wiring)
 
-**Status:** S0 **product `/recall`** stratified n=180 measured (**17/180 = 9.4%** on `df42f65`). Industry lane on the same slice is still running. Full n=1540 stays once-per-freeze.  
+**Status:** S0 both lanes measured — product **17/180 = 9.4%**, industry **52/180 = 28.9%** ([artifact](../benchmarks/artifacts/locomo-s0-20260819.md)). Full n=1540 stays once-per-freeze and is **not** started on these scores.  
 **Does not claim:** SOTA, beats-Mem0, 70–80% on full LoCoMo, or 1×30 70% as n=1540.
 
 ## Two lanes (never mix)

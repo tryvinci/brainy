@@ -39,9 +39,9 @@ Hop-plan coverage on this MH slice: **32/33** items emitted a typed hop plan (`h
 
 No `JUDGE_MISS` on this lane.
 
-## Industry lane
+## Industry lane (same 180 items)
 
-In flight on the same SHA / same 180 items (`locomo-s0-20260819-industry-search-s1-88882c`). No industry % until that run writes a report.
+**52/180 = 28.9%** (`locomo-s0-20260819-industry-search-s1-88882c`). SH 30/98 · MH 9/33 · temporal 10/38 · OD 3/11. WRITE_MISS 94 / RETRIEVAL_MISS 22 / PROOF_MISS 8 / READER_MISS 4. Below the July 49.8% old-stack band. Combined table: [locomo-s0-20260819.md](./locomo-s0-20260819.md).
 
 ## Outlinks
 
