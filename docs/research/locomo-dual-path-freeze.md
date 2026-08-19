@@ -39,8 +39,12 @@ python -m public.locomo.run_smoke \
 python -m public.locomo.run_smoke \
   --eval-lane industry-search --stratified 180 --seed 1 --conversations 10
 
-# S6 qualification (only at freeze)
+# S6 qualification (only at freeze, after S0 summary exists)
+python -m public.locomo.run_s6 --base-url http://127.0.0.1:18090
 python -m public.locomo.run_full --eval-lane product-recall --conversations 10 --questions 90 --seeds 3
+
+# S6b one-shot full freeze (do not share the worker queue with S0)
+python -m public.locomo.run_s6 --full --lme20 --mem0 --base-url http://127.0.0.1:18090
 ```
 
 Compiler coverage one-command: `scripts/compiler-audit.sh`.

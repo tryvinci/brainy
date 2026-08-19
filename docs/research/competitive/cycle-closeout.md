@@ -683,4 +683,4 @@ S0–S5 attack WRITE_MISS, answer residue, hop-plan coverage, KU/multi-session, 
 
 ### Next
 
-Run S0 (`python -m public.locomo.run_s0 --stratified 180`). Re-order any leftover work from that histogram. S6 freeze (3×90 → n=1540 both lanes + LME-20 + Mem0 Platform same-pin) is one-shot. Kill list unchanged.
+Finish the in-flight S0 (`python -m public.locomo.run_s0 --stratified 180`) and write the measured histogram only. Then S6 (`python -m public.locomo.run_s6`, add `--full --lme20 --mem0` for the one-shot freeze). Kill list unchanged.

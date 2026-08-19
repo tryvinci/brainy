@@ -1,6 +1,6 @@
 # SOTA execution plan — from landed substrate to a defensible claim
 
-**Status:** executing (2026-08-19). S1–S5 product increments landed on this SHA; S0 dual-lane stratified baseline is the first measurement (harness: `python -m public.locomo.run_s0`). S6 full freeze is still one-shot and is **not** claimed here. Every score below is a *gate*, not a promise.  
+**Status:** executing (2026-08-19). S1–S5 product increments landed on this SHA; S0 dual-lane stratified baseline is running (`python -m public.locomo.run_s0`). S6 orchestrator is `python -m public.locomo.run_s6` (3×90 default; `--full --lme20 --mem0` is the one-shot freeze). No new published LoCoMo % until a ledger exists. Every score below is a *gate*, not a promise.  
 **Does not claim:** SOTA today, a LoCoMo/LME target score, or that any published vendor number is a same-pin.  
 **PoR:** [sota-representation-path.md](./sota-representation-path.md) · [70–80% path](./locomo-full-70-80-path.md) · [dual-path freeze](./locomo-dual-path-freeze.md)
 

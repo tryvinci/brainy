@@ -507,6 +507,24 @@ class StratifiedLocomoTests(unittest.TestCase):
         self.assertEqual(hist["total"], 3)
         self.assertEqual(hist["by_primary"]["WRITE_MISS"], 2)
 
+    def test_s6_plan_default_is_qualification_only(self) -> None:
+        from public.locomo.run_s6 import plan_steps
+
+        ids = [s["id"] for s in plan_steps()]
+        self.assertEqual(ids, ["s6a-product-3x90", "s6a-industry-3x90"])
+        full = [s["id"] for s in plan_steps(full=True, lme20=True, mem0=True)]
+        self.assertEqual(
+            full,
+            [
+                "s6a-product-3x90",
+                "s6a-industry-3x90",
+                "s6b-product-full",
+                "s6b-industry-full",
+                "s6b-lme20",
+                "s6b-mem0-full",
+            ],
+        )
+
 
 class IndustryHarvestTests(unittest.TestCase):
     def test_atoms_first_harvest(self) -> None:

@@ -38,6 +38,7 @@
 19. **2026-08-18 R5B–R10 representation stack:** Typed `ContextEvidence`, `she`/`he` last-named-person coref, canonical `ent:` IDs + `memory_entities` (mig v22), relation ID dual-write, hop ID joins (`typed_exact` vs context), dual-path freeze **wiring** (`--eval-lane`). OpMem/marketing non-reg required. LoCoMo n=1540 **not re-run**. Not SOTA. [freeze](./locomo-dual-path-freeze.md).
 20. **2026-08-19 merge + plan:** PR #130 merge-committed onto `dev` (`fb3e166`); `dev` fast-forwarded onto **`main`** with explicit approval (2026-08-19). Execution now follows [sota-execution-plan.md](./sota-execution-plan.md): S0 stratified dual-lane baseline on this SHA first; full n=1540 only at S6 with a Mem0 Platform same-pin.
 21. **2026-08-19 S0–S5 product increments:** Stratified dual-lane harness (`run_s0`, `--stratified`); compiler coverage audit (`scripts/compiler-audit.sh`, ≥85% held-out gate); entity-id enumerate; OD yes/no from compiled facts; alias lifecycle; hop-plan coverage; KU entity-scoped supersede; cross-session atoms; industry atoms-first + token reporting. **Not a LoCoMo remasure.** S0 ledger / S6 freeze still required before any competitive language.
+22. **2026-08-19 S6 freeze wiring:** `python -m public.locomo.run_s6` (3×90 both lanes by default; `--full --lme20 --mem0` for the one-shot remasure). Gates on an S0 summary unless `--skip-s0-gate`. No published % until those runs finish.
 
 ## Hardening cycle — closed
 
