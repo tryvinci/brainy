@@ -651,3 +651,36 @@ SOTA-class conversational memory needs compiled facts bound to the right person,
 ### Next
 
 **One step:** freeze remasure when requested. Kill list unchanged.
+
+---
+
+## 2026-08-19 — S0–S5 execution increments
+
+### Landed
+
+Product + harness on this branch (not a remasure):
+
+- **S0** stratified dual-lane runner (`evals/public/locomo/run_s0.py`, `--stratified` / `--seed`) and stage-oracle histogram.
+- **S1** semantic-coverage audit (`scripts/compiler-audit.sh`, ≥85% held-out compiled-rate gate); provider ADD / report-about-B / assistant-durable rules; dated facts stamp `event_start` / `valid_from`; `temporal_score` prefers dated semantic records over dated episodes.
+- **S2** enumerate scoped by `entity_id`; OD yes/no synthesized only from overlapping compiled facts (absence is not no); abstain after context-supported structured check.
+- **S3** hop-plan coverage for possessive / named-person + predicate MH; in-dialogue alias lifecycle; **accepted miss** for general `image_urls` captions (deictic-book OCR stays).
+- **S4** KU auto-supersede is entity-scoped; cross-session compiled atoms admitted for multi-session continuity.
+- **S5** industry answerer consumes harvested atoms first; prompt/completion tokens recorded when the host returns usage.
+
+### Own pins
+
+- Prior LoCoMo/LME pins stand (pre-stack SHA `1b5ab3e`): 1×30 **21/30** (OD **0/4**), full `/recall` **11.4%**, LME-20 **4/20**. This SHA has **no new published LoCoMo %**.
+- S0 ledger and S6 n=1540 are still required before any competitive language.
+- OpMem / marketing remain merge gates (run `go test ./...` on this SHA).
+
+### Competitor compare
+
+No new same-pin vs Mem0. Do not mix 11.4% with Mem0 92.5%. Industry 49.8% is a July old-stack band, not a current-SHA score.
+
+### Why
+
+S0–S5 attack WRITE_MISS, answer residue, hop-plan coverage, KU/multi-session, and industry atom use without fishing LoCoMo surface forms.
+
+### Next
+
+Run S0 (`python -m public.locomo.run_s0 --stratified 180`). Re-order any leftover work from that histogram. S6 freeze (3×90 → n=1540 both lanes + LME-20 + Mem0 Platform same-pin) is one-shot. Kill list unchanged.

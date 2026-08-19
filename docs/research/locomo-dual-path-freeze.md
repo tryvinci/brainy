@@ -1,6 +1,6 @@
 # LoCoMo dual-path freeze (R10 wiring)
 
-**Status:** harness labels landed. **Not a remasure.** Do not run n=1540 until a freeze is explicitly requested.  
+**Status:** S0/S6 harness ready (`--stratified`, `run_s0`). **Not a remasure** until a ledger exists on this SHA. Full n=1540 stays once-per-freeze.  
 **Does not claim:** SOTA, beats-Mem0, 70–80% on full LoCoMo, or 1×30 70% as n=1540.
 
 ## Two lanes (never mix)
@@ -27,17 +27,24 @@ Current pins stay labeled as they were measured:
 7. 1×30 is diagnostic only. Full MH 7.4% is the MH pin until a new full run.
 8. No LoCoMo-named product rules. No episode top-k stuffing to restore OD/SH.
 
-## Commands (do not run here)
+## Commands
 
 ```text
-# Product lane
-BRAINY_USE_RECALL=1 python -m public.locomo.run_smoke \
-  --eval-lane product-recall --conversations 1 --questions 30
+# S0 dual-lane stratified baseline (150–200 scored items)
+python -m public.locomo.run_s0 --stratified 180 --seed 1 --conversations 10
 
-# Industry lane (Mem0-style depth)
+# Single-lane smoke
 python -m public.locomo.run_smoke \
-  --eval-lane industry-search --conversations 1 --questions 30
-# top-k defaults to 200 on this lane
+  --eval-lane product-recall --stratified 180 --seed 1 --conversations 10
+python -m public.locomo.run_smoke \
+  --eval-lane industry-search --stratified 180 --seed 1 --conversations 10
+
+# S6 qualification (only at freeze)
+python -m public.locomo.run_full --eval-lane product-recall --conversations 10 --questions 90 --seeds 3
 ```
 
-Full n=1540 and LME-20 quality wait on an explicit freeze. LME-500 / BEAM 1M are not quality claims.
+Compiler coverage one-command: `scripts/compiler-audit.sh`.
+
+**S3c accepted miss:** general `image_urls` caption ingest is out of scope. Deictic-book OCR (`[visible text:]`) stays. Image-gold MH items are an accepted miss class until a later caption decision.
+
+Full n=1540 and LME-20 quality wait on an explicit freeze after S0 ledger + 3×90. LME-500 / BEAM 1M are not quality claims.
