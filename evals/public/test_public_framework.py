@@ -476,5 +476,51 @@ class StageOracleTests(unittest.TestCase):
         )
 
 
+class StratifiedLocomoTests(unittest.TestCase):
+    def test_stratified_questions_proportional(self) -> None:
+        from public.locomo.dataset import stratified_questions
+        from public.locomo.ledger_summary import summarize_ledger
+        import tempfile
+
+        pool = []
+        for i in range(84):
+            pool.append({"id": f"sh{i}", "group": "single-hop", "sample_id": "c0", "conv_idx": 0})
+        for i in range(28):
+            pool.append({"id": f"mh{i}", "group": "multi-hop", "sample_id": "c0", "conv_idx": 0})
+        for i in range(32):
+            pool.append({"id": f"t{i}", "group": "temporal", "sample_id": "c1", "conv_idx": 1})
+        for i in range(10):
+            pool.append({"id": f"od{i}", "group": "open-domain", "sample_id": "c1", "conv_idx": 1})
+        sample = stratified_questions(pool, 20, seed=1)
+        self.assertEqual(len(sample), 20)
+        again = stratified_questions(pool, 20, seed=1)
+        self.assertEqual([r["id"] for r in sample], [r["id"] for r in again])
+        groups = {r["group"] for r in sample}
+        self.assertTrue({"single-hop", "multi-hop"} <= groups)
+
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=True) as handle:
+            handle.write('{"primary":"WRITE_MISS","flags":{"group":"single-hop"}}\n')
+            handle.write('{"primary":"WRITE_MISS","flags":{"group":"multi-hop"}}\n')
+            handle.write('{"primary":"READER_MISS","flags":{"group":"temporal"}}\n')
+            handle.flush()
+            hist = summarize_ledger(handle.name)
+        self.assertEqual(hist["total"], 3)
+        self.assertEqual(hist["by_primary"]["WRITE_MISS"], 2)
+
+
+class IndustryHarvestTests(unittest.TestCase):
+    def test_atoms_first_harvest(self) -> None:
+        from public.judge import _harvest_structured_items
+
+        memories = [
+            {"content": "Dana participates in hiking"},
+            {"content": "Dana enjoys ceramics"},
+            {"content": "Dana works as a nurse"},
+        ]
+        got = _harvest_structured_items("What activities does Dana enjoy?", memories)
+        self.assertIn("hiking", got)
+        self.assertIn("ceramics", got)
+
+
 if __name__ == "__main__":
     unittest.main()

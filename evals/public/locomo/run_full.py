@@ -28,6 +28,8 @@ def main() -> int:
     parser.add_argument("--base-url", default="")
     parser.add_argument("--conversations", type=int, default=10)
     parser.add_argument("--questions", type=int, default=0, help="0 = all questions in selected convs")
+    parser.add_argument("--stratified", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--top-k", type=int, default=None)
     parser.add_argument(
         "--eval-lane",
@@ -70,8 +72,11 @@ def main() -> int:
             base_url=args.base_url,
             conversations=args.conversations,
             questions=args.questions if args.questions > 0 else None,
+            stratified=getattr(args, "stratified", 0),
+            seed=getattr(args, "seed", 1),
             top_k=args.top_k,
             eval_lane=getattr(args, "eval_lane", ""),
+            failure_ledger=str(pathlib.Path(args.out_dir) / "failure-ledger" / f"{run_id}.jsonl"),
             answerer_model=args.answerer_model,
             judge_model=args.judge_model,
             llm_base_url=args.llm_base_url,

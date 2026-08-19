@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import json
 import pathlib
+import random
 import urllib.request
+from collections import defaultdict
 
 from ..proveability import sha256_file
+from ..schema import CATEGORIES_TO_SCORE, CATEGORY_NAMES
 
 LOCOMO_DATASET_URL = (
     "https://raw.githubusercontent.com/snap-research/locomo/main/data/locomo10.json"
@@ -127,3 +130,60 @@ def iter_questions(conversation: dict) -> list[dict]:
             }
         )
     return out
+
+
+def category_group(cat_id) -> str:
+    try:
+        cat_id_int = int(cat_id) if cat_id is not None else 0
+    except (TypeError, ValueError):
+        cat_id_int = 0
+    return CATEGORY_NAMES.get(cat_id_int, f"cat-{cat_id}")
+
+
+def scored_question_pool(conversations: list[dict]) -> list[dict]:
+    """Flatten scored LoCoMo items (categories 1–4) with conversation identity."""
+    pool: list[dict] = []
+    for conv_idx, conversation in enumerate(conversations):
+        sample_id = str(conversation.get("sample_id") or f"c{conv_idx}")
+        for qa in iter_questions(conversation):
+            try:
+                cat_id = int(qa.get("category")) if qa.get("category") is not None else 0
+            except (TypeError, ValueError):
+                cat_id = 0
+            if cat_id not in CATEGORIES_TO_SCORE:
+                continue
+            row = dict(qa)
+            row["sample_id"] = sample_id
+            row["conv_idx"] = conv_idx
+            row["group"] = category_group(cat_id)
+            pool.append(row)
+    return pool
+
+
+def stratified_questions(pool: list[dict], n: int, seed: int = 1) -> list[dict]:
+    """Proportional SH/MH/temporal/OD sample. Stable under the same seed."""
+    if n <= 0 or n >= len(pool):
+        return list(pool)
+    by_group: dict[str, list[dict]] = defaultdict(list)
+    for q in pool:
+        by_group[str(q.get("group") or "unknown")].append(q)
+    rng = random.Random(seed)
+    for rows in by_group.values():
+        rng.shuffle(rows)
+    total = len(pool)
+    allot: dict[str, int] = {}
+    remaining = n
+    groups = sorted(by_group.keys())
+    for i, g in enumerate(groups):
+        if i == len(groups) - 1:
+            allot[g] = remaining
+        else:
+            k = max(1, round(n * len(by_group[g]) / total))
+            k = min(k, len(by_group[g]), remaining - (len(groups) - i - 1))
+            allot[g] = k
+            remaining -= k
+    out: list[dict] = []
+    for g in groups:
+        out.extend(by_group[g][: allot[g]])
+    rng.shuffle(out)
+    return out[:n]

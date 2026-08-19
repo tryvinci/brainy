@@ -88,7 +88,8 @@ def chat_completion(
     *,
     temperature: float = 0.0,
     force_json: bool = False,
-) -> str:
+    return_usage: bool = False,
+) -> str | tuple[str, int | None, int | None]:
     url = f"{config.base_url}/chat/completions"
     payload: dict = {
         "model": config.model,
@@ -113,7 +114,21 @@ def chat_completion(
     if content is None or str(content).strip() == "" or str(content).strip().lower() == "none":
         # Last-resort: some gateways put usable text only in reasoning fields.
         content = message.get("reasoning_content") or message.get("reasoning") or ""
-    return str(content).strip()
+    text = str(content).strip()
+    if not return_usage:
+        return text
+    usage = body.get("usage") or {}
+    prompt_tokens = usage.get("prompt_tokens")
+    completion_tokens = usage.get("completion_tokens")
+    try:
+        prompt_tokens = int(prompt_tokens) if prompt_tokens is not None else None
+    except (TypeError, ValueError):
+        prompt_tokens = None
+    try:
+        completion_tokens = int(completion_tokens) if completion_tokens is not None else None
+    except (TypeError, ValueError):
+        completion_tokens = None
+    return text, prompt_tokens, completion_tokens
 
 
 def _post(

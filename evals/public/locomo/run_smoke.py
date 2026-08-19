@@ -46,6 +46,8 @@ from public.locomo.dataset import (  # noqa: E402
     iter_questions,
     iter_sessions,
     load_conversations,
+    scored_question_pool,
+    stratified_questions,
 )
 from public.proveability import (  # noqa: E402
     RunManifest,
@@ -227,11 +229,32 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         print("LLM unset — lexical judge + retrieval-concat (not publishable J-score)", flush=True)
 
     items: list[EvalItem] = []
+    selected_ids: set[tuple[str, str]] | None = None
+    stratified_n = int(getattr(args, "stratified", 0) or 0)
+    if stratified_n > 0:
+        pool = scored_question_pool(conversations)
+        sample = stratified_questions(pool, stratified_n, int(getattr(args, "seed", 1) or 1))
+        selected_ids = {(row["sample_id"], row["id"]) for row in sample}
+        keep_idx = {int(row["conv_idx"]) for row in sample}
+        conversations = [conversations[i] for i in sorted(keep_idx)]
+        print(
+            f"stratified n={len(sample)} seed={getattr(args, 'seed', 1)} "
+            f"convs={len(conversations)} groups="
+            + ",".join(
+                f"{g}={sum(1 for r in sample if r.get('group') == g)}"
+                for g in sorted({str(r.get('group')) for r in sample})
+            ),
+            flush=True,
+        )
+
     # When evaluating multiple conversations, distribute the question budget
     # across them. Otherwise a large --questions value is exhausted by conv[0]
     # and later conversations never run (breaks L4-style multi-convo runs).
     n_conv = max(1, len(conversations))
-    if args.questions is None or args.questions <= 0:
+    if selected_ids is not None:
+        per_conv_budget = None
+        global_budget = None
+    elif args.questions is None or args.questions <= 0:
         per_conv_budget = None
         global_budget = None
     elif n_conv > 1:
@@ -252,6 +275,8 @@ def run(args: argparse.Namespace) -> UnifiedResult:
         questions = iter_questions(conversation)
         used_this_conv = 0
         for qa in questions:
+            if selected_ids is not None and (sample_id, qa["id"]) not in selected_ids:
+                continue
             if global_budget is not None and len(items) >= global_budget:
                 break
             if per_conv_budget is not None and used_this_conv >= per_conv_budget:
@@ -267,6 +292,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
             tenant_for_recall = ""
             if system == "brainy" and hasattr(backend, "_tenant"):
                 tenant_for_recall = backend._tenant(user_id)
+            usage: dict = {}
             answer, gen_model = answer_from_memories(
                 qa["question"],
                 results,
@@ -275,6 +301,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 tenant_id=tenant_for_recall,
                 subject_id=user_id,
                 require_product_recall=(system == "brainy" and eval_lane == "product-recall"),
+                usage=usage,
             )
             if use_llm and judge_cfg is not None:
                 judged = llm_judge(answer, qa["answer"], qa["question"], judge_cfg)
@@ -293,7 +320,12 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                         search_latency_ms=latency_ms,
                         total_results=len(results),
                     ),
-                    generation=GenerationData(generated_answer=answer, model=gen_model),
+                    generation=GenerationData(
+                        generated_answer=answer,
+                        model=gen_model,
+                        prompt_tokens=usage.get("prompt_tokens"),
+                        completion_tokens=usage.get("completion_tokens"),
+                    ),
                     judgment=JudgmentData(
                         judgment=judged.judgment,
                         score=judged.score,
@@ -304,6 +336,11 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                         "category_id": cat_id_int,
                         "sample_id": sample_id,
                         "evidence": qa.get("evidence") or [],
+                        "eval_lane": eval_lane,
+                        "hop_plan_count": usage.get("hop_plan_count"),
+                        "retrieved_chars": sum(len(str(r.get("content") or "")) for r in results),
+                        "prompt_tokens": usage.get("prompt_tokens"),
+                        "completion_tokens": usage.get("completion_tokens"),
                     },
                 )
             )
@@ -394,6 +431,8 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 "locomo_paper": LOCOMO_PAPER,
                 "eval_lane": eval_lane,
                 "answer_path": answer_path,
+                "stratified": int(getattr(args, "stratified", 0) or 0),
+                "seed": int(getattr(args, "seed", 1) or 1),
             },
         ),
         metrics=metrics,
@@ -510,6 +549,13 @@ def main() -> None:
     )
     parser.add_argument("--conversations", type=int, default=1)
     parser.add_argument("--questions", type=int, default=30, help="Max questions across all convos")
+    parser.add_argument(
+        "--stratified",
+        type=int,
+        default=0,
+        help="S0: sample N scored items proportional SH/MH/temporal/OD (0=off)",
+    )
+    parser.add_argument("--seed", type=int, default=1, help="Stratified sample seed")
     parser.add_argument(
         "--eval-lane",
         choices=("product-recall", "industry-search"),

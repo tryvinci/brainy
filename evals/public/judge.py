@@ -154,6 +154,7 @@ def answer_from_memories(
     tenant_id: str = "",
     subject_id: str = "",
     require_product_recall: bool = False,
+    usage: dict | None = None,
 ) -> tuple[str, str]:
     """Generate an answer from retrieved memories.
 
@@ -163,7 +164,9 @@ def answer_from_memories(
     (R10 product lane; fail-closed if require_product_recall). The industry lane is
     search → shared answerer → shared judge and must stay labeled separately.
     """
-    product = _product_recall_answer(question, tenant_id=tenant_id, subject_id=subject_id)
+    product = _product_recall_answer(
+        question, tenant_id=tenant_id, subject_id=subject_id, usage=usage
+    )
     if product is not None:
         return product
     if require_product_recall:
@@ -176,11 +179,19 @@ def answer_from_memories(
     cfg = config or resolve_config(model=model)
     if cfg is not None:
         cfg = _with_model(cfg, model) if model else cfg
-        answer = _llm_answer(question, memories, cfg, extractive=False)
-        # List-shaped / multi-evidence: run extractive and union distinct items so
-        # generative single-hit answers are completed from other memories.
+        harvested = _harvest_structured_items(question, memories)
+        # S5a: consume retrieved atoms first on list/attribute questions.
+        if harvested and (_looks_list_question(question) or _looks_multi_evidence(question)):
+            answer = harvested
+            extractive = _llm_answer(question, memories, cfg, extractive=True, usage=usage)
+            if not _is_empty_answer(extractive):
+                merged = _merge_answer_items(answer, extractive)
+                if _item_count(merged) > _item_count(answer):
+                    answer = merged
+            return answer, cfg.label + "+atoms-first"
+        answer = _llm_answer(question, memories, cfg, extractive=False, usage=usage)
         if _is_empty_answer(answer) or _looks_list_question(question) or _looks_multi_evidence(question):
-            extractive = _llm_answer(question, memories, cfg, extractive=True)
+            extractive = _llm_answer(question, memories, cfg, extractive=True, usage=usage)
             if not _is_empty_answer(extractive):
                 if _is_empty_answer(answer):
                     answer = extractive
@@ -190,9 +201,6 @@ def answer_from_memories(
                         answer = merged
                     elif _item_count(extractive) > _item_count(answer):
                         answer = extractive
-            # Harvest structured atom phrases already in retrieved memories
-            # (participates in X, kids like Y, read "Title", …).
-            harvested = _harvest_structured_items(question, memories)
             if harvested:
                 merged = _merge_answer_items(answer, harvested)
                 if _item_count(merged) > _item_count(answer) or _is_empty_answer(answer):
@@ -204,6 +212,8 @@ def answer_from_memories(
             if joined:
                 return joined, cfg.label + "+retrieval-concat"
         return answer, cfg.label
+    if harvested := _harvest_structured_items(question, memories):
+        return harvested, "atoms-first-v0"
     return _statement_join(memories) or "", "retrieval-concat-v0"
 
 
@@ -212,6 +222,7 @@ def _product_recall_answer(
     *,
     tenant_id: str = "",
     subject_id: str = "",
+    usage: dict | None = None,
 ) -> tuple[str, str] | None:
     import os
 
@@ -232,6 +243,10 @@ def _product_recall_answer(
             {"tenant_id": tenant, "subject_id": subject, "q": question, "mode": mode, "top_k": 30},
             timeout=120,
         )
+        if usage is not None:
+            plan = (body.get("explain") or {}).get("query_plan") or {}
+            hops = plan.get("hops") or []
+            usage["hop_plan_count"] = len(hops)
         if body.get("abstained"):
             return "not in memory", "brainy-recall+abstain"
         if mode == "enumerate" and body.get("items"):
@@ -318,6 +333,10 @@ _HARVEST_PATTERNS = (
     re.compile(r"\bmoved from ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
     re.compile(r"\bis from ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
     re.compile(r"\bis a ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\bworks as ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\blives in ([A-Za-z][A-Za-z\s-]{1,40})\b", re.I),
+    re.compile(r"\bresearched ([a-z][a-z\s-]{2,40})\b", re.I),
+    re.compile(r"\brealized that ([a-z][a-z\s-]{2,60})\b", re.I),
 )
 
 
@@ -387,6 +406,7 @@ def _llm_answer(
     config: LLMConfig,
     *,
     extractive: bool = False,
+    usage: dict | None = None,
 ) -> str:
     lines = []
     for m in memories[:40]:
@@ -429,7 +449,7 @@ def _llm_answer(
             "quote the best supporting memory instead. "
             "If memories truly lack the answer, say you do not know."
         )
-    return chat_completion(
+    content, prompt_tokens, completion_tokens = chat_completion(
         [
             {"role": "system", "content": system},
             {"role": "user", "content": f"Memories:\n{context}\n\nQuestion: {question}"},
@@ -437,4 +457,11 @@ def _llm_answer(
         config,
         temperature=0.0,
         force_json=False,
+        return_usage=True,
     )
+    if usage is not None:
+        usage["prompt_tokens"] = int(usage.get("prompt_tokens") or 0) + int(prompt_tokens or 0)
+        usage["completion_tokens"] = int(usage.get("completion_tokens") or 0) + int(
+            completion_tokens or 0
+        )
+    return content
