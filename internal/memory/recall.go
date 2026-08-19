@@ -10,6 +10,10 @@ import (
 	"unicode/utf8"
 )
 
+// representationBlobBudget is the oracle/fact dump cap. 80k left only ~15%
+// headroom at observed LoCoMo volume; LME-scale subjects overflow.
+const representationBlobBudget = 400000
+
 // RecallRequest is the product synthesis surface (master-plan W4 / program §14).
 type RecallRequest struct {
 	TenantID          string `json:"tenant_id"`
@@ -909,8 +913,8 @@ func (s *Service) collectRepresentationOracle(ctx context.Context, req RecallReq
 		out.factCount++
 		facts = append(facts, rec.Content)
 	}
-	out.factBlob = joinBounded(facts, 80000)
-	out.episodeBlob = joinBounded(episodes, 80000)
+	out.factBlob = joinBounded(facts, representationBlobBudget)
+	out.episodeBlob = joinBounded(episodes, representationBlobBudget)
 	return out, nil
 }
 
@@ -1346,7 +1350,7 @@ func joinSearchFacts(results []SearchResult) string {
 		}
 		parts = append(parts, c)
 	}
-	return joinBounded(parts, 80000)
+	return joinBounded(parts, representationBlobBudget)
 }
 
 func formatEnumerateContext(items []RecallItem) string {

@@ -43,6 +43,67 @@ def gold_in_texts(gold: Any, texts: list[str] | tuple[str, ...] | str | None) ->
     return any(needle in (t or "").lower() for t in texts)
 
 
+_GOLD_STOP = {
+    "the",
+    "a",
+    "an",
+    "of",
+    "in",
+    "on",
+    "for",
+    "to",
+    "and",
+    "or",
+    "is",
+    "was",
+    "be",
+    "as",
+    "it",
+    "she",
+    "he",
+    "they",
+    "her",
+    "his",
+    "their",
+    "from",
+    "with",
+    "that",
+    "this",
+    "likely",
+    "does",
+    "not",
+    "no",
+    "yes",
+}
+
+
+def gold_tokens(gold: Any) -> list[str]:
+    import re
+
+    raw = _gold_text(gold).lower()
+    toks = re.findall(r"[a-z0-9]+", raw)
+    content = [t for t in toks if t not in _GOLD_STOP and len(t) > 1]
+    return content or toks
+
+
+def gold_semantically_in_texts(gold: Any, texts: list[str] | tuple[str, ...] | str | None) -> bool:
+    """Non-substring gold check: significant gold tokens must appear in the blob."""
+    if gold_in_texts(gold, texts):
+        return True
+    tokens = gold_tokens(gold)
+    if not tokens or texts is None:
+        return False
+    if isinstance(texts, str):
+        blob = texts.lower()
+    else:
+        blob = " ".join(t or "" for t in texts).lower()
+    hits = sum(1 for t in tokens if t in blob)
+    if len(tokens) <= 2:
+        return hits == len(tokens)
+    return hits * 4 >= len(tokens) * 3
+
+
+
 def classify_failure(
     *,
     source_present: bool,

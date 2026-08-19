@@ -10,9 +10,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    from oracle import FAILURE_LABELS, classify_failure, gold_in_texts, recall_body
+    from oracle import FAILURE_LABELS, classify_failure, gold_in_texts, gold_semantically_in_texts, recall_body
 except ImportError:  # package import (python -m public...)
-    from public.oracle import FAILURE_LABELS, classify_failure, gold_in_texts, recall_body
+    from public.oracle import FAILURE_LABELS, classify_failure, gold_in_texts, gold_semantically_in_texts, recall_body
 
 
 def write_failure_record(
@@ -125,13 +125,14 @@ def label_from_oracle_response(
         fact_blob = str(explain.get("oracle_fact_blob") or "")
         episode_blob = str(explain.get("oracle_episode_blob") or "")
         if gold:
-            if gold_in_texts(gold, fact_blob):
+            if gold_in_texts(gold, fact_blob) or gold_semantically_in_texts(gold, fact_blob):
                 return ""
             if gold_in_texts(gold, episode_blob) or (facts == 0 and atoms == 0):
                 return "WRITE_MISS"
             if facts > 0 or atoms > 0:
-                # Compiler stored something else; required claim is missing.
-                return "WRITE_MISS"
+                # Compiled facts exist; lexical gold miss is not yet a write
+                # miss — retrieval may still surface a paraphrase.
+                return ""
             return "WRITE_MISS"
         if facts > 0 or atoms > 0:
             return ""
@@ -147,7 +148,7 @@ def label_from_oracle_response(
         texts = list(pkt.get("contents") or [])
         if not texts and resp.get("context_block"):
             texts = [str(resp.get("context_block"))]
-        if gold and texts and not gold_in_texts(gold, texts):
+        if gold and texts and not gold_in_texts(gold, texts) and not gold_semantically_in_texts(gold, texts):
             return "RETRIEVAL_MISS"
         if query and texts and _query_token_overlap(query, texts) < 0.2:
             return "RETRIEVAL_MISS"
@@ -165,7 +166,7 @@ def label_from_oracle_response(
         texts = list(pkt.get("contents") or [])
         if resp.get("answer"):
             texts.append(str(resp.get("answer")))
-        if gold and texts and not gold_in_texts(gold, texts) and not cov.get("satisfied"):
+        if gold and texts and not gold_in_texts(gold, texts) and not gold_semantically_in_texts(gold, texts) and not cov.get("satisfied"):
             return "PROOF_MISS"
         if query and texts and _query_token_overlap(query, texts) < 0.15:
             return "PROOF_MISS"
@@ -189,19 +190,27 @@ def probe_failure_stages(
     gold: Any = "",
 ) -> tuple[str, dict[str, Any]]:
     """
-    Run evidence → representation → retrieval → coverage probes and return
+    Run evidence → retrieval → representation → coverage probes and return
     (primary_label, flags). Empty primary means no diagnosed miss.
+
+    Retrieval is assessed before representation is blamed: a lexical gold miss
+    in the fact dump is not WRITE_MISS when the claim was retrieved, and a
+    store hit that never entered the packet is RETRIEVAL_MISS.
 
     READER_MISS only if structured facts that contain gold (when provided)
     reached the packet and synthesis still failed.
     """
     flags: dict[str, Any] = {"answer_ok": answer_ok, "gold": gold or ""}
-    order = ("evidence", "representation", "retrieval", "coverage")
+    order = ("evidence", "retrieval", "representation", "coverage")
+    pending_retrieval = ""
     for mode in order:
         body = oracle_recall_request(tenant_id, subject_id, query, mode)
         resp = post_recall(base_url, body, api_key=api_key)
         label = label_from_oracle_response(mode, resp, query=query, gold=gold)
         explain = _explain(resp)
+        gold_facts = gold_in_texts(gold, str(explain.get("oracle_fact_blob") or ""))
+        gold_facts_sem = gold_semantically_in_texts(gold, str(explain.get("oracle_fact_blob") or ""))
+        gold_eps = gold_in_texts(gold, str(explain.get("oracle_episode_blob") or ""))
         flags[f"oracle_{mode}"] = {
             "label": label,
             "answer_status": resp.get("answer_status"),
@@ -221,17 +230,25 @@ def probe_failure_stages(
             },
         }
         if gold:
-            flags[f"oracle_{mode}"]["gold_in_facts"] = gold_in_texts(
-                gold, str(explain.get("oracle_fact_blob") or "")
-            )
-            flags[f"oracle_{mode}"]["gold_in_episodes"] = gold_in_texts(
-                gold, str(explain.get("oracle_episode_blob") or "")
-            )
+            flags[f"oracle_{mode}"]["gold_in_facts"] = gold_facts
+            flags[f"oracle_{mode}"]["gold_in_facts_semantic"] = gold_facts_sem
+            flags[f"oracle_{mode}"]["gold_in_episodes"] = gold_eps
+        if mode == "retrieval" and label == "RETRIEVAL_MISS":
+            # Hold retrieval miss until we know whether the claim was written.
+            pending_retrieval = "RETRIEVAL_MISS"
+            continue
         if label:
             return label, flags
+    if pending_retrieval:
+        rep = flags.get("oracle_representation") or {}
+        if gold and (rep.get("gold_in_facts") or rep.get("gold_in_facts_semantic")):
+            return "RETRIEVAL_MISS", flags
+        if gold:
+            return "WRITE_MISS", flags
+        return "RETRIEVAL_MISS", flags
     if not answer_ok:
         rep = flags.get("oracle_representation") or {}
-        gold_in_facts = bool(rep.get("gold_in_facts"))
+        gold_in_facts = bool(rep.get("gold_in_facts") or rep.get("gold_in_facts_semantic"))
         if gold and not gold_in_facts:
             return "WRITE_MISS", flags
         fact_n = int((rep.get("explain") or {}).get("oracle_fact_count") or 0)
@@ -245,6 +262,7 @@ __all__ = [
     "FAILURE_LABELS",
     "classify_failure",
     "gold_in_texts",
+    "gold_semantically_in_texts",
     "write_failure_record",
     "oracle_recall_request",
     "label_from_oracle_response",
