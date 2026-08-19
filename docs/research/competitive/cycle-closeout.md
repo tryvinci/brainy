@@ -669,9 +669,10 @@ Product + harness on this branch (not a remasure):
 
 ### Own pins
 
-- Prior LoCoMo/LME pins stand (pre-stack SHA `1b5ab3e`): 1×30 **21/30** (OD **0/4**), full `/recall` **11.4%**, LME-20 **4/20**. This SHA has **no new published LoCoMo %**.
-- S0 ledger and S6 n=1540 are still required before any competitive language.
-- OpMem / marketing remain merge gates (run `go test ./...` on this SHA).
+- Prior full-suite pins stand (pre-stack SHA `1b5ab3e`): 1×30 **21/30** (OD **0/4**), full `/recall` **11.4%**, LME-20 **4/20**.
+- **S0 product `/recall` stratified n=180** (this SHA `df42f65`, seed=1): **17/180 = 9.4%** — SH **5/98**, MH **3/33**, temporal **9/38**, OD **0/11**. Ledger: WRITE_MISS **120**, RETRIEVAL_MISS **28**, PROOF_MISS **12**, READER_MISS **3**. MH hop-plan coverage **32/33**. [artifact](../../benchmarks/artifacts/locomo-s0-20260819-product-recall.md). **Not n=1540. Not a competitive lead/trail.**
+- S0 industry lane still running. S6 n=1540 still required before any competitive language.
+- OpMem / marketing remain merge gates (`go test ./...` green on this SHA).
 
 ### Competitor compare
 
@@ -683,4 +684,4 @@ S0–S5 attack WRITE_MISS, answer residue, hop-plan coverage, KU/multi-session, 
 
 ### Next
 
-Finish the in-flight S0 (`python -m public.locomo.run_s0 --stratified 180`) and write the measured histogram only. Then S6 (`python -m public.locomo.run_s6`, add `--full --lme20 --mem0` for the one-shot freeze). Kill list unchanged.
+Finish the in-flight S0 industry lane on the same 180 items. Histogram already says spend the next product increment on WRITE_MISS (S1), not hop-planner absence. Then S6 (`python -m public.locomo.run_s6`, add `--full --lme20 --mem0` for the one-shot freeze). Kill list unchanged.
