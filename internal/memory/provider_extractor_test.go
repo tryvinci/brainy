@@ -235,6 +235,19 @@ func TestParseProviderMemoriesPromotesPredicateKind(t *testing.T) {
 	}
 }
 
+func TestParseProviderMemoriesAcceptsNumericValue(t *testing.T) {
+	got, err := parseProviderMemories(`{"memories":[{"kind":"fact","content":"Melanie has 2 kids","source_text":"two kids","predicate":"metric","value":2,"confidence":0.9}]}`)
+	if err != nil {
+		t.Fatalf("numeric value should parse, got %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 memory, got %#v", got)
+	}
+	if got[0].Explain["value_norm"] != "2" {
+		t.Fatalf("expected value 2, got %#v", got[0].Explain)
+	}
+}
+
 func TestBuildMemoryRecordSetsObservedAt(t *testing.T) {
 	record, err := BuildMemoryRecord("mem_1", mustParseTime(t, "2026-07-19T00:00:00Z"), IngestRequest{
 		TenantID:   "t1",

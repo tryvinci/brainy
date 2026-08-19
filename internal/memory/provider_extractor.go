@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -377,18 +378,44 @@ type providerMemoryPayload struct {
 }
 
 type providerMemoryItem struct {
-	Event          string  `json:"event"`
-	TargetMemoryID string  `json:"target_memory_id"`
-	Kind           string  `json:"kind"`
-	Content        string  `json:"content"`
-	SourceText     string  `json:"source_text"`
-	Confidence     float64 `json:"confidence"`
-	Subject        string  `json:"subject"`
-	Predicate      string  `json:"predicate"`
-	Value          string  `json:"value"`
-	AssertionKind  string  `json:"assertion_kind"`
-	When           string  `json:"when"`
-	Duration       string  `json:"duration"`
+	Event          string     `json:"event"`
+	TargetMemoryID string     `json:"target_memory_id"`
+	Kind           string     `json:"kind"`
+	Content        string     `json:"content"`
+	SourceText     string     `json:"source_text"`
+	Confidence     float64    `json:"confidence"`
+	Subject        string     `json:"subject"`
+	Predicate      string     `json:"predicate"`
+	Value          flexString `json:"value"`
+	AssertionKind  string     `json:"assertion_kind"`
+	When           string     `json:"when"`
+	Duration       string     `json:"duration"`
+}
+
+// flexString accepts JSON strings or numbers (gpt-oss emits value: 4).
+type flexString string
+
+func (s *flexString) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 || string(b) == "null" {
+		*s = ""
+		return nil
+	}
+	var str string
+	if err := json.Unmarshal(b, &str); err == nil {
+		*s = flexString(str)
+		return nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(b, &n); err == nil {
+		*s = flexString(n.String())
+		return nil
+	}
+	var bo bool
+	if err := json.Unmarshal(b, &bo); err == nil {
+		*s = flexString(strconv.FormatBool(bo))
+		return nil
+	}
+	return fmt.Errorf("flexString: unsupported JSON %s", truncate(string(b), 40))
 }
 
 func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
@@ -451,7 +478,7 @@ func parseProviderMemories(raw string) ([]ExtractedMemory, error) {
 		}
 		if pred := normalizeProviderPredicate(item.Predicate); pred != "" {
 			explain["predicate"] = pred
-			val := strings.TrimSpace(item.Value)
+			val := strings.TrimSpace(string(item.Value))
 			if val == "" {
 				val = content
 			}
