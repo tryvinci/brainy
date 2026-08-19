@@ -493,6 +493,26 @@ ON memory_relations (tenant_id, subject_id, src_entity_id, relation)
 WHERE src_entity_id <> '';
 `,
 	},
+	{
+		version: 23,
+		name:    "embedding_provenance_and_runtime",
+		sql: `
+ALTER TABLE memory_embeddings
+ADD COLUMN IF NOT EXISTS embedding_provider TEXT NOT NULL DEFAULT '';
+ALTER TABLE memory_embeddings
+ADD COLUMN IF NOT EXISTS embedding_model TEXT NOT NULL DEFAULT '';
+ALTER TABLE memory_embeddings
+ADD COLUMN IF NOT EXISTS embedding_dimensions INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE memory_embeddings
+ADD COLUMN IF NOT EXISTS embedding_version TEXT NOT NULL DEFAULT '';
+
+CREATE TABLE IF NOT EXISTS provider_runtime (
+    role TEXT PRIMARY KEY,
+    payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL
+);
+`,
+	},
 }
 
 // EnsureContentFTSIndex builds the GIN index outside the migration txn.

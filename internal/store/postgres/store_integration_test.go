@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"brainy/internal/embedding"
 	"brainy/internal/memory"
 
 	embeddedpostgres "github.com/fergusstrange/embedded-postgres"
@@ -954,5 +955,101 @@ func TestDeleteCurrentStateByMemoryWithEmbeddedPostgres(t *testing.T) {
 	// Other subject's row survives.
 	if _, _, _, found, err := store.GetCurrentState(ctx, "t1", "u2", "occupation"); err != nil || !found {
 		t.Fatalf("expected other-subject projection to survive, found=%v err=%v", found, err)
+	}
+}
+
+func TestEmbeddingProvenanceAndNoBoundedFallback(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	port := randomPort(404)
+	root := t.TempDir()
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() { _ = postgres.Stop() }()
+
+	store, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.Close()
+	if err := store.ApplyMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	st, err := store.ANNStatus(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Active {
+		t.Fatal("embedded postgres has no pgvector; ANN must be inactive")
+	}
+	if err := store.RequireANN(ctx); err == nil {
+		t.Fatal("RequireANN must fail without pgvector")
+	}
+
+	now := time.Now().UTC()
+	if _, err := store.UpsertMemory(ctx, memory.MemoryRecord{
+		MemoryID:          "mem_e1",
+		TenantID:          "t1",
+		SubjectID:         "u1",
+		Kind:              memory.KindFact,
+		Content:           "Brand voice is warm",
+		SourceText:        "Brand voice is warm",
+		SourceType:        "note",
+		DedupeKey:         memory.DedupeKey("t1", "u1", memory.KindFact, "Brand voice is warm"),
+		Status:            memory.StatusActive,
+		Confidence:        0.9,
+		ExtractionVersion: "test",
+		CreatedAt:         now,
+		UpdatedAt:         now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	values := embedding.Embed("Brand voice is warm")
+	if err := store.WriteEmbedding(ctx, embedding.Record{
+		MemoryID:   "mem_e1",
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		Values:     values,
+		Provider:   "local-hash",
+		Model:      "local-hash-v1",
+		Version:    "local-hash-v1@128",
+		Dimensions: len(values),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	hits, err := store.SearchByEmbedding(ctx, "t1", "u1", values, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(hits) != 0 {
+		t.Fatalf("ANN-inactive SearchByEmbedding must not bounded-scan, got %d hits", len(hits))
+	}
+
+	payload, _, ok, err := store.GetProviderRuntime(ctx, "worker")
+	if err != nil || ok {
+		t.Fatalf("expected empty runtime row, ok=%v err=%v payload=%s", ok, err, payload)
+	}
+	if err := store.UpsertProviderRuntime(ctx, "worker", []byte(`{"embedder_signature":"local-hash|local-hash-v1|128"}`)); err != nil {
+		t.Fatal(err)
+	}
+	payload, _, ok, err = store.GetProviderRuntime(ctx, "worker")
+	if err != nil || !ok || string(payload) == "" {
+		t.Fatalf("expected runtime payload, ok=%v err=%v", ok, err)
 	}
 }

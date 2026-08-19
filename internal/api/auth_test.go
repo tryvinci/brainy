@@ -24,6 +24,17 @@ func TestAPIKeyMiddlewareRejectsMissingKey(t *testing.T) {
 	}
 }
 
+func TestAPIKeyMiddlewareAllowsRuntimeWithoutKey(t *testing.T) {
+	ring := auth.ParseKeyRing("demo:sk_demo")
+	handler := APIKeyMiddleware(ring, true)(NewRouter(memory.NewService(newMemoryStoreAdapter()), observability.NewMetrics()))
+	req := httptest.NewRequest(http.MethodGet, "/runtime", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("runtime should be public like healthz, status=%d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestAPIKeyMiddlewareAllowsMatchingTenant(t *testing.T) {
 	ring := auth.ParseKeyRing("demo:sk_demo")
 	handler := APIKeyMiddleware(ring, true)(NewRouter(memory.NewService(newMemoryStoreAdapter()), observability.NewMetrics()))

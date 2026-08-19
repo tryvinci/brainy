@@ -10,18 +10,34 @@ type embeddingWriter interface {
 	UpsertEmbedding(ctx context.Context, memoryID, tenantID, subjectID string, values []float32) error
 }
 
-type embeddingSearcher interface {
-	SearchByEmbedding(ctx context.Context, tenantID, subjectID string, query []float32, limit int) (map[string]float64, error)
+type embeddingMetaWriter interface {
+	WriteEmbedding(ctx context.Context, rec embedding.Record) error
 }
 
-func (s *Service) persistEmbedding(ctx context.Context, record MemoryRecord) {
-	if writer, ok := s.store.(embeddingWriter); ok {
-		values, err := s.embed(ctx, record.Content)
-		if err != nil || len(values) == 0 {
-			return
-		}
-		_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, values)
+func (s *Service) persistEmbedding(ctx context.Context, record MemoryRecord) error {
+	embedder := s.embedder
+	if embedder == nil {
+		embedder = embedding.Default()
 	}
+	values, err := embedder.Embed(ctx, record.Content)
+	if err != nil {
+		return err
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	rec := embedding.RecordFromEmbedder(embedder, record.MemoryID, record.TenantID, record.SubjectID, values)
+	if writer, ok := s.store.(embeddingMetaWriter); ok {
+		return writer.WriteEmbedding(ctx, rec)
+	}
+	if writer, ok := s.store.(embeddingWriter); ok {
+		return writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, values)
+	}
+	return nil
+}
+
+type embeddingSearcher interface {
+	SearchByEmbedding(ctx context.Context, tenantID, subjectID string, query []float32, limit int) (map[string]float64, error)
 }
 
 func (s *Service) embed(ctx context.Context, text string) ([]float32, error) {

@@ -27,6 +27,16 @@ func NewDeterministicExtractor() DeterministicExtractor {
 	return DeterministicExtractor{}
 }
 
+func (DeterministicExtractor) Identity() ExtractorIdentity {
+	return ExtractorIdentity{
+		Name:     "deterministic-v1",
+		Provider: "deterministic",
+		Model:    "deterministic-v1",
+	}
+}
+
+func (DeterministicExtractor) Stats() ExtractorStats { return ExtractorStats{} }
+
 // NewExtractor returns the deterministic extractor (CI / sync default).
 func NewExtractor() DeterministicExtractor {
 	return NewDeterministicExtractor()

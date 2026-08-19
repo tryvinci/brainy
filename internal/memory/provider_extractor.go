@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type ProviderConfig struct {
 	APIKey  string
 	Model   string
 	Timeout time.Duration
+	Strict  bool
 }
 
 func (c ProviderConfig) Configured() bool {
@@ -27,10 +29,32 @@ func (c ProviderConfig) Configured() bool {
 
 // ProviderExtractor calls an OpenAI-compatible /v1/chat/completions endpoint
 // and validates structured JSON memories. It never mutates raw ingest state.
+type ExtractorStats struct {
+	Calls     int64 `json:"calls"`
+	Failures  int64 `json:"failures"`
+	Fallbacks int64 `json:"fallbacks"`
+}
+
+type ExtractorIdentity struct {
+	Name     string `json:"name"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	Strict   bool   `json:"strict"`
+}
+
+func (i ExtractorIdentity) Signature() string {
+	return strings.TrimSpace(i.Provider) + "|" + strings.TrimSpace(i.Model)
+}
+
+// ProviderExtractor calls an OpenAI-compatible /v1/chat/completions endpoint
+// and validates structured JSON memories. It never mutates raw ingest state.
 type ProviderExtractor struct {
-	client   *http.Client
-	cfg      ProviderConfig
-	fallback DeterministicExtractor
+	client    *http.Client
+	cfg       ProviderConfig
+	fallback  DeterministicExtractor
+	calls     atomic.Int64
+	failures  atomic.Int64
+	fallbacks atomic.Int64
 }
 
 func NewProviderExtractor(cfg ProviderConfig, client *http.Client) *ProviderExtractor {
@@ -48,20 +72,62 @@ func NewProviderExtractor(cfg ProviderConfig, client *http.Client) *ProviderExtr
 	}
 }
 
+func (p *ProviderExtractor) WithStrict(strict bool) *ProviderExtractor {
+	p.cfg.Strict = strict
+	return p
+}
+
+func (p *ProviderExtractor) Identity() ExtractorIdentity {
+	if !p.cfg.Configured() {
+		return ExtractorIdentity{
+			Name:     "deterministic-v1",
+			Provider: "deterministic",
+			Model:    "deterministic-v1",
+			Strict:   p.cfg.Strict,
+		}
+	}
+	return ExtractorIdentity{
+		Name:     "provider-extract:" + p.cfg.Model,
+		Provider: "openai-compatible",
+		Model:    strings.TrimSpace(p.cfg.Model),
+		Strict:   p.cfg.Strict,
+	}
+}
+
+func (p *ProviderExtractor) Stats() ExtractorStats {
+	return ExtractorStats{
+		Calls:     p.calls.Load(),
+		Failures:  p.failures.Load(),
+		Fallbacks: p.fallbacks.Load(),
+	}
+}
+
 func (p *ProviderExtractor) Extract(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
+	p.calls.Add(1)
 	req.Messages = EnrichImageText(ctx, req.Messages)
 	// Deterministic baseline always runs first (ENG-92).
 	baseline, err := p.fallback.Extract(ctx, req)
 	if err != nil {
+		p.failures.Add(1)
 		return nil, err
 	}
 	if !p.cfg.Configured() {
+		if p.cfg.Strict {
+			p.failures.Add(1)
+			return nil, fmt.Errorf("extraction provider required in strict mode")
+		}
+		p.fallbacks.Add(1)
 		return baseline, nil
 	}
 
 	providerMemories, err := p.extractProvider(ctx, req)
 	if err != nil {
+		p.failures.Add(1)
+		if p.cfg.Strict {
+			return nil, err
+		}
 		if len(baseline) > 0 {
+			p.fallbacks.Add(1)
 			return baseline, nil
 		}
 		return nil, err
@@ -118,7 +184,7 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 		return nil, fmt.Errorf("provider extract decode: %w", err)
 	}
 	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
-		return nil, nil
+		return nil, fmt.Errorf("provider extract empty completion")
 	}
 
 	return parseProviderMemories(completion.Choices[0].Message.Content)

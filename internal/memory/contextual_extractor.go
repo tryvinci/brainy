@@ -20,6 +20,40 @@ func NewContextualExtractor(inner Extractor, store Store) *ContextualExtractor {
 	return &ContextualExtractor{inner: inner, store: store, limit: 12}
 }
 
+func (c *ContextualExtractor) Identity() ExtractorIdentity {
+	if ident, ok := c.inner.(interface{ Identity() ExtractorIdentity }); ok {
+		return ident.Identity()
+	}
+	return ExtractorIdentity{Name: "contextual", Provider: "contextual"}
+}
+
+func (c *ContextualExtractor) Stats() ExtractorStats {
+	if s, ok := c.inner.(interface{ Stats() ExtractorStats }); ok {
+		return s.Stats()
+	}
+	return ExtractorStats{}
+}
+
+func ExtractorIdentityOf(e Extractor) ExtractorIdentity {
+	if e == nil {
+		return ExtractorIdentity{Name: "none", Provider: "none"}
+	}
+	if ident, ok := e.(interface{ Identity() ExtractorIdentity }); ok {
+		return ident.Identity()
+	}
+	return ExtractorIdentity{Name: "unknown", Provider: "unknown"}
+}
+
+func ExtractorStatsOf(e Extractor) ExtractorStats {
+	if e == nil {
+		return ExtractorStats{}
+	}
+	if s, ok := e.(interface{ Stats() ExtractorStats }); ok {
+		return s.Stats()
+	}
+	return ExtractorStats{}
+}
+
 func (c *ContextualExtractor) Extract(ctx context.Context, req IngestRequest) ([]ExtractedMemory, error) {
 	enriched := req
 	if c.store != nil {

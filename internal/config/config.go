@@ -25,15 +25,21 @@ type Config struct {
 	APIKeys               string
 	RequireAPIKey         bool
 	// Provider extract (async worker). Empty BaseURL/Model => deterministic only.
-	ProviderBaseURL string
-	ProviderAPIKey  string
-	ProviderModel   string
-	ProviderTimeout time.Duration
+	ProviderBaseURL  string
+	ProviderAPIKey   string
+	ProviderModel    string
+	ProviderTimeout  time.Duration
+	ExtractionStrict bool
 	// Provider embeddings (OpenAI-compatible). Empty Model => local hash only.
-	EmbeddingBaseURL string
-	EmbeddingAPIKey  string
-	EmbeddingModel   string
-	EmbeddingTimeout time.Duration
+	EmbeddingBaseURL    string
+	EmbeddingAPIKey     string
+	EmbeddingModel      string
+	EmbeddingTimeout    time.Duration
+	EmbeddingDimensions int
+	EmbeddingStrict     bool
+	// RequireANN fails boot when a hosted 768-d embedder is configured but
+	// pgvector / embedding_vec_768 is missing. Disable with BRAINY_REQUIRE_ANN=false.
+	RequireANN bool
 	// EntityRanking enables experimental entity-graph retrieval reranking.
 	EntityRanking bool
 	// IDFRanking enables experimental IDF-weighted lexical coverage.
@@ -52,7 +58,7 @@ func Load() Config {
 	// Write deadline must exceed the provider ceiling so slow hybrid-reader
 	// recall is not cut off mid-answer; the env override still wins.
 	writeTimeout := getenvDuration("BRAINY_HTTP_WRITE_TIMEOUT", providerTimeout+60*time.Second)
-	return Config{
+	cfg := Config{
 		Environment:           env,
 		HTTPAddr:              getenv("BRAINY_HTTP_ADDR", ":8080"),
 		DatabaseURL:           getenv("BRAINY_DATABASE_URL", "postgres://brainy:brainy@localhost:5432/brainy?sslmode=disable"),
@@ -70,13 +76,18 @@ func Load() Config {
 		ProviderAPIKey:        providerKey,
 		ProviderModel:         getenv("BRAINY_PROVIDER_MODEL", os.Getenv("LLM_MODEL")),
 		ProviderTimeout:       providerTimeout,
+		ExtractionStrict:      getenvBool("BRAINY_EXTRACTION_STRICT", false),
 		EmbeddingBaseURL:      getenv("BRAINY_EMBEDDING_BASE_URL", providerBase),
 		EmbeddingAPIKey:       getenv("BRAINY_EMBEDDING_API_KEY", providerKey),
 		EmbeddingModel:        getenv("BRAINY_EMBEDDING_MODEL", os.Getenv("EMBEDDING_MODEL")),
 		EmbeddingTimeout:      getenvDuration("BRAINY_EMBEDDING_TIMEOUT", 30*time.Second),
+		EmbeddingDimensions:   getenvEmbeddingDimensions(),
+		EmbeddingStrict:       getenvBool("BRAINY_EMBEDDING_STRICT", false),
 		EntityRanking:         entityRankingDefault(),
 		IDFRanking:            getenv("BRAINY_IDF_RANKING", "") == "true",
 	}
+	cfg.RequireANN = requireANN(cfg.EmbeddingModel, cfg.EmbeddingDimensions)
+	return cfg
 }
 
 func getenvInt64(key string, fallback int64) int64 {
@@ -143,4 +154,40 @@ func getenvInt(key string, fallback int) int {
 		return 32
 	}
 	return n
+}
+
+func getenvBool(key string, fallback bool) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	default:
+		return fallback
+	}
+}
+
+func getenvEmbeddingDimensions() int {
+	value := strings.TrimSpace(os.Getenv("BRAINY_EMBEDDING_DIMENSIONS"))
+	if value == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
+}
+
+func requireANN(embeddingModel string, dims int) bool {
+	if strings.TrimSpace(os.Getenv("BRAINY_REQUIRE_ANN")) != "" {
+		return getenvBool("BRAINY_REQUIRE_ANN", false)
+	}
+	if strings.TrimSpace(embeddingModel) == "" {
+		return false
+	}
+	if dims > 0 && dims != 768 {
+		return false
+	}
+	return true
 }

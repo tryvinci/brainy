@@ -47,9 +47,20 @@ func main() {
 	// CONCURRENTLY on a large staging table OOMs the starter plan and Render
 	// SIGTERMs the loop (~60s). API may ensure the index in the background.
 
+	if err := config.RequireStrictProviders(cfg); err != nil {
+		logger.Error("strict provider precondition failed", "error", err)
+		os.Exit(1)
+	}
 	metrics := observability.NewMetrics()
+	if cfg.RequireANN {
+		if err := store.RequireANN(context.Background()); err != nil {
+			logger.Error("embedding ANN precondition failed", "error", err)
+			os.Exit(1)
+		}
+	}
 	extractor := buildWorkerExtractor(cfg, logger, store)
 	processor := jobs.NewProcessorWithExtractor(store, metrics, extractor).WithEmbedder(config.BuildEmbedder(cfg, logger))
+	processor.PersistRuntime(context.Background())
 	switch cfg.WorkerMode {
 	case "loop":
 		runLoop(processor, cfg.WorkerPollInterval, cfg.WorkerConcurrency, logger)
@@ -73,12 +84,13 @@ func buildWorkerExtractor(cfg config.Config, logger *slog.Logger, store *postgre
 		APIKey:  cfg.ProviderAPIKey,
 		Model:   cfg.ProviderModel,
 		Timeout: cfg.ProviderTimeout,
+		Strict:  cfg.ExtractionStrict,
 	}
 	if !providerCfg.Configured() {
 		logger.Info("worker using deterministic extractor")
 		return memory.NewContextualExtractor(memory.NewDeterministicExtractor(), store)
 	}
-	logger.Info("worker using provider extractor", "base_url", providerCfg.BaseURL, "model", providerCfg.Model)
+	logger.Info("worker using provider extractor", "base_url", providerCfg.BaseURL, "model", providerCfg.Model, "strict", providerCfg.Strict)
 	inner := memory.NewProviderExtractor(providerCfg, nil)
 	return memory.NewContextualExtractor(inner, store)
 }

@@ -326,6 +326,31 @@ func TestProviderExtractorEmptyCompletionFallsBackToBaseline(t *testing.T) {
 	}
 }
 
+func TestProviderExtractorStrictDoesNotBaselineSubstitute(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "boom", http.StatusGatewayTimeout)
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		Model:   "test-model",
+		Strict:  true,
+	}, server.Client())
+	_, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "I prefer concise answers."}},
+	})
+	if err == nil {
+		t.Fatal("expected strict provider error")
+	}
+	if extractor.Stats().Fallbacks != 0 {
+		t.Fatalf("strict must not fallback, got %+v", extractor.Stats())
+	}
+}
+
 func TestEnrichLastSaturdayAndYearsAgo(t *testing.T) {
 	// Session on Thursday 25 May 2023 → last Saturday = 20 May 2023
 	at := mustParseTime(t, "2023-05-25T12:00:00Z")

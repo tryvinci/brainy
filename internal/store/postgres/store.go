@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"brainy/internal/memory"
@@ -19,6 +20,7 @@ import (
 type Store struct {
 	pool     *pgxpool.Pool
 	jobLease time.Duration
+	annReady atomic.Int32 // 0 unknown, 1 ready, -1 unavailable
 }
 
 func New(ctx context.Context, databaseURL string) (*Store, error) {

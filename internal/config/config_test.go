@@ -24,6 +24,57 @@ func TestEntityRankingDefault(t *testing.T) {
 	os.Unsetenv("BRAINY_EMBEDDING_MODEL")
 }
 
+func TestStrictFlagsAndRequireANN(t *testing.T) {
+	t.Setenv("BRAINY_EXTRACTION_STRICT", "true")
+	t.Setenv("BRAINY_EMBEDDING_STRICT", "true")
+	t.Setenv("BRAINY_EMBEDDING_DIMENSIONS", "768")
+	t.Setenv("BRAINY_EMBEDDING_MODEL", "")
+	t.Setenv("EMBEDDING_MODEL", "")
+	t.Setenv("BRAINY_REQUIRE_ANN", "")
+	cfg := Load()
+	if !cfg.ExtractionStrict || !cfg.EmbeddingStrict {
+		t.Fatalf("expected strict flags, got extract=%v embed=%v", cfg.ExtractionStrict, cfg.EmbeddingStrict)
+	}
+	if cfg.EmbeddingDimensions != 768 {
+		t.Fatalf("expected dimensions 768, got %d", cfg.EmbeddingDimensions)
+	}
+	if cfg.RequireANN {
+		t.Fatal("hash/default embedder must not require ANN")
+	}
+	t.Setenv("BRAINY_EMBEDDING_MODEL", "hosted-bge-base")
+	cfg = Load()
+	if !cfg.RequireANN {
+		t.Fatal("hosted 768-d embedder must require ANN by default")
+	}
+	t.Setenv("BRAINY_REQUIRE_ANN", "false")
+	cfg = Load()
+	if cfg.RequireANN {
+		t.Fatal("BRAINY_REQUIRE_ANN=false must disable")
+	}
+}
+
+func TestRequireStrictProviders(t *testing.T) {
+	cfg := Config{EmbeddingStrict: true}
+	if err := RequireStrictProviders(cfg); err == nil {
+		t.Fatal("expected embedding strict to require a provider")
+	}
+	cfg = Config{ExtractionStrict: true}
+	if err := RequireStrictProviders(cfg); err == nil {
+		t.Fatal("expected extraction strict to require a provider")
+	}
+	cfg = Config{
+		EmbeddingStrict:  true,
+		EmbeddingBaseURL: "https://example.invalid/v1",
+		EmbeddingModel:   "text-embedding-3-large",
+		ExtractionStrict: true,
+		ProviderBaseURL:  "https://example.invalid/v1",
+		ProviderModel:    "gpt-4o-mini",
+	}
+	if err := RequireStrictProviders(cfg); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestHTTPHardeningDefaults(t *testing.T) {
 	os.Unsetenv("BRAINY_MAX_BODY_BYTES")
 	os.Unsetenv("BRAINY_HTTP_READ_HEADER_TIMEOUT")

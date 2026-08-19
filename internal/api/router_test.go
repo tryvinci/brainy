@@ -411,3 +411,23 @@ func TestRouterOversizedCorrectReturns413(t *testing.T) {
 		t.Fatalf("expected 413 for oversized correction body, got %d", recorder.Code)
 	}
 }
+
+func TestRouterRuntimeOmitsSecrets(t *testing.T) {
+	service := memory.NewService(newMemoryStoreAdapter())
+	router := NewRouter(service, observability.NewMetrics())
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/runtime", nil)
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	for _, needle := range []string{"sk-", "api_key", "Authorization", "Bearer "} {
+		if strings.Contains(body, needle) {
+			t.Fatalf("runtime leaked %q: %s", needle, body)
+		}
+	}
+	if !strings.Contains(body, `"embedder"`) {
+		t.Fatalf("expected embedder identity in runtime: %s", body)
+	}
+}

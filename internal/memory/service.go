@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -64,6 +65,74 @@ type Service struct {
 	// boost stack. Opt-in for staging experiments.
 	idfRankingEnabled bool
 	hybridReader      HybridReaderConfig
+}
+
+type runtimeParts interface {
+	RuntimeParts(ctx context.Context) (map[string]any, error)
+}
+
+func (s *Service) Runtime(ctx context.Context) map[string]any {
+	embedID := embedding.IdentityOf(s.embedder)
+	embedStats := embedding.StatsOf(s.embedder)
+	extractID := ExtractorIdentityOf(s.extractor)
+	extractStats := ExtractorStatsOf(s.extractor)
+	out := map[string]any{
+		"api": map[string]any{
+			"embedder":        embedID,
+			"embedder_stats":  embedStats,
+			"extractor":       extractID,
+			"extractor_stats": extractStats,
+		},
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if parts, ok := s.store.(runtimeParts); ok {
+		if extra, err := parts.RuntimeParts(ctx); err == nil {
+			for k, v := range extra {
+				out[k] = v
+			}
+		}
+	}
+	workerSig := ""
+	workerFallbacks := int64(0)
+	if worker, ok := out["worker"].(map[string]any); ok {
+		workerSig, _ = worker["embedder_signature"].(string)
+		if n, ok := asInt64(worker["embedder_fallbacks"]); ok {
+			workerFallbacks += n
+		}
+		if n, ok := asInt64(worker["extractor_fallbacks"]); ok {
+			workerFallbacks += n
+		}
+	}
+	apiSig := embedID.Signature()
+	out["signatures"] = map[string]any{
+		"api":    apiSig,
+		"worker": workerSig,
+		"match":  workerSig != "" && workerSig == apiSig,
+	}
+	out["fallbacks"] = map[string]any{
+		"api_embedder":  embedStats.Fallbacks,
+		"api_extractor": extractStats.Fallbacks,
+		"worker_total":  workerFallbacks,
+	}
+	return out
+}
+
+func asInt64(v any) (int64, bool) {
+	switch n := v.(type) {
+	case int64:
+		return n, true
+	case int:
+		return int64(n), true
+	case float64:
+		return int64(n), true
+	case json.Number:
+		i, err := n.Int64()
+		return i, err == nil
+	default:
+		return 0, false
+	}
 }
 
 // WithIDFRanking toggles IDF-weighted lexical coverage (default off).
@@ -167,7 +236,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		if err != nil {
 			return IngestResult{}, err
 		}
-		s.persistEmbedding(ctx, upserted.Record)
+		if err := s.persistEmbedding(ctx, upserted.Record); err != nil {
+			return IngestResult{}, err
+		}
 		s.persistEntityLinks(ctx, upserted.Record)
 		s.persistEvidenceShadow(ctx, upserted.Record)
 		s.persistEventIfApplicable(ctx, upserted.Record)
@@ -225,7 +296,9 @@ func (s *Service) Ingest(ctx context.Context, req IngestRequest) (IngestResult, 
 		if err != nil {
 			return IngestResult{}, err
 		}
-		s.persistEmbedding(ctx, upserted.Record)
+		if err := s.persistEmbedding(ctx, upserted.Record); err != nil {
+			return IngestResult{}, err
+		}
 		s.persistEntityLinks(ctx, upserted.Record)
 		s.persistEvidenceShadow(ctx, upserted.Record)
 		s.persistEventIfApplicable(ctx, upserted.Record)
@@ -1451,7 +1524,9 @@ func (s *Service) Correct(ctx context.Context, tenantID, subjectID, memoryID str
 	if err != nil {
 		return MutationResult{}, err
 	}
-	s.persistEmbedding(ctx, record)
+	if err := s.persistEmbedding(ctx, record); err != nil {
+		return MutationResult{}, err
+	}
 	s.persistEntityLinks(ctx, record)
 
 	// Rebuild the current-state projection so the corrected value wins, not a
@@ -1514,7 +1589,9 @@ func (s *Service) Supersede(ctx context.Context, tenantID, subjectID, priorID st
 	if err != nil {
 		return MutationResult{}, err
 	}
-	s.persistEmbedding(ctx, upserted.Record)
+	if err := s.persistEmbedding(ctx, upserted.Record); err != nil {
+		return MutationResult{}, err
+	}
 	s.persistEntityLinks(ctx, upserted.Record)
 
 	if err := s.store.MarkSuperseded(ctx, tenantID, subjectID, priorID); err != nil {

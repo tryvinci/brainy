@@ -29,7 +29,7 @@ func APIKeyMiddleware(ring *auth.KeyRing, require bool) func(http.Handler) http.
 				next.ServeHTTP(w, r)
 				return
 			}
-			if r.URL.Path == "/healthz" {
+			if r.URL.Path == "/healthz" || r.URL.Path == "/runtime" {
 				next.ServeHTTP(w, r)
 				return
 			}

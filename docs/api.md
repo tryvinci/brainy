@@ -17,7 +17,7 @@ Common codes: `invalid_json`, `bad_request`, `method_not_allowed`, `not_found`,
 Local Compose (`BRAINY_ENV=local`) does not require a key.
 
 When `BRAINY_API_KEYS` is set (or `BRAINY_ENV=production` /
-`BRAINY_REQUIRE_API_KEY=true`), every route except `/healthz` needs:
+`BRAINY_REQUIRE_API_KEY=true`), every route except `/healthz` and `/runtime` needs:
 
 - `Authorization: Bearer <key>`, or
 - `X-API-Key: <key>`
@@ -30,6 +30,7 @@ request `tenant_id` that does not match the key’s tenant is rejected (`403`).
 | Method | Path | Body / query |
 | --- | --- | --- |
 | `GET` | `/healthz` | — (plain `ok`) |
+| `GET` | `/runtime` | Embedder/extractor identity, fallback counters, ANN status. No secrets. |
 | `GET` | `/metrics` | Prometheus text |
 | `POST` | `/ingest` | [Ingest](#ingest) |
 | `POST` | `/ingest/async` | Same body; `202` + `job_id` |
@@ -100,6 +101,10 @@ See [`.env.example`](../.env.example). Notable knobs:
 | `BRAINY_API_KEYS` | empty | `tenant:key,...` |
 | `BRAINY_WORKER_MODE` | `once` | `loop` for Compose worker |
 | `BRAINY_PROVIDER_*` | empty | OpenAI-compatible extract |
+| `BRAINY_EXTRACTION_STRICT` | `false` | Provider extract errors instead of baseline substitution |
 | `BRAINY_EMBEDDING_*` | empty | OpenAI-compatible embeddings; else local hash |
+| `BRAINY_EMBEDDING_DIMENSIONS` | `0` | Sent only for `text-embedding-3-*` |
+| `BRAINY_EMBEDDING_STRICT` | `false` | Provider embed errors instead of 128-d hash |
+| `BRAINY_REQUIRE_ANN` | auto | Fail boot if a hosted 768-d embedder lacks pgvector |
 | `BRAINY_MAX_BODY_BYTES` | 5 MiB | Request body cap |
 | `BRAINY_EVIDENCE_STRICT` | `false` | Fail ingest if raw evidence cannot be written |

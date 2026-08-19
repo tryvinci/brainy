@@ -21,6 +21,7 @@ func NewRouter(service *memory.Service, metrics *observability.Metrics) http.Han
 	router := &Router{service: service, metrics: metrics}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", router.handleHealth)
+	mux.HandleFunc("/runtime", router.handleRuntime)
 	mux.HandleFunc("/metrics", router.handleMetrics)
 	mux.HandleFunc("/ingest", router.handleIngest)
 	mux.HandleFunc("/ingest/async", router.handleIngestAsync)
@@ -66,6 +67,14 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
 func (r *Router) handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
+}
+
+func (r *Router) handleRuntime(w http.ResponseWriter, req *http.Request) {
+	if req.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusOK, r.service.Runtime(req.Context()))
 }
 
 func (r *Router) handleMetrics(w http.ResponseWriter, _ *http.Request) {

@@ -66,6 +66,10 @@ func main() {
 		}()
 	}
 
+	if err := config.RequireStrictProviders(cfg); err != nil {
+		logger.Error("strict provider precondition failed", "error", err)
+		os.Exit(1)
+	}
 	metrics := observability.NewMetrics()
 	service := memory.NewService(store).
 		WithEmbedder(config.BuildEmbedder(cfg, logger)).
@@ -77,6 +81,12 @@ func main() {
 			Model:   cfg.ProviderModel,
 			Timeout: cfg.ProviderTimeout,
 		})
+	if cfg.RequireANN {
+		if err := store.RequireANN(context.Background()); err != nil {
+			logger.Error("embedding ANN precondition failed", "error", err)
+			os.Exit(1)
+		}
+	}
 	keyRing := auth.ParseKeyRing(cfg.APIKeys)
 	router := api.NewRouter(service, metrics)
 	router = api.APIKeyMiddleware(keyRing, cfg.RequireAPIKey)(router)

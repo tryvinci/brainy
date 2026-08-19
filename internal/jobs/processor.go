@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -98,7 +99,10 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 			_ = p.failJob(ctx, job, err.Error())
 			return true, err
 		}
-		p.persistEmbedding(ctx, upserted.Record)
+		if err := p.persistEmbedding(ctx, upserted.Record); err != nil {
+			_ = p.failJob(ctx, job, err.Error())
+			return true, err
+		}
 		p.persistEntityLinks(ctx, upserted.Record)
 		p.persistEvidenceAndEvents(ctx, upserted.Record)
 		// Match sync ingest: supersede older state, then project current_state
@@ -115,6 +119,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	if err := p.completeJob(ctx, job); err != nil {
 		return true, err
 	}
+	p.persistRuntime(ctx)
 	return true, nil
 }
 
@@ -129,6 +134,7 @@ func (p *Processor) completeJob(ctx context.Context, job memory.ExtractionJob) e
 
 // failJob uses the owner-fenced failure path when the store supports it.
 func (p *Processor) failJob(ctx context.Context, job memory.ExtractionJob, reason string) error {
+	p.persistRuntime(ctx)
 	if fencer, ok := p.store.(memory.LeaseFencer); ok {
 		return fencer.FailExtractionJobFenced(ctx, job.JobID, job.IngestID, job.LeaseOwner, reason)
 	}
@@ -174,20 +180,59 @@ type embeddingWriter interface {
 	UpsertEmbedding(ctx context.Context, memoryID, tenantID, subjectID string, values []float32) error
 }
 
-func (p *Processor) persistEmbedding(ctx context.Context, record memory.MemoryRecord) {
-	writer, ok := p.store.(embeddingWriter)
-	if !ok {
-		return
-	}
+func (p *Processor) persistEmbedding(ctx context.Context, record memory.MemoryRecord) error {
 	embedder := p.embedder
 	if embedder == nil {
 		embedder = embedding.Default()
 	}
 	values, err := embedder.Embed(ctx, record.Content)
-	if err != nil || len(values) == 0 {
+	if err != nil {
+		return err
+	}
+	if len(values) == 0 {
+		return nil
+	}
+	rec := embedding.RecordFromEmbedder(embedder, record.MemoryID, record.TenantID, record.SubjectID, values)
+	if writer, ok := p.store.(interface {
+		WriteEmbedding(context.Context, embedding.Record) error
+	}); ok {
+		return writer.WriteEmbedding(ctx, rec)
+	}
+	if writer, ok := p.store.(embeddingWriter); ok {
+		return writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, values)
+	}
+	return nil
+}
+
+func (p *Processor) PersistRuntime(ctx context.Context) {
+	p.persistRuntime(ctx)
+}
+
+func (p *Processor) persistRuntime(ctx context.Context) {
+	sink, ok := p.store.(interface {
+		UpsertProviderRuntime(context.Context, string, []byte) error
+	})
+	if !ok {
 		return
 	}
-	_ = writer.UpsertEmbedding(ctx, record.MemoryID, record.TenantID, record.SubjectID, values)
+	embedID := embedding.IdentityOf(p.embedder)
+	embedStats := embedding.StatsOf(p.embedder)
+	extractID := memory.ExtractorIdentityOf(p.extractor)
+	extractStats := memory.ExtractorStatsOf(p.extractor)
+	payload, err := json.Marshal(map[string]any{
+		"embedder":            embedID,
+		"embedder_stats":      embedStats,
+		"embedder_signature":  embedID.Signature(),
+		"embedder_fallbacks":  embedStats.Fallbacks,
+		"extractor":           extractID,
+		"extractor_stats":     extractStats,
+		"extractor_signature": extractID.Signature(),
+		"extractor_fallbacks": extractStats.Fallbacks,
+	})
+	if err != nil {
+		return
+	}
+	_ = sink.UpsertProviderRuntime(ctx, "worker", payload)
 }
 
 func (p *Processor) persistEntityLinks(ctx context.Context, record memory.MemoryRecord) {
