@@ -8,13 +8,18 @@ import (
 
 // MemoryRelation is a projection of an entity-valued atomic fact.
 type MemoryRelation struct {
-	TenantID   string
-	SubjectID  string
-	SrcEntity  string
-	Relation   string
-	DstEntity  string
-	MemoryID   string
-	ObservedAt *time.Time
+	TenantID     string
+	SubjectID    string
+	SrcEntity    string
+	SrcEntityID  string
+	Relation     string
+	DstEntity    string
+	DstEntityID  string
+	MemoryID     string
+	ObservedAt   *time.Time
+	ValidFrom    *time.Time
+	ValidTo      *time.Time
+	EvidenceSpan string
 }
 
 // RelationIndexer persists Graphiti-style edges in Postgres (ADR-004).
@@ -64,14 +69,26 @@ func ProjectMemoryRelation(record MemoryRecord) (MemoryRelation, bool) {
 	if src == "" {
 		return MemoryRelation{}, false
 	}
+	span := strings.TrimSpace(record.SourceText)
+	if span == "" {
+		span = strings.TrimSpace(record.Content)
+	}
+	srcID := entityIDOf(record)
+	if srcID == "" {
+		srcID = CanonicalEntityID(record.TenantID, record.SubjectID, src)
+	}
 	return MemoryRelation{
-		TenantID:   record.TenantID,
-		SubjectID:  record.SubjectID,
-		SrcEntity:  src,
-		Relation:   pred,
-		DstEntity:  val,
-		MemoryID:   record.MemoryID,
-		ObservedAt: record.ObservedAt,
+		TenantID:     record.TenantID,
+		SubjectID:    record.SubjectID,
+		SrcEntity:    src,
+		SrcEntityID:  srcID,
+		Relation:     pred,
+		DstEntity:    val,
+		DstEntityID:  CanonicalEntityID(record.TenantID, record.SubjectID, val),
+		MemoryID:     record.MemoryID,
+		ObservedAt:   record.ObservedAt,
+		ValidFrom:    record.ObservedAt,
+		EvidenceSpan: truncateRunes(span, 240),
 	}, true
 }
 

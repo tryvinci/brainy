@@ -28,7 +28,13 @@ def main() -> int:
     parser.add_argument("--base-url", default="")
     parser.add_argument("--conversations", type=int, default=10)
     parser.add_argument("--questions", type=int, default=0, help="0 = all questions in selected convs")
-    parser.add_argument("--top-k", type=int, default=30)
+    parser.add_argument("--top-k", type=int, default=None)
+    parser.add_argument(
+        "--eval-lane",
+        choices=("product-recall", "industry-search"),
+        default="",
+        help="R10 freeze label. industry-search defaults --top-k 200 when --top-k is omitted.",
+    )
     parser.add_argument("--seeds", type=int, default=1)
     parser.add_argument("--answerer-model", default="")
     parser.add_argument("--judge-model", default="")
@@ -65,6 +71,7 @@ def main() -> int:
             conversations=args.conversations,
             questions=args.questions if args.questions > 0 else None,
             top_k=args.top_k,
+            eval_lane=getattr(args, "eval_lane", ""),
             answerer_model=args.answerer_model,
             judge_model=args.judge_model,
             llm_base_url=args.llm_base_url,

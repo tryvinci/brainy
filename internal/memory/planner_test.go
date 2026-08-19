@@ -109,4 +109,10 @@ func TestBuildEvidencePacket(t *testing.T) {
 	if pkt.Coverage["satisfied"] != true {
 		t.Fatalf("coverage=%v", pkt.Coverage)
 	}
+	if len(pkt.ContextEvidence) != 1 || pkt.ContextEvidence[0].MemoryID != "m1" {
+		t.Fatalf("typed context_evidence=%+v", pkt.ContextEvidence)
+	}
+	if pkt.ContextEvidence[0].Role != "context" || pkt.ContextEvidence[0].Span == "" {
+		t.Fatalf("expected context span, got %+v", pkt.ContextEvidence[0])
+	}
 }

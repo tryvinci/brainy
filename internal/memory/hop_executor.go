@@ -13,10 +13,12 @@ type HopResult struct {
 	Value     string   `json:"value,omitempty"`
 	Values    []string `json:"values,omitempty"` // all typed destinations (enumeration)
 	Entity    string   `json:"entity,omitempty"`
+	EntityID  string   `json:"entity_id,omitempty"`
 	Predicate string   `json:"predicate,omitempty"`
 	MemoryIDs []string `json:"memory_ids,omitempty"`
 	Contents  []string `json:"contents,omitempty"`
-	Source    string   `json:"source,omitempty"` // typed_store | search_fallback | unresolved
+	Source    string   `json:"source,omitempty"`     // typed_store | search_fallback | unresolved
+	ProofKind string   `json:"proof_kind,omitempty"` // typed_exact | context
 	DependsOn []string `json:"depends_on,omitempty"`
 }
 
@@ -44,21 +46,17 @@ func (s *Service) executeTypedHops(
 			DependsOn: append([]string(nil), hop.DependsOn...),
 			Source:    "unresolved",
 		}
-		// Wire DependsOn values into entity when prior hop resolved one.
-		if res.Entity == "" {
-			for _, dep := range hop.DependsOn {
-				if prev, ok := byKey[dep]; ok && strings.TrimSpace(prev.Value) != "" {
-					res.Entity = prev.Value
-					break
-				}
+		// Wire DependsOn: canonical ID is the join key; display name stays for answers.
+		for _, dep := range hop.DependsOn {
+			prev, ok := byKey[dep]
+			if !ok {
+				continue
 			}
-		} else {
-			for _, dep := range hop.DependsOn {
-				if prev, ok := byKey[dep]; ok && strings.TrimSpace(prev.Value) != "" {
-					// Prefer resolved canonical entity over raw mention.
-					res.Entity = prev.Value
-					break
-				}
+			if res.EntityID == "" && strings.TrimSpace(prev.EntityID) != "" {
+				res.EntityID = prev.EntityID
+			}
+			if strings.TrimSpace(prev.Value) != "" {
+				res.Entity = prev.Value
 			}
 		}
 
@@ -113,8 +111,15 @@ func (s *Service) resolveEntityHop(
 ) {
 	mention := firstNonEmpty(res.Entity, hop.Entity, hop.Probe)
 	res.Entity = mention
-	// R4: resolved entity ID is the mention, not a random hub record's subject.
-	res.Value = mention
+	resolved := ResolveCanonicalEntity(ctx, s.store, tenantID, subjectID, mention)
+	if resolved.EntityID != "" {
+		res.EntityID = resolved.EntityID
+	}
+	if strings.TrimSpace(resolved.CanonicalLabel) != "" {
+		res.Value = resolved.CanonicalLabel
+	} else {
+		res.Value = mention
+	}
 	if linker, ok := s.store.(EntityLinker); ok && mention != "" {
 		boosts, err := linker.EntityHubBoosts(ctx, tenantID, subjectID, []string{mention})
 		if err == nil && len(boosts) > 0 {
@@ -129,6 +134,7 @@ func (s *Service) resolveEntityHop(
 				}
 			}
 			res.Source = "typed_store"
+			res.ProofKind = "typed_exact"
 			return
 		}
 	}
@@ -152,8 +158,15 @@ func (s *Service) followRelationHop(
 	pred := firstNonEmpty(hop.Predicate, "")
 	res.Entity = entity
 	res.Predicate = pred
-	if indexer, ok := s.store.(RelationIndexer); ok && entity != "" {
-		rels, err := indexer.ListRelationsFrom(ctx, tenantID, subjectID, strings.ToLower(entity), pred, topK)
+	if res.EntityID == "" && entity != "" {
+		res.EntityID = CanonicalEntityID(tenantID, subjectID, entity)
+	}
+	if indexer, ok := s.store.(RelationIndexer); ok && (entity != "" || res.EntityID != "") {
+		src := firstNonEmpty(res.EntityID, strings.ToLower(entity))
+		rels, err := indexer.ListRelationsFrom(ctx, tenantID, subjectID, src, pred, topK)
+		if err == nil && len(rels) == 0 && src != strings.ToLower(entity) && entity != "" {
+			rels, err = indexer.ListRelationsFrom(ctx, tenantID, subjectID, strings.ToLower(entity), pred, topK)
+		}
 		if err == nil && len(rels) > 0 {
 			seenDst := map[string]struct{}{}
 			for _, rel := range rels {
@@ -178,6 +191,7 @@ func (s *Service) followRelationHop(
 			if len(res.Values) > 0 {
 				res.Value = strings.Join(res.Values, ", ")
 				res.Source = "typed_store"
+				res.ProofKind = "typed_exact"
 				return
 			}
 		}
@@ -197,96 +211,111 @@ func (s *Service) fetchPredicateHop(
 	pred := firstNonEmpty(hop.Predicate, "")
 	res.Entity = entity
 	res.Predicate = pred
+	if res.EntityID == "" && entity != "" {
+		res.EntityID = CanonicalEntityID(tenantID, subjectID, entity)
+	}
 
-	// Current-state typed read.
+	// Current-state typed read — entity-scoped keys only for typed_exact.
 	if pred != "" {
 		if cs, ok := s.store.(CurrentStateStore); ok {
-			key := statePredicateKey(entity, pred)
-			memID, val, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, key)
-			if err == nil && found {
-				res.MemoryIDs = []string{memID}
-				res.Value = firstNonEmpty(val, "")
+			keys := make([]string, 0, 2)
+			if res.EntityID != "" {
+				keys = append(keys, statePredicateKey(res.EntityID, pred))
+			}
+			if entity != "" {
+				keys = append(keys, statePredicateKey(entity, pred))
+			}
+			for _, key := range keys {
+				memID, val, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, key)
+				if err != nil || !found {
+					continue
+				}
 				if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID); err == nil {
+					if !recordMatchesHopEntity(rec, entity, res.EntityID) && entity != "" {
+						continue
+					}
 					res.Contents = append(res.Contents, rec.Content)
-					if res.Value == "" {
-						res.Value = rec.Content
+					if val == "" {
+						val = rec.Content
 					}
 				}
+				res.MemoryIDs = []string{memID}
+				res.Value = firstNonEmpty(val, "")
 				res.Source = "typed_store"
+				res.ProofKind = "typed_exact"
 				return
 			}
-			// Unscoped predicate fallback.
+			// Unscoped predicate miss may enrich context, never typed_exact.
 			if entity != "" {
-				memID, val, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, pred)
-				if err == nil && found {
-					res.MemoryIDs = []string{memID}
-					res.Value = firstNonEmpty(val, "")
+				if memID, _, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, pred); err == nil && found {
 					if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID); err == nil {
 						res.Contents = append(res.Contents, rec.Content)
-						if res.Value == "" {
-							res.Value = rec.Content
-						}
 					}
-					res.Source = "typed_store"
-					return
+					res.MemoryIDs = append(res.MemoryIDs, memID)
+					res.ProofKind = "context"
 				}
 			}
 		}
 		if indexer, ok := s.store.(AtomIndexer); ok {
 			ids, err := indexer.ListAtomMemoryIDs(ctx, tenantID, subjectID, pred, "", topK)
 			if err == nil && len(ids) > 0 {
-				// Prefer atoms whose content mentions the resolved entity.
-				picked := ids
-				if entity != "" {
-					filtered := make([]string, 0, len(ids))
+				filtered := make([]string, 0, len(ids))
+				filteredContents := make([]string, 0, len(ids))
+				if entity != "" || res.EntityID != "" {
 					for _, id := range ids {
 						rec, err := s.store.GetMemory(ctx, tenantID, subjectID, id)
 						if err != nil {
 							continue
 						}
-						if strings.Contains(strings.ToLower(rec.Content), strings.ToLower(entity)) ||
-							strings.EqualFold(entitySubjectOf(rec), entity) {
+						if recordMatchesHopEntity(rec, entity, res.EntityID) {
 							filtered = append(filtered, id)
-							res.Contents = append(res.Contents, rec.Content)
+							filteredContents = append(filteredContents, rec.Content)
 						}
 					}
-					if len(filtered) > 0 {
-						picked = filtered
-					}
+				} else {
+					filtered = ids
 				}
-				if len(res.Contents) == 0 {
-					for _, id := range picked {
+				if len(filtered) == 0 {
+					// Unscoped atom hits stay context-only.
+					for _, id := range ids {
 						if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, id); err == nil {
 							res.Contents = append(res.Contents, rec.Content)
 						}
+						res.MemoryIDs = append(res.MemoryIDs, id)
 					}
+					if res.ProofKind == "" {
+						res.ProofKind = "context"
+					}
+				} else {
+					res.Contents = append(res.Contents, filteredContents...)
+					res.MemoryIDs = filtered
+					if len(res.Contents) > 0 {
+						seenVal := map[string]struct{}{}
+						for _, c := range res.Contents {
+							v, ok := slotValueFromMemoryContent(c)
+							if !ok {
+								v = strings.TrimSpace(c)
+							}
+							if v == "" || anaphoricSlotValue(v) {
+								continue
+							}
+							key := strings.ToLower(v)
+							if _, dup := seenVal[key]; dup {
+								continue
+							}
+							seenVal[key] = struct{}{}
+							res.Values = append(res.Values, v)
+						}
+						if len(res.Values) > 0 {
+							res.Value = strings.Join(res.Values, ", ")
+						} else {
+							res.Value = res.Contents[0]
+						}
+					}
+					res.Source = "typed_store"
+					res.ProofKind = "typed_exact"
+					return
 				}
-				res.MemoryIDs = picked
-				if len(res.Contents) > 0 {
-					seenVal := map[string]struct{}{}
-					for _, c := range res.Contents {
-						v, ok := slotValueFromMemoryContent(c)
-						if !ok {
-							v = strings.TrimSpace(c)
-						}
-						if v == "" || anaphoricSlotValue(v) {
-							continue
-						}
-						key := strings.ToLower(v)
-						if _, dup := seenVal[key]; dup {
-							continue
-						}
-						seenVal[key] = struct{}{}
-						res.Values = append(res.Values, v)
-					}
-					if len(res.Values) > 0 {
-						res.Value = strings.Join(res.Values, ", ")
-					} else {
-						res.Value = res.Contents[0]
-					}
-				}
-				res.Source = "typed_store"
-				return
 			}
 		}
 	}
@@ -319,6 +348,7 @@ func (s *Service) searchFallbackHop(
 		return
 	}
 	res.Source = "search_fallback"
+	res.ProofKind = "context"
 	seenVal := map[string]struct{}{}
 	for _, r := range search.Results {
 		if r.MemoryID != "" {
@@ -357,37 +387,85 @@ func (s *Service) searchFallbackHop(
 // (hop[i].output_entity_id == hop[i+1].input_entity_id).
 func hopJoinProven(results []HopResult) bool {
 	resolved := ""
+	resolvedID := ""
 	var fetched, idJoin bool
 	for _, r := range results {
 		switch r.Kind {
 		case "resolve_entity":
-			if r.Source != "unresolved" && strings.TrimSpace(r.Value) != "" {
+			if r.Source == "unresolved" {
+				continue
+			}
+			if strings.TrimSpace(r.EntityID) != "" {
+				resolvedID = r.EntityID
+			}
+			if strings.TrimSpace(r.Value) != "" {
 				resolved = strings.ToLower(strings.TrimSpace(r.Value))
 			}
 		case "follow_relation", "fetch_predicate", "answer_slot":
-			if r.Source == "unresolved" {
+			if !hopResultTypedExact(r) {
 				continue
 			}
 			if strings.TrimSpace(r.Value) == "" && len(r.Values) == 0 && len(r.Contents) == 0 && len(r.MemoryIDs) == 0 {
 				continue
 			}
 			fetched = true
-			if resolved != "" && strings.ToLower(strings.TrimSpace(r.Entity)) == resolved {
+			if resolvedID != "" && strings.TrimSpace(r.EntityID) == resolvedID {
+				idJoin = true
+			} else if resolvedID == "" && resolved != "" && strings.ToLower(strings.TrimSpace(r.Entity)) == resolved {
 				idJoin = true
 			}
 		}
 	}
-	if resolved != "" {
+	if resolvedID != "" || resolved != "" {
 		return idJoin && fetched
 	}
 	if fetched {
 		for _, r := range results {
-			if (r.Kind == "fetch_predicate" || r.Kind == "answer_slot" || r.Kind == "follow_relation") && r.Source == "typed_store" {
+			if (r.Kind == "fetch_predicate" || r.Kind == "answer_slot" || r.Kind == "follow_relation") && hopResultTypedExact(r) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func hopResultTypedExact(r HopResult) bool {
+	if r.Source == "unresolved" || r.Source == "search_fallback" {
+		return false
+	}
+	if r.ProofKind == "context" {
+		return false
+	}
+	return r.Source == "typed_store" || r.ProofKind == "typed_exact"
+}
+
+func recordMatchesHopEntity(rec MemoryRecord, mention, entityID string) bool {
+	if entityID != "" {
+		if got := entityIDOf(rec); got != "" {
+			return got == entityID
+		}
+	}
+	if mention != "" && strings.EqualFold(entitySubjectOf(rec), mention) {
+		return true
+	}
+	if mention == "" {
+		return entityID == ""
+	}
+	return containsEntityMention(rec.Content, mention)
+}
+
+func containsEntityMention(content, mention string) bool {
+	m := strings.ToLower(strings.TrimSpace(mention))
+	c := strings.ToLower(content)
+	if m == "" || c == "" {
+		return false
+	}
+	if c == m {
+		return true
+	}
+	padded := " " + c + " "
+	needle := " " + m + " "
+	return strings.Contains(padded, needle)
 }
 
 func anaphoricSlotValue(s string) bool {
@@ -483,7 +561,7 @@ func bindPacketFromHopResults(pkt *EvidencePacket, hopResults []HopResult, byKey
 		return
 	}
 	if len(pkt.ContextEvidence) == 0 {
-		pkt.ContextEvidence = append([]string{}, pkt.Contents...)
+		pkt.ContextEvidence = packetItemsFromContents(pkt.Contents, pkt.MemoryIDs)
 	}
 	items := make([]PacketItem, 0, len(hopResults)*2)
 	seen := map[string]struct{}{}
@@ -535,8 +613,8 @@ func bindPacketFromHopResults(pkt *EvidencePacket, hopResults []HopResult, byKey
 	// Keep broad context contents; append proof text that is not already present.
 	seenContent := map[string]struct{}{}
 	contents := make([]string, 0, len(pkt.ContextEvidence)+len(items))
-	for _, c := range pkt.ContextEvidence {
-		c = strings.TrimSpace(c)
+	for _, it := range pkt.ContextEvidence {
+		c := strings.TrimSpace(it.Content)
 		if c == "" {
 			continue
 		}

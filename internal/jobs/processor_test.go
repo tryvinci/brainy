@@ -110,7 +110,10 @@ func (s *storeStub) ListRelationsFrom(_ context.Context, tenantID, subjectID, sr
 		if rel.TenantID != tenantID || rel.SubjectID != subjectID {
 			continue
 		}
-		if srcEntity != "" && strings.ToLower(rel.SrcEntity) != srcEntity {
+		if srcEntity != "" &&
+			strings.ToLower(rel.SrcEntity) != srcEntity &&
+			rel.SrcEntityID != srcEntity &&
+			rel.SrcEntityID != memory.CanonicalEntityID(tenantID, subjectID, srcEntity) {
 			continue
 		}
 		if relation != "" && rel.Relation != relation {

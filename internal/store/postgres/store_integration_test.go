@@ -866,6 +866,29 @@ func TestMemoryRelationsUpsertAndList(t *testing.T) {
 	if len(got) != 1 || got[0].DstEntity != "portugal" || got[0].MemoryID != "mem_origin" {
 		t.Fatalf("got %+v", got)
 	}
+	if got[0].SrcEntityID == "" || got[0].DstEntityID == "" {
+		t.Fatalf("expected canonical IDs, got %+v", got[0])
+	}
+	srcID := memory.CanonicalEntityID("t1", "u1", "jordan")
+	byID, err := store.ListRelationsFrom(ctx, "t1", "u1", srcID, memory.PredicateOrigin, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byID) != 1 || byID[0].MemoryID != "mem_origin" {
+		t.Fatalf("lookup by entity id: %+v", byID)
+	}
+	ent := memory.MemoryEntity{
+		TenantID: "t1", SubjectID: "u1",
+		EntityID: srcID, CanonicalLabel: "Jordan",
+		Aliases: memory.EntityAliases("Jordan"),
+	}
+	if err := store.UpsertMemoryEntity(ctx, ent); err != nil {
+		t.Fatal(err)
+	}
+	resolved, ok, err := store.ResolveMemoryEntity(ctx, "t1", "u1", "Jordan")
+	if err != nil || !ok || resolved.EntityID != srcID {
+		t.Fatalf("resolve jordan: ok=%v err=%v got=%+v", ok, err, resolved)
+	}
 }
 
 func TestDeleteCurrentStateByMemoryWithEmbeddedPostgres(t *testing.T) {

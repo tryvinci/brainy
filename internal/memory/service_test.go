@@ -13,12 +13,13 @@ import (
 )
 
 type memoryStoreStub struct {
-	records     map[string]MemoryRecord
-	jobs        map[string]ExtractionJob
-	entityLinks map[string][]string
-	relations   []MemoryRelation
-	atoms       []stubAtom
+	records      map[string]MemoryRecord
+	jobs         map[string]ExtractionJob
+	entityLinks  map[string][]string
+	relations    []MemoryRelation
+	atoms        []stubAtom
 	currentState map[string]currentStateRow
+	entities     []MemoryEntity
 }
 
 type stubAtom struct {
@@ -161,7 +162,9 @@ func (s *memoryStoreStub) ListRelationsFrom(_ context.Context, tenantID, subject
 		if rel.TenantID != tenantID || rel.SubjectID != subjectID {
 			continue
 		}
-		if strings.ToLower(rel.SrcEntity) != srcEntity {
+		if strings.ToLower(rel.SrcEntity) != srcEntity &&
+			rel.SrcEntityID != srcEntity &&
+			(rel.SrcEntityID == "" || rel.SrcEntityID != CanonicalEntityID(tenantID, subjectID, srcEntity)) {
 			continue
 		}
 		if relation != "" && rel.Relation != relation {
@@ -173,6 +176,31 @@ func (s *memoryStoreStub) ListRelationsFrom(_ context.Context, tenantID, subject
 		}
 	}
 	return out, nil
+}
+
+func (s *memoryStoreStub) UpsertMemoryEntity(_ context.Context, ent MemoryEntity) error {
+	if ent.EntityID == "" {
+		return nil
+	}
+	for i, existing := range s.entities {
+		if existing.TenantID == ent.TenantID && existing.SubjectID == ent.SubjectID && existing.EntityID == ent.EntityID {
+			s.entities[i] = ent
+			return nil
+		}
+	}
+	s.entities = append(s.entities, ent)
+	return nil
+}
+
+func (s *memoryStoreStub) ResolveMemoryEntity(_ context.Context, tenantID, subjectID, mention string) (MemoryEntity, bool, error) {
+	cands := make([]MemoryEntity, 0)
+	for _, e := range s.entities {
+		if e.TenantID == tenantID && e.SubjectID == subjectID {
+			cands = append(cands, e)
+		}
+	}
+	got, ok := RankEntityResolution(cands, mention)
+	return got, ok, nil
 }
 
 func (s *memoryStoreStub) UpsertMemoryAtom(_ context.Context, _, _, predicate, value, memoryID string, _ *time.Time) error {
@@ -1483,4 +1511,3 @@ func TestSupersedeRepointsCurrentStateProjection(t *testing.T) {
 func mapKeyFor(tenantID, subjectID, predicate string) string {
 	return tenantID + "::" + subjectID + "::" + predicate
 }
-

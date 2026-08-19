@@ -1,7 +1,7 @@
 # Path to a competitive conversational memory system (2026-08-14)
 
 **Status:** accepted course — representation-first; revised after external review  
-**Tips:** Fresh remasure (`1b5ab3e`): LoCoMo 1x30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler; **49.8% is not a current-SHA ceiling**). LME-20 **4/20**; BEAM 100K **8/20**. Archaeology (Wave 1) is historical: keep R0-R4 closed. **R5A structured-first `/recall` landed** (2026-08-17). Live next is **R5B typed EvidencePacket**. Then R6-R10. Two lanes. [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · [live verdict](./external-reviews/2026-08-17-parity-gap-verdict.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
+**Tips:** Fresh remasure (`1b5ab3e`): LoCoMo 1x30 **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 Platform **11/30**; full `/recall` **11.4%** is an **answer-path dip** vs hist. 49.8% search+harness (not a vanished compiler; **49.8% is not a current-SHA ceiling**). LME-20 **4/20**; BEAM 100K **8/20**. Archaeology (Wave 1) is historical: keep R0-R4 closed. **R5A structured-first `/recall` landed** (2026-08-17). **R5B–R10 representation stack** is the substrate for a later honest competitive claim (typed packets, named-subject + `she`/`he` coref, canonical entity/relation IDs, hop ID joins, dual-path freeze **wiring**). Not a 70–80% n=1540 claim and not SOTA. Two lanes. Next: [sota-execution-plan.md](./sota-execution-plan.md) (S0 stratified baseline first). [70–80% path](./locomo-full-70-80-path.md) · [R10 freeze](./locomo-dual-path-freeze.md) · [dip why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · [live verdict](./external-reviews/2026-08-17-parity-gap-verdict.md). Internal cycle notes: [competitive/cycle-closeout.md](./competitive/cycle-closeout.md).  
 **Does not claim:** SOTA, or a LoCoMo/LME target score  
 **Review:** [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) (R1c amendment) · [external-reviews/2026-08-17-parity-gap-verdict.md](./external-reviews/2026-08-17-parity-gap-verdict.md) (live: R5A first; do not re-queue R0-R4) · [external-reviews/2026-08-17-competitive-archaeology-verdict.md](./external-reviews/2026-08-17-competitive-archaeology-verdict.md) (historical Wave 1 pin)
 
@@ -351,29 +351,31 @@ The product answer path consumes structured values first. Source text remains to
 
 ### R5B — Typed EvidencePacket + spans
 
-`EvidencePacket` already has `ContextEvidence` and `ProofChain` (`planner.go`). Context is still `[]string`; legacy `Contents` still feed `firstStatementFromPacket`. Upgrade context entries to typed objects with fact/relation/evidence/source-span IDs. Legacy `Contents` become compatibility-only.
+**Landed.** `ContextEvidence` is `[]PacketItem` (fact/memory IDs, predicate, subject, value, entity_id, source span). Legacy `Contents` is a compatibility projection of those items. Hops still must not replace context.
 
 ### R6 — Compiler Coverage V2
 
-Generalize past conv-26. Full-suite SH 10.5% and LME multi-session 0/5 show R0-R4 work where facts compile, but coverage does not travel. ADAPT Mem0 recent-session + existing-memory context and ADD-only semantics (not verbatim prompts). Durable assistant facts stay first-class. Held-out representation audit is the merge gate, not a LoCoMo bump.
+Generalize past conv-26. Full-suite SH 10.5% and LME multi-session 0/5 show R0-R4 work where facts compile, but coverage does not travel. **R6a:** named-subject / addressee binding so reports are not attributed to the reporter; `works as` / `lives in` / `realized that`; held-out audit. **R6 remainder:** `she`/`he` bind to the last named person in the thread (plural `they` stays unbound). `ContextualExtractor` already injects prior memories. Durable assistant facts stay first-class. Held-out representation audit is the merge gate, not a LoCoMo bump. Honest 70–80% map: [locomo-full-70-80-path.md](./locomo-full-70-80-path.md).
 
 ### R7 — Canonical Entity V2
 
-R2 first slice already copies `subject` / `value_norm` onto metadata and entity links. The remaining gap is durable identity: IDs, aliases, mentions, ranked resolution, merge lifecycle. `entities.go` is still quoted/proper-noun/year string keys plus `memory_entity_links`. Names are not unique identities (two Johns). Tenant/subject scoped. Dual-write the hub. Proposed v2 DDL in the 2026-08-17 review is **later**, not R5A.
+**Landed (additive).** Durable `ent:` IDs scoped by tenant/subject. Distinct labels (John Smith vs John Doe) get distinct IDs; a first-name mention resolves only when unique. Dual-write `memory_entities` (mig v22) plus the existing string hub. Ranked resolution is deterministic. Two Johns with the same first-name mention stay ambiguous (no collapse). Tenant/subject scoped. No Neo4j.
 
 ### R8 — Relation V2
 
-R3 first slice (`memory_relations`, mig v20) is v1 **string** endpoints (`MemoryRelation.SrcEntity` / `DstEntity`). Upgrade to canonical-ID edges with validity and evidence spans. Copy Graphiti **semantics**, not Neo4j. Dual-write v1 strings.
+**Landed (additive).** `memory_relations` keeps v1 string endpoints and dual-writes `src_entity_id` / `dst_entity_id`, validity (`valid_from` = observed_at), and `evidence_span`. Copy Graphiti **semantics**, not Neo4j. `ListRelationsFrom` accepts a mention or an ID.
 
 ### R9 — Hop Executor V3 (canonical ID joins)
 
-Invariant remains `hop[i].output_entity_id == hop[i+1].input_entity_id`. Today `resolveEntityHop` sets `res.Value = mention`; predicate lookup can fall back to unscoped `GetCurrentState(..., pred)`; the atom path keeps all predicate hits if the entity-filtered subset is empty. Unscoped/fuzzy matches may enrich **context** but cannot yield `typed_exact` proof. Do not claim MH-solved from 1x30 10/10 while full MH is 7.4%.
+**Landed.** Invariant remains `hop[i].output_entity_id == hop[i+1].input_entity_id`. `resolve_entity` emits `EntityID`. Fetch/follow copy that ID via DependsOn. Unscoped `GetCurrentState(pred)` and unfiltered atom hits enrich **context** (`proof_kind=context`) and cannot yield `typed_exact` / `hop_join_proven`. Search fallback is context. Do not claim MH-solved from 1x30 10/10 while full MH is 7.4%.
 
 ### R10 — Frozen dual-path qualification
 
-Order: LoCoMo 1x30 **diagnostic** -> LoCoMo 3x90 qualification slice -> multi-seed/full **product `/recall`** and a separately labeled **industry-format** search+shared-answerer+shared-judge (n=1540, top-k 200, 3 seeds, report retrieved tokens) -> LME-20 **quality** -> larger LME.
+**Wiring landed** ([locomo-dual-path-freeze.md](./locomo-dual-path-freeze.md)). `--eval-lane product-recall` vs `--eval-lane industry-search` (industry defaults top-k 200). Do not remasure n=1540 in this pass.
 
-Do not run LME-500 or BEAM 1M as a quality claim while LME-20 is 4/20 and BEAM 100K is 8/20. Do not remasure full n=1540 before R5A.
+Order when a freeze is requested: LoCoMo 1x30 **diagnostic** -> LoCoMo 3x90 qualification slice -> multi-seed/full **product `/recall`** and a separately labeled **industry-format** search+shared-answerer+shared-judge (n=1540, top-k 200, 3 seeds, report retrieved tokens) -> LME-20 **quality** -> larger LME.
+
+Do not run LME-500 or BEAM 1M as a quality claim while LME-20 is 4/20 and BEAM 100K is 8/20.
 
 Representation health (R0 audit) is a merge gate **before** these scores. 1x30 is never qualification. OpMem/marketing must stay green. No SOTA / beats-Mem0 language.
 

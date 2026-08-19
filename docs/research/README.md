@@ -88,9 +88,9 @@ Empty / TBD cells beat invented numbers. Public posts describe Brainy; they do n
 
 ## Next engineering step
 
-1. **R5A** structured-first `/recall` (retire `firstStatementFromPacket` as a normal factual strategy). OD 0/4 is a diagnostic, not the PR name. Early checkpoint includes current-SHA search+harness on a stratified subset.
-2. **R5B** typed EvidencePacket + spans, then **R6** compiler coverage V2 (generalize past conv-26).
-3. **R7-R9** canonical entities, relation V2, hop ID joins as needed. **R10** frozen dual-path qualification (product `/recall` and industry-format, labeled separately).
-4. Keep bounded episode fallback until coverage is proven. Do not hard-drop episodes. Do not land v2 DDL in R5A.
+1. **R6a** named-subject / addressee compiler (mass lever for full SH WRITE_MISS). Not a 70–80% n=1540 claim. [path](./locomo-full-70-80-path.md).
+2. **R5B** typed EvidencePacket + spans (hygiene).
+3. **R7-R9** canonical entities, relation V2, hop ID joins. **R10** frozen dual-path qualification (product `/recall` and industry-format, labeled separately).
+4. Keep bounded episode fallback until coverage is proven. Do not hard-drop episodes. Do not land v2 DDL here.
 
 Details: [sota-representation-path.md](./sota-representation-path.md)

@@ -436,3 +436,57 @@ func TestVisibleTextDumpDoesNotCompileActivities(t *testing.T) {
 		}
 	}
 }
+
+func TestNamedSubjectDoesNotBindToReporter(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: Casey researched wildfire recovery last spring."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+		if subj, _ := m.Explain["subject"].(string); strings.EqualFold(subj, "Riley") && strings.Contains(strings.ToLower(m.Content), "researched") {
+			t.Fatalf("reporter bound researched: %+v", m)
+		}
+	}
+	if !strings.Contains(joined, "casey researched wildfire recovery") {
+		t.Fatalf("expected casey researched, got %q", joined)
+	}
+}
+
+func TestTitleCopulaIsNotIdentityAtom(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: `Riley: I loved reading "Life is Elsewhere" as a kid.`},
+			{Role: "user", Content: "Riley: Life is a Highway still gets stuck in my head."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		c := strings.ToLower(m.Content)
+		if strings.Contains(c, "life is a highway") && strings.Contains(rule, "identity") {
+			t.Fatalf("title copula compiled as identity: %q", m.Content)
+		}
+		if strings.HasSuffix(c, " is elsewhere") && strings.Contains(rule, "identity") {
+			t.Fatalf("quoted title compiled as identity: %q", m.Content)
+		}
+	}
+}

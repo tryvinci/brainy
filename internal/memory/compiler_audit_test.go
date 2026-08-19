@@ -116,6 +116,60 @@ func TestHeldOutCompilerCoverageAudit(t *testing.T) {
 	_ = at
 }
 
+func TestHeldOutNamedSubjectAndAddresseeAudit(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u-audit-r6", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Casey: I work as a paramedic in Denver."},
+			{Role: "user", Content: "Riley: Casey researched wildfire recovery last spring."},
+			{Role: "user", Content: "Riley: She lives in Denver now."},
+			{Role: "user", Content: "Riley: You realized that rest is part of training."},
+			{Role: "user", Content: "Morgan: Dana lives in Portland and is a carpenter."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+		if subj, _ := m.Explain["subject"].(string); strings.EqualFold(subj, "Riley") {
+			c := strings.ToLower(m.Content)
+			if strings.Contains(c, "researched wildfire") || strings.Contains(c, "realized that rest") {
+				t.Fatalf("reporter stole named/addressee fact: %q", m.Content)
+			}
+		}
+		if subj, _ := m.Explain["subject"].(string); strings.EqualFold(subj, "Morgan") {
+			c := strings.ToLower(m.Content)
+			if strings.Contains(c, "lives in portland") || strings.Contains(c, "is a carpenter") {
+				t.Fatalf("reporter stole third-person fact: %q", m.Content)
+			}
+		}
+	}
+	mustContain := []string{
+		"casey works as paramedic",
+		"casey researched wildfire recovery",
+		"casey lives in denver",
+		"casey realized that rest is part of training",
+		"dana lives in portland",
+		"dana is a carpenter",
+	}
+	for _, needle := range mustContain {
+		if !strings.Contains(joined, needle) {
+			t.Errorf("coverage miss %q in %q", needle, joined)
+		}
+	}
+	if strings.Contains(joined, "riley researched") || strings.Contains(joined, "morgan lives") ||
+		strings.Contains(joined, "riley lives") {
+		t.Fatalf("wrong-subject atoms: %q", joined)
+	}
+}
+
 func TestHomeCountryAnaphoraBindsPriorOrigin(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{
@@ -185,6 +239,12 @@ func TestProjectMemoryRelationFromOriginAtom(t *testing.T) {
 	}
 	if rel.SrcEntity != "alex" || rel.Relation != PredicateOrigin || rel.DstEntity != "sweden" {
 		t.Fatalf("got %+v", rel)
+	}
+	if rel.SrcEntityID == "" || rel.DstEntityID == "" || rel.SrcEntityID == rel.DstEntityID {
+		t.Fatalf("expected distinct canonical IDs, got %+v", rel)
+	}
+	if CanonicalEntityID("t1", "u1", "Alex") != rel.SrcEntityID {
+		t.Fatalf("src id, got %q", rel.SrcEntityID)
 	}
 }
 

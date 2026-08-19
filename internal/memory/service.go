@@ -2388,6 +2388,12 @@ func copyRecordSemantics(explain map[string]any, record MemoryRecord) {
 			explain["value_norm"] = strings.TrimSpace(val)
 		}
 	}
+	if subj := entitySubjectOf(record); subj != "" {
+		explain["subject"] = subj
+	}
+	if eid := entityIDOf(record); eid != "" {
+		explain["entity_id"] = eid
+	}
 }
 
 func validateIngestRequest(req IngestRequest) error {

@@ -21,6 +21,14 @@ var (
 	movedToRE          = regexp.MustCompile(`(?i)\b(?:moved|relocated)\s+to\s+([A-Za-z][A-Za-z\s-]{1,40})`)
 	iAmRE              = regexp.MustCompile(`(?i)\b(?:i am|i'm)\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	iAmStatusRE        = regexp.MustCompile(`(?i)\b(?:i am|i'm)\s+(single|married|divorced|engaged|widowed)\b`)
+	worksAsRE          = regexp.MustCompile(`(?i)\bwork(?:s|ing)?\s+as\s+(?:a |an )?([^,.!?]{3,40})`)
+	livesInRE          = regexp.MustCompile(`(?i)\b(?:live[sd]?|living)\s+in\s+([A-Za-z][A-Za-z\s-]{1,40})`)
+	realizedThatRE     = regexp.MustCompile(`(?i)\b(?:realized|realised|noticed|learned|learnt)\s+that\s+([^,.!?]{4,80})`)
+	namedIsRoleRE      = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+is\s+(?:a|an)\s+([^,.!?]{3,60})`)
+	namedIsStatusRE    = regexp.MustCompile(`(?i)\b([A-Z][a-z]{1,20})\s+is\s+(single|married|divorced|engaged|widowed)\b`)
+	youAreRoleRE       = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(?:a|an)\s+([^,.!?]{3,60})`)
+	youAreStatusRE     = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(single|married|divorced|engaged|widowed)\b`)
+	isARoleBareRE      = regexp.MustCompile(`(?i)\bis\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	asARoleRE          = regexp.MustCompile(`(?i)\bas an?\s+([a-z][a-z\s-]{2,40})\b`)
 	activityGerund     = regexp.MustCompile(`(?i)\b(?:i|i've|i have)\s+(?:been\s+)?([a-z]+ing)\b`)
 	loveActivityRE     = regexp.MustCompile(`(?i)\b(?:i love|i like|i enjoy|we love|we like|we enjoy|i'm a (?:big )?fan of)\s+([a-z][a-z\s-]{2,40})`)
@@ -116,6 +124,10 @@ func legacyLocomoAtomsEnabled() bool {
 	}
 }
 
+type turn struct {
+	who, body, utt string
+}
+
 func extractAttributeAtoms(utterances []string, observedAt *time.Time) []ExtractedMemory {
 	out := make([]ExtractedMemory, 0, 8)
 	seen := map[string]struct{}{}
@@ -133,9 +145,6 @@ func extractAttributeAtoms(utterances []string, observedAt *time.Time) []Extract
 		seen[key] = struct{}{}
 		out = append(out, atom)
 	}
-	type turn struct {
-		who, body, utt string
-	}
 	turns := make([]turn, 0, len(utterances))
 	for _, utt := range utterances {
 		speaker, body := splitSpeaker(utt)
@@ -150,31 +159,39 @@ func extractAttributeAtoms(utterances []string, observedAt *time.Time) []Extract
 		if speaker == "" && isFirstPersonBody(body) {
 			continue
 		}
-		if speaker == "" {
-			continue
-		}
 		turns = append(turns, turn{who: speaker, body: body, utt: utt})
 	}
+	speakers := collectSpeakers(turns)
+	var prior []string
+	lastNamed := ""
 	for _, t := range turns {
 		whoKey := strings.ToLower(t.who)
-		if kidsMentionRE.MatchString(t.body) {
+		if t.who != "" && kidsMentionRE.MatchString(t.body) {
 			kidsBySpeaker[whoKey] = true
 		}
-		for _, atom := range attributeAtomsFromUtterance(t.who, t.body, t.utt, observedAt) {
+		bind := newClauseBind(t.who, speakers).withAddressee(prior)
+		bind.lastNamed = lastNamed
+		for _, atom := range attributeAtomsFromUtterance(t.who, t.body, t.utt, observedAt, &bind) {
 			add(atom)
 			if pred, _ := atom.Explain["predicate"].(string); pred == PredicateOrigin {
-				if v, _ := atom.Explain["value_norm"].(string); v != "" {
+				if v, _ := atom.Explain["value_norm"].(string); v != "" && whoKey != "" {
 					origins[whoKey] = v
 				}
 			}
 		}
-		if kidsBySpeaker[whoKey] {
+		if t.who != "" && kidsBySpeaker[whoKey] {
 			for _, like := range pronounPreferenceObjects(t.body) {
 				add(atomFact(t.who, fmt.Sprintf("%s's kids like %s", t.who, like), t.utt, 0.82, "attribute_preference", observedAt))
 			}
 		}
-		for _, like := range pronounExcitedObjects(t.body) {
-			add(atomFact(t.who, fmt.Sprintf("%s enjoys %s", t.who, like), t.utt, 0.8, "attribute_preference", observedAt))
+		if bind.lastNamed != "" {
+			lastNamed = bind.lastNamed
+		}
+		if t.who != "" {
+			for _, like := range pronounExcitedObjects(t.body) {
+				add(atomFact(t.who, fmt.Sprintf("%s enjoys %s", t.who, like), t.utt, 0.8, "attribute_preference", observedAt))
+			}
+			prior = append(prior, t.who)
 		}
 	}
 	// Bind "home country" anaphora to an origin already compiled for this speaker.
@@ -207,67 +224,136 @@ func splitSpeaker(utterance string) (speaker, body string) {
 	return strings.TrimSpace(m[1]), NormalizeText(m[2])
 }
 
-func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time) []ExtractedMemory {
+func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time, bind *clauseBind) []ExtractedMemory {
+	if bind == nil {
+		tmp := newClauseBind(who, nil)
+		bind = &tmp
+	}
+	if bind.speaker == "" {
+		bind.speaker = who
+	}
 	var out []ExtractedMemory
 	lowerBody := strings.ToLower(body)
 	lexicalBody := visibleTextBlockRE.ReplaceAllString(body, " ")
 	lexicalLower := strings.ToLower(lexicalBody)
-	emit := func(content string, conf float64, rule string) {
-		out = append(out, atomFact(who, content, source, conf, rule, observedAt))
+	emit := func(subj, content string, conf float64, rule string) {
+		if strings.TrimSpace(subj) == "" || strings.TrimSpace(content) == "" {
+			return
+		}
+		out = append(out, atomFact(subj, content, source, conf, rule, observedAt))
+	}
+	emitOn := func(haystack string, start int, defaultSpeaker bool, conf float64, rule, format string, args ...any) {
+		subj, ok := bind.subjectAt(haystack, start, defaultSpeaker)
+		if !ok {
+			return
+		}
+		full := make([]any, 0, 1+len(args))
+		full = append(full, subj)
+		full = append(full, args...)
+		emit(subj, fmt.Sprintf(format, full...), conf, rule)
 	}
 
-	if m := iAmStatusRE.FindStringSubmatch(body); m != nil {
-		emit(fmt.Sprintf("%s is %s", who, NormalizeText(m[1])), 0.9, "attribute_relationship")
-	}
-	if m := iAmRE.FindStringSubmatch(body); m != nil {
-		attr := clipIdentityTail(NormalizeText(m[1]))
-		if utf8.RuneCountInString(attr) <= 40 && !roleStopWord(attr) {
-			emit(fmt.Sprintf("%s is a %s", who, attr), 0.88, "attribute_identity")
+	if who != "" {
+		if m := iAmStatusRE.FindStringSubmatch(body); m != nil {
+			emit(who, fmt.Sprintf("%s is %s", who, NormalizeText(m[1])), 0.9, "attribute_relationship")
 		}
-	}
-	if m := asARoleRE.FindStringSubmatch(body); m != nil {
-		role := NormalizeText(m[1])
-		if utf8.RuneCountInString(role) <= 40 && !strings.Contains(role, " that ") && !roleStopWord(role) {
-			emit(fmt.Sprintf("%s is a %s", who, role), 0.9, "attribute_identity")
-			if strings.Contains(strings.ToLower(role), "single") {
-				emit(fmt.Sprintf("%s is single", who), 0.88, "attribute_relationship")
+		if m := iAmRE.FindStringSubmatch(body); m != nil {
+			attr := clipIdentityTail(NormalizeText(m[1]))
+			if utf8.RuneCountInString(attr) <= 40 && !roleStopWord(attr) {
+				emit(who, fmt.Sprintf("%s is a %s", who, attr), 0.88, "attribute_identity")
+			}
+		}
+		if m := imFromRE.FindStringSubmatch(body); m != nil {
+			place, ok := normalizePlace(m[1])
+			if ok {
+				emit(who, fmt.Sprintf("%s is from %s", who, place), 0.92, "attribute_origin")
 			}
 		}
 	}
-	if m := homeCountryRE.FindStringSubmatch(body); m != nil {
-		place, ok := normalizePlace(m[1])
-		if ok {
-			emit(fmt.Sprintf("%s is from %s", who, place), 0.93, "attribute_origin")
-			emit(fmt.Sprintf("%s moved from %s", who, place), 0.9, "attribute_origin")
+	if hit, ok := reFind(youAreStatusRE, body); ok && bind.partner != "" {
+		emit(bind.partner, fmt.Sprintf("%s is %s", bind.partner, NormalizeText(hit.groups[1])), 0.9, "attribute_relationship")
+	}
+	if hit, ok := reFind(youAreRoleRE, body); ok && bind.partner != "" {
+		attr := clipIdentityTail(NormalizeText(hit.groups[1]))
+		if utf8.RuneCountInString(attr) <= 40 && !roleStopWord(attr) {
+			emit(bind.partner, fmt.Sprintf("%s is a %s", bind.partner, attr), 0.88, "attribute_identity")
 		}
 	}
-	if m := originallyFromRE.FindStringSubmatch(body); m != nil {
-		place, ok := normalizePlace(m[1])
-		if ok {
-			emit(fmt.Sprintf("%s is from %s", who, place), 0.93, "attribute_origin")
+	if hit, ok := reFind(namedIsStatusRE, body); ok {
+		name := bind.canonName(hit.groups[1])
+		if likelyPersonName(name) {
+			emit(name, fmt.Sprintf("%s is %s", name, NormalizeText(hit.groups[2])), 0.9, "attribute_relationship")
 		}
 	}
-	if m := imFromRE.FindStringSubmatch(body); m != nil {
-		place, ok := normalizePlace(m[1])
-		if ok {
-			emit(fmt.Sprintf("%s is from %s", who, place), 0.92, "attribute_origin")
+	if hit, ok := reFind(namedIsRoleRE, body); ok {
+		name := bind.canonName(hit.groups[1])
+		attr := clipIdentityTail(NormalizeText(hit.groups[2]))
+		if likelyPersonName(name) && utf8.RuneCountInString(attr) <= 40 && !roleStopWord(attr) && !looksLikeWorkTitle(attr) {
+			emit(name, fmt.Sprintf("%s is a %s", name, attr), 0.88, "attribute_identity")
 		}
 	}
-	if m := movedFromRE.FindStringSubmatch(body); m != nil {
-		place, ok := normalizePlace(m[1])
-		if ok {
-			emit(fmt.Sprintf("%s moved from %s", who, place), 0.9, "attribute_origin")
+	if hit, ok := reFind(isARoleBareRE, body); ok {
+		attr := clipIdentityTail(NormalizeText(hit.groups[1]))
+		if utf8.RuneCountInString(attr) <= 40 && !roleStopWord(attr) && !looksLikeWorkTitle(attr) && !strings.Contains(attr, " that ") {
+			emitOn(body, hit.start, false, 0.86, "attribute_identity", "%s is a %s", attr)
 		}
 	}
-	if m := movedToRE.FindStringSubmatch(body); m != nil {
-		place, ok := normalizePlace(m[1])
+	if hit, ok := reFind(asARoleRE, body); ok {
+		role := NormalizeText(hit.groups[1])
+		if utf8.RuneCountInString(role) <= 40 && !strings.Contains(role, " that ") && !roleStopWord(role) {
+			emitOn(body, hit.start, true, 0.9, "attribute_identity", "%s is a %s", role)
+			if strings.Contains(strings.ToLower(role), "single") {
+				emitOn(body, hit.start, true, 0.88, "attribute_relationship", "%s is single")
+			}
+		}
+	}
+	if hit, ok := reFind(worksAsRE, body); ok {
+		role := clipIdentityTail(NormalizeText(hit.groups[1]))
+		if utf8.RuneCountInString(role) >= 3 && utf8.RuneCountInString(role) <= 40 && !roleStopWord(role) {
+			emitOn(body, hit.start, true, 0.9, "attribute_occupation", "%s works as %s", role)
+			emitOn(body, hit.start, true, 0.86, "attribute_identity", "%s is a %s", role)
+		}
+	}
+	if hit, ok := reFind(livesInRE, body); ok {
+		place, ok := normalizePlace(hit.groups[1])
 		if ok {
-			emit(fmt.Sprintf("%s moved to %s", who, place), 0.9, "attribute_origin")
+			emitOn(body, hit.start, true, 0.9, "attribute_residence", "%s lives in %s", place)
+		}
+	}
+	if hit, ok := reFind(realizedThatRE, body); ok {
+		clause := NormalizeText(hit.groups[1])
+		if utf8.RuneCountInString(clause) >= 4 && utf8.RuneCountInString(clause) <= 80 {
+			emitOn(body, hit.start, true, 0.88, "attribute_belief", "%s realized that %s", clause)
+		}
+	}
+	if hit, ok := reFind(homeCountryRE, body); ok {
+		place, ok := normalizePlace(hit.groups[1])
+		if ok {
+			emitOn(body, hit.start, true, 0.93, "attribute_origin", "%s is from %s", place)
+			emitOn(body, hit.start, true, 0.9, "attribute_origin", "%s moved from %s", place)
+		}
+	}
+	if hit, ok := reFind(originallyFromRE, body); ok {
+		place, ok := normalizePlace(hit.groups[1])
+		if ok {
+			emitOn(body, hit.start, true, 0.93, "attribute_origin", "%s is from %s", place)
+		}
+	}
+	if hit, ok := reFind(movedFromRE, body); ok {
+		place, ok := normalizePlace(hit.groups[1])
+		if ok {
+			emitOn(body, hit.start, true, 0.9, "attribute_origin", "%s moved from %s", place)
+		}
+	}
+	if hit, ok := reFind(movedToRE, body); ok {
+		place, ok := normalizePlace(hit.groups[1])
+		if ok {
+			emitOn(body, hit.start, true, 0.9, "attribute_origin", "%s moved to %s", place)
 		}
 	}
 
-	for _, m := range quotedTitleRE.FindAllStringSubmatch(lexicalBody, 4) {
-		title := firstNonEmpty(m[1], m[2], m[3], m[4])
+	for _, hit := range reFindAll(quotedTitleRE, lexicalBody, 4) {
+		title := firstNonEmpty(hit.groups[1], hit.groups[2], hit.groups[3], hit.groups[4])
 		title = NormalizeText(title)
 		if utf8.RuneCountInString(title) < 4 || looksBrokenQuotedTitle(title) {
 			continue
@@ -281,84 +367,81 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		if len(strings.Fields(title)) < 2 {
 			continue
 		}
-		verb := "read"
-		emit(fmt.Sprintf("%s %s \"%s\"", who, verb, title), 0.86, "attribute_titled_work")
+		emitOn(lexicalBody, hit.start, true, 0.86, "attribute_titled_work", "%s read \"%s\"", title)
 	}
-	if m := readUnquotedRE.FindStringSubmatch(lexicalBody); m != nil {
-		title := NormalizeText(strings.TrimSpace(m[1]))
+	if hit, ok := reFind(readUnquotedRE, lexicalBody); ok {
+		title := NormalizeText(strings.TrimSpace(hit.groups[1]))
 		title = strings.TrimSuffix(title, " as a kid")
 		title = strings.TrimSuffix(title, " last year")
 		if looksLikeWorkTitle(title) && utf8.RuneCountInString(title) >= 4 && !looksBrokenQuotedTitle(title) && !titleLeadStopped(title) {
-			emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.84, "attribute_titled_work")
+			emitOn(lexicalBody, hit.start, true, 0.84, "attribute_titled_work", "%s read \"%s\"", title)
 		}
 	}
 	if strings.Contains(lexicalLower, "book") || strings.Contains(lexicalLower, "read") {
-		for _, m := range bookTitleRunRE.FindAllStringSubmatch(lexicalBody, 4) {
-			title := NormalizeText(strings.TrimSpace(m[1]))
+		for _, hit := range reFindAll(bookTitleRunRE, lexicalBody, 4) {
+			title := NormalizeText(strings.TrimSpace(hit.groups[1]))
 			if titleLeadStopped(title) || !looksLikeWorkTitle(title) || looksBrokenQuotedTitle(title) {
 				continue
 			}
 			if utf8.RuneCountInString(title) < 8 {
 				continue
 			}
-			emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.82, "attribute_titled_work")
+			emitOn(lexicalBody, hit.start, true, 0.82, "attribute_titled_work", "%s read \"%s\"", title)
 		}
 	}
 	if title, ok := deicticVisibleWorkTitle(body); ok {
-		emit(fmt.Sprintf("%s read \"%s\"", who, title), 0.85, "attribute_titled_work")
+		emitOn(body, 0, true, 0.85, "attribute_titled_work", "%s read \"%s\"", title)
 	}
 
-	if m := activityGerund.FindStringSubmatch(lexicalBody); m != nil {
-		act := strings.ToLower(NormalizeText(m[1]))
-		if _, stop := activityGerundStop[act]; !stop && len(act) >= 5 {
-			emit(fmt.Sprintf("%s participates in %s", who, act), 0.82, "attribute_activity")
-		}
-	}
-	if m := loveActivityRE.FindStringSubmatch(lexicalBody); m != nil {
-		act := clipActivityTail(NormalizeText(m[1]))
-		if utf8.RuneCountInString(act) >= 4 && utf8.RuneCountInString(act) <= 40 && !strings.Contains(act, " that ") {
-			emit(fmt.Sprintf("%s enjoys %s", who, act), 0.82, "attribute_activity")
-		}
-	}
-	if matches := placeWithActRE.FindAllStringSubmatch(lexicalBody, 6); len(matches) > 0 {
-		for _, m := range matches {
+	if who != "" {
+		if m := activityGerund.FindStringSubmatch(lexicalBody); m != nil {
 			act := strings.ToLower(NormalizeText(m[1]))
-			place, ok := normalizePlace(m[2])
-			if _, stop := activityGerundStop[act]; !stop && ok {
-				emit(fmt.Sprintf("%s has done %s at %s", who, act, place), 0.86, "attribute_place_activity")
+			if _, stop := activityGerundStop[act]; !stop && len(act) >= 5 {
+				emit(who, fmt.Sprintf("%s participates in %s", who, act), 0.82, "attribute_activity")
+			}
+		}
+		if m := loveActivityRE.FindStringSubmatch(lexicalBody); m != nil {
+			act := clipActivityTail(NormalizeText(m[1]))
+			if utf8.RuneCountInString(act) >= 4 && utf8.RuneCountInString(act) <= 40 && !strings.Contains(act, " that ") {
+				emit(who, fmt.Sprintf("%s enjoys %s", who, act), 0.82, "attribute_activity")
 			}
 		}
 	}
-	if matches := tripPlaceRE.FindAllStringSubmatch(lexicalBody, 4); len(matches) > 0 {
-		for _, m := range matches {
-			act := strings.ToLower(NormalizeText(m[1]))
-			place, ok := normalizePlace(m[2])
-			if _, stop := activityGerundStop[act]; !stop && ok {
-				emit(fmt.Sprintf("%s has done %s at %s", who, act, place), 0.86, "attribute_place_activity")
-			}
+	for _, hit := range reFindAll(placeWithActRE, lexicalBody, 6) {
+		act := strings.ToLower(NormalizeText(hit.groups[1]))
+		place, ok := normalizePlace(hit.groups[2])
+		if _, stop := activityGerundStop[act]; !stop && ok {
+			emitOn(lexicalBody, hit.start, true, 0.86, "attribute_place_activity", "%s has done %s at %s", act, place)
 		}
 	}
-	if m := goGerundRE.FindStringSubmatch(lexicalBody); m != nil {
-		act := strings.ToLower(NormalizeText(m[1]))
+	for _, hit := range reFindAll(tripPlaceRE, lexicalBody, 4) {
+		act := strings.ToLower(NormalizeText(hit.groups[1]))
+		place, ok := normalizePlace(hit.groups[2])
+		if _, stop := activityGerundStop[act]; !stop && ok {
+			emitOn(lexicalBody, hit.start, true, 0.86, "attribute_place_activity", "%s has done %s at %s", act, place)
+		}
+	}
+	if hit, ok := reFind(goGerundRE, lexicalBody); ok {
+		act := strings.ToLower(NormalizeText(hit.groups[1]))
 		if _, stop := activityGerundStop[act]; !stop && len(act) >= 5 {
-			emit(fmt.Sprintf("%s participates in %s", who, act), 0.84, "attribute_activity")
+			emitOn(lexicalBody, hit.start, true, 0.84, "attribute_activity", "%s participates in %s", act)
 		}
 	}
-	if m := workshopRE.FindStringSubmatch(lexicalBody); m != nil {
-		act := strings.ToLower(NormalizeText(m[1]))
+	if hit, ok := reFind(workshopRE, lexicalBody); ok {
+		act := strings.ToLower(NormalizeText(hit.groups[1]))
 		if _, stop := activityGerundStop[act]; !stop && utf8.RuneCountInString(act) >= 4 {
-			emit(fmt.Sprintf("%s participates in %s", who, act), 0.88, "attribute_activity")
+			emitOn(lexicalBody, hit.start, true, 0.88, "attribute_activity", "%s participates in %s", act)
 		}
 	}
-	if m := planningActRE.FindStringSubmatch(lexicalBody); m != nil {
-		act := strings.ToLower(NormalizeText(m[1]))
+	if hit, ok := reFind(planningActRE, lexicalBody); ok {
+		act := strings.ToLower(NormalizeText(hit.groups[1]))
 		if _, stop := activityGerundStop[act]; !stop && len(act) >= 5 {
-			emit(fmt.Sprintf("%s plans %s", who, act), 0.86, "attribute_plan")
-			emit(fmt.Sprintf("%s participates in %s", who, act), 0.8, "attribute_activity")
+			emitOn(lexicalBody, hit.start, true, 0.86, "attribute_plan", "%s plans %s", act)
+			emitOn(lexicalBody, hit.start, true, 0.8, "attribute_activity", "%s participates in %s", act)
 		}
 	}
 	seenLikes := map[string]struct{}{}
-	emitLike := func(raw string, conf float64) {
+	emitLike := func(start int, raw string, conf float64) {
 		like := clipPreferenceTail(NormalizeText(raw))
 		if !validPreferenceValue(like) {
 			return
@@ -368,51 +451,51 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			return
 		}
 		seenLikes[key] = struct{}{}
-		emit(fmt.Sprintf("%s's kids like %s", who, like), conf, "attribute_preference")
+		emitOn(body, start, true, conf, "attribute_preference", "%s's kids like %s", like)
 	}
-	for _, m := range kidsLikeRE.FindAllStringSubmatch(body, 6) {
-		emitLike(m[1], 0.84)
+	for _, hit := range reFindAll(kidsLikeRE, body, 6) {
+		emitLike(hit.start, hit.groups[1], 0.84)
 	}
-	for _, m := range kidsAboutRE.FindAllStringSubmatch(body, 6) {
-		emitLike(m[1], 0.82)
+	for _, hit := range reFindAll(kidsAboutRE, body, 6) {
+		emitLike(hit.start, hit.groups[1], 0.82)
 	}
-	emitCareer := func(field string, conf float64, rule string) {
+	emitCareer := func(start int, field string, conf float64, rule string) {
 		field = clipCareerTail(field)
 		for _, part := range splitAndOrPhrases(field) {
 			if utf8.RuneCountInString(part) >= 3 && utf8.RuneCountInString(part) <= 60 {
 				if rule == "attribute_education" {
-					emit(fmt.Sprintf("%s studies %s", who, part), conf, rule)
+					emitOn(body, start, true, conf, rule, "%s studies %s", part)
 				} else {
-					emit(fmt.Sprintf("%s plans career in %s", who, part), conf, rule)
+					emitOn(body, start, true, conf, rule, "%s plans career in %s", part)
 				}
 			}
 		}
 	}
-	if m := lookingIntoRE.FindStringSubmatch(body); m != nil {
-		emitCareer(NormalizeText(m[1]), 0.88, "attribute_occupation")
+	if hit, ok := reFind(lookingIntoRE, body); ok {
+		emitCareer(hit.start, NormalizeText(hit.groups[1]), 0.88, "attribute_occupation")
 	}
-	if m := researchingRE.FindStringSubmatch(body); m != nil {
-		topic := clipResearchTopic(NormalizeText(m[1]))
+	if hit, ok := reFind(researchingRE, body); ok {
+		topic := clipResearchTopic(NormalizeText(hit.groups[1]))
 		if utf8.RuneCountInString(topic) >= 4 && utf8.RuneCountInString(topic) <= 50 {
-			emit(fmt.Sprintf("%s researched %s", who, topic), 0.86, "attribute_plan")
+			emitOn(body, hit.start, true, 0.86, "attribute_plan", "%s researched %s", topic)
 		}
 	}
-	if m := careerFieldRE.FindStringSubmatch(body); m != nil {
-		emitCareer(NormalizeText(m[1]), 0.88, "attribute_occupation")
+	if hit, ok := reFind(careerFieldRE, body); ok {
+		emitCareer(hit.start, NormalizeText(hit.groups[1]), 0.88, "attribute_occupation")
 	}
-	if m := wantToBeRE.FindStringSubmatch(body); m != nil {
-		emitCareer(NormalizeText(m[1]), 0.86, "attribute_occupation")
+	if hit, ok := reFind(wantToBeRE, body); ok {
+		emitCareer(hit.start, NormalizeText(hit.groups[1]), 0.86, "attribute_occupation")
 	}
-	if m := educationRE.FindStringSubmatch(body); m != nil {
-		emitCareer(NormalizeText(m[1]), 0.86, "attribute_education")
+	if hit, ok := reFind(educationRE, body); ok {
+		emitCareer(hit.start, NormalizeText(hit.groups[1]), 0.86, "attribute_education")
 	}
-	if m := workWithGroupRE.FindStringSubmatch(body); m != nil {
-		group := clipCareerTail(NormalizeText(m[1]))
+	if hit, ok := reFind(workWithGroupRE, body); ok {
+		group := clipCareerTail(NormalizeText(hit.groups[1]))
 		if utf8.RuneCountInString(group) >= 5 && utf8.RuneCountInString(group) <= 50 {
-			emit(fmt.Sprintf("%s plans career for %s", who, group), 0.86, "attribute_occupation")
+			emitOn(body, hit.start, true, 0.86, "attribute_occupation", "%s plans career for %s", group)
 		}
 	}
-	emitEvent := func(raw string, conf float64) {
+	emitEvent := func(start int, raw string, conf float64) {
 		ev := clipEventTail(NormalizeText(raw))
 		head, _, _ := strings.Cut(strings.ToLower(ev), " ")
 		if ev == "" || utf8.RuneCountInString(ev) < 4 || utf8.RuneCountInString(ev) > 40 {
@@ -424,51 +507,52 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		if _, stop := activityGerundStop[head]; stop {
 			return
 		}
-		emit(fmt.Sprintf("%s attended %s", who, ev), conf, "attribute_event")
+		emitOn(body, start, true, conf, "attribute_event", "%s attended %s", ev)
 	}
-	if m := gaveEventRE.FindStringSubmatch(body); m != nil {
-		emitEvent(m[1], 0.86)
+	if hit, ok := reFind(gaveEventRE, body); ok {
+		emitEvent(hit.start, hit.groups[1], 0.86)
 	}
-	if m := hadEventRE.FindStringSubmatch(body); m != nil {
-		emitEvent(m[1], 0.84)
+	if hit, ok := reFind(hadEventRE, body); ok {
+		emitEvent(hit.start, hit.groups[1], 0.84)
 	}
-	if m := ranEventRE.FindStringSubmatch(body); m != nil {
-		emitEvent(m[1], 0.86)
+	if hit, ok := reFind(ranEventRE, body); ok {
+		emitEvent(hit.start, hit.groups[1], 0.86)
 	}
-	if m := trainingForRE.FindStringSubmatch(body); m != nil {
-		act := strings.ToLower(clipIdentityTail(clipEventTail(NormalizeText(m[1]))))
+	if hit, ok := reFind(trainingForRE, body); ok {
+		act := strings.ToLower(clipIdentityTail(clipEventTail(NormalizeText(hit.groups[1]))))
 		if utf8.RuneCountInString(act) >= 4 && utf8.RuneCountInString(act) <= 40 {
 			if _, stop := eventLightStop[act]; !stop {
 				if _, stop := activityGerundStop[act]; !stop {
-					emit(fmt.Sprintf("%s participates in %s", who, act), 0.86, "attribute_activity")
+					emitOn(body, hit.start, true, 0.86, "attribute_activity", "%s participates in %s", act)
 				}
 			}
 		}
 	}
-	if m := durationYearsRE.FindStringSubmatch(body); m != nil {
-		n := numberWord(m[1])
+	if hit, ok := reFind(durationYearsRE, body); ok {
+		n := numberWord(hit.groups[1])
 		if strings.Contains(lowerBody, "friend") {
-			emit(fmt.Sprintf("%s has known friends for %s years", who, n), 0.9, "attribute_duration")
+			emitOn(body, hit.start, true, 0.9, "attribute_duration", "%s has known friends for %s years", n)
 		} else {
-			emit(fmt.Sprintf("%s has a %s-year duration", who, n), 0.82, "attribute_duration")
+			emitOn(body, hit.start, true, 0.82, "attribute_duration", "%s has a %s-year duration", n)
 		}
 	}
-	if m := collectsRE.FindStringSubmatch(body); m != nil {
-		obj := NormalizeText(m[1])
+	if hit, ok := reFind(collectsRE, body); ok {
+		obj := NormalizeText(hit.groups[1])
 		if utf8.RuneCountInString(obj) >= 4 && utf8.RuneCountInString(obj) <= 50 && !strings.Contains(obj, " that ") {
-			emit(fmt.Sprintf("%s collects %s", who, obj), 0.86, "attribute_possession")
+			emitOn(body, hit.start, true, 0.86, "attribute_possession", "%s collects %s", obj)
 		}
 	}
 
 	if strings.Contains(lowerBody, "unwind") || strings.Contains(lowerBody, "relax") ||
 		strings.Contains(lowerBody, "clear my mind") {
-		for _, m := range regexp.MustCompile(`(?i)\b([a-z]{4,}ing)\b`).FindAllStringSubmatch(body, 6) {
-			act := strings.ToLower(m[1])
+		unwindRE := regexp.MustCompile(`(?i)\b([a-z]{4,}ing)\b`)
+		for _, hit := range reFindAll(unwindRE, body, 6) {
+			act := strings.ToLower(hit.groups[1])
 			if _, stop := activityGerundStop[act]; stop {
 				continue
 			}
-			emit(fmt.Sprintf("%s unwinds via %s", who, act), 0.86, "attribute_activity")
-			emit(fmt.Sprintf("%s participates in %s", who, act), 0.82, "attribute_activity")
+			emitOn(body, hit.start, true, 0.86, "attribute_activity", "%s unwinds via %s", act)
+			emitOn(body, hit.start, true, 0.82, "attribute_activity", "%s participates in %s", act)
 		}
 	}
 
@@ -523,8 +607,14 @@ func stampAtomTime(content, source string, observedAt *time.Time) string {
 func clipIdentityTail(s string) string {
 	s = NormalizeText(s)
 	lower := strings.ToLower(s)
-	if i := strings.Index(lower, " and "); i > 0 {
-		s = strings.TrimSpace(s[:i])
+	for _, tail := range []string{
+		" and ", " still ", " that ", " which ", " who ", " when ", " because ",
+		" but ", " so ",
+	} {
+		if i := strings.Index(lower, tail); i > 0 {
+			s = strings.TrimSpace(s[:i])
+			lower = strings.ToLower(s)
+		}
 	}
 	return s
 }
@@ -913,6 +1003,10 @@ func predicateForAttributeRule(rule, content string) string {
 		return PredicateOccupation
 	case "attribute_education":
 		return PredicateEducation
+	case "attribute_residence":
+		return PredicateResidence
+	case "attribute_belief":
+		return PredicateBelief
 	case "attribute_plan":
 		return PredicatePlan
 	case "attribute_event":
@@ -930,8 +1024,8 @@ func valueNormFromAtomContent(content string) string {
 	content = stripTrailingStamp(content)
 	lower := strings.ToLower(content)
 	for _, sep := range []string{
-		" moved from ", " moved to ", " is from ", " participates in ", " enjoys ",
-		" kids like ", " read \"", " mentioned \"", " is a ", " is ",
+		" moved from ", " moved to ", " is from ", " lives in ", " participates in ", " enjoys ",
+		" kids like ", " read \"", " mentioned \"", " works as ", " realized that ", " is a ", " is ",
 		" plans career in ", " plans career for ", " plans ", " studies ", " collects ",
 		" researched ", " has known friends for ", " has done ", " attended ",
 	} {

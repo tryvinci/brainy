@@ -462,7 +462,36 @@ ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS extraction_jobs_lease_owner_lookup
 ON extraction_jobs (lease_owner) WHERE lease_owner IS NOT NULL;
 `,
+	},
+	{
+		version: 22,
+		name:    "canonical_entities_and_relation_ids",
+		sql: `
+CREATE TABLE IF NOT EXISTS memory_entities (
+    tenant_id TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    entity_id TEXT NOT NULL,
+    canonical_label TEXT NOT NULL,
+    aliases TEXT[] NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (tenant_id, subject_id, entity_id)
+);
+CREATE INDEX IF NOT EXISTS memory_entities_label
+ON memory_entities (tenant_id, subject_id, canonical_label);
+CREATE INDEX IF NOT EXISTS memory_entities_aliases
+ON memory_entities USING gin (aliases);
 
+ALTER TABLE memory_relations
+ADD COLUMN IF NOT EXISTS src_entity_id TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS dst_entity_id TEXT NOT NULL DEFAULT '',
+ADD COLUMN IF NOT EXISTS valid_from TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS valid_to TIMESTAMPTZ,
+ADD COLUMN IF NOT EXISTS evidence_span TEXT NOT NULL DEFAULT '';
+
+CREATE INDEX IF NOT EXISTS memory_relations_src_id
+ON memory_relations (tenant_id, subject_id, src_entity_id, relation)
+WHERE src_entity_id <> '';
+`,
 	},
 }
 

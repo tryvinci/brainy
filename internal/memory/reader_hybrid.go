@@ -11,12 +11,17 @@ import (
 	"time"
 )
 
-// PacketItem is one structured evidence unit for hybrid reading.
+// PacketItem is one structured evidence unit for hybrid reading and typed packets.
 type PacketItem struct {
 	EvidenceID string   `json:"evidence_id,omitempty"`
 	MemoryID   string   `json:"memory_id,omitempty"`
+	FactID     string   `json:"fact_id,omitempty"`
 	Content    string   `json:"content"`
 	Predicate  string   `json:"predicate,omitempty"`
+	Subject    string   `json:"subject,omitempty"`
+	Value      string   `json:"value,omitempty"`
+	EntityID   string   `json:"entity_id,omitempty"`
+	Span       string   `json:"source_span,omitempty"`
 	Role       string   `json:"role,omitempty"` // direct | bridge | temporal | context
 	Score      float64  `json:"score,omitempty"`
 	Targets    []string `json:"targets,omitempty"`
@@ -172,8 +177,8 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 		add(it.Content, it.MemoryID)
 	}
 	// Broad search context after structured proof so slot values are not crowded out.
-	for _, c := range pkt.ContextEvidence {
-		add(c, "")
+	for _, it := range pkt.ContextEvidence {
+		add(it.Content, it.MemoryID)
 	}
 	if len(pkt.ContextEvidence) == 0 {
 		for _, c := range pkt.Contents {
@@ -226,8 +231,8 @@ Include supporting_memory_ids from the bracketed ids when possible; missing ids 
 
 	user := "Memories:\n" + strings.Join(lines, "\n") + "\n\nQuestion: " + strings.TrimSpace(query)
 	body, err := json.Marshal(map[string]any{
-		"model":       cfg.Model,
-		"temperature": 0,
+		"model":           cfg.Model,
+		"temperature":     0,
 		"response_format": map[string]string{"type": "json_object"},
 		"messages": []map[string]string{
 			{"role": "system", "content": system},
