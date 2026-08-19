@@ -51,11 +51,20 @@ def coverage_for_arm(
     ingested = 0
     keep = {int(row["conv_idx"]) for row in sample}
     if not skip_ingest:
+        pending: list[str] = []
         for idx in sorted(keep):
             conv = conversations[idx]
             sample_id = str(conv.get("sample_id") or f"c{idx}")
-            ingested += ingest_conversation(backend, sample_id, iter_sessions(conv))
-            print(f"[{tenant_prefix} {sample_id}] ingested {ingested} cumulative", flush=True)
+            ingested += ingest_conversation(
+                backend, sample_id, iter_sessions(conv), wait_jobs=False
+            )
+            pending.append(sample_id)
+            print(f"[{tenant_prefix} {sample_id}] enqueued {ingested} cumulative", flush=True)
+        if backend.async_ingest and pending:
+            print(f"[{tenant_prefix}] waiting for {len(pending)} subjects", flush=True)
+            for sample_id in pending:
+                backend.wait_until_jobs_done(sample_id)
+                print(f"[{tenant_prefix} {sample_id}] jobs done", flush=True)
     else:
         print(f"[{tenant_prefix}] skip-ingest coverage only", flush=True)
 

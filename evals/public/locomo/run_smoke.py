@@ -92,6 +92,8 @@ def ingest_conversation(
     user_id: str,
     sessions: list[dict],
     chunk: int = 8,
+    *,
+    wait_jobs: bool = True,
 ) -> int:
     """Ingest dialogue as atomic turns (one API message each).
 
@@ -143,9 +145,10 @@ def ingest_conversation(
             if probe:
                 probes.append(probe)
             remembered += len(batch)
-    if backend.async_ingest and remembered:
+    if backend.async_ingest and remembered and wait_jobs:
         # Prefer job-completion barrier; fall back to capped search settle
-        # only outside publish mode.
+        # only outside publish mode. Callers that enqueue many subjects first
+        # (so the worker can run them in parallel) pass wait_jobs=False.
         try:
             backend.wait_until_jobs_done(user_id)
         except Exception:
