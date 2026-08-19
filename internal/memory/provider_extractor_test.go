@@ -15,6 +15,13 @@ func TestProviderExtractorParsesStructuredMemories(t *testing.T) {
 		if r.URL.Path != "/chat/completions" {
 			t.Fatalf("unexpected path %s", r.URL.Path)
 		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if body["max_tokens"] != float64(providerMaxCompletionTokens) {
+			t.Fatalf("expected max_tokens=%d, got %#v", providerMaxCompletionTokens, body["max_tokens"])
+		}
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{
 				{"message": map[string]any{
@@ -295,6 +302,84 @@ func mustParseTime(t *testing.T, raw string) time.Time {
 		t.Fatal(err)
 	}
 	return ts.UTC()
+}
+
+func TestProviderExtractorReadsJSONFromReasoningWhenContentNull(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content":       nil,
+					"reasoning":     `analysis...\n{"memories":[{"kind":"fact","content":"Caroline has a cat named Whiskers","source_text":"I have a cat named Whiskers","confidence":0.9}]}`,
+					"finish_reason": "stop",
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		Model:   "test-model",
+		Strict:  true,
+	}, server.Client())
+	memories, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "Caroline: I have a cat named Whiskers."}},
+	})
+	if err != nil {
+		t.Fatalf("extract failed: %v", err)
+	}
+	found := false
+	for _, mem := range memories {
+		if strings.Contains(mem.Content, "Whiskers") && mem.Explain["rule"] == "provider_extract" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected provider memory from reasoning JSON, got %#v", memories)
+	}
+}
+
+func TestProviderExtractorReadsArrayContentParts(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": []map[string]any{
+						{"type": "output_text", "text": `{"memories":[{"kind":"fact","content":"Jordan is a nurse","source_text":"I work as a nurse","confidence":0.9,"predicate":"occupation","value":"nurse"}]}`},
+					},
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	extractor := NewProviderExtractor(ProviderConfig{
+		BaseURL: server.URL,
+		Model:   "test-model",
+		Strict:  true,
+	}, server.Client())
+	memories, err := extractor.Extract(context.Background(), IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []Message{{Role: "user", Content: "Jordan: I work as a nurse"}},
+	})
+	if err != nil {
+		t.Fatalf("extract failed: %v", err)
+	}
+	found := false
+	for _, mem := range memories {
+		if strings.Contains(strings.ToLower(mem.Content), "nurse") && mem.Explain["rule"] == "provider_extract" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected provider memory from content parts, got %#v", memories)
+	}
 }
 
 func TestProviderExtractorEmptyCompletionFallsBackToBaseline(t *testing.T) {

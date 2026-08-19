@@ -14,6 +14,11 @@ import (
 
 const providerExtractionVersion = "provider-v4-ops"
 
+// gpt-oss (and similar reasoning models) spend hundreds of tokens on a
+// reasoning channel before emitting JSON. Cloudflare's default max_tokens is
+// 256, which finishes with content=null and "empty completion".
+const providerMaxCompletionTokens = 4096
+
 // ProviderConfig configures an OpenAI-compatible chat completions client.
 type ProviderConfig struct {
 	BaseURL string
@@ -139,6 +144,7 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 	body, err := json.Marshal(map[string]any{
 		"model":           p.cfg.Model,
 		"temperature":     0,
+		"max_tokens":      providerMaxCompletionTokens,
 		"response_format": map[string]string{"type": "json_object"},
 		"messages": []map[string]string{
 			{"role": "system", "content": providerSystemPrompt},
@@ -173,21 +179,110 @@ func (p *ProviderExtractor) extractProvider(ctx context.Context, req IngestReque
 		return nil, fmt.Errorf("provider extract status %d: %s", resp.StatusCode, truncate(string(respBody), 240))
 	}
 
+	text, err := completionText(respBody)
+	if err != nil {
+		return nil, err
+	}
+	return parseProviderMemories(text)
+}
+
+type chatCompletionMessage struct {
+	Content          json.RawMessage `json:"content"`
+	Reasoning        string          `json:"reasoning"`
+	ReasoningContent string          `json:"reasoning_content"`
+}
+
+func completionText(respBody []byte) (string, error) {
 	var completion struct {
 		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
+			Message chatCompletionMessage `json:"message"`
 		} `json:"choices"`
 	}
 	if err := json.Unmarshal(respBody, &completion); err != nil {
-		return nil, fmt.Errorf("provider extract decode: %w", err)
+		return "", fmt.Errorf("provider extract decode: %w", err)
 	}
-	if len(completion.Choices) == 0 || strings.TrimSpace(completion.Choices[0].Message.Content) == "" {
-		return nil, fmt.Errorf("provider extract empty completion")
+	if len(completion.Choices) == 0 {
+		return "", fmt.Errorf("provider extract empty completion")
 	}
+	msg := completion.Choices[0].Message
+	text := decodeChatContent(msg.Content)
+	if strings.TrimSpace(text) == "" {
+		text = strings.TrimSpace(msg.Reasoning)
+	}
+	if text == "" {
+		text = strings.TrimSpace(msg.ReasoningContent)
+	}
+	if text == "" {
+		return "", fmt.Errorf("provider extract empty completion")
+	}
+	if extracted := firstJSONObject(text); extracted != "" {
+		return extracted, nil
+	}
+	return text, nil
+}
 
-	return parseProviderMemories(completion.Choices[0].Message.Content)
+func decodeChatContent(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s
+	}
+	var parts []struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(raw, &parts); err == nil {
+		var b strings.Builder
+		for _, part := range parts {
+			b.WriteString(part.Text)
+		}
+		return b.String()
+	}
+	return strings.TrimSpace(string(raw))
+}
+
+func firstJSONObject(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(raw, "{") {
+		return raw
+	}
+	start := strings.Index(raw, "{")
+	if start < 0 {
+		return ""
+	}
+	depth := 0
+	inString := false
+	escape := false
+	for i := start; i < len(raw); i++ {
+		c := raw[i]
+		if inString {
+			if escape {
+				escape = false
+				continue
+			}
+			if c == '\\' {
+				escape = true
+				continue
+			}
+			if c == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return raw[start : i+1]
+			}
+		}
+	}
+	return ""
 }
 
 // Typed extraction v4: ADD/UPDATE/DELETE/NONE ops adapted from Mem0's classic

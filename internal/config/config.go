@@ -54,7 +54,7 @@ func Load() Config {
 	}
 	providerBase := getenv("BRAINY_PROVIDER_BASE_URL", os.Getenv("LLM_BASE_URL"))
 	providerKey := getenv("BRAINY_PROVIDER_API_KEY", os.Getenv("LLM_API_KEY"))
-	providerTimeout := getenvDuration("BRAINY_PROVIDER_TIMEOUT", 45*time.Second)
+	providerTimeout := getenvDuration("BRAINY_PROVIDER_TIMEOUT", 120*time.Second)
 	// Write deadline must exceed the provider ceiling so slow hybrid-reader
 	// recall is not cut off mid-answer; the env override still wins.
 	writeTimeout := getenvDuration("BRAINY_HTTP_WRITE_TIMEOUT", providerTimeout+60*time.Second)
