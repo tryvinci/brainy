@@ -1,0 +1,25 @@
+{
+  "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "n": 180,
+  "seed": 1,
+  "arms": {
+    "deterministic": {
+      "tenant_prefix": "ceil-det-1",
+      "async_ingest": false,
+      "ingested_turns": 5882,
+      "skip_ingest": false,
+      "covered": 139,
+      "n": 180,
+      "coverage": 0.7722222222222223
+    },
+    "provider": {
+      "tenant_prefix": "integrity-s0-1",
+      "async_ingest": true,
+      "ingested_turns": 5882,
+      "skip_ingest": false,
+      "covered": 161,
+      "n": 180,
+      "coverage": 0.8944444444444445
+    }
+  }
+}
