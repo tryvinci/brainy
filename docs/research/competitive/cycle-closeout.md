@@ -726,3 +726,76 @@ The Aug-19 S0 numbers measured a **degraded runtime**, not memory quality: no pg
 
 **One step:** packet/proof for MH (coverage 32/33 vs product QA 1/33). Do not grow compiler regex. Do not merge #133 until a labeled proof-path change is attributable. Do not burn n=1540 or Mem0 same-pin on this S0. Kill list unchanged.
 
+---
+
+## 2026-08-20 — MH packet/proof (hop people, not topic nouns)
+
+### Landed
+
+Product change on `pr/mh-packet-proof-3086` (PR #134, base `dev` @ `6b8ac5f`): `/recall` hops capitalized people on `both X and Y` joins, ignores search-fallback slot dumps, intersects typed hop values, and composes from `likes`/`loves` hop contents when slots are empty. Generic predicate hints (preference / possession / location / health). **No new compiler rules. No fusion weights.** OpenAI embedding A/B stays the 2026-08-20 pin and was not re-run. #133 / #131 stay unmerged. `main` not touched this cycle.
+
+Extractor actually used at ingest time: Cloudflare gpt-oss-120b via AI Gateway (unchanged store). Embedder on remasure: hosted BGE 768, ANN active, signatures match, fallbacks 0.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Not re-run; prior integrity gate stands. |
+| Marketing vertical | **17/17** | Not re-run; prior integrity gate stands. |
+| LoCoMo S0 MH slice (product `/recall`) | **2/33 (0.061)** | Was **1/33** on the fail-closed S0 pin. Same tenant `integrity-s0-1`, same dataset SHA, skip-ingest. [pin](../../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
+| LoCoMo S0 n=180 / 3×90 | **not re-completed** | Full `--fail-closed` product S0 started twice and stalled on 120s embed timeouts (gateway). Do not invent a new 180-row QA pin. Prior S0 **32/180** / **62/180** and 3×90 **21/90** / **33/90** stand. |
+| LoCoMo 1×30 | **not re-run** | Freeze **21/30** (OD **0/4**) stands. Do not replace it. |
+| LME-20 / n=1540 / BEAM | **not re-run** | Prior pins stand (LME-20 **4/20**, full `/recall` **11.4%**). |
+| Embedding A/B | **not re-run** | 2026-08-20 rebuild pin stands (OpenAI @768 r@10 **0.333** vs this-rebuild BGE **0.306**). Do not average with the long-lived VM BGE 0.239. |
+
+This is **not** a 70–80% claim and **not** SOTA. Name the MH dip: **2/33 is still a dip.**
+
+Attributed CORRECT: `conv-42-q56` turtles (shared hop proof `Turtles, Dairy-free Desserts`). Second CORRECT (`conv-49-q15` soda/candy) is a crowded preference list the judge accepted — not the same mechanism.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep same-pin this cycle. Reuse the 2026-08-15 freeze ([locomo-mem0-fresh-1x30-20260815.md](../../benchmarks/artifacts/locomo-mem0-fresh-1x30-20260815.md)): Mem0 Platform 1×30 **11/30** (MH 6/10, OD 3/4, temporal 2/16). Do **not** mix 2/33 or 32/180 with that 30-item freeze.
+
+#### 1. LoCoMo conversational QA — MH proof slice only
+
+| Axis | This cycle | Mem0 Platform freeze | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | **11/30** | Prior freeze **lead**; this cycle does not refresh it |
+| S0 n=180 product | prior **32/180** (no new 180 pin) | no same-n pin | **Do not trail/lead vs 11/30** |
+| S0 MH product | **2/33** (was 1/33) | no 33-item freeze | **Still the largest conversational gap**; +1 is the turtles join, not qualification |
+| Search p50 | ~200–400 ms local on the 33 MH items | 492 ms platform on the 1×30 freeze | Harness observation, **not** a SLO |
+
+**Multi-hop (still trail).** Mechanism on the recovered item: hops resolved the topic noun `animal`, search-fallback activity lists became the answer, and “Joanna likes turtles” was already in hop contents. Fix is packet/proof (person hops + typed intersect + content extract), not compiler coverage and not embedder swap. Remaining 31/33 misses are still mostly list/join/reader — gold is usually written (P4 MH coverage 32/33). Do not add a graph DB. Do not merge #133 to fish those 31.
+
+**Open-domain.** Not re-run. Prior S0 product **1/11** / freeze OD **0/4** vs Mem0 **3/4** still stands as a trail axis. Same mechanism: durable career/works/plans as cited facts.
+
+**Temporal.** Not re-run. Keep the freeze temporal lead (11/16 vs Mem0 2/16) as **stale until 1×30 is re-run**.
+
+**Overall.** OpenAI A/B is retrieval-only and already recorded. This cycle does not claim a Mem0 overtake.
+
+#### 2. OpMem — lead (Mem0 pin stale; Brainy not re-run)
+
+Last integrity stack **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Do not package a new “+3” sentence.
+
+#### 3. Marketing vertical — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.** Same caveat.
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.** Published headlines stay context. R5B–R10 substrate unchanged.
+
+**Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
+
+### Why
+
+Coverage 161/180 vs product QA 32/180, and MH coverage 32/33 vs QA 1/33, was not an embedder problem. On the integrity store the turtles gold was written and even present in hop contents; the planner treated `animal` as the entity and `composeFromHopValues` emitted search-fallback activity slogans (“Watching Pets Play”). Hopping Nate/Joanna, dropping search-fallback slot dumps, extracting `likes`/`loves`, and intersecting typed values made `/recall` answer `Turtles, Dairy-free Desserts` (judge CORRECT). That is one proof-path item. The other 31 MH misses are still packet/reader/list joins — not a license to grow compiler regex or merge #133.
+
+### Next
+
+**One step:** remaining MH list/join proof (shared facts that are not a two-name `both` cue; enumerate lists still crowd). Do not merge #133 until a remasure says compiler work is justified. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin on this slice. Kill list unchanged.
+

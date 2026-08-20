@@ -1,0 +1,209 @@
+{
+  "tenant_prefix": "integrity-s0-1",
+  "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "n": 33,
+  "correct": 2,
+  "accuracy": 0.061,
+  "lane": "product-recall",
+  "note": "MH slice of stratified 180 seed 1; judge hosted OpenAI-compatible gateway temp 0.0",
+  "items": [
+    {
+      "id": "conv-48-q82",
+      "judgment": "WRONG",
+      "lat_ms": 703.5,
+      "question": "Which locations does Deborah practice her yoga at?"
+    },
+    {
+      "id": "conv-44-q26",
+      "judgment": "WRONG",
+      "lat_ms": 298.9,
+      "question": "What is the biggest stressor in Andrew's life besides not being able to hike frequently?"
+    },
+    {
+      "id": "conv-41-q32",
+      "judgment": "WRONG",
+      "lat_ms": 322.5,
+      "question": "What outdoor activities has John done with his colleagues?"
+    },
+    {
+      "id": "conv-48-q77",
+      "judgment": "WRONG",
+      "lat_ms": 299.1,
+      "question": "Where did Jolene and her partner find a cool diving spot?"
+    },
+    {
+      "id": "conv-49-q18",
+      "judgment": "WRONG",
+      "lat_ms": 258.0,
+      "question": "What kind of healthy food suggestions has Evan given to Sam?"
+    },
+    {
+      "id": "conv-44-q51",
+      "judgment": "WRONG",
+      "lat_ms": 307.6,
+      "question": "What items has Audrey bought or made for her dogs?"
+    },
+    {
+      "id": "conv-43-q38",
+      "judgment": "WRONG",
+      "lat_ms": 476.9,
+      "question": "which country has Tim visited most frequently in his travels?"
+    },
+    {
+      "id": "conv-43-q48",
+      "judgment": "WRONG",
+      "lat_ms": 173.0,
+      "question": "When did John get an ankle injury in 2023?"
+    },
+    {
+      "id": "conv-41-q29",
+      "judgment": "WRONG",
+      "lat_ms": 318.4,
+      "question": "What events is Maria planning for the homeless shelter funraiser?"
+    },
+    {
+      "id": "conv-26-q39",
+      "judgment": "WRONG",
+      "lat_ms": 323.6,
+      "question": "In what ways is Caroline participating in the LGBTQ community?"
+    },
+    {
+      "id": "conv-26-q65",
+      "judgment": "WRONG",
+      "lat_ms": 490.0,
+      "question": "What are some changes Caroline has faced during her transition journey?"
+    },
+    {
+      "id": "conv-42-q56",
+      "judgment": "CORRECT",
+      "lat_ms": 411.9,
+      "question": "What animal do both Nate and Joanna like?"
+    },
+    {
+      "id": "conv-43-q49",
+      "judgment": "WRONG",
+      "lat_ms": 220.3,
+      "question": "How many times has John injured his ankle?"
+    },
+    {
+      "id": "conv-44-q39",
+      "judgment": "WRONG",
+      "lat_ms": 222.5,
+      "question": "What did Audrey get wtih having so many dogs?"
+    },
+    {
+      "id": "conv-26-q24",
+      "judgment": "WRONG",
+      "lat_ms": 142.2,
+      "question": "What does Melanie do to destress?"
+    },
+    {
+      "id": "conv-50-q59",
+      "judgment": "WRONG",
+      "lat_ms": 433.8,
+      "question": "How many Ferraris does Calvin own?"
+    },
+    {
+      "id": "conv-26-q75",
+      "judgment": "WRONG",
+      "lat_ms": 301.6,
+      "question": "How many children does Melanie have?"
+    },
+    {
+      "id": "conv-48-q14",
+      "judgment": "WRONG",
+      "lat_ms": 224.6,
+      "question": "What were Deborah's mother's hobbies?"
+    },
+    {
+      "id": "conv-49-q37",
+      "judgment": "WRONG",
+      "lat_ms": 319.1,
+      "question": "What kind of healthy meals did Sam start eating after getting a health scare?"
+    },
+    {
+      "id": "conv-48-q79",
+      "judgment": "WRONG",
+      "lat_ms": 127.0,
+      "question": "Has Deborah tried surfing?"
+    },
+    {
+      "id": "conv-50-q53",
+      "judgment": "WRONG",
+      "lat_ms": 359.7,
+      "question": "Who supports Calvin in tough times?"
+    },
+    {
+      "id": "conv-48-q85",
+      "judgment": "WRONG",
+      "lat_ms": 182.1,
+      "question": "Which community activities have Deborah and Anna participated in?"
+    },
+    {
+      "id": "conv-47-q40",
+      "judgment": "WRONG",
+      "lat_ms": 296.0,
+      "question": "What kind of tricks do James's pets know?"
+    },
+    {
+      "id": "conv-41-q60",
+      "judgment": "WRONG",
+      "lat_ms": 186.0,
+      "question": "What are Maria's dogs' names?"
+    },
+    {
+      "id": "conv-26-q52",
+      "judgment": "WRONG",
+      "lat_ms": 162.8,
+      "question": "What are Melanie's pets' names?"
+    },
+    {
+      "id": "conv-26-q60",
+      "judgment": "WRONG",
+      "lat_ms": 213.4,
+      "question": "What instruments does Melanie play?"
+    },
+    {
+      "id": "conv-41-q7",
+      "judgment": "WRONG",
+      "lat_ms": 257.7,
+      "question": "What items des John mention having as a child?"
+    },
+    {
+      "id": "conv-48-q73",
+      "judgment": "WRONG",
+      "lat_ms": 336.4,
+      "question": "Did Jolene teach herself how to play the console?"
+    },
+    {
+      "id": "conv-49-q78",
+      "judgment": "WRONG",
+      "lat_ms": 222.7,
+      "question": "Who did Evan tell about his marriage?"
+    },
+    {
+      "id": "conv-43-q25",
+      "judgment": "WRONG",
+      "lat_ms": 202.4,
+      "question": "What similar sports collectible do Tim and John own?"
+    },
+    {
+      "id": "conv-47-q22",
+      "judgment": "WRONG",
+      "lat_ms": 223.4,
+      "question": "Who or which organizations have been the beneficiaries of John's charity tournaments?"
+    },
+    {
+      "id": "conv-49-q49",
+      "judgment": "WRONG",
+      "lat_ms": 179.1,
+      "question": "Who was injured in Evan's family?"
+    },
+    {
+      "id": "conv-49-q15",
+      "judgment": "CORRECT",
+      "lat_ms": 219.6,
+      "question": "What kind of unhealthy snacks does Sam enjoy eating?"
+    }
+  ]
+}
