@@ -117,6 +117,13 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if !foundPref {
 		t.Fatalf("expected preference hop for like-query, hops=%+v", like.Hops)
 	}
+
+	pronoun := PlanQuery("What do they like?", nil)
+	for _, hop := range pronoun.Hops {
+		if hop.Kind == "resolve_entity" && strings.EqualFold(hop.Entity, "they") {
+			t.Fatalf("pronoun must not be a hop entity, hops=%+v", pronoun.Hops)
+		}
+	}
 }
 
 func TestBuildEvidencePacket(t *testing.T) {
