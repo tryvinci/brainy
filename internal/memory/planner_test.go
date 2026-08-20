@@ -116,3 +116,19 @@ func TestBuildEvidencePacket(t *testing.T) {
 		t.Fatalf("expected context span, got %+v", pkt.ContextEvidence[0])
 	}
 }
+
+func TestPlanQueryEmitsHopsForPossessiveMH(t *testing.T) {
+	plan := PlanQuery("What is Riley's job?", nil)
+	if len(plan.Hops) == 0 {
+		t.Fatalf("expected typed hops for possessive MH, plan=%+v", plan)
+	}
+	foundResolve := false
+	for _, hop := range plan.Hops {
+		if hop.Kind == "resolve_entity" && strings.EqualFold(hop.Entity, "Riley") {
+			foundResolve = true
+		}
+	}
+	if !foundResolve {
+		t.Fatalf("expected resolve_entity Riley, hops=%+v", plan.Hops)
+	}
+}

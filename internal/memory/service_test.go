@@ -184,6 +184,23 @@ func (s *memoryStoreStub) UpsertMemoryEntity(_ context.Context, ent MemoryEntity
 	}
 	for i, existing := range s.entities {
 		if existing.TenantID == ent.TenantID && existing.SubjectID == ent.SubjectID && existing.EntityID == ent.EntityID {
+			seen := map[string]struct{}{}
+			merged := existing.Aliases
+			for _, a := range append(existing.Aliases, ent.Aliases...) {
+				a = NormalizeEntityLabel(a)
+				if a == "" {
+					continue
+				}
+				if _, ok := seen[a]; ok {
+					continue
+				}
+				seen[a] = struct{}{}
+				merged = append(merged, a)
+			}
+			ent.Aliases = merged
+			if strings.TrimSpace(ent.CanonicalLabel) == "" {
+				ent.CanonicalLabel = existing.CanonicalLabel
+			}
 			s.entities[i] = ent
 			return nil
 		}
@@ -1178,6 +1195,66 @@ func TestSubjectContentExpansionSurfacesProfile(t *testing.T) {
 	}
 	if !strings.Contains(joined, "pottery") {
 		t.Fatalf("expected subject-content expansion to surface pottery, got %q", joined)
+	}
+}
+
+func TestAutoSupersedeDoesNotCrossEntities(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-ku", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"observed_at": "2023-01-01T12:00:00Z"},
+		Messages: []Message{
+			{Role: "user", Content: "Alex currently works as a nurse."},
+			{Role: "user", Content: "Riley currently works as a teacher."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-ku", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"observed_at": "2024-06-01T12:00:00Z"},
+		Messages: []Message{
+			{Role: "user", Content: "Alex currently works as a doctor."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rileyActive := false
+	alexNurseSuperseded := false
+	for _, rec := range store.records {
+		c := strings.ToLower(rec.Content)
+		if strings.Contains(c, "teacher") && rec.LifecycleState != LifecycleSuperseded {
+			rileyActive = true
+		}
+		if strings.Contains(c, "nurse") && rec.LifecycleState == LifecycleSuperseded {
+			alexNurseSuperseded = true
+		}
+	}
+	if !rileyActive {
+		t.Fatal("Riley occupation must not be superseded by Alex's update")
+	}
+	if !alexNurseSuperseded {
+		t.Fatal("Alex's older occupation should supersede")
+	}
+}
+
+func TestBuildMemoryRecordStampsEventStart(t *testing.T) {
+	at := time.Date(2023, 7, 15, 12, 0, 0, 0, time.UTC)
+	rec, err := BuildMemoryRecord("mem_es", at, IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"observed_at": "2023-07-15T12:00:00Z"},
+	}, ExtractedMemory{
+		Kind: KindFact, Content: "Riley participates in pottery", When: "2023-07-14",
+		Explain: map[string]any{"subject": "Riley", "predicate": PredicateActivity, "value_norm": "pottery"},
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rec.Metadata["event_start"] == nil || rec.Metadata["valid_from"] == nil {
+		t.Fatalf("expected event_start/valid_from, metadata=%v", rec.Metadata)
 	}
 }
 

@@ -69,6 +69,10 @@ func (s *Service) persistEntityLinks(ctx context.Context, record MemoryRecord) {
 	_ = linker.LinkMemoryEntities(ctx, record.TenantID, record.SubjectID, record.MemoryID, ents)
 
 	PersistCanonicalEntity(ctx, s.store, record)
+	PersistDialogueAliases(ctx, s.store, record.TenantID, record.SubjectID, entitySubjectOf(record), record.Content)
+	if record.SourceText != "" && record.SourceText != record.Content {
+		PersistDialogueAliases(ctx, s.store, record.TenantID, record.SubjectID, entitySubjectOf(record), record.SourceText)
+	}
 
 	if indexer, ok := s.store.(AtomIndexer); ok {
 		pred, _ := record.Explain["predicate"].(string)
