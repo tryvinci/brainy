@@ -4,7 +4,9 @@ Gold-object recall@k / MRR from `/memories/search?limit=200`, **not** QA accurac
 Frozen tenant `integrity-s0-1` (strict provider ingest, 22,509 memories).
 Dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4` stratified 180 seed 1.
 
-OpenAI `text-embedding-3-large` / `-small` skipped (no OpenAI key). Hash-128 is
+OpenAI `text-embedding-3-large` / `-small` were skipped on 2026-08-19 (no
+`OPENAI_API_KEY`; gateway `/openai` returned 402 wholesale credits). **2026-08-20
+addendum:** both arms run @768 — [pin](embedding-ab-20260820.md). Hash-128 is
 the local 128-d control after `cmd/reembed` (NULLs `embedding_vec_768`). BGE is
 the fail-closed 768-d hosted arm with ANN.
 

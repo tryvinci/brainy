@@ -671,7 +671,7 @@ Extractor actually used: Cloudflare gpt-oss-120b via AI Gateway (what `GET /runt
 | LoCoMo S0 stratified 180 | product **32/180 (0.178)** · industry **62/180 (0.344)** | Invalidates Aug-19 17/180 / 52/180 (no pgvector; silent extract degrade). [pin](../../benchmarks/artifacts/locomo-integrity-s0-20260819.md) |
 | LoCoMo 3×90 | product **21/90 (0.233)** · industry **33/90 (0.367)** | MH-heavy slice. Industry overall/MH matches 2026-08-11 post-cutover 33/90 / 22.2% on a **different** stack. [pin](../../benchmarks/artifacts/locomo-integrity-3x90-20260820.md) |
 | Extraction ceiling (semantic gold, n=180) | det **139/180** · provider **161/180** | Same frozen questions. Provider recovers 22/41 det misses; MH 24→32/33. [pin](../../benchmarks/artifacts/extraction-ceiling-20260819.md) |
-| Embedding A/B (retrieval, not QA) | BGE r@10 **0.239** · hash r@10 **0.211** | BGE dense admission mean **4.4**/q vs hash cosine **152**/q. [pin](../../benchmarks/artifacts/embedding-ab-20260819.md) |
+| Embedding A/B (retrieval, not QA) | BGE r@10 **0.239** · hash r@10 **0.211** · OpenAI large/small @768 r@10 **0.333** (2026-08-20) | BGE dense admission ~**4**/q vs hash cosine **152**/q. OpenAI arms: [addendum](../../benchmarks/artifacts/embedding-ab-20260820.md). [pin](../../benchmarks/artifacts/embedding-ab-20260819.md) |
 | LoCoMo 1×30 / n=1540 / LME-20 / BEAM | **not re-run as freeze pins** | Prior freeze stands: 1×30 **21/30** (OD **0/4**), full `/recall` **11.4%**, LME-20 **4/20**, BEAM 100K **8/20**. LME-20 haystack for n=20 seed 1 is 9.8M chars (~11× this LoCoMo ingest). |
 
 S0 product ledger (P3 order): PROOF_MISS **112**, RETRIEVAL **22**, READER **11**, WRITE **3** (was WRITE_MISS=120 on the invalid pin). Representation coverage 161/180 vs product QA 32/180.
@@ -720,7 +720,7 @@ Last Brainy pin **4/20** product `/recall`. Not re-run. Seed-1 n=20 haystacks ar
 
 ### Why
 
-The Aug-19 S0 numbers measured a **degraded runtime**, not memory quality: no pgvector so dense search saw the last 64–256 writes; extract could return regex baseline on provider error; the oracle blamed WRITE_MISS before retrieval. Fail-closed + parser fixes made the hosted extractor actually run (coverage 161/180 vs det 139/180). QA did not follow coverage: product 32/180 is still mostly PROOF_MISS. BGE ANN is live, but hybrid admits only ~4 dense neighbors per query at k=200 — hash cosine over the full store has higher r@200 because it scores more of the store, not because hash is a better embedder.
+The Aug-19 S0 numbers measured a **degraded runtime**, not memory quality: no pgvector so dense search saw the last 64–256 writes; extract could return regex baseline on provider error; the oracle blamed WRITE_MISS before retrieval. Fail-closed + parser fixes made the hosted extractor actually run (coverage 161/180 vs det 139/180). QA did not follow coverage: product 32/180 is still mostly PROOF_MISS. BGE ANN is live, but hybrid admits only ~4 dense neighbors per query at k=200 — hash cosine over the full store has higher r@200 because it scores more of the store, not because hash is a better embedder. OpenAI `text-embedding-3-large` / `-small` @768 (direct key, not gateway credits) lift r@10 on a rebuilt `integrity-s0-1` pin to **0.333** vs BGE **0.306** on the same stack — retrieval-only, not a QA or SOTA claim.
 
 ### Next
 
