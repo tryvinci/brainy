@@ -96,6 +96,17 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if !foundPlan {
 		t.Fatalf("expected plan hop with research probe, hops=%+v intents=%v", research.Hops, research.Intents)
 	}
+
+	like := PlanQuery("What animal do both Nate and Joanna like?", nil)
+	foundPref := false
+	for _, hop := range like.Hops {
+		if hop.Predicate == PredicatePreference {
+			foundPref = true
+		}
+	}
+	if !foundPref {
+		t.Fatalf("expected preference hop for like-query, hops=%+v", like.Hops)
+	}
 }
 
 func TestBuildEvidencePacket(t *testing.T) {

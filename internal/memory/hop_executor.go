@@ -487,7 +487,7 @@ func hopSlotValues(results []HopResult) []string {
 	seen := map[string]struct{}{}
 	add := func(v, entity string) {
 		v = strings.TrimSpace(v)
-		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) {
+		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) || looksTitleCaseSlogan(titleCaseWords(v)) {
 			return
 		}
 		if entity != "" && strings.EqualFold(v, entity) {

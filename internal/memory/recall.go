@@ -298,8 +298,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Items = items
 			out.Explain["oracle_coverage"] = true
 			out.Explain["oracle_item_count"] = len(items)
-			satisfied := len(items) > 0
-			out.Coverage = map[string]any{"targets": 1, "satisfied": satisfied, "oracle": "coverage"}
+			proven := hopJoinProven(hopResults)
+			if p, ok := pkt.Coverage["hop_join_proven"].(bool); ok && p {
+				proven = true
+			}
+			slot := composeFromHopValues(hopResults) != "" || composeFromPacketStructuredValues(pkt, hopResults) != "" || pickStructuredAnswer(req.Query, search.Results) != ""
+			satisfied := len(items) > 0 || proven || slot
+			out.Coverage = map[string]any{"targets": 1, "satisfied": satisfied, "oracle": "coverage", "hop_join_proven": proven}
 			if !satisfied {
 				out.AnswerStatus = AnswerInsufficient
 				out.Abstained = true
@@ -1111,6 +1116,25 @@ func assembleContextFromPacket(pkt EvidencePacket, budgetTokens int) string {
 		line := "- " + pkt.TemporalAnswer + "\n"
 		b.WriteString(line)
 		seen[strings.ToLower(pkt.TemporalAnswer)] = struct{}{}
+	}
+	for _, it := range pkt.ProofChain {
+		content := strings.TrimSpace(it.Content)
+		if it.Value != "" && !looksTitleCaseSlogan(it.Value) {
+			content = strings.TrimSpace(it.Value)
+		}
+		if content == "" || strings.HasSuffix(content, "?") || looksTitleCaseSlogan(content) {
+			continue
+		}
+		key := strings.ToLower(content)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		line := "- " + content + "\n"
+		if b.Len()+len(line) > budget {
+			break
+		}
+		b.WriteString(line)
 	}
 	for _, content := range pkt.Contents {
 		content = strings.TrimSpace(content)

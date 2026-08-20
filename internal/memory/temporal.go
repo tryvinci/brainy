@@ -194,6 +194,21 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateEvent)
 	case strings.Contains(lower, "research"):
 		add(PredicatePlan)
+	case strings.Contains(lower, "like") || strings.Contains(lower, "prefer") ||
+		strings.Contains(lower, "favorite") || strings.Contains(lower, "enjoy") ||
+		strings.Contains(lower, "love"):
+		add(PredicatePreference)
+		add(PredicateActivity)
+	case strings.Contains(lower, "where") || strings.Contains(lower, "location") ||
+		strings.Contains(lower, "practice"):
+		add(PredicateActivity)
+		add(PredicateEvent)
+		add(PredicateResidence)
+	case strings.Contains(lower, "own") || strings.Contains(lower, "possess") ||
+		(strings.Contains(lower, "how many") && (strings.Contains(lower, "have") || strings.Contains(lower, "has"))):
+		add(PredicatePossession)
+	case strings.Contains(lower, "injur") || strings.Contains(lower, "health"):
+		add(PredicateHealth)
 	}
 	if len(out) == 0 && (strings.Contains(lower, "currently") || strings.Contains(lower, "right now") || strings.Contains(lower, "current")) {
 		// Conservative defaults for "currently" questions only.

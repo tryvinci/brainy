@@ -710,3 +710,59 @@ func TestRecallIngestNamedSubjectNotReporter(t *testing.T) {
 		t.Fatalf("reporter activity leaked: %q", out.Answer)
 	}
 }
+
+func TestRecallPreferenceHopUsesStructuredProof(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["nate-pref"] = MemoryRecord{
+		MemoryID: "mem_n", TenantID: "t-mh-pref", SubjectID: "u1",
+		Kind: KindFact, Content: "Nate enjoys turtles",
+		DedupeKey: "n", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "turtles", "subject": "Nate"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "turtles", "subject": "Nate"},
+	}
+	store.records["joanna-pref"] = MemoryRecord{
+		MemoryID: "mem_j", TenantID: "t-mh-pref", SubjectID: "u1",
+		Kind: KindFact, Content: "Joanna enjoys turtles",
+		DedupeKey: "j", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "turtles", "subject": "Joanna"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "turtles", "subject": "Joanna"},
+	}
+	store.records["slogan"] = MemoryRecord{
+		MemoryID: "mem_s", TenantID: "t-mh-pref", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Games Are Both Competitive And Chill",
+		DedupeKey: "s", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"primitive": PrimitiveEpisode},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "turtles", memID: "mem_n"},
+		stubAtom{pred: PredicatePreference, val: "turtles", memID: "mem_j"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-mh-pref", SubjectID: "u1",
+		Query: "What animal do both Nate and Joanna like?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer + " " + out.ContextBlock)
+	if !strings.Contains(got, "turtle") {
+		t.Fatalf("expected turtles in proof/answer, answer=%q context=%q", out.Answer, out.ContextBlock)
+	}
+	if strings.Contains(strings.ToLower(out.Answer), "competitive and chill") {
+		t.Fatalf("slogan crowded out proof: %q", out.Answer)
+	}
+	cov, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-mh-pref", SubjectID: "u1",
+		Query: "What animal do both Nate and Joanna like?", OracleMode: "coverage", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cov.Coverage == nil || cov.Coverage["satisfied"] != true {
+		t.Fatalf("coverage should be satisfied when structured preference is in the packet, coverage=%v answer=%q", cov.Coverage, cov.Answer)
+	}
+}
