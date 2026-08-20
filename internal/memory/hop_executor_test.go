@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -18,6 +19,30 @@ func TestHopJoinProvenRequiresTypedIDJoin(t *testing.T) {
 	hops[1].EntityID = dana
 	if hopJoinProven(hops) {
 		t.Fatal("mismatched entity IDs must not prove the join")
+	}
+}
+
+func TestComposeFromHopValuesIntersectsEntities(t *testing.T) {
+	ans := composeFromHopValues([]HopResult{
+		{Kind: "fetch_predicate", Entity: "Nate", Value: "turtles", Values: []string{"turtles", "nintendo games"}, Source: "typed_store"},
+		{Kind: "fetch_predicate", Entity: "Joanna", Value: "turtles", Values: []string{"turtles", "writing"}, Source: "typed_store"},
+	})
+	low := strings.ToLower(ans)
+	if !strings.Contains(low, "turtle") {
+		t.Fatalf("expected shared turtles, got %q", ans)
+	}
+	if strings.Contains(low, "nintendo") || strings.Contains(low, "writing") {
+		t.Fatalf("union leaked into join answer: %q", ans)
+	}
+}
+
+func TestHopSlotValuesIgnoreSearchFallback(t *testing.T) {
+	vals := hopSlotValues([]HopResult{
+		{Kind: "fetch_predicate", Value: "watching pets play", Values: []string{"watching pets play"}, Source: "search_fallback"},
+		{Kind: "fetch_predicate", Value: "turtles", Source: "typed_store"},
+	})
+	if len(vals) != 1 || !strings.EqualFold(vals[0], "turtles") {
+		t.Fatalf("typed hop value only, got %#v", vals)
 	}
 }
 

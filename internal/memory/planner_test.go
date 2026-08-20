@@ -99,10 +99,20 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 
 	like := PlanQuery("What animal do both Nate and Joanna like?", nil)
 	foundPref := false
+	ents := map[string]bool{}
 	for _, hop := range like.Hops {
+		if hop.Kind == "resolve_entity" {
+			ents[strings.ToLower(hop.Entity)] = true
+		}
 		if hop.Predicate == PredicatePreference {
 			foundPref = true
 		}
+	}
+	if ents["animal"] {
+		t.Fatalf("topic noun must not be the hop entity, hops=%+v", like.Hops)
+	}
+	if !ents["nate"] && !ents["joanna"] {
+		t.Fatalf("expected person hop entity, hops=%+v", like.Hops)
 	}
 	if !foundPref {
 		t.Fatalf("expected preference hop for like-query, hops=%+v", like.Hops)

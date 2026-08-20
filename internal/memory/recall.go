@@ -1002,7 +1002,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 	stripped := visibleTextBlockRE.ReplaceAllString(content, " ")
 	lower := strings.ToLower(stripped)
 	for _, sep := range []string{
-		" participates in ", " enjoys ", " moved from ", " is from ", " lives in ", " kids like ",
+		" participates in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
 	} {
@@ -1032,7 +1032,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 func hasSlotTemplate(v string) bool {
 	low := strings.ToLower(v)
 	for _, sep := range []string{
-		" participates in ", " enjoys ", " moved from ", " is from ", " lives in ", " kids like ",
+		" participates in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
 	} {

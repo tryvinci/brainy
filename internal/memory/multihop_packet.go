@@ -238,6 +238,11 @@ func composeMultiHopAnswer(pkt EvidencePacket) string {
 		if composed := composeFromHopValues(hops); composed != "" {
 			return composed
 		}
+		// Search-fallback hop Values are not proof. Extract typed slots from
+		// hop contents (e.g. "Joanna likes turtles") before slogans.
+		if composed := composeFromHopContents(hops); composed != "" {
+			return composed
+		}
 		// Hops planned but unproven: use structured packet values, not slogans
 		// or resolve-only mentions.
 		if composed := composeFromPacketStructuredValues(pkt, hops); composed != "" {
@@ -268,6 +273,48 @@ func composeMultiHopAnswer(pkt EvidencePacket) string {
 	default:
 		return ""
 	}
+}
+
+func composeFromHopContents(hops []HopResult) string {
+	echo := map[string]struct{}{}
+	for _, h := range hops {
+		if v := strings.ToLower(strings.TrimSpace(h.Entity)); v != "" {
+			echo[v] = struct{}{}
+		}
+	}
+	seen := map[string]struct{}{}
+	vals := make([]string, 0, 4)
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+			continue
+		}
+		for _, c := range h.Contents {
+			v := ""
+			if extracted, ok := slotValueFromMemoryContent(c); ok {
+				v = extracted
+			}
+			v = strings.TrimSpace(v)
+			if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) || utf8Len(v) > 80 {
+				continue
+			}
+			if _, ok := echo[strings.ToLower(v)]; ok {
+				continue
+			}
+			key := strings.ToLower(v)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			vals = append(vals, v)
+			if len(vals) >= 4 {
+				return strings.Join(vals, ", ")
+			}
+		}
+	}
+	if len(vals) == 0 {
+		return ""
+	}
+	return strings.Join(vals, ", ")
 }
 
 func composeFromPacketStructuredValues(pkt EvidencePacket, hops []HopResult) string {

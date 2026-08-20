@@ -1,6 +1,9 @@
 package memory
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 // QueryPlan is the deterministic typed plan for /recall (program Phase 4).
 // It does not rewrite SearchOpt; it records what synthesis should do with
@@ -89,21 +92,28 @@ func PlanQuery(query string, intents []string) QueryPlan {
 // buildTypedHops emits resolve_entity → follow_relation/fetch_predicate subgoals.
 func buildTypedHops(query string) []HopStep {
 	toks := contentBearingTokens(tokenize(query))
-	names := nameLikeTokens(toks)
+	entities := hopQueryEntities(query)
 	preds := predicateHintsFromQuery(query)
-	hops := make([]HopStep, 0, 4)
-	entity := hopEntityName(names)
-	if entity != "" {
+	hops := make([]HopStep, 0, 6)
+	for i, ent := range entities {
+		out := "e1"
+		if i > 0 {
+			out = "e" + itoa(i+1)
+		}
 		hops = append(hops, HopStep{
 			Kind:   "resolve_entity",
-			Entity: entity,
-			Probe:  entity,
-			Output: "e1",
+			Entity: ent,
+			Probe:  ent,
+			Output: out,
 		})
 	}
+	entity := ""
 	bridge := ""
-	if len(names) > 1 {
-		bridge = names[1]
+	if len(entities) > 0 {
+		entity = entities[0]
+	}
+	if len(entities) > 1 {
+		bridge = entities[1]
 	}
 	if len(preds) == 0 {
 		probeParts := make([]string, 0, 2)
@@ -138,32 +148,118 @@ func buildTypedHops(query string) []HopStep {
 		}
 		return hops
 	}
-	for i, pred := range preds {
-		if i >= 3 {
-			break
+	usePreds := preds
+	if len(usePreds) > 3 {
+		usePreds = usePreds[:3]
+	}
+	// Multi-entity joins prove one predicate; extra hints (activity on a
+	// like-query) crowd search-fallback lists over the shared fact.
+	if len(entities) >= 2 && len(usePreds) > 0 {
+		usePreds = usePreds[:1]
+	}
+	targets := entities
+	if len(targets) == 0 {
+		targets = []string{""}
+	}
+	n := 0
+	for _, pred := range usePreds {
+		for ti, ent := range targets {
+			n++
+			outKey := "ans"
+			if n > 1 {
+				outKey = "ans" + itoa(n)
+			}
+			fetch := HopStep{
+				Kind:      "fetch_predicate",
+				Entity:    firstNonEmpty(ent, entity, bridge),
+				Predicate: pred,
+				Probe:     hopProbe(toks, firstNonEmpty(ent, entity), pred),
+				Output:    outKey,
+			}
+			if ent != "" {
+				dep := "e1"
+				if ti > 0 {
+					dep = "e" + itoa(ti+1)
+				}
+				fetch.DependsOn = []string{dep}
+			}
+			if relationFollowPredicate(pred) {
+				fetch.Kind = "follow_relation"
+			} else if looksPlaceOrPersonSlot(query) {
+				fetch.Kind = "answer_slot"
+			}
+			hops = append(hops, fetch)
 		}
-		outKey := "ans"
-		if i > 0 {
-			outKey = "ans" + itoa(i+1)
-		}
-		fetch := HopStep{
-			Kind:      "fetch_predicate",
-			Entity:    firstNonEmpty(entity, bridge),
-			Predicate: pred,
-			Probe:     hopProbe(toks, entity, pred),
-			Output:    outKey,
-		}
-		if entity != "" {
-			fetch.DependsOn = []string{"e1"}
-		}
-		if relationFollowPredicate(pred) {
-			fetch.Kind = "follow_relation"
-		} else if looksPlaceOrPersonSlot(query) {
-			fetch.Kind = "answer_slot"
-		}
-		hops = append(hops, fetch)
 	}
 	return hops
+}
+
+func hopQueryEntities(query string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 2)
+	add := func(n string) bool {
+		n = strings.TrimSpace(n)
+		n = strings.TrimSuffix(n, "'s")
+		n = strings.TrimSuffix(n, "’s")
+		n = strings.Trim(n, "'\"?,.")
+		if n == "" {
+			return false
+		}
+		key := strings.ToLower(n)
+		if _, stop := hopEntityStop[key]; stop {
+			return false
+		}
+		if _, ok := seen[key]; ok {
+			return false
+		}
+		seen[key] = struct{}{}
+		out = append(out, key)
+		return true
+	}
+	caps := capitalizedMentionTokens(query)
+	join := strings.Contains(strings.ToLower(query), "both")
+	limit := 1
+	if join {
+		limit = 2
+	}
+	for _, n := range caps {
+		add(n)
+		if len(out) >= limit {
+			return out
+		}
+	}
+	if len(out) == 0 {
+		for _, n := range nameLikeTokens(contentBearingTokens(tokenize(query))) {
+			add(n)
+			if len(out) >= limit {
+				return out
+			}
+		}
+	}
+	return out
+}
+
+func capitalizedMentionTokens(query string) []string {
+	fields := strings.Fields(query)
+	out := make([]string, 0, 2)
+	for i, raw := range fields {
+		w := strings.Trim(raw, "?,.!\"'")
+		if w == "" {
+			continue
+		}
+		if i == 0 {
+			switch strings.ToLower(w) {
+			case "what", "which", "who", "where", "when", "why", "how":
+				continue
+			}
+		}
+		r := []rune(w)
+		if len(r) < 3 || !unicode.IsUpper(r[0]) {
+			continue
+		}
+		out = append(out, w)
+	}
+	return out
 }
 
 func hopProbe(toks []string, entity string, extra ...string) string {
@@ -227,6 +323,7 @@ var hopEntityStop = map[string]struct{}{
 	"long": {}, "ago": {}, "current": {}, "currently": {},
 	"group": {}, "friends": {}, "friend": {},
 	"research": {}, "researched": {}, "researching": {},
+	"animal": {}, "animals": {}, "both": {},
 }
 
 func relationFollowPredicate(pred string) bool {

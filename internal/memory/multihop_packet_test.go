@@ -201,6 +201,33 @@ func TestComposeMultiHopAnswerIgnoresResolveOnlyMention(t *testing.T) {
 	}
 }
 
+func TestComposeMultiHopAnswerUsesHopContentsWhenFallbackValues(t *testing.T) {
+	pkt := EvidencePacket{
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{Kind: "resolve_entity", OutputKey: "e1", Value: "Nate", Source: "search_fallback"},
+				{
+					Kind:      "fetch_predicate",
+					OutputKey: "ans",
+					Entity:    "Nate",
+					Predicate: PredicatePreference,
+					Value:     "watching pets play, chill with pets",
+					Values:    []string{"watching pets play", "chill with pets"},
+					Source:    "search_fallback",
+					Contents:  []string{"Joanna likes turtles.", "Nate feels calm when his turtles are around."},
+				},
+			},
+		},
+	}
+	ans := composeMultiHopAnswer(pkt)
+	if !strings.Contains(strings.ToLower(ans), "turtle") {
+		t.Fatalf("expected turtles from hop contents, got %q", ans)
+	}
+	if strings.Contains(strings.ToLower(ans), "watching pets") {
+		t.Fatalf("search-fallback list must not be the answer, got %q", ans)
+	}
+}
+
 func TestComposeMultiHopAnswerUsesPacketValuesWhenHopsEmpty(t *testing.T) {
 	pkt := EvidencePacket{
 		Items: []PacketItem{
