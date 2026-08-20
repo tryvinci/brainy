@@ -1,0 +1,42 @@
+{
+  "tenant_prefix": "integrity-s0-1",
+  "conversations": 3,
+  "questions": 90,
+  "dataset_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+  "runs": [
+    {
+      "lane": "product-recall",
+      "run_id": "locomo-integrity-3x90-product",
+      "correct": 21,
+      "total": 90,
+      "accuracy": 0.233,
+      "by_group": {
+        "multi-hop": {"correct": 9, "total": 36},
+        "open-domain": {"correct": 1, "total": 7},
+        "single-hop": {"correct": 0, "total": 2},
+        "temporal": {"correct": 11, "total": 45}
+      },
+      "failure_histogram": {
+        "total": 69,
+        "by_primary": {"PROOF_MISS": 36, "RETRIEVAL_MISS": 19, "READER_MISS": 14}
+      }
+    },
+    {
+      "lane": "industry-search",
+      "run_id": "locomo-integrity-3x90-industry",
+      "correct": 33,
+      "total": 90,
+      "accuracy": 0.367,
+      "by_group": {
+        "multi-hop": {"correct": 8, "total": 36},
+        "open-domain": {"correct": 2, "total": 7},
+        "single-hop": {"correct": 1, "total": 2},
+        "temporal": {"correct": 22, "total": 45}
+      },
+      "failure_histogram": {
+        "total": 57,
+        "by_primary": {"PROOF_MISS": 30, "RETRIEVAL_MISS": 15, "READER_MISS": 11, "WRITE_MISS": 1}
+      }
+    }
+  ]
+}

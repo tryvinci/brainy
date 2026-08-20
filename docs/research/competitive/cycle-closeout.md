@@ -651,3 +651,78 @@ SOTA-class conversational memory needs compiled facts bound to the right person,
 ### Next
 
 **One step:** freeze remasure when requested. Kill list unchanged.
+
+---
+
+## 2026-08-19/20 — fail-closed runtime integrity (prove which memory we ran)
+
+### Landed
+
+Product change: fail-closed extract/embed (`BRAINY_EXTRACTION_STRICT` / `BRAINY_EMBEDDING_STRICT`), ANN precondition when a 768-d embedder is configured, `GET /runtime` manifest, embedding provenance + `cmd/reembed`, oracle retrieval-before-WRITE_MISS + semantic gold. gpt-oss ingest holes that silent baseline substitution had hidden: `max_tokens=4096`, kind coerce, numeric `value`. **No new compiler rules.** PR #132. Compiler/answer/alias/KU from mixed PR #131 lives on #133 and is not this cycle.
+
+Extractor actually used: Cloudflare gpt-oss-120b via AI Gateway (what `GET /runtime` reports). No OpenAI key; do not claim gpt-4o-mini ran.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate held on this stack. |
+| Marketing vertical | **17/17** | Merge gate held. |
+| LoCoMo S0 stratified 180 | product **32/180 (0.178)** · industry **62/180 (0.344)** | Invalidates Aug-19 17/180 / 52/180 (no pgvector; silent extract degrade). [pin](../../benchmarks/artifacts/locomo-integrity-s0-20260819.md) |
+| LoCoMo 3×90 | product **21/90 (0.233)** · industry **33/90 (0.367)** | MH-heavy slice. Industry overall/MH matches 2026-08-11 post-cutover 33/90 / 22.2% on a **different** stack. [pin](../../benchmarks/artifacts/locomo-integrity-3x90-20260820.md) |
+| Extraction ceiling (semantic gold, n=180) | det **139/180** · provider **161/180** | Same frozen questions. Provider recovers 22/41 det misses; MH 24→32/33. [pin](../../benchmarks/artifacts/extraction-ceiling-20260819.md) |
+| Embedding A/B (retrieval, not QA) | BGE r@10 **0.239** · hash r@10 **0.211** | BGE dense admission mean **4.4**/q vs hash cosine **152**/q. [pin](../../benchmarks/artifacts/embedding-ab-20260819.md) |
+| LoCoMo 1×30 / n=1540 / LME-20 / BEAM | **not re-run as freeze pins** | Prior freeze stands: 1×30 **21/30** (OD **0/4**), full `/recall` **11.4%**, LME-20 **4/20**, BEAM 100K **8/20**. LME-20 haystack for n=20 seed 1 is 9.8M chars (~11× this LoCoMo ingest). |
+
+S0 product ledger (P3 order): PROOF_MISS **112**, RETRIEVAL **22**, READER **11**, WRITE **3** (was WRITE_MISS=120 on the invalid pin). Representation coverage 161/180 vs product QA 32/180.
+
+This is **not** a 70–80% claim and **not** SOTA.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep same-pin this cycle. Reuse the 2026-08-15 freeze ([locomo-mem0-fresh-1x30-20260815.md](../../benchmarks/artifacts/locomo-mem0-fresh-1x30-20260815.md)): Mem0 Platform 1×30 **11/30** (MH 6/10, OD 3/4, temporal 2/16). Do **not** mix S0 32/180 or 62/180 or 3×90 21/90 with that 30-item freeze.
+
+#### 1. LoCoMo conversational QA — no new same-pin; integrity remasure only
+
+| Axis | This cycle (integrity stack) | Mem0 Platform freeze | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | **11/30** | Prior freeze **lead**; this cycle does not refresh it |
+| S0 n=180 product | **32/180** | no same-n pin | **Do not trail/lead vs 11/30** |
+| S0 n=180 industry | **62/180** | no same-n pin | Same: different n, different path |
+| 3×90 industry | **33/90**, MH **8/36** | no 3×90 freeze | Same-n as our 2026-08-11 staging 33/90; **not** vs Mem0 |
+| Search p50 | 168–194 ms local | 492 ms platform on the 1×30 freeze | Harness observation, **not** a SLO |
+
+**Multi-hop.** S0 product MH is **1/33** while P4 coverage is **32/33**. The claim is written; `/recall` does not prove it (PROOF_MISS 26 of 32 MH misses). Industry MH **4/33** and 3×90 industry MH **8/36 (22.2%)** are still the largest conversational gap vs the Mem0 freeze MH **6/10** — but those denominators are not the same pin. Mechanism: packet/proof, not “nothing compiled.” Do not add a graph DB. Do not grow `providerSystemPrompt` from the leftover 19 dual-miss items.
+
+**Open-domain.** S0 product **1/11**, industry **4/11**, ceiling **5/11**. Still thin. Same mechanism as the freeze OD **0/4** trail vs Mem0 **3/4**: durable career/works/plans as cited facts, not episode stuffing.
+
+**Temporal.** S0 industry **21/38 (0.553)** and 3×90 industry **22/45 (0.489)** stay the stronger Brainy-native axis on search+harness. Product `/recall` temporal is weaker (S0 11/38, 3×90 11/45). Keep the freeze temporal lead (11/16 vs Mem0 2/16) as **stale until 1×30 is re-run**; do not declare it from n=180.
+
+**Overall.** Invalidated Aug-19 S0 (17/180, 52/180) is replaced by 32/180 and 62/180 on a stack that actually ran ANN + hosted extract. That is an integrity correction, not a Mem0 overtake. Wave 1 / Gate 0 / 49.8% search+harness remain historical. Published Mem0 92.5% n=1540 stays **context only**.
+
+#### 2. OpMem — lead (Mem0 pin stale; Brainy re-confirmed)
+
+Brainy **13/13** this stack. Last Mem0 Platform ops pin is **10/13** (2026-08-15 freeze) / older 9/12 staging. **Lead ops.** Do not package a new “+3” sentence without re-running Mem0. Do not spend the next cycle on ops.
+
+#### 3. Marketing vertical — lead (Mem0 pin stale; Brainy re-confirmed)
+
+Brainy **17/17**. Last Mem0 empirical **4/17**. **Lead governed vertical.** Same caveat: no refreshed Mem0 gap without a re-run.
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20** product `/recall`. Not re-run. Seed-1 n=20 haystacks are 9.8M chars / 9,593 turns (~11× the LoCoMo 10-conv ingest that took ~2h50 on this extractor). No fair Mem0 pin on this harness. Do not compare 4/20 to published 94.4%.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.** Published headlines stay context. R5B–R10 substrate (typed packets, entity IDs, relation IDs, ID hops) is already merged; this cycle did not change it.
+
+**Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
+
+### Why
+
+The Aug-19 S0 numbers measured a **degraded runtime**, not memory quality: no pgvector so dense search saw the last 64–256 writes; extract could return regex baseline on provider error; the oracle blamed WRITE_MISS before retrieval. Fail-closed + parser fixes made the hosted extractor actually run (coverage 161/180 vs det 139/180). QA did not follow coverage: product 32/180 is still mostly PROOF_MISS. BGE ANN is live, but hybrid admits only ~4 dense neighbors per query at k=200 — hash cosine over the full store has higher r@200 because it scores more of the store, not because hash is a better embedder.
+
+### Next
+
+**One step:** packet/proof for MH (coverage 32/33 vs product QA 1/33). Do not grow compiler regex. Do not merge #133 until a labeled proof-path change is attributable. Do not burn n=1540 or Mem0 same-pin on this S0. Kill list unchanged.
+

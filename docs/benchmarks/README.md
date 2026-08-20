@@ -136,6 +136,7 @@ Ladder: [research/public-bench-ladder.md](../research/public-bench-ladder.md).
 | OpMem | [opmem-fresh-local-20260815.md](./artifacts/opmem-fresh-local-20260815.md) · [Mem0](./artifacts/opmem-mem0-fresh-20260815.md) |
 | Marketing | [marketing-fresh-local-20260815.md](./artifacts/marketing-fresh-local-20260815.md) · [Mem0](./artifacts/marketing-mem0-fresh-20260815.md) · [moat](./marketing-moat-report.md) |
 | Cycle closeout (detailed why) | [cycle-closeout.md](../research/competitive/cycle-closeout.md) |
+| Fail-closed integrity remasure (2026-08-19/20) | [S0 dual-lane](./artifacts/locomo-integrity-s0-20260819.md) · [3×90](./artifacts/locomo-integrity-3x90-20260820.md) · [extraction ceiling](./artifacts/extraction-ceiling-20260819.md) · [embedding A/B](./artifacts/embedding-ab-20260819.md). Invalidates Aug-19 17/180 / 52/180. **Not** a replacement for the 1×30 freeze above. |
 | BEAM 100K this cycle | [beam-100k-fresh-20260815.md](./artifacts/beam-100k-fresh-20260815.md) |
 | BEAM 100K historical | [beam-100k-c0-async.md](./artifacts/beam-100k-c0-async.md) |
 

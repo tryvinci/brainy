@@ -54,7 +54,8 @@ not prove it. Multi-hop coverage 32/33 vs product QA 1/33 is the headline gap.
 
 - Not n=1540, not Mem0 same-pin, not SOTA, not a license to grow compiler rules.
 - Do not mix 32/180 or 62/180 with frozen Mem0 1×30 **12/30** (different n).
-- 3×90 / LME-20 follow this pin on the same fail-closed stack when scored.
+- 3×90 on this stack: product **21/90**, industry **33/90** — [pin](./locomo-integrity-3x90-20260820.md).
+- LME-20 not run: seed-1 n=20 haystacks are 9.8M chars / 9,593 turns (~11× this LoCoMo ingest).
 
 Reports: [product](./locomo-integrity-s0-product-recall-s1-dee145.md) ·
 [industry](./locomo-integrity-s0-industry-search-s1-6c38c5.md) ·
