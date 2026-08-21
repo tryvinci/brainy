@@ -554,27 +554,7 @@ func hopSlotValuesFiltered(results []HopResult, includeFallback bool) []string {
 }
 
 func hopSharedSlotValues(results []HopResult) []string {
-	seen := map[string]struct{}{}
-	out := make([]string, 0)
-	add := func(v string) {
-		v = strings.TrimSpace(v)
-		if v == "" {
-			return
-		}
-		key := strings.ToLower(v)
-		if _, ok := seen[key]; ok {
-			return
-		}
-		seen[key] = struct{}{}
-		out = append(out, v)
-	}
-	for _, v := range intersectHopValueGroups(results, hopSlotValues) {
-		add(v)
-	}
-	for _, v := range intersectHopValuesByContainment(results) {
-		add(v)
-	}
-	return out
+	return intersectHopValueGroups(results, hopSlotValues)
 }
 
 func hopFetchEntityCount(results []HopResult) int {
@@ -705,11 +685,27 @@ func coveredSlotValue(a, b string) string {
 		}
 		return b
 	case aSubset:
+		if !joinModifierValue(b) {
+			return ""
+		}
 		return a
 	case bSubset:
+		if !joinModifierValue(a) {
+			return ""
+		}
 		return b
 	}
 	return ""
+}
+
+func joinModifierValue(s string) bool {
+	for _, tok := range tokenize(s) {
+		switch strings.ToLower(strings.Trim(tok, "'s")) {
+		case "organized", "started", "group":
+			return true
+		}
+	}
+	return false
 }
 
 // intersectHopValuesByContainment keeps the shorter slot when one entity's

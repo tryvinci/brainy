@@ -826,16 +826,22 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			for _, v := range shared {
 				have[strings.ToLower(v)] = struct{}{}
 			}
-			for _, v := range hopValuesMentioningPartner(hops) {
+			addShared := func(v string) {
 				key := strings.ToLower(strings.TrimSpace(v))
 				if key == "" {
-					continue
+					return
 				}
 				if _, ok := have[key]; ok {
-					continue
+					return
 				}
 				have[key] = struct{}{}
 				shared = append(shared, v)
+			}
+			for _, v := range intersectHopValuesByContainment(hops) {
+				addShared(v)
+			}
+			for _, v := range hopValuesMentioningPartner(hops) {
+				addShared(v)
 			}
 		}
 		if len(shared) == 0 {

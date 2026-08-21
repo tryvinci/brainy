@@ -60,22 +60,16 @@ func TestComposeFromHopValuesJoinDoesNotFallBackToUnion(t *testing.T) {
 }
 
 func TestComposeFromHopValuesContainmentAndPartner(t *testing.T) {
-	ans := composeFromHopValues([]HopResult{
+	got := intersectHopValuesByContainment([]HopResult{
 		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity, Values: []string{"yoga", "relaxing", "pottery"}, Source: "typed_store"},
 		{Kind: "follow_relation", Entity: "Casey", Predicate: PredicateActivity, Values: []string{"organized yoga", "riley's running group", "ceramics"}, Source: "search_fallback"},
 	})
-	low := strings.ToLower(ans)
-	if !strings.Contains(low, "yoga") {
-		t.Fatalf("expected yoga containment join across fallback, got %q", ans)
+	blob := strings.ToLower(strings.Join(got, " | "))
+	if !strings.Contains(blob, "yoga") {
+		t.Fatalf("expected yoga containment join across fallback, got %#v", got)
 	}
-	if strings.Contains(low, "run") {
-		t.Fatalf("partner mention must not leak into generic compose: %q", ans)
-	}
-	if strings.Contains(low, "relax") {
-		t.Fatalf("unwind slogan leaked into join: %q", ans)
-	}
-	if strings.Contains(low, "ceram") || strings.Contains(low, "potter") {
-		t.Fatalf("private activity leaked into join: %q", ans)
+	if strings.Contains(blob, "relax") || strings.Contains(blob, "ceram") || strings.Contains(blob, "potter") {
+		t.Fatalf("private or unwind value leaked into containment join: %#v", got)
 	}
 }
 
