@@ -551,6 +551,24 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 		t.Fatalf("who-told must hop family, hops=%+v", told.Hops)
 	}
 
+	journey := PlanQuery("What are some changes Riley has faced during her journey?", nil)
+	foundJourneyID := false
+	journeyEnts := map[string]bool{}
+	for _, hop := range journey.Hops {
+		if hop.Kind == "resolve_entity" {
+			journeyEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateIdentity {
+			foundJourneyID = true
+		}
+	}
+	if !journeyEnts["riley"] {
+		t.Fatalf("journey changes must hop the person, hops=%+v", journey.Hops)
+	}
+	if !foundJourneyID {
+		t.Fatalf("journey changes must hop identity, hops=%+v", journey.Hops)
+	}
+
 	pronoun := PlanQuery("What do they like?", nil)
 	for _, hop := range pronoun.Hops {
 		if hop.Kind == "resolve_entity" && strings.EqualFold(hop.Entity, "they") {

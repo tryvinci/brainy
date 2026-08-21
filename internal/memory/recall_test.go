@@ -2104,3 +2104,98 @@ func TestRecallPolarYesFromTaughtSkill(t *testing.T) {
 		t.Fatalf("expected Yes from taught skill, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
 	}
 }
+
+func TestRecallJourneyChangesDoNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-chg"] = MemoryRecord{
+		MemoryID: "mem_rchg", TenantID: "t-jny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley faced voice changes during her journey",
+		DedupeKey: "rchg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "voice changes", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "voice changes", "subject": "Riley"},
+	}
+	store.records["r-hikej"] = MemoryRecord{
+		MemoryID: "mem_rhj", TenantID: "t-jny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley enjoys hiking",
+		DedupeKey: "rhj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Riley"},
+	}
+	store.records["r-jobj"] = MemoryRecord{
+		MemoryID: "mem_rjj", TenantID: "t-jny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateIdentity, val: "voice changes", memID: "mem_rchg"},
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_rhj"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-jny", SubjectID: "u1",
+		Query: "What are some changes Riley has faced during her journey?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "voice") {
+		t.Fatalf("expected journey change, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("activity crowded journey changes: %q", out.Answer)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded journey changes: %q", out.Answer)
+	}
+}
+
+func TestRecallPetNamesListDoesNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-pet"] = MemoryRecord{
+		MemoryID: "mem_rpn", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's pet is named Whiskers",
+		DedupeKey: "rpn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "whiskers", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "whiskers", "subject": "Riley"},
+	}
+	store.records["r-jobp"] = MemoryRecord{
+		MemoryID: "mem_rjp", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "whiskers", memID: "mem_rpn"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjp"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-pets", SubjectID: "u1",
+		Query: "What are Riley's pets' names?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "whiskers") {
+		t.Fatalf("expected pet name, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded pet names: %q", out.Answer)
+	}
+}
