@@ -1059,17 +1059,24 @@ func compositionalPracticePlace(content string, focus []string) string {
 			if w != obj || i+1 >= len(fields) {
 				continue
 			}
-			next := strings.ToLower(strings.Trim(fields[i+1], ".,;:!?\"'"))
+			nextRaw := fields[i+1]
+			next := strings.ToLower(strings.Trim(nextRaw, ".,;:!?\"'"))
 			if next == "" || next == obj || isQueryStopword(next) || next == "practice" || next == "practices" || next == "practicing" || next == "practised" || next == "practiced" {
 				continue
 			}
 			if utf8.RuneCountInString(next) < 3 {
 				continue
 			}
-			if i > 0 && strings.EqualFold(strings.Trim(fields[i-1], ".,;:!?\"'"), "the") {
-				return "the " + obj + " " + next
+			if strings.HasSuffix(next, "ing") {
+				continue
 			}
-			return obj + " " + next
+			if looksHopPerson(strings.Trim(nextRaw, ".,;:!?\"'")) {
+				continue
+			}
+			if i == 0 || !strings.EqualFold(strings.Trim(fields[i-1], ".,;:!?\"'"), "the") {
+				continue
+			}
+			return "the " + obj + " " + next
 		}
 	}
 	return ""

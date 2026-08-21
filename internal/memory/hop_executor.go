@@ -1142,14 +1142,21 @@ func unwindActivitySlots(content string) []string {
 		if isQueryStopword(key) {
 			return
 		}
+		switch key {
+		case "way", "ways", "great", "good", "best", "thing", "things", "lot", "lots", "farther", "further":
+			return
+		}
 		if _, ok := seen[key]; ok {
 			return
 		}
 		seen[key] = struct{}{}
 		out = append(out, v)
 	}
-	if v, ok := slotValueFromMemoryContent(content); ok {
-		add(v)
+	low := strings.ToLower(content)
+	if strings.Contains(low, "unwinds via") || strings.Contains(low, "enjoys practicing") || strings.Contains(low, "enjoys practising") {
+		if v, ok := slotValueFromMemoryContent(content); ok {
+			add(v)
+		}
 	}
 	if v, ok := attitudeObjectSlot(content); ok {
 		add(v)

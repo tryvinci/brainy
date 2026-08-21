@@ -302,4 +302,10 @@ func TestCompositionalPracticePlace(t *testing.T) {
 	if p := compositionalPracticePlace("Riley does yoga on the beach.", []string{"yoga"}); p != "" {
 		t.Fatalf("prep after practice object must not become a place: %q", p)
 	}
+	if p := compositionalPracticePlace("Riley met Alex at yoga in the park", []string{"yoga"}); p != "" {
+		t.Fatalf("bare practice object plus next token is not a definite place: %q", p)
+	}
+	if p := compositionalPracticePlace("Yoga walking helped Riley", []string{"yoga"}); p != "" {
+		t.Fatalf("gerund after practice object is not a place: %q", p)
+	}
 }
