@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"brainy/internal/embedding"
@@ -167,8 +168,9 @@ func (p *Processor) failJob(ctx context.Context, job memory.ExtractionJob, reaso
 	return p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, reason)
 }
 
-// ProcessAvailable runs up to concurrency parallel ProcessNext calls.
-// Used for LME-scale queue drain; concurrency<=1 keeps prior serial behavior.
+// ProcessAvailable drains claimable jobs with up to concurrency workers.
+// Each worker keeps calling ProcessNext until the queue is idle so a single
+// slow extract cannot park the other slots. concurrency<=1 stays serial.
 func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int, error) {
 	if concurrency <= 1 {
 		ok, err := p.ProcessNext(ctx)
@@ -177,28 +179,61 @@ func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int,
 		}
 		return 0, err
 	}
-	type result struct {
-		ok  bool
-		err error
-	}
-	ch := make(chan result, concurrency)
-	for i := 0; i < concurrency; i++ {
-		go func() {
+
+	var (
+		wg        sync.WaitGroup
+		mu        sync.Mutex
+		processed int
+		firstErr  error
+	)
+	worker := func() {
+		defer wg.Done()
+		idleTries := 0
+		for {
+			if ctx.Err() != nil {
+				return
+			}
 			ok, err := p.ProcessNext(ctx)
-			ch <- result{ok: ok, err: err}
-		}()
+			if err != nil {
+				mu.Lock()
+				if ok {
+					processed++
+				}
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+				if !ok {
+					return
+				}
+				// Job already failed/requeued inside ProcessNext. Keep this
+				// slot on the queue so one provider flake cannot shrink the pool.
+				idleTries = 0
+				continue
+			}
+			if ok {
+				mu.Lock()
+				processed++
+				mu.Unlock()
+				idleTries = 0
+				continue
+			}
+			idleTries++
+			if idleTries >= 5 {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(50 * time.Millisecond):
+			}
+		}
 	}
-	processed := 0
-	var firstErr error
+	wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
-		r := <-ch
-		if r.ok {
-			processed++
-		}
-		if r.err != nil && firstErr == nil {
-			firstErr = r.err
-		}
+		go worker()
 	}
+	wg.Wait()
 	return processed, firstErr
 }
 
