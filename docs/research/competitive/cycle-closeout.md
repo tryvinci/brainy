@@ -799,3 +799,69 @@ Coverage 161/180 vs product QA 32/180, and MH coverage 32/33 vs QA 1/33, was not
 
 **One step:** remaining MH list/join proof (shared facts that are not a two-name `both` cue; enumerate lists still crowd). Do not merge #133 until a remasure says compiler work is justified. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin on this slice. Kill list unchanged. Incoming agent start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+---
+
+## 2026-08-21 — MH coordinated join / list intersect
+
+### Landed
+
+Product change on `pr/mh-list-join-proof-1e9e` (parent `6d05e1b` / #134). `/recall` hops coordinated people (`Tim and John`, `Nate and Joanna both`, `enjoy with Casey`) without requiring a leading `both`; count questions hop the person after `does`/`has`, not the counted class; kinship `'s mother` / `her partner` chains family → slot. Join answers **intersect** typed values and hop contents and **do not fall back to the union**. Generic `owns`/`bought`/`participated in` slot extract. **No LoCoMo-named rules, no compiler regex batch, no fusion weights.** #133 / #131 stay unmerged. OpenAI A/B not re-run. n=1540 / Mem0 same-pin not burned.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Not re-run; prior integrity gate stands. |
+| Marketing vertical | **17/17** | Not re-run; prior integrity gate stands. |
+| LoCoMo S0 MH slice (product `/recall`) | **not re-run** | Prior **2/33** stands. Integrity tenant was not on this VM. Mechanism proven with held-out fixtures (coordinated possession join; disjoint join does not dump union). |
+| LoCoMo S0 n=180 / 3×90 / 1×30 | **not re-run** | Prior pins stand. 1×30 **21/30** is still diagnostic. |
+| LME-20 / n=1540 / BEAM | **not re-run** | Prior pins stand (LME-20 **4/20**, full `/recall` **11.4%**). |
+| Embedding A/B | **not re-run** | 2026-08-20 pin stands. |
+
+This is **not** a 70–80% claim and **not** SOTA. Name the MH dip: **2/33 is still the last measured product MH pin.**
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep same-pin this cycle. Reuse the 2026-08-15 freeze: Mem0 Platform 1×30 **11/30** (MH 6/10, OD 3/4, temporal 2/16). Do **not** mix an unremeasured 2/33 with that 30-item freeze.
+
+#### 1. LoCoMo conversational QA — proof mechanism only
+
+| Axis | This cycle | Mem0 Platform freeze | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | **11/30** | Prior freeze **lead**; this cycle does not refresh it |
+| S0 n=180 product | prior **32/180** | no same-n pin | **Do not trail/lead vs 11/30** |
+| S0 MH product | prior **2/33** (not remasured) | no 33-item freeze | **Still the largest conversational gap**; this cycle ships the join-without-`both` proof path |
+| Search p50 | n/a | 492 ms platform on the 1×30 freeze | No new latency pin |
+
+**Multi-hop (still trail until remasured).** #134 recovered one `both X and Y` item. Remaining misses include coordinated subjects without `both` (“Tim and John own”, “Deborah and Anna participated”), `with`-person joins, kinship (`X's mother's hobbies`, `her partner`), and crowded unions when hop contents mixed two people’s lists. Fix is still packet/proof: hop both people, intersect typed/content values, chain kinship dest → slot. Gold is usually written (P4 MH coverage 32/33). Do not add a graph DB. Do not merge #133.
+
+**Open-domain.** Not re-run. Prior freeze OD **0/4** vs Mem0 **3/4** still stands as a trail axis.
+
+**Temporal.** Not re-run. Keep the freeze temporal lead (11/16 vs Mem0 2/16) as **stale until 1×30 is re-run**.
+
+#### 2. OpMem — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Do not package a new “+3” sentence.
+
+#### 3. Marketing vertical — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.** YAML packs remain the verticalisation layer; this cycle does not touch packs.
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.** Published headlines stay context. Postgres graph-shaped hops (ADR-004) unchanged: coordinated resolve + intersect, not Neo4j.
+
+**Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
+
+### Why
+
+S0 ledger is still PROOF (112) not WRITE (3). Dual-hop only on the word `both` left “Name and Name” joins on a single person, so intersection never ran and hop-content compose **unioned** preference/possession lists (turtles plus dairy-free desserts; jersey plus baseball). Coordinated/`with`/auxiliary person hops plus join-only intersect close that class generically. Kinship `'s mother` is the same proof idea (walk the relative, then the slot) without a graph DB.
+
+### Next
+
+**One step:** remasure MH-only 33 on `integrity-s0-1` (`--fail-closed --skip-ingest`) and attribute every new CORRECT. Then remaining **single-entity** list proof (pets’ names, instruments, enumerate crowding). Do not merge #133. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin until the 33-slice moves. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
