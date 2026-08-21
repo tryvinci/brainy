@@ -1765,7 +1765,15 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
 	if toks := listHeadModifierTokens(req.Query); len(toks) > 0 {
-		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+		pos := make([]string, 0, len(toks))
+		for _, t := range toks {
+			if unNegationPositive(t) == "" {
+				pos = append(pos, t)
+			}
+		}
+		if len(pos) > 0 {
+			items = s.filterItemsByTokens(ctx, req, items, hops, pos)
+		}
 	}
 	if toks := negatedModifierTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByNegatedModifier(ctx, req, items, hops, toks)
@@ -2201,7 +2209,7 @@ func cleanPlaceCandidate(s string) string {
 		if _, ok := stopAt[w]; ok && i > 0 {
 			break
 		}
-		if i > 0 && looksHopPerson(f) && i+1 < len(fields) && looksPlaceClauseVerb(fields[i+1]) {
+		if i > 0 && looksHopPerson(titleCaseWords(strings.Trim(f, ",'\"'"))) && i+1 < len(fields) && looksPlaceClauseVerb(fields[i+1]) {
 			break
 		}
 		keep = append(keep, strings.Trim(f, ",'\"'"))

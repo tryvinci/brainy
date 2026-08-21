@@ -1284,6 +1284,22 @@ func TestRecallPracticeLocationOnPrepAndNestedClause(t *testing.T) {
 	}
 }
 
+func TestPlacesFromContentLiveParkSentence(t *testing.T) {
+	got := placesFromContent("Deborah met Jolene at yoga in the park.")
+	joined := strings.ToLower(strings.Join(got, " | "))
+	if strings.Contains(joined, "deborah") || strings.Contains(joined, "jolene") {
+		t.Fatalf("person leaked from live sentence: %v", got)
+	}
+	lower := placesFromContent("park deborah met jolene at yoga in the park")
+	ljoin := strings.ToLower(strings.Join(lower, " | "))
+	if !strings.Contains(ljoin, "park") {
+		t.Fatalf("expected park from lowercased blob, got %v", lower)
+	}
+	if strings.Contains(ljoin, "deborah") || strings.Contains(ljoin, "jolene") {
+		t.Fatalf("lowercased person clause leaked: %v", lower)
+	}
+}
+
 func TestPlacesFromContentOnPrepNestedPersonAndDate(t *testing.T) {
 	onBeach := placesFromContent("Riley does yoga on the beach in Bali")
 	joined := strings.ToLower(strings.Join(onBeach, " | "))
@@ -1346,6 +1362,7 @@ func TestRecallUnhealthyListDropsPositiveSlogans(t *testing.T) {
 	}{
 		{"soda", PredicatePreference, "soda", "Riley continues to enjoy soda and candy."},
 		{"candy", PredicatePreference, "candy", "Riley continues to enjoy soda and candy."},
+		{"bought", PredicatePreference, "unhealthy snacks", "Riley bought unhealthy snacks"},
 		{"hs", PredicateActivity, "healthy snacks", "Riley is starting a new campaign called Healthy Snacks"},
 		{"hsi", PredicateActivity, "healthier snack ideas", "Riley posted Healthier Snack Ideas"},
 		{"god", PredicateMediaConsumed, "the godfather", "Riley watched The Godfather"},
@@ -1375,9 +1392,10 @@ func TestRecallUnhealthyListDropsPositiveSlogans(t *testing.T) {
 	if !strings.Contains(got, "soda") || !strings.Contains(got, "candy") {
 		t.Fatalf("expected soda and candy, answer=%q items=%#v", out.Answer, out.Items)
 	}
-	for _, bad := range []string{"healthy snacks", "healthier snack", "godfather"} {
-		if strings.Contains(got, bad) {
-			t.Fatalf("positive slogan crowded un- list: %q", out.Answer)
+	for _, it := range out.Items {
+		v := strings.ToLower(strings.TrimSpace(it.Value))
+		if v == "healthy snacks" || strings.Contains(v, "healthier") || strings.Contains(v, "godfather") {
+			t.Fatalf("positive slogan crowded un- list: %q items=%#v", out.Answer, out.Items)
 		}
 	}
 }
