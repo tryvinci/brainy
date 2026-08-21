@@ -732,7 +732,7 @@ The Aug-19 S0 numbers measured a **degraded runtime**, not memory quality: no pg
 
 ### Landed
 
-Product change on `pr/mh-packet-proof-3086` (PR #134, base `dev` @ `6b8ac5f`): `/recall` hops capitalized people on `both X and Y` joins, ignores search-fallback slot dumps, intersects typed hop values, and composes from `likes`/`loves` hop contents when slots are empty. Generic predicate hints (preference / possession / location / health). **No new compiler rules. No fusion weights.** OpenAI embedding A/B stays the 2026-08-20 pin and was not re-run. #133 / #131 stay unmerged. `main` not touched this cycle.
+Product change merged 2026-08-21: `dev` = `main` = `f6638d4` (PR #134, parent `6b8ac5f`). `/recall` hops capitalized people on `both X and Y` joins, ignores search-fallback slot dumps, intersects typed hop values, and composes from `likes`/`loves` hop contents when slots are empty. Generic predicate hints (preference / possession / location / health). **No new compiler rules. No fusion weights.** OpenAI embedding A/B stays the 2026-08-20 pin and was not re-run. #133 / #131 stay unmerged. Incoming agent start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
 Extractor actually used at ingest time: Cloudflare gpt-oss-120b via AI Gateway (unchanged store). Embedder on remasure: hosted BGE 768, ANN active, signatures match, fallbacks 0.
 

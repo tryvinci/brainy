@@ -11,7 +11,7 @@ This file is the live start doc. Older research notes stay useful as history. If
 
 ## 0. First 30 minutes
 
-1. Confirm you are on `dev` (staging) after the #134 merge. `main` is production; do not push `main` unless the owner asks.
+1. Confirm you are on `dev` (staging) at `f6638d4` (or later). `main` is production and was fast-forwarded to the same SHA on 2026-08-21. Do not push `main` unless the owner asks again.
 2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-20 — MH packet/proof**.
 3. Skim [sota-execution-plan.md](./sota-execution-plan.md) but **do not** treat its “expected S1 compiler first” as live. S0 ledger **outranks** that expectation.
 4. Do **not** re-queue R0–R10. Substrate is merged.
@@ -46,8 +46,9 @@ Path docs (do not invent a new program):
 
 | Ref | Role |
 | --- | --- |
-| `dev` / `main` before this merge | `6b8ac5f` — fail-closed + OpenAI A/B (PR #132) |
-| PR **#134** `pr/mh-packet-proof-3086` | MH packet/proof. **Merge this.** Tip before merge: `8a9b1b4`. |
+| `dev` / `main` **now** | `f6638d4` — #134 merge (packet/proof + this handover). Fast-forwarded 2026-08-21. |
+| Parent before #134 | `6b8ac5f` — fail-closed + OpenAI A/B (PR #132) |
+| PR **#134** `pr/mh-packet-proof-3086` | **Merged** 2026-08-21. MH packet/proof. |
 | PR **#132** | Merged. Fail-closed flags, `GET /runtime`, `cmd/reembed`, extraction actually hosted. |
 | PR **#133** | OPEN draft. Compiler S1–S5. **Do not merge.** |
 | PR **#131** | CLOSED. Mixed. **Do not revive.** |
