@@ -82,7 +82,7 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | S0 industry search+harness | **62/180** | Same tenant. Different path. Do not average with 32/180. |
 | S0 MH product (post-#134) | **2/33** | Was **1/33**. Attributed win: turtles. Second hit (soda/candy) is a crowded-list judge accept. [pin](../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
 | S0 MH product diagnostic ingest | **7/33** | WRITE+PROOF mixed on `diag-mh-135`. Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
-| S0 MH product diagnostic skip-ingest | **8/33** | PROOF-only vs 7/33 on the same frozen tenant. Crowding `33bdea4`; on-prep `a521c47`; enumerate/outdoor∩group `5804072` (same CORRECT set, hike-only outdoor answer). Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-enumerate-20260821.md) |
+| S0 MH product diagnostic skip-ingest | **9/33** | PROOF-only on frozen `diag-mh-135`. Crowding/on-prep/enumerate were **8/33**; community-join `c97cc0a` is **9/33** (dual community attributed). Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-community-join-20260821.md) |
 | 3×90 | product **21/90**, industry **33/90** | `--conversations 3 --questions 90` |
 | 1×30 freeze (conv-26) | **21/30** | MH 10/10, OD **0/4**, temporal 11/16. **Do not overwrite.** Diagnostic only. Rest of conv-26 in the full run was **12/122**. |
 | Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old product SHA `1b5ab3e`. Full n=1540 only at S6. |
@@ -93,7 +93,7 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 
 **Invalidated:** Aug-19 S0 17/180 / 52/180 (no pgvector, silent extract degrade). Never cite those as quality.
 
-**Bottleneck is PROOF, not compiler WRITE and not embedder.** S0 WRITE_MISS is **3/180**. Coverage 161/180 vs QA 32/180. MH coverage 32/33 vs integrity QA **2/33** (diagnostic skip-ingest **8/33** on `diag-mh-135`).
+**Bottleneck is PROOF, not compiler WRITE and not embedder.** S0 WRITE_MISS is **3/180**. Coverage 161/180 vs QA 32/180. MH coverage 32/33 vs integrity QA **2/33** (diagnostic skip-ingest **9/33** on `diag-mh-135`).
 
 ### Competitor stand (honest)
 
@@ -111,7 +111,7 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 
 | Increment | Plan name | Do now? |
 | --- | --- | --- |
-| S2 / S3 residue | Structured answer + hop proof | **In flight on #135.** List/join + list-crowding + enumerate refine + outdoor∩group shipped. Labeled diagnostic ingest **7/33** (WRITE+PROOF mixed). **Skip-ingest PROOF-only on the same tenant is 8/33** — latest [enumerate artifact](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-enumerate-20260821.md). **Integrity skip-ingest pin remains 2/33.** Next: dual-community loose slot join (not unwind fallback). Attributed remasure is still `integrity-s0-1 --fail-closed --skip-ingest`. Residue: dual-community, kinship dest hobbies, place extract, WRITE-miss identity gold (q65). |
+| S2 / S3 residue | Structured answer + hop proof | **In flight on #135.** List/join + enumerate refine + outdoor∩group + community-join shipped. Labeled diagnostic ingest **7/33** (WRITE+PROOF mixed). **Skip-ingest PROOF-only on the same tenant is 9/33** — latest [community-join artifact](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-community-join-20260821.md). **Integrity skip-ingest pin remains 2/33.** Next attributed remasure is still `integrity-s0-1 --fail-closed --skip-ingest`. Residue: kinship dest hobbies, place extract, outdoor mountaineering WRITE, identity gold (q65). |
 | S1 compiler | Provider-extract / named-subject mass | **No** until a fail-closed remasure says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
 | S4 LME | multi-session + KU | After LoCoMo proof moves. LME-20 4/20 is not the lever. |
