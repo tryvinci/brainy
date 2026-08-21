@@ -1410,3 +1410,77 @@ S0 ledger is still PROOF, not WRITE. Atom-index refill was appending up to 40 ex
 
 **One step:** remasure MH-only 33 on `integrity-s0-1` (`--fail-closed --skip-ingest`) so the 8/33 diagnostic delta is either confirmed or rejected on the integrity store. Then keep attacking remaining list/place crowding without fusion fishing or LoCoMo-named rules. Do not merge #133. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin until an **integrity-tenant** 33-slice moves. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+---
+
+## 2026-08-21 — MH on-prep / polar-lock / un- skip-ingest (PROOF-only)
+
+### Landed
+
+Product on `pr/mh-list-join-proof-1e9e` (#135, HEAD `a521c47`). Place lists take locative `on` (yoga **on** the beach), cut nested preps and person+verb clauses even when the evidence blob is lowercased, skip date tails after `on`, and reject a place that is exactly the practice object. Polar queries no longer hop-compose or fall through to structured/episode dumps. Un- list heads drop evidence that has the positive/comparative form (`healthy` / `healthier`) but not the `un-` form, and do not require the adjective on gold items that never repeat it. Snacks are an enumerate/preference cue. **No LoCoMo-named rules**, no place lexicon, no fusion weights. #133 / #131 stay unmerged. OpenAI A/B not re-run. n=1540 / Mem0 same-pin not burned.
+
+Skip-ingest re-score of frozen tenant `diag-mh-135` (same WRITE as the 7/33 diagnostic). Fail-closed runtime: ANN active, mixed_dimensions=false, signatures.match, fallbacks 0.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Not re-run; prior integrity gate stands. |
+| Marketing vertical | **17/17** | Not re-run; prior integrity gate stands. |
+| LoCoMo S0 MH slice (product `/recall`) integrity skip-ingest | **2/33** | Last integrity pin. **Unchanged.** |
+| LoCoMo S0 MH slice diagnostic fresh ingest | **7/33 (0.212)** | WRITE+PROOF mixed. [artifact](../../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
+| LoCoMo S0 MH slice diagnostic skip-ingest (crowding) | **8/33 (0.242)** | Prior PROOF-only. [artifact](../../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-20260821.md) |
+| LoCoMo S0 MH slice diagnostic skip-ingest (this cycle) | **8/33 (0.242)** | Composition change, not a lift. [artifact](../../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-onprep-20260821.md) |
+| LoCoMo S0 n=180 / 3×90 / 1×30 | **not re-run** | Prior pins stand. 1×30 **21/30** is still diagnostic. |
+| LME-20 / n=1540 / BEAM | **not re-run** | Prior pins stand (LME-20 **4/20**, full `/recall` **11.4%**). |
+| Embedding A/B | **not re-run** | 2026-08-20 pin stands. |
+
+This is **not** a 70–80% claim and **not** SOTA. **Integrity 2/33 is still the last attributed integrity-tenant pin.** 8/33 remains a labeled diagnostic on `diag-mh-135`, not a replacement for 2/33.
+
+An intermediate on SHA `d7ee0ce` scored **7/33** (polar lock dropped a fragile crowded-accept before the un- gold fix landed). Do not cite that 7/33 as a pin.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep same-pin this cycle. Reuse the 2026-08-15 freeze: Mem0 Platform 1×30 **11/30** (MH 6/10, OD 3/4, temporal 2/16). Do **not** mix diagnostic 8/33 or integrity 2/33 with that 30-item freeze.
+
+#### 1. LoCoMo conversational QA — proof mechanism only
+
+| Axis | This cycle | Mem0 Platform freeze | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | **11/30** | Prior freeze **lead**; this cycle does not refresh it |
+| S0 n=180 product | prior **32/180** | no same-n pin | **Do not trail/lead vs 11/30** |
+| S0 MH product (integrity) | **2/33** | no 33-item freeze | **Still the attributed integrity-tenant gap** |
+| S0 MH product (diagnostic skip-ingest) | **8/33** composition vs crowding 8/33 | no 33-item freeze | Context / mechanism pin only; not a same-pin row |
+| Search p50 | n/a | 492 ms platform on the 1×30 freeze | No new latency pin |
+
+**Multi-hop (still trail on the integrity tenant).** Diagnostic skip-ingest stayed **8/33**. Attributed swap: `conv-49-q15` unhealthy snacks is now CORRECT (`soda and candy` present) via the un- filter; `conv-48-q73` polar teach-console is a named dip (`not in memory` after polar hop-compose lock; prior CORRECT was a crowded dump). Practice-place is cleaner (`Park` only) but still incomplete — hops on this tenant never listed `yoga on the beach` / studio locatives. Do not add a graph DB. Do not merge #133.
+
+**Open-domain.** Not re-run. Prior freeze OD **0/4** vs Mem0 **3/4** still stands as a trail axis. Do not restore OD by stuffing episodes.
+
+**Temporal.** Not re-run. Keep the freeze temporal lead (11/16 vs Mem0 2/16) as **stale until 1×30 is re-run**.
+
+#### 2. OpMem — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Do not package a new “+3” sentence.
+
+#### 3. Marketing vertical — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.** YAML packs remain the verticalisation layer; this cycle does not touch packs.
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.** Published headlines stay context. Postgres graph-shaped hops (ADR-004) unchanged.
+
+**Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
+
+### Why
+
+S0 ledger is still PROOF, not WRITE. Locative `on` plus nested-prep / person-verb cuts stop `yoga in the park` and `park Name met Name` from becoming places; evidence blobs are lowercased so the person cut must title-case first. Polar misses were hop-composing activity lists; locking compose is honest abstention, not a Yes. Un- list heads were ranking `Healthy Snacks` / `Healthier Snack Ideas` over soda/candy because the gold never repeats `unhealthy`; dropping positive/comparative evidence (and not requiring the `un-` token on gold) recovers that slot. Residual misses are still incomplete place extract (WRITE-thin locatives on this tenant), outdoor-with-colleagues dumps, and the WRITE-miss identity gold.
+
+### Next
+
+**One step:** remasure MH-only 33 on `integrity-s0-1` (`--fail-closed --skip-ingest`) so the diagnostic 8/33 composition is either confirmed or rejected on the integrity store. Remaining high-value PROOF classes on this tenant: outdoor-with-colleagues, dual-community intersect, polar Yes when typed hops actually carry the claim, practice places when locatives exist in hops. Do not merge #133. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin until an **integrity-tenant** 33-slice moves. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
