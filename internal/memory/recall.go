@@ -339,6 +339,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	case "enumerate":
 		enumerated = true
 		items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
+		items = s.refineEnumeratedItems(ctx, req, items, hopResults)
 		out.Items = items
 		out.ContextBlock = formatEnumerateContext(items)
 		out.Explain["item_count"] = len(items)
@@ -346,6 +347,16 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if len(items) == 0 {
 			out.AnswerStatus = AnswerNotFound
 			out.Abstained = true
+		} else if looksSuperlativeQuery(req.Query) {
+			if v := superlativeAnswer(items); v != "" {
+				out.Answer = v
+			}
+		} else {
+			vals := make([]string, 0, len(items))
+			for _, it := range items {
+				vals = append(vals, it.Value)
+			}
+			out.Answer = strings.Join(vals, ", ")
 		}
 		out.Coverage = map[string]any{
 			"targets":   len(plan.CoverageTargets),
@@ -357,12 +368,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if (plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || looksLocationListQuery(req.Query) || transferRecipient(req.Query) != "") && !looksConsequenceQuery(req.Query) && !looksWhereQuery(req.Query) {
 			enumerated = true
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
-			items = filterBesides(req.Query, items)
-			items = s.filterHopEvidence(ctx, req, items, hopResults)
-			if !looksCountQuery(req.Query) {
-				items = s.rankItemsByQuery(ctx, req, items, hopResults)
-				items = capEnumerateItems(items)
-			}
+			items = s.refineEnumeratedItems(ctx, req, items, hopResults)
 			out.Items = items
 			if len(items) > 0 {
 				if looksSuperlativeQuery(req.Query) {
@@ -1370,6 +1376,16 @@ func capEnumerateItems(items []RecallItem) []RecallItem {
 	return items[:maxEnumerateAnswerItems]
 }
 
+func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	items = filterBesides(req.Query, items)
+	items = s.filterHopEvidence(ctx, req, items, hops)
+	if !looksCountQuery(req.Query) {
+		items = s.rankItemsByQuery(ctx, req, items, hops)
+		items = capEnumerateItems(items)
+	}
+	return items
+}
+
 func (s *Service) rankItemsByQuery(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
 	if len(items) < 2 {
 		return items
@@ -1390,6 +1406,13 @@ func (s *Service) rankItemsByQuery(ctx context.Context, req RecallRequest, items
 		}
 		return rows[i].idx < rows[j].idx
 	})
+	if len(negatedModifierTokens(req.Query)) > 0 {
+		out := make([]RecallItem, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, r.it)
+		}
+		return out
+	}
 	any := false
 	for _, r := range rows {
 		if r.score > 0 {
@@ -1412,7 +1435,12 @@ func (s *Service) rankItemsByQuery(ctx context.Context, req RecallRequest, items
 
 func itemQueryScore(query, value, blob string) int {
 	toks := contentBearingTokens(tokenize(query))
-	skip := map[string]struct{}{}
+	skip := map[string]struct{}{
+		"enjoy": {}, "enjoys": {}, "enjoyed": {},
+		"like": {}, "likes": {}, "liked": {},
+		"love": {}, "loves": {}, "loved": {},
+		"prefer": {}, "prefers": {}, "preferred": {},
+	}
 	for _, e := range hopQueryEntities(query) {
 		el := strings.ToLower(e)
 		skip[el] = struct{}{}

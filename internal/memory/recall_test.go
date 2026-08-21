@@ -2112,6 +2112,93 @@ func TestRecallOutdoorModifierFiltersIndoorGroupActivities(t *testing.T) {
 	}
 }
 
+func TestRecallOutdoorModifierFiltersIndoorInEnumerateMode(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-out2"] = MemoryRecord{
+		MemoryID: "mem_jo2", TenantID: "t-oute", SubjectID: "u1",
+		Kind: KindFact, Content: "John went outdoor hiking with his colleagues",
+		DedupeKey: "jo2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+	}
+	store.records["j-pot2"] = MemoryRecord{
+		MemoryID: "mem_jp3", TenantID: "t-oute", SubjectID: "u1",
+		Kind: KindFact, Content: "John did pottery with his colleagues",
+		DedupeKey: "jp3", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "John"},
+	}
+	store.records["j-mov"] = MemoryRecord{
+		MemoryID: "mem_jm", TenantID: "t-oute", SubjectID: "u1",
+		Kind: KindFact, Content: "John has movie nights at home",
+		DedupeKey: "jm", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "movie nights at home", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "movie nights at home", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_jo2"},
+		stubAtom{pred: PredicateActivity, val: "pottery", memID: "mem_jp3"},
+		stubAtom{pred: PredicateActivity, val: "movie nights at home", memID: "mem_jm"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-oute", SubjectID: "u1",
+		Query: "What outdoor activities has John done with his colleagues?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "hik") {
+		t.Fatalf("expected outdoor colleague activity in enumerate, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "potter") || strings.Contains(got, "movie") {
+		t.Fatalf("enumerate mode dumped indoor crowding: %q", out.Answer)
+	}
+	if len(out.Items) > maxEnumerateAnswerItems {
+		t.Fatalf("enumerate list exceeded cap: n=%d", len(out.Items))
+	}
+}
+
+func TestRecallEnumerateModeCapsActivityDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	vals := []string{
+		"hiking", "ceramics", "swimming", "knitting", "gardening",
+		"cooking", "running", "cycling", "painting", "dancing",
+		"climbing", "rowing",
+	}
+	for _, val := range vals {
+		key := val
+		id := "mem_" + val
+		store.records[key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-cap", SubjectID: "u1",
+			Kind: KindFact, Content: "Riley enjoys " + val,
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-cap", SubjectID: "u1",
+		Query: "What activities does Riley enjoy?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Items) > maxEnumerateAnswerItems {
+		t.Fatalf("enumerate dump was not capped: n=%d items=%#v", len(out.Items), out.Items)
+	}
+}
+
 func TestRecallEventsPlanningForClause(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
