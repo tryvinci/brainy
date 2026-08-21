@@ -508,6 +508,10 @@ func anaphoricSlotValue(s string) bool {
 
 // hopSlotValues returns typed destinations from answer hops (not resolve).
 func hopSlotValues(results []HopResult) []string {
+	return hopSlotValuesFiltered(results, false)
+}
+
+func hopSlotValuesFiltered(results []HopResult, includeFallback bool) []string {
 	out := make([]string, 0, 8)
 	seen := map[string]struct{}{}
 	add := func(v, entity string) {
@@ -531,7 +535,10 @@ func hopSlotValues(results []HopResult) []string {
 	for _, r := range results {
 		switch r.Kind {
 		case "follow_relation", "fetch_predicate", "answer_slot":
-			if r.Source == "unresolved" || r.Source == "search_fallback" {
+			if r.Source == "unresolved" {
+				continue
+			}
+			if !includeFallback && r.Source == "search_fallback" {
 				continue
 			}
 			if len(r.Values) > 0 {
@@ -565,9 +572,6 @@ func hopSharedSlotValues(results []HopResult) []string {
 		add(v)
 	}
 	for _, v := range intersectHopValuesByContainment(results) {
-		add(v)
-	}
-	for _, v := range hopValuesMentioningPartner(results) {
 		add(v)
 	}
 	return out
@@ -647,7 +651,7 @@ func hopEntitySlotGroups(results []HopResult) ([]string, map[string][]string) {
 	}
 	groups := make(map[string][]string, len(order))
 	for _, ent := range order {
-		groups[ent] = hopSlotValues(hopGroups[ent])
+		groups[ent] = hopSlotValuesFiltered(hopGroups[ent], true)
 	}
 	return order, groups
 }

@@ -62,20 +62,48 @@ func TestComposeFromHopValuesJoinDoesNotFallBackToUnion(t *testing.T) {
 func TestComposeFromHopValuesContainmentAndPartner(t *testing.T) {
 	ans := composeFromHopValues([]HopResult{
 		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity, Values: []string{"yoga", "relaxing", "pottery"}, Source: "typed_store"},
-		{Kind: "follow_relation", Entity: "Casey", Predicate: PredicateActivity, Values: []string{"organized yoga", "riley's running group", "ceramics"}, Source: "typed_store"},
+		{Kind: "follow_relation", Entity: "Casey", Predicate: PredicateActivity, Values: []string{"organized yoga", "riley's running group", "ceramics"}, Source: "search_fallback"},
 	})
 	low := strings.ToLower(ans)
 	if !strings.Contains(low, "yoga") {
-		t.Fatalf("expected yoga containment join, got %q", ans)
+		t.Fatalf("expected yoga containment join across fallback, got %q", ans)
 	}
-	if !strings.Contains(low, "run") {
-		t.Fatalf("expected partner-mentioned running group, got %q", ans)
+	if strings.Contains(low, "run") {
+		t.Fatalf("partner mention must not leak into generic compose: %q", ans)
 	}
 	if strings.Contains(low, "relax") {
 		t.Fatalf("unwind slogan leaked into join: %q", ans)
 	}
 	if strings.Contains(low, "ceram") || strings.Contains(low, "potter") {
 		t.Fatalf("private activity leaked into join: %q", ans)
+	}
+}
+
+func TestHopValuesMentioningPartner(t *testing.T) {
+	got := hopValuesMentioningPartner([]HopResult{
+		{Kind: "follow_relation", Entity: "Riley", Values: []string{"yoga"}, Source: "typed_store"},
+		{Kind: "follow_relation", Entity: "Casey", Values: []string{"riley's running group", "ceramics"}, Source: "search_fallback"},
+	})
+	blob := strings.ToLower(strings.Join(got, " | "))
+	if !strings.Contains(blob, "run") {
+		t.Fatalf("expected partner running group, got %#v", got)
+	}
+	if strings.Contains(blob, "ceram") {
+		t.Fatalf("private activity leaked into partner mention: %#v", got)
+	}
+}
+
+func TestComposeFromHopValuesDoesNotKeepPartnerPreferences(t *testing.T) {
+	ans := composeFromHopValues([]HopResult{
+		{Kind: "fetch_predicate", Entity: "Nate", Values: []string{"turtles", "nintendo games"}, Source: "typed_store"},
+		{Kind: "fetch_predicate", Entity: "Joanna", Values: []string{"turtles", "likes nate's cooking"}, Source: "typed_store"},
+	})
+	low := strings.ToLower(ans)
+	if !strings.Contains(low, "turtle") {
+		t.Fatalf("expected shared turtles, got %q", ans)
+	}
+	if strings.Contains(low, "cook") || strings.Contains(low, "nintendo") {
+		t.Fatalf("partner mention or union leaked into animal join: %q", ans)
 	}
 }
 
