@@ -2,11 +2,13 @@ package jobs
 
 import (
 	"context"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"brainy/internal/memory"
 	"brainy/internal/observability"
-	"strings"
 )
 
 type storeStub struct {
@@ -237,6 +239,7 @@ func (f failingExtractor) Extract(_ context.Context, _ memory.IngestRequest) ([]
 // fenced completion path and propagates ErrLeaseLost.
 type fencedStoreStub struct {
 	storeStub
+	mu             sync.Mutex
 	heartbeats     int
 	completeFenced bool
 	failFenced     bool
@@ -244,8 +247,16 @@ type fencedStoreStub struct {
 }
 
 func (s *fencedStoreStub) HeartbeatExtractionJob(_ context.Context, _, _ string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.heartbeats++
 	return nil
+}
+
+func (s *fencedStoreStub) heartbeatCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.heartbeats
 }
 
 func (s *fencedStoreStub) CompleteExtractionJobFenced(_ context.Context, _, _, _ string) error {
@@ -282,8 +293,54 @@ func TestProcessorUsesFencedLeasePath(t *testing.T) {
 	if !store.completeFenced {
 		t.Fatal("expected fenced completion to be used")
 	}
-	if store.heartbeats == 0 {
+	if store.heartbeatCount() == 0 {
 		t.Fatal("expected lease heartbeat during processing")
+	}
+}
+
+type delayedExtractor struct {
+	delay time.Duration
+}
+
+func (d delayedExtractor) Extract(ctx context.Context, _ memory.IngestRequest) ([]memory.ExtractedMemory, error) {
+	timer := time.NewTimer(d.delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-timer.C:
+		return nil, nil
+	}
+}
+
+func TestProcessorRenewsLeaseDuringSlowExtract(t *testing.T) {
+	orig := extractionLeaseRenewInterval
+	extractionLeaseRenewInterval = 25 * time.Millisecond
+	t.Cleanup(func() { extractionLeaseRenewInterval = orig })
+
+	store := &fencedStoreStub{}
+	store.records = map[string]memory.MemoryRecord{}
+	store.jobs = map[string]memory.ExtractionJob{}
+	store.failedJobs = map[string]string{}
+	store.embeddings = map[string][]float32{}
+
+	processor := NewProcessorWithExtractor(store, observability.NewMetrics(), delayedExtractor{delay: 140 * time.Millisecond})
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_slow", "job_slow", "", memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "I prefer concise answers."}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := processor.ProcessNext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := store.heartbeatCount()
+	if got < 3 {
+		t.Fatalf("expected initial heartbeat plus ticker renewals during slow extract, got %d", got)
 	}
 }
 

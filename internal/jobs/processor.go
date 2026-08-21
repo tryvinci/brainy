@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -53,6 +54,11 @@ func (p *Processor) WithEmbedder(embedder embedding.Embedder) *Processor {
 	return p
 }
 
+// extractionLeaseRenewInterval is how often a live owner extends its job
+// lease. Must stay well below the store's 30s lease so provider extract
+// (often 30–120s) is not reclaimed mid-call. Tests shorten this.
+var extractionLeaseRenewInterval = 10 * time.Second
+
 func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	job, ok, err := p.store.ClaimNextExtractionJob(ctx)
 	if err != nil || !ok {
@@ -60,14 +66,13 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	}
 
 	memory.NormalizeIngestRequest(&job.Request)
-	// Extract may exceed the initial lease (provider calls up to 45s vs a 30s
-	// default lease). Renew the lease for the current owner so a live worker is
-	// not reclaimed mid-extraction.
+	// Provider extract/embed often exceeds the 30s job lease. Heartbeat for
+	// the whole ProcessNext so a live owner is not reclaimed mid-call.
+	hbCtx, hbCancel := context.WithCancel(context.Background())
+	defer hbCancel()
 	if fencer, ok := p.store.(memory.LeaseFencer); ok {
 		_ = fencer.HeartbeatExtractionJob(ctx, job.JobID, job.LeaseOwner)
-		defer func() {
-			_ = fencer.HeartbeatExtractionJob(ctx, job.JobID, job.LeaseOwner)
-		}()
+		go renewExtractionLease(hbCtx, fencer, job)
 	}
 	extracted, err := p.extractor.Extract(ctx, job.Request)
 	if err != nil {
@@ -121,6 +126,27 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	}
 	p.persistRuntime(ctx)
 	return true, nil
+}
+
+func renewExtractionLease(ctx context.Context, fencer memory.LeaseFencer, job memory.ExtractionJob) {
+	ticker := time.NewTicker(extractionLeaseRenewInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Independent of the extract ctx so a slow provider call cannot
+			// cancel the SQL that keeps the lease alive. Stop only when the
+			// owner is gone (reclaimed / completed / failed).
+			hbCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			err := fencer.HeartbeatExtractionJob(hbCtx, job.JobID, job.LeaseOwner)
+			cancel()
+			if errors.Is(err, memory.ErrLeaseLost) {
+				return
+			}
+		}
+	}
 }
 
 // completeJob uses the owner-fenced completion when the store supports it, so a

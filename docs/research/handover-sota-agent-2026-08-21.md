@@ -242,6 +242,7 @@ Provider gotchas already burned:
 - Direct `api.openai.com` + `OPENAI_API_KEY` worked for the A/B
 - urllib needs a `User-Agent` or Cloudflare 1010
 - Full S0 180 on a cloud VM **stalled twice** on 120s embed timeouts. MH-only 33 succeeded without oracle probes.
+- Extraction **job lease is 30s**; provider extract timeout is 120s. Without a live heartbeat, another worker reclaims `in_progress` mid-call (`ErrLeaseLost`, duplicate extract, fence blocks complete). The worker now heartbeats every 10s for the whole `ProcessNext`. Same-subject jobs still serialize; raise worker concurrency only to overlap **different** subjects. Optional remasure env: `BRAINY_PROVIDER_TIMEOUT=300s`.
 
 Auth: if `BRAINY_API_KEYS` / `BRAINY_REQUIRE_API_KEY` are set, unauthenticated calls are 401. Local no-auth: unset those, `BRAINY_ENV=local`.
 
