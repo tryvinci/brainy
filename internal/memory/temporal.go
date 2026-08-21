@@ -177,14 +177,19 @@ func predicateHintsFromQuery(query string) []string {
 		(strings.Contains(lower, "partner") && !queryHasToken(query, "dogs", "dog", "pets", "pet")) ||
 		strings.Contains(lower, "single"):
 		add(PredicateRelationshipStatus)
-	case queryHasToken(query, "trick", "tricks", "instrument", "instruments"):
+	case queryHasToken(query, "trick", "tricks", "instrument", "instruments") ||
+		queryHasToken(query, "teach", "taught"):
 		add(PredicateSkill)
 		add(PredicateActivity)
 	case queryHasToken(query, "pet", "pets", "dog", "dogs"):
 		add(PredicatePossession)
+	case strings.Contains(lower, "injur") || strings.Contains(lower, "health"):
+		add(PredicateHealth)
+		add(PredicateEvent)
 	case strings.Contains(lower, "name") || strings.Contains(lower, "who is") || strings.Contains(lower, "identity"):
 		add(PredicateIdentity)
-	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop") || strings.Contains(lower, "do to"):
+	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop") || strings.Contains(lower, "do to") ||
+		queryHasToken(query, "tried", "try"):
 		add(PredicateActivity)
 		add(PredicateEvent)
 	case strings.Contains(lower, "book") || strings.Contains(lower, "read") || strings.Contains(lower, "library"):
@@ -216,8 +221,6 @@ func predicateHintsFromQuery(query string) []string {
 		(strings.Contains(lower, "items") && (strings.Contains(lower, "bought") || strings.Contains(lower, "made") || strings.Contains(lower, "have") || strings.Contains(lower, "has"))) ||
 		(strings.Contains(lower, "how many") && (strings.Contains(lower, "have") || strings.Contains(lower, "has") || strings.Contains(lower, "own"))):
 		add(PredicatePossession)
-	case strings.Contains(lower, "injur") || strings.Contains(lower, "health"):
-		add(PredicateHealth)
 	}
 	if len(out) == 0 && (strings.Contains(lower, "currently") || strings.Contains(lower, "right now") || strings.Contains(lower, "current")) {
 		// Conservative defaults for "currently" questions only.

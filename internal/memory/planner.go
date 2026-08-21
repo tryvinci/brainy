@@ -535,6 +535,24 @@ func hopComposeAllowed(query string) bool {
 	return true
 }
 
+func looksCountQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "how many") || strings.Contains(q, "how much")
+}
+
+func looksPolarQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if looksCountQuery(q) {
+		return false
+	}
+	for _, p := range []string{"has ", "have ", "had ", "did ", "does ", "do ", "is ", "was ", "were ", "can "} {
+		if strings.HasPrefix(q, p) {
+			return true
+		}
+	}
+	return false
+}
+
 func firstNonEmpty(vals ...string) string {
 	for _, v := range vals {
 		if strings.TrimSpace(v) != "" {
@@ -629,6 +647,8 @@ func planCoverageTargets(query string, plan QueryPlan) []string {
 
 func preferredModeHint(plan QueryPlan) string {
 	switch {
+	case plan.PrimaryIntent == IntentAggregation:
+		return "answer"
 	case plan.NeedsEnumeration:
 		return "enumerate"
 	case plan.NeedsTemporal && plan.PrimaryIntent == IntentCurrentState:

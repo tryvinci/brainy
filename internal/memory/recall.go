@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -366,10 +367,28 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				}
 			}
 		}
+		if looksCountQuery(req.Query) {
+			if !enumerated {
+				enumerated = true
+				out.Items = s.enumerateFromSearch(ctx, req, search.Results, hopResults)
+			}
+			if n := countAnswer(req.Query, out.Items); n != "" {
+				out.Answer = n
+				out.AnswerStatus = AnswerSupported
+				out.Explain["count_answer"] = true
+			}
+		}
 		if strings.TrimSpace(out.Answer) == "" && pkt.TemporalAnswer != "" && (plan.NeedsTemporal || temporalApplied) {
 			out.Answer = pkt.TemporalAnswer
 			out.AnswerStatus = AnswerSupported
 			out.Coverage = map[string]any{"targets": 1, "satisfied": true, "source": "temporal_resolver"}
+		}
+		if strings.TrimSpace(out.Answer) == "" && looksPolarQuery(req.Query) {
+			if ans := polarAnswerFromHops(req.Query, hopResults); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["polar_answer"] = true
+			}
 		}
 		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop {
 			if composed := composeMultiHopAnswer(pkt); composed != "" {
@@ -874,8 +893,144 @@ func hopUsefulForList(hopPred, listPred string) bool {
 		return hopPred == PredicateIdentity
 	case PredicateSkill:
 		return hopPred == PredicateActivity
+	case PredicateHealth:
+		return hopPred == PredicateEvent
 	}
 	return false
+}
+
+func countHeadNoun(query string) string {
+	lower := strings.ToLower(query)
+	key := "how many "
+	i := strings.Index(lower, key)
+	if i < 0 {
+		key = "how much "
+		i = strings.Index(lower, key)
+	}
+	if i < 0 {
+		return ""
+	}
+	rest := strings.TrimSpace(query[i+len(key):])
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.Trim(strings.ToLower(fields[0]), "?,.!'\"")
+}
+
+func countAnswer(query string, items []RecallItem) string {
+	if len(items) == 0 {
+		return ""
+	}
+	head := countHeadNoun(query)
+	if head == "times" || head == "time" {
+		seen := map[string]struct{}{}
+		n := 0
+		for _, it := range items {
+			if len(it.Evidence) == 0 {
+				n++
+				continue
+			}
+			for _, id := range it.Evidence {
+				if id == "" {
+					continue
+				}
+				if _, ok := seen[id]; ok {
+					continue
+				}
+				seen[id] = struct{}{}
+				n++
+			}
+		}
+		if n == 0 {
+			return strconv.Itoa(len(items))
+		}
+		return strconv.Itoa(n)
+	}
+	switch head {
+	case "", "children", "kids", "people":
+		return strconv.Itoa(len(items))
+	}
+	stem := strings.TrimSuffix(head, "es")
+	stem = strings.TrimSuffix(stem, "s")
+	if len(stem) < 3 {
+		stem = head
+	}
+	n := 0
+	for _, it := range items {
+		v := strings.ToLower(it.Value)
+		if strings.Contains(v, head) || strings.Contains(v, stem) {
+			n++
+		}
+	}
+	if n == 0 {
+		return strconv.Itoa(len(items))
+	}
+	return strconv.Itoa(n)
+}
+
+func polarClaimTokens(query string) []string {
+	skip := map[string]struct{}{
+		"tried": {}, "try": {}, "teach": {}, "taught": {}, "learned": {}, "learn": {},
+		"himself": {}, "herself": {}, "myself": {}, "play": {}, "playing": {},
+		"how": {}, "kind": {},
+	}
+	ents := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		ents[strings.ToLower(e)] = struct{}{}
+	}
+	out := make([]string, 0, 4)
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		if _, ok := skip[t]; ok {
+			continue
+		}
+		if _, ok := ents[t]; ok {
+			continue
+		}
+		if len(t) < 4 {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+func polarAnswerFromHops(query string, hops []HopResult) string {
+	if len(hopQueryEntities(query)) == 0 {
+		return ""
+	}
+	claim := polarClaimTokens(query)
+	if len(claim) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for _, v := range h.Values {
+			b.WriteString(" ")
+			b.WriteString(strings.ToLower(v))
+		}
+		if h.Value != "" {
+			b.WriteString(" ")
+			b.WriteString(strings.ToLower(h.Value))
+		}
+		for _, c := range h.Contents {
+			b.WriteString(" ")
+			b.WriteString(strings.ToLower(c))
+		}
+	}
+	blob := b.String()
+	if strings.TrimSpace(blob) == "" {
+		return ""
+	}
+	for _, t := range claim {
+		if strings.Contains(blob, t) {
+			return "Yes"
+		}
+	}
+	return ""
 }
 
 func memoryMentionsEntity(rec MemoryRecord, entity string) bool {
@@ -1019,6 +1174,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
 		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
+		" tried ", " injured ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			if sep == " is " && (titleLikeCopula(content) || !identityCopulaSubject(stripped[:i])) {
@@ -1050,6 +1206,7 @@ func hasSlotTemplate(v string) bool {
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
 		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
+		" tried ", " injured ",
 	} {
 		if strings.Contains(low, sep) {
 			return true

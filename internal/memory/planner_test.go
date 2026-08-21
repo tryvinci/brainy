@@ -177,13 +177,55 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 
 	count := PlanQuery("How many cars does Calvin own?", nil)
 	countEnts := map[string]bool{}
+	foundPossCount := false
 	for _, hop := range count.Hops {
 		if hop.Kind == "resolve_entity" {
 			countEnts[strings.ToLower(hop.Entity)] = true
 		}
+		if hop.Predicate == PredicatePossession {
+			foundPossCount = true
+		}
 	}
 	if !countEnts["calvin"] {
 		t.Fatalf("count subject must hop the person, hops=%+v", count.Hops)
+	}
+	if count.PrimaryIntent != IntentAggregation {
+		t.Fatalf("expected aggregation intent, intents=%v", count.Intents)
+	}
+	if !foundPossCount {
+		t.Fatalf("expected possession hop for how-many own, hops=%+v", count.Hops)
+	}
+
+	inj := PlanQuery("How many times has Jordan injured his ankle?", nil)
+	foundHealth := false
+	for _, hop := range inj.Hops {
+		if hop.Predicate == PredicateHealth {
+			foundHealth = true
+		}
+	}
+	if !foundHealth {
+		t.Fatalf("injury count must hop health, hops=%+v", inj.Hops)
+	}
+
+	polar := PlanQuery("Has Riley tried surfing?", nil)
+	if !polar.NeedsMultiHop {
+		t.Fatalf("polar query must hop, intents=%v", polar.Intents)
+	}
+	polarEnts := map[string]bool{}
+	foundTriedActivity := false
+	for _, hop := range polar.Hops {
+		if hop.Kind == "resolve_entity" {
+			polarEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateActivity {
+			foundTriedActivity = true
+		}
+	}
+	if !polarEnts["riley"] {
+		t.Fatalf("expected riley hop, hops=%+v", polar.Hops)
+	}
+	if !foundTriedActivity {
+		t.Fatalf("tried polar must hop activity, hops=%+v", polar.Hops)
 	}
 
 	kin := PlanQuery("What were Alex's mother's hobbies?", nil)
