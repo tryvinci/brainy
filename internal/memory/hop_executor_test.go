@@ -59,6 +59,26 @@ func TestComposeFromHopValuesJoinDoesNotFallBackToUnion(t *testing.T) {
 	}
 }
 
+func TestComposeFromHopValuesContainmentAndPartner(t *testing.T) {
+	ans := composeFromHopValues([]HopResult{
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity, Values: []string{"yoga", "relaxing", "pottery"}, Source: "typed_store"},
+		{Kind: "follow_relation", Entity: "Casey", Predicate: PredicateActivity, Values: []string{"organized yoga", "riley's running group", "ceramics"}, Source: "typed_store"},
+	})
+	low := strings.ToLower(ans)
+	if !strings.Contains(low, "yoga") {
+		t.Fatalf("expected yoga containment join, got %q", ans)
+	}
+	if !strings.Contains(low, "run") {
+		t.Fatalf("expected partner-mentioned running group, got %q", ans)
+	}
+	if strings.Contains(low, "relax") {
+		t.Fatalf("unwind slogan leaked into join: %q", ans)
+	}
+	if strings.Contains(low, "ceram") || strings.Contains(low, "potter") {
+		t.Fatalf("private activity leaked into join: %q", ans)
+	}
+}
+
 func TestComposeFromHopContentsIntersectsEntities(t *testing.T) {
 	ans := composeFromHopContents([]HopResult{
 		{

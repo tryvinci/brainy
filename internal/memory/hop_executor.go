@@ -547,7 +547,30 @@ func hopSlotValues(results []HopResult) []string {
 }
 
 func hopSharedSlotValues(results []HopResult) []string {
-	return intersectHopValueGroups(results, hopSlotValues)
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, v := range intersectHopValueGroups(results, hopSlotValues) {
+		add(v)
+	}
+	for _, v := range intersectHopValuesByContainment(results) {
+		add(v)
+	}
+	for _, v := range hopValuesMentioningPartner(results) {
+		add(v)
+	}
+	return out
 }
 
 func hopFetchEntityCount(results []HopResult) int {
@@ -604,6 +627,160 @@ func intersectHopValueGroups(results []HopResult, valuesOf func([]HopResult) []s
 		inter = kept
 	}
 	return inter
+}
+
+func hopEntitySlotGroups(results []HopResult) ([]string, map[string][]string) {
+	hopGroups := map[string][]HopResult{}
+	order := make([]string, 0, 2)
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			ent := strings.ToLower(strings.TrimSpace(r.Entity))
+			if ent == "" {
+				continue
+			}
+			if _, ok := hopGroups[ent]; !ok {
+				order = append(order, ent)
+			}
+			hopGroups[ent] = append(hopGroups[ent], r)
+		}
+	}
+	groups := make(map[string][]string, len(order))
+	for _, ent := range order {
+		groups[ent] = hopSlotValues(hopGroups[ent])
+	}
+	return order, groups
+}
+
+func slotValueTokens(v string) []string {
+	out := make([]string, 0, 4)
+	for _, t := range contentBearingTokens(tokenize(v)) {
+		if len(t) < 4 {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+func slotTokensSubset(small, big []string) bool {
+	if len(small) == 0 {
+		return false
+	}
+	for _, s := range small {
+		ok := false
+		for _, b := range big {
+			if tokensMatch(s, b) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func coveredSlotValue(a, b string) string {
+	a = strings.TrimSpace(a)
+	b = strings.TrimSpace(b)
+	if a == "" || b == "" {
+		return ""
+	}
+	if strings.EqualFold(a, b) {
+		return a
+	}
+	at, bt := slotValueTokens(a), slotValueTokens(b)
+	aSubset := slotTokensSubset(at, bt)
+	bSubset := slotTokensSubset(bt, at)
+	switch {
+	case aSubset && bSubset:
+		if utf8Len(a) <= utf8Len(b) {
+			return a
+		}
+		return b
+	case aSubset:
+		return a
+	case bSubset:
+		return b
+	}
+	return ""
+}
+
+// intersectHopValuesByContainment keeps the shorter slot when one entity's
+// value is a token subset of the other's (yoga ∩ organized yoga). Exact
+// equality is already handled by intersectHopValueGroups.
+func intersectHopValuesByContainment(results []HopResult) []string {
+	order, groups := hopEntitySlotGroups(results)
+	if len(order) < 2 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	first := groups[order[0]]
+	for _, ent := range order[1:] {
+		next := groups[ent]
+		kept := make([]string, 0)
+		for _, va := range first {
+			for _, vb := range next {
+				if cov := coveredSlotValue(va, vb); cov != "" {
+					kept = append(kept, cov)
+				}
+			}
+		}
+		first = kept
+	}
+	for _, v := range first {
+		add(v)
+	}
+	return out
+}
+
+// hopValuesMentioningPartner keeps a hop value that names another join
+// entity (Casey joined Riley's running group).
+func hopValuesMentioningPartner(results []HopResult) []string {
+	order, groups := hopEntitySlotGroups(results)
+	if len(order) < 2 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	for _, ent := range order {
+		for _, other := range order {
+			if other == ent {
+				continue
+			}
+			for _, v := range groups[ent] {
+				blob := strings.ToLower(v)
+				if !strings.Contains(blob, other) {
+					continue
+				}
+				key := strings.ToLower(strings.TrimSpace(v))
+				if key == "" {
+					continue
+				}
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				out = append(out, v)
+			}
+		}
+	}
+	return out
 }
 
 func hopContentSlotValues(results []HopResult) []string {

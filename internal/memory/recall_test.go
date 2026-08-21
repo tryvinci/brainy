@@ -2487,6 +2487,78 @@ func TestRecallDualCommunityIntersectsNotUnion(t *testing.T) {
 	}
 }
 
+func TestRecallDualCommunityPhraseOverlapAndPartner(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-yoga"] = MemoryRecord{
+		MemoryID: "mem_ryo", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley started yoga",
+		DedupeKey: "ryo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+	}
+	store.records["c-yoga"] = MemoryRecord{
+		MemoryID: "mem_cyo", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey organized yoga",
+		DedupeKey: "cyo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "organized yoga", "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "organized yoga", "subject": "Casey"},
+	}
+	store.records["c-run"] = MemoryRecord{
+		MemoryID: "mem_crun", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey joined Riley's running group",
+		DedupeKey: "crun", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "riley's running group", "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "riley's running group", "subject": "Casey"},
+	}
+	store.records["r-unw"] = MemoryRecord{
+		MemoryID: "mem_runw", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley unwinds via relaxing",
+		DedupeKey: "runw", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "relaxing", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "relaxing", "subject": "Riley"},
+	}
+	store.records["c-cer"] = MemoryRecord{
+		MemoryID: "mem_cce", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey participates in ceramics",
+		DedupeKey: "cce", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "Casey"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "yoga", memID: "mem_ryo"},
+		stubAtom{pred: PredicateActivity, val: "organized yoga", memID: "mem_cyo"},
+		stubAtom{pred: PredicateActivity, val: "riley's running group", memID: "mem_crun"},
+		stubAtom{pred: PredicateActivity, val: "relaxing", memID: "mem_runw"},
+		stubAtom{pred: PredicateActivity, val: "ceramics", memID: "mem_cce"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-dual2", SubjectID: "u1",
+		Query: "Which community activities have Riley and Casey participated in?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "yoga") {
+		t.Fatalf("expected yoga containment join, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if !strings.Contains(got, "run") {
+		t.Fatalf("expected partner running group, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "relax") {
+		t.Fatalf("unwind slogan leaked into dual community: %q", out.Answer)
+	}
+	if strings.Contains(got, "ceram") {
+		t.Fatalf("private activity leaked into dual community: %q", out.Answer)
+	}
+}
+
 func TestRecallCountSpecificPossessionHead(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

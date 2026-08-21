@@ -1959,6 +1959,8 @@ func listHeadModifierTokens(query string) []string {
 	skip := map[string]struct{}{
 		"kind": {}, "type": {}, "some": {}, "any": {},
 		"which": {}, "what": {}, "similar": {},
+		// Domain/join cue, not an evidence adjective like "outdoor".
+		"community": {},
 	}
 	fields := strings.Fields(query)
 	for i, raw := range fields {

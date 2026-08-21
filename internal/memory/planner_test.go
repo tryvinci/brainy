@@ -472,6 +472,9 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if toks := listHeadModifierTokens("What outdoor activities has John done with his colleagues?"); len(toks) != 1 || toks[0] != "outdoor" {
 		t.Fatalf("expected outdoor modifier, toks=%v", toks)
 	}
+	if toks := listHeadModifierTokens("Which community activities have Riley and Casey participated in?"); len(toks) != 0 {
+		t.Fatalf("community is a join cue, not a list-head adjective, toks=%v", toks)
+	}
 	if toks := listHeadModifierTokens("What unhealthy snacks does Casey avoid?"); len(toks) != 1 || toks[0] != "unhealthy" {
 		t.Fatalf("expected unhealthy snack modifier, toks=%v", toks)
 	}
