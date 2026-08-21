@@ -487,7 +487,7 @@ func hopSlotValues(results []HopResult) []string {
 	seen := map[string]struct{}{}
 	add := func(v, entity string) {
 		v = strings.TrimSpace(v)
-		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) {
+		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) || looksTitleCaseSlogan(titleCaseWords(v)) {
 			return
 		}
 		if entity != "" && strings.EqualFold(v, entity) {
@@ -506,7 +506,7 @@ func hopSlotValues(results []HopResult) []string {
 	for _, r := range results {
 		switch r.Kind {
 		case "follow_relation", "fetch_predicate", "answer_slot":
-			if r.Source == "unresolved" {
+			if r.Source == "unresolved" || r.Source == "search_fallback" {
 				continue
 			}
 			if len(r.Values) > 0 {
@@ -521,8 +521,50 @@ func hopSlotValues(results []HopResult) []string {
 	return out
 }
 
+func hopSharedSlotValues(results []HopResult) []string {
+	groups := map[string][]HopResult{}
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			ent := strings.ToLower(strings.TrimSpace(r.Entity))
+			if ent == "" {
+				continue
+			}
+			groups[ent] = append(groups[ent], r)
+		}
+	}
+	if len(groups) < 2 {
+		return nil
+	}
+	var inter []string
+	first := true
+	for _, hops := range groups {
+		vals := hopSlotValues(hops)
+		if first {
+			inter = append([]string(nil), vals...)
+			first = false
+			continue
+		}
+		allow := map[string]struct{}{}
+		for _, v := range vals {
+			allow[strings.ToLower(v)] = struct{}{}
+		}
+		kept := inter[:0]
+		for _, v := range inter {
+			if _, ok := allow[strings.ToLower(v)]; ok {
+				kept = append(kept, v)
+			}
+		}
+		inter = kept
+	}
+	return inter
+}
+
 func composeFromHopValues(results []HopResult) string {
-	vals := hopSlotValues(results)
+	vals := hopSharedSlotValues(results)
+	if len(vals) == 0 {
+		vals = hopSlotValues(results)
+	}
 	if len(vals) == 0 {
 		return ""
 	}

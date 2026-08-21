@@ -168,6 +168,26 @@ func TestPredicateHintsFromQuery(t *testing.T) {
 	if !found {
 		t.Fatalf("expected residence hint, got %#v", h)
 	}
+	pref := predicateHintsFromQuery("What animal do both Nate and Joanna like?")
+	foundPref := false
+	for _, p := range pref {
+		if p == PredicatePreference {
+			foundPref = true
+		}
+	}
+	if !foundPref {
+		t.Fatalf("expected preference hint for like-query, got %#v", pref)
+	}
+	own := predicateHintsFromQuery("How many cars does Calvin own?")
+	foundPoss := false
+	for _, p := range own {
+		if p == PredicatePossession {
+			foundPoss = true
+		}
+	}
+	if !foundPoss {
+		t.Fatalf("expected possession hint, got %#v", own)
+	}
 }
 
 func TestTemporalScorePrefersSupersededOnHistorical(t *testing.T) {

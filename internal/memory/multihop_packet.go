@@ -235,9 +235,20 @@ func orderBridgeChain(items []PacketItem, targets []string) []PacketItem {
 // composeMultiHopAnswer builds a short deterministic answer from a bridge+direct chain.
 func composeMultiHopAnswer(pkt EvidencePacket) string {
 	if hops := hopResultsFromPacket(pkt); len(hops) > 0 {
-		// Typed hop slots only. Resolve-only mentions and raw packet
-		// sentences are not factual answers.
-		return composeFromHopValues(hops)
+		if composed := composeFromHopValues(hops); composed != "" {
+			return composed
+		}
+		// Search-fallback hop Values are not proof. Extract typed slots from
+		// hop contents (e.g. "Joanna likes turtles") before slogans.
+		if composed := composeFromHopContents(hops); composed != "" {
+			return composed
+		}
+		// Hops planned but unproven: use structured packet values, not slogans
+		// or resolve-only mentions.
+		if composed := composeFromPacketStructuredValues(pkt, hops); composed != "" {
+			return composed
+		}
+		return ""
 	}
 	var bridge, direct string
 	for _, it := range pkt.Items {
@@ -262,6 +273,108 @@ func composeMultiHopAnswer(pkt EvidencePacket) string {
 	default:
 		return ""
 	}
+}
+
+func composeFromHopContents(hops []HopResult) string {
+	echo := map[string]struct{}{}
+	for _, h := range hops {
+		if v := strings.ToLower(strings.TrimSpace(h.Entity)); v != "" {
+			echo[v] = struct{}{}
+		}
+	}
+	seen := map[string]struct{}{}
+	vals := make([]string, 0, 4)
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+			continue
+		}
+		for _, c := range h.Contents {
+			v := ""
+			if extracted, ok := slotValueFromMemoryContent(c); ok {
+				v = extracted
+			}
+			v = strings.TrimSpace(v)
+			if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) || utf8Len(v) > 80 {
+				continue
+			}
+			if _, ok := echo[strings.ToLower(v)]; ok {
+				continue
+			}
+			key := strings.ToLower(v)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			vals = append(vals, v)
+			if len(vals) >= 4 {
+				return strings.Join(vals, ", ")
+			}
+		}
+	}
+	if len(vals) == 0 {
+		return ""
+	}
+	return strings.Join(vals, ", ")
+}
+
+func composeFromPacketStructuredValues(pkt EvidencePacket, hops []HopResult) string {
+	echo := map[string]struct{}{}
+	for _, h := range hops {
+		if v := strings.ToLower(strings.TrimSpace(h.Entity)); v != "" {
+			echo[v] = struct{}{}
+		}
+		if v := strings.ToLower(strings.TrimSpace(h.Value)); v != "" && h.Kind == "resolve_entity" {
+			echo[v] = struct{}{}
+		}
+	}
+	addable := func(v string) bool {
+		v = strings.TrimSpace(v)
+		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) {
+			return false
+		}
+		if utf8Len(v) > 80 {
+			return false
+		}
+		if _, ok := echo[strings.ToLower(v)]; ok {
+			return false
+		}
+		return true
+	}
+	seen := map[string]struct{}{}
+	vals := make([]string, 0, 4)
+	collect := func(items []PacketItem) {
+		for _, it := range items {
+			if it.Role == "bridge" {
+				continue
+			}
+			v := strings.TrimSpace(it.Value)
+			if v == "" {
+				if extracted, ok := slotValueFromMemoryContent(it.Content); ok {
+					v = extracted
+				}
+			}
+			if !addable(v) {
+				continue
+			}
+			key := strings.ToLower(v)
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			vals = append(vals, v)
+			if len(vals) >= 4 {
+				return
+			}
+		}
+	}
+	collect(pkt.ProofChain)
+	if len(vals) == 0 {
+		collect(pkt.Items)
+	}
+	if len(vals) == 0 {
+		return ""
+	}
+	return strings.Join(vals, ", ")
 }
 
 func hopResultsFromPacket(pkt EvidencePacket) []HopResult {

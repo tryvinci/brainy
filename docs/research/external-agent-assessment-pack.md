@@ -1,8 +1,9 @@
 # Brainy — External Agent Assessment Pack
 
-**Status:** Canonical handoff artifact for external agents / reviewers  
-**Date:** 2026-08-17 (current-SHA parity-gap review received; R0-R4 **closed**; next is **R5A** structured-first `/recall`)  
-**How to use:** Start from **CURRENT (2026-08-17)** and the [parity-gap verdict](./external-reviews/2026-08-17-parity-gap-verdict.md). Use this pack for architecture context + reproduce commands. Do **not** treat Gate 0 / "next is R1b" / "LME 0/20" / Wave 1 P0-P7 / "cite-facts vs R5 OD as two bets" language below as live truth. Do **not** re-queue R0-R4 because a review was pinned to `bd987fa`.
+**Status:** Architecture + reproduce context. **Not** the live next-agent start.  
+**Live start (2026-08-21):** [handover-sota-agent-2026-08-21.md](./handover-sota-agent-2026-08-21.md) — S0 ledger is PROOF; R5A–R10 landed; do not begin at R5A / R6a compiler.  
+**Date:** 2026-08-17 (current-SHA parity-gap review received; R0-R4 **closed**; R5A was next *then*)  
+**How to use:** Start from the 2026-08-21 handover. Use **CURRENT (2026-08-17)** below only as the remasure that closed R0–R4. Do **not** treat Gate 0 / "next is R1b" / "LME 0/20" / Wave 1 P0-P7 / "cite-facts vs R5 OD as two bets" language below as live truth. Do **not** re-queue R0-R4 because a review was pinned to `bd987fa`.
 
 | Related doc | Role |
 | --- | --- |
