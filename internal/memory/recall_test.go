@@ -1086,3 +1086,45 @@ func TestRecallPolarDoesNotYesFromUnrelatedHobby(t *testing.T) {
 		t.Fatalf("unrelated hobby must not prove polar yes: %q", out.Answer)
 	}
 }
+
+func TestRecallPracticeLocationListDoesNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-yoga"] = MemoryRecord{
+		MemoryID: "mem_ry", TenantID: "t-loc", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley practices yoga at the lake",
+		DedupeKey: "ry", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "lake", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "lake", "subject": "Riley"},
+	}
+	store.records["r-job3"] = MemoryRecord{
+		MemoryID: "mem_rj3", TenantID: "t-loc", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rj3", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "lake", memID: "mem_ry"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rj3"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-loc", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "lake") {
+		t.Fatalf("expected practice location, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded the location list: %q", out.Answer)
+	}
+}

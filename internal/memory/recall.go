@@ -1174,7 +1174,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
 		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
-		" tried ", " injured ",
+		" tried ", " injured ", " practices ", " practiced ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			if sep == " is " && (titleLikeCopula(content) || !identityCopulaSubject(stripped[:i])) {
@@ -1185,7 +1185,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 			if j := strings.IndexAny(v, ".(["); j > 0 {
 				v = strings.TrimSpace(v[:j])
 			}
-			if sep == " has done " {
+			if sep == " has done " || sep == " practices " || sep == " practiced " {
 				if _, place, ok := strings.Cut(v, " at "); ok {
 					v = strings.TrimSpace(place)
 				}
@@ -1206,7 +1206,7 @@ func hasSlotTemplate(v string) bool {
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
 		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
-		" tried ", " injured ",
+		" tried ", " injured ", " practices ", " practiced ",
 	} {
 		if strings.Contains(low, sep) {
 			return true
