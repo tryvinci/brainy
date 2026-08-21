@@ -2562,3 +2562,89 @@ func TestRecallPetNamesDoesNotDumpOtherPossessions(t *testing.T) {
 		t.Fatalf("other possessions crowded pet names: %q", out.Answer)
 	}
 }
+
+func TestRecallPetNamesKeepsMultipleNamedPets(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["p1"] = MemoryRecord{
+		MemoryID: "mem_p1", TenantID: "t-pets3", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's pet is named Luna",
+		DedupeKey: "p1", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "luna", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "luna", "subject": "Riley"},
+	}
+	store.records["p2"] = MemoryRecord{
+		MemoryID: "mem_p2", TenantID: "t-pets3", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's dog is named Oliver",
+		DedupeKey: "p2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "oliver", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "oliver", "subject": "Riley"},
+	}
+	store.records["p3"] = MemoryRecord{
+		MemoryID: "mem_p3", TenantID: "t-pets3", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns a sedan",
+		DedupeKey: "p3", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "sedan", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "sedan", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "luna", memID: "mem_p1"},
+		stubAtom{pred: PredicatePossession, val: "oliver", memID: "mem_p2"},
+		stubAtom{pred: PredicatePossession, val: "sedan", memID: "mem_p3"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-pets3", SubjectID: "u1",
+		Query: "What are Riley's pets' names?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "luna") || !strings.Contains(got, "oliver") {
+		t.Fatalf("expected both named pets, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "sedan") {
+		t.Fatalf("sedan crowded named pets: %q", out.Answer)
+	}
+}
+
+func TestRecallChildhoodItemsPreferChildEvidence(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["c-doll"] = MemoryRecord{
+		MemoryID: "mem_cd", TenantID: "t-child", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley had a wooden puzzle as a child",
+		DedupeKey: "cd", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "wooden puzzle", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "wooden puzzle", "subject": "Riley"},
+	}
+	store.records["c-desk"] = MemoryRecord{
+		MemoryID: "mem_ck", TenantID: "t-child", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns an office desk",
+		DedupeKey: "ck", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "office desk", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "office desk", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "wooden puzzle", memID: "mem_cd"},
+		stubAtom{pred: PredicatePossession, val: "office desk", memID: "mem_ck"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-child", SubjectID: "u1",
+		Query: "What items did Riley have as a child?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "puzzle") {
+		t.Fatalf("expected childhood item, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "desk") {
+		t.Fatalf("adult possession crowded childhood items: %q", out.Answer)
+	}
+}

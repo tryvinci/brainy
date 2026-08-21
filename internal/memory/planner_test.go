@@ -472,8 +472,8 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if toks := listHeadModifierTokens("What outdoor activities has John done with his colleagues?"); len(toks) != 1 || toks[0] != "outdoor" {
 		t.Fatalf("expected outdoor modifier, toks=%v", toks)
 	}
-	if toks := listHeadModifierTokens("What similar sports collectible do Tim and John own?"); len(toks) != 1 || toks[0] != "sports" {
-		t.Fatalf("expected sports modifier, toks=%v", toks)
+	if toks := listHeadModifierTokens("What unhealthy snacks does Casey avoid?"); len(toks) != 1 || toks[0] != "unhealthy" {
+		t.Fatalf("expected unhealthy snack modifier, toks=%v", toks)
 	}
 	if toks := listHeadModifierTokens("What activities does Riley enjoy?"); len(toks) != 0 {
 		t.Fatalf("bare activities must not take a modifier, toks=%v", toks)
@@ -493,8 +493,14 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if toks := practiceObjectTokens("Which locations does Riley practice her yoga at?"); len(toks) != 1 || toks[0] != "yoga" {
 		t.Fatalf("expected yoga practice object, toks=%v", toks)
 	}
-	if toks := listHeadModifierTokens("What are Riley's pets' names?"); len(toks) != 1 || toks[0] != "pets" {
-		t.Fatalf("expected pets name-head modifier, toks=%v", toks)
+	if toks := listHeadModifierTokens("What are Riley's pets' names?"); len(toks) != 0 {
+		t.Fatalf("pets names must not take a list-head modifier, toks=%v", toks)
+	}
+	if toks := nameCueTokens("What are Riley's pets' names?"); len(toks) != 1 || toks[0] != "named" {
+		t.Fatalf("expected named cue for names lists, toks=%v", toks)
+	}
+	if toks := childhoodClauseTokens("What items did Riley have as a child?"); len(toks) == 0 {
+		t.Fatal("expected childhood clause tokens")
 	}
 
 	conseq := PlanQuery("What did Audrey get with having so many dogs?", nil)

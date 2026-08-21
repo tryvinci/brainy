@@ -360,6 +360,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			items = filterBesides(req.Query, items)
 			items = s.filterHopEvidence(ctx, req, items, hopResults)
 			if !looksCountQuery(req.Query) {
+				items = s.rankItemsByQuery(ctx, req, items, hopResults)
 				items = capEnumerateItems(items)
 			}
 			out.Items = items
@@ -1365,6 +1366,105 @@ func capEnumerateItems(items []RecallItem) []RecallItem {
 	return items[:maxEnumerateAnswerItems]
 }
 
+func (s *Service) rankItemsByQuery(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	if len(items) < 2 {
+		return items
+	}
+	type scored struct {
+		it    RecallItem
+		score int
+		idx   int
+	}
+	rows := make([]scored, 0, len(items))
+	for i, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		rows = append(rows, scored{it: it, score: itemQueryScore(req.Query, it.Value, blob), idx: i})
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].score != rows[j].score {
+			return rows[i].score > rows[j].score
+		}
+		return rows[i].idx < rows[j].idx
+	})
+	any := false
+	for _, r := range rows {
+		if r.score > 0 {
+			any = true
+			break
+		}
+	}
+	out := make([]RecallItem, 0, len(rows))
+	for _, r := range rows {
+		if any && r.score == 0 {
+			continue
+		}
+		out = append(out, r.it)
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
+}
+
+func itemQueryScore(query, value, blob string) int {
+	toks := contentBearingTokens(tokenize(query))
+	skip := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		el := strings.ToLower(e)
+		skip[el] = struct{}{}
+		skip[el+"'s"] = struct{}{}
+		skip[el+"’s"] = struct{}{}
+	}
+	hay := strings.ToLower(strings.TrimSpace(value + " " + blob))
+	if hay == "" {
+		return 0
+	}
+	n := 0
+	seen := map[string]struct{}{}
+	for _, t := range toks {
+		t = strings.ToLower(t)
+		if len(t) < 4 {
+			continue
+		}
+		if _, ok := skip[t]; ok {
+			continue
+		}
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		if itemHitsExclusion(hay, []string{t}) {
+			n++
+		}
+	}
+	if strings.Contains(strings.ToLower(query), "names") && itemHitsExclusion(hay, []string{"named"}) {
+		n += 2
+	}
+	if len(childhoodClauseTokens(query)) > 0 && (valueHasChildCue(value, blob) || itemHitsExclusion(hay, []string{"child", "childhood"})) {
+		n += 2
+	}
+	return n
+}
+
+func nameCueTokens(query string) []string {
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "names") && !strings.Contains(q, "name") {
+		return nil
+	}
+	if looksWhenEventQuery(query) || looksWhereQuery(query) {
+		return nil
+	}
+	return []string{"named"}
+}
+
+func childhoodClauseTokens(query string) []string {
+	q := strings.ToLower(query)
+	if strings.Contains(q, "childhood") || strings.Contains(q, " as a child") || strings.Contains(q, " as a kid") {
+		return []string{"child", "childhood"}
+	}
+	return nil
+}
+
 func superlativeAnswer(items []RecallItem) string {
 	if len(items) == 0 {
 		return ""
@@ -1666,6 +1766,18 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	if toks := practiceObjectTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
+	if len(childhoodClauseTokens(req.Query)) > 0 {
+		kept := make([]RecallItem, 0, len(items))
+		for _, it := range items {
+			blob := s.itemEvidenceBlob(ctx, req, it, hops)
+			if valueHasChildCue(it.Value, blob) || itemHitsExclusion(it.Value+" "+blob, []string{"child", "childhood"}) {
+				kept = append(kept, it)
+			}
+		}
+		if len(kept) > 0 {
+			items = kept
+		}
+	}
 	return items
 }
 
@@ -1793,7 +1905,7 @@ func listHeadModifierTokens(query string) []string {
 	heads := map[string]struct{}{
 		"activities": {}, "activity": {},
 		"collectible": {}, "collectibles": {},
-		"names": {}, "name": {},
+		"snacks": {}, "snack": {},
 	}
 	skip := map[string]struct{}{
 		"kind": {}, "type": {}, "some": {}, "any": {},
