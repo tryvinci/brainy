@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"regexp"
 	"strings"
 )
 
@@ -30,6 +31,7 @@ func (s *Service) executeTypedHops(
 	includeHistorical bool,
 	plan QueryPlan,
 	topK int,
+	query string,
 ) ([]HopResult, map[string]HopResult) {
 	out := make([]HopResult, 0, len(plan.Hops))
 	byKey := map[string]HopResult{}
@@ -68,6 +70,12 @@ func (s *Service) executeTypedHops(
 		}
 		s.enrichKinDestSubjectSlots(ctx, tenantID, subjectID, &res)
 		out = append(out, res)
+		if res.OutputKey != "" {
+			byKey[res.OutputKey] = res
+		}
+	}
+	s.recoverSlotAlignedHops(ctx, tenantID, subjectID, query, out)
+	for _, res := range out {
 		if res.OutputKey != "" {
 			byKey[res.OutputKey] = res
 		}
@@ -744,6 +752,451 @@ func (s *Service) enrichKinDestSubjectSlots(ctx context.Context, tenantID, subje
 		res.Source = "typed_store"
 		res.ProofKind = "typed_exact"
 	}
+}
+
+type recoveredSlot struct {
+	value   string
+	content string
+	memID   string
+}
+
+func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectID, query string, hops []HopResult) {
+	if s == nil || s.store == nil || len(hops) == 0 || strings.TrimSpace(query) == "" {
+		return
+	}
+	needLoc := looksLocationListQuery(query) && len(practiceObjectTokens(query)) > 0
+	needUnwind := looksUnwindQuery(query)
+	needPlay := looksInstrumentQuery(query)
+	needTrick := looksTrickQuery(query)
+	needBesides := looksBesidesQuery(query) && itemHitsExclusion(query, []string{"stress", "stressor", "stressors"})
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needBesides {
+		return
+	}
+	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
+	if err != nil || len(listed) == 0 {
+		return
+	}
+	person := ""
+	if ents := hopQueryEntities(query); len(ents) > 0 {
+		person = ents[0]
+	}
+	if needLoc {
+		prependHopSlots(hops, PredicateActivity, recoverPracticeLocationSlots(query, person, hops, listed))
+	}
+	if needUnwind {
+		prependHopSlots(hops, PredicateActivity, recoverUnwindSlots(person, listed))
+	}
+	if needPlay {
+		prependHopSlots(hops, PredicateSkill, recoverPlayObjectSlots(person, listed))
+	}
+	if needTrick {
+		prependHopSlots(hops, PredicateSkill, recoverTrickSlots(person, listed))
+	}
+	if needBesides {
+		prependHopSlots(hops, PredicateActivity, recoverBesidesStressorSlots(person, listed))
+	}
+}
+
+func prependHopSlots(hops []HopResult, pred string, slots []recoveredSlot) {
+	if len(hops) == 0 || len(slots) == 0 {
+		return
+	}
+	idx := hopIndexForPredicate(hops, pred)
+	if idx < 0 {
+		return
+	}
+	h := &hops[idx]
+	haveVal := map[string]struct{}{}
+	for _, v := range h.Values {
+		if k := strings.ToLower(strings.TrimSpace(v)); k != "" {
+			haveVal[k] = struct{}{}
+		}
+	}
+	haveContent := map[string]struct{}{}
+	for _, c := range h.Contents {
+		if k := strings.ToLower(strings.TrimSpace(c)); k != "" {
+			haveContent[k] = struct{}{}
+		}
+	}
+	var vals, contents, ids []string
+	for _, sl := range slots {
+		val := strings.TrimSpace(sl.value)
+		if val != "" {
+			if anaphoricSlotValue(val) || looksTitleCaseSlogan(val) || looksTitleCaseSlogan(titleCaseWords(val)) || utf8Len(val) > 80 {
+				val = ""
+			} else {
+				key := strings.ToLower(val)
+				if _, ok := haveVal[key]; ok {
+					val = ""
+				} else {
+					haveVal[key] = struct{}{}
+				}
+			}
+		}
+		content := strings.TrimSpace(sl.content)
+		if content != "" {
+			ck := strings.ToLower(content)
+			if _, ok := haveContent[ck]; ok {
+				content = ""
+			} else {
+				haveContent[ck] = struct{}{}
+			}
+		}
+		if val == "" && content == "" {
+			continue
+		}
+		vals = append(vals, val)
+		contents = append(contents, content)
+		ids = append(ids, sl.memID)
+	}
+	if len(vals) == 0 {
+		return
+	}
+	h.Values = append(vals, h.Values...)
+	h.Contents = append(contents, h.Contents...)
+	h.MemoryIDs = append(ids, h.MemoryIDs...)
+	nonempty := make([]string, 0, len(h.Values))
+	for _, v := range h.Values {
+		if strings.TrimSpace(v) != "" {
+			nonempty = append(nonempty, v)
+		}
+	}
+	if len(nonempty) > 0 {
+		h.Value = strings.Join(nonempty, ", ")
+	}
+	if h.Source == "search_fallback" || h.Source == "unresolved" || h.Source == "" {
+		h.Source = "typed_store"
+		h.ProofKind = "typed_exact"
+	}
+}
+
+func hopIndexForPredicate(hops []HopResult, pred string) int {
+	if pred != "" {
+		for i, h := range hops {
+			if h.Kind == "resolve_entity" {
+				continue
+			}
+			if h.Predicate == pred {
+				return i
+			}
+		}
+	}
+	for i, h := range hops {
+		if h.Kind != "resolve_entity" && h.Source != "unresolved" {
+			return i
+		}
+	}
+	for i, h := range hops {
+		if h.Kind != "resolve_entity" {
+			return i
+		}
+	}
+	return -1
+}
+
+func recordMatchesQueryPerson(rec MemoryRecord, person string, hops []HopResult) bool {
+	subj := entitySubjectOf(rec)
+	if person != "" && strings.EqualFold(subj, person) {
+		return true
+	}
+	if person != "" && looksKinDestMention(subj) {
+		low := strings.ToLower(subj)
+		p := strings.ToLower(person)
+		if strings.HasPrefix(low, p+"'s ") || strings.HasPrefix(low, p+"’s ") {
+			return true
+		}
+	}
+	for _, h := range hops {
+		dest := strings.TrimSpace(h.Entity)
+		if dest != "" && strings.EqualFold(subj, dest) {
+			return true
+		}
+	}
+	return false
+}
+
+func recoverPracticeLocationSlots(query, person string, hops []HopResult, listed []MemoryRecord) []recoveredSlot {
+	focus := practiceObjectTokens(query)
+	if len(focus) == 0 {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !recordMatchesQueryPerson(rec, person, hops) {
+			continue
+		}
+		if !itemHitsExclusion(content, focus) {
+			continue
+		}
+		if len(placesFromContent(content)) == 0 && compositionalPracticePlace(content, focus) == "" {
+			continue
+		}
+		key := strings.ToLower(content)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, recoveredSlot{content: content, memID: rec.MemoryID})
+	}
+	return out
+}
+
+func recoverUnwindSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if key == "\n\n" {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !strings.EqualFold(entitySubjectOf(rec), person) {
+			continue
+		}
+		if !unwindEvidenceHit(content) {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		for _, v := range unwindActivitySlots(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
+func recoverPlayObjectSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !strings.EqualFold(entitySubjectOf(rec), person) {
+			continue
+		}
+		slots := playPracticeObjectSlots(content)
+		if len(slots) == 0 {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		for _, v := range slots {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
+func recoverTrickSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" {
+			continue
+		}
+		if !queryHasToken(content, "trick", "tricks") {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		for _, v := range trickObjectSlots(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+		if vn := recordValueNorm(rec); vn != "" && queryHasToken(content, "trick", "tricks") {
+			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
+func recoverBesidesStressorSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !strings.EqualFold(entitySubjectOf(rec), person) {
+			continue
+		}
+		lower := strings.ToLower(content)
+		if !strings.Contains(lower, "stress") && !itemHitsExclusion(content, []string{"stress", "stressed"}) {
+			continue
+		}
+		if itemHitsExclusion(content, []string{"hike", "hiking"}) {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		if strings.Contains(lower, "work") {
+			add(recoveredSlot{value: "work", content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
+var (
+	playObjectRE     = regexp.MustCompile(`(?i)\bplays(?:\s+the)?\s+([a-z][a-z-]+)\b`)
+	playingRE        = regexp.MustCompile(`(?i)\bplaying(?:\s+the)?\s+([a-z][a-z-]+)\b`)
+	practiceRE       = regexp.MustCompile(`(?i)\b([a-z][a-z-]+)\s+practice\b`)
+	unwindToRE       = regexp.MustCompile(`(?i)\b([a-z][a-z-]+)\s+to\s+(?:[a-z-]*stress|unwind|relax|calm)\b`)
+	unwindToStressRE = regexp.MustCompile(`(?i)\bto\s+[a-z-]*stress\b`)
+	makingRE         = regexp.MustCompile(`(?i)\b(?:making|practicing|practising)\s+([a-z][a-z-]+)\b`)
+	tricksLikeRE     = regexp.MustCompile(`(?i)tricks(?:\s+\w+){0,3}\s+(?:like|such as)\s+(.+)`)
+)
+
+func unwindEvidenceTokens() []string {
+	return []string{"unwind", "unwinds", "relax", "relaxes", "calming", "calm"}
+}
+
+func unwindEvidenceHit(s string) bool {
+	if itemHitsExclusion(s, unwindEvidenceTokens()) {
+		return true
+	}
+	return unwindToStressRE.MatchString(s)
+}
+
+func playPracticeObjectSlots(content string) []string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil
+	}
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(strings.ToLower(v))
+		if v == "" || isQueryStopword(v) || v == "daily" || v == "practice" || v == "practicing" {
+			return
+		}
+		if utf8Len(v) < 3 || utf8Len(v) > 40 {
+			return
+		}
+		if _, ok := seen[v]; ok {
+			return
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	for _, re := range []*regexp.Regexp{playObjectRE, playingRE, practiceRE} {
+		for _, m := range re.FindAllStringSubmatch(content, -1) {
+			if len(m) >= 2 {
+				add(m[1])
+			}
+		}
+	}
+	return out
+}
+
+func unwindActivitySlots(content string) []string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil
+	}
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" || anaphoricSlotValue(v) || utf8Len(v) < 3 || utf8Len(v) > 40 {
+			return
+		}
+		key := strings.ToLower(v)
+		if isQueryStopword(key) {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	if v, ok := slotValueFromMemoryContent(content); ok {
+		add(v)
+	}
+	if v, ok := attitudeObjectSlot(content); ok {
+		add(v)
+	}
+	for _, m := range unwindToRE.FindAllStringSubmatch(content, -1) {
+		if len(m) >= 2 {
+			add(m[1])
+		}
+	}
+	for _, m := range makingRE.FindAllStringSubmatch(content, -1) {
+		if len(m) >= 2 {
+			add(m[1])
+		}
+	}
+	return out
+}
+
+func trickObjectSlots(content string) []string {
+	content = strings.TrimSpace(content)
+	if content == "" || !queryHasToken(content, "trick", "tricks") {
+		return nil
+	}
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(strings.Trim(v, " .,"))
+		if v == "" || utf8Len(v) < 3 || utf8Len(v) > 40 || anaphoricSlotValue(v) {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	if m := tricksLikeRE.FindStringSubmatch(content); len(m) == 2 {
+		rest := m[1]
+		if j := strings.IndexAny(rest, ".!?"); j >= 0 {
+			rest = rest[:j]
+		}
+		rest = strings.ReplaceAll(rest, " and ", ",")
+		for _, part := range strings.Split(rest, ",") {
+			add(part)
+		}
+	}
+	return out
 }
 
 func recordMatchesHopEntity(rec MemoryRecord, mention, entityID string) bool {

@@ -133,7 +133,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	// Typed hop executor: bind packet from hop joins when hops exist.
 	if (plan.NeedsMultiHop || plan.NeedsEnumeration) && len(plan.Hops) > 0 {
 		var byKey map[string]HopResult
-		hopResults, byKey = s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+		hopResults, byKey = s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK, req.Query)
 		bindPacketFromHopResults(&pkt, hopResults, byKey)
 		out.Explain["hop_results"] = hopResults
 		out.Explain["hop_join_proven"] = hopJoinProven(hopResults)
@@ -167,7 +167,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 						merged := mergeSearchResults(search.Results, second.Results, topK)
 						search.Results = merged
 						out.Memories = merged
-						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK, req.Query)
 						pkt = BuildEvidencePacket(plan, merged, out.Explain)
 						bindPacketFromHopResults(&pkt, hopResults2, byKey2)
 						hopResults = hopResults2
@@ -1044,6 +1044,37 @@ func practiceObjectTokens(query string) []string {
 	return toks
 }
 
+func compositionalPracticePlace(content string, focus []string) string {
+	if strings.TrimSpace(content) == "" || len(focus) == 0 {
+		return ""
+	}
+	fields := strings.Fields(content)
+	for _, obj := range focus {
+		obj = strings.ToLower(strings.TrimSpace(obj))
+		if obj == "" {
+			continue
+		}
+		for i, raw := range fields {
+			w := strings.ToLower(strings.Trim(raw, ".,;:!?\"'"))
+			if w != obj || i+1 >= len(fields) {
+				continue
+			}
+			next := strings.ToLower(strings.Trim(fields[i+1], ".,;:!?\"'"))
+			if next == "" || next == obj || isQueryStopword(next) || next == "practice" || next == "practices" || next == "practicing" || next == "practised" || next == "practiced" {
+				continue
+			}
+			if utf8.RuneCountInString(next) < 3 {
+				continue
+			}
+			if i > 0 && strings.EqualFold(strings.Trim(fields[i-1], ".,;:!?\"'"), "the") {
+				return "the " + obj + " " + next
+			}
+			return obj + " " + next
+		}
+	}
+	return ""
+}
+
 func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallRequest, hops []HopResult, items []RecallItem) []RecallItem {
 	seen := map[string]RecallItem{}
 	order := make([]string, 0)
@@ -1083,10 +1114,16 @@ func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallReque
 		for _, p := range placesFromContent(blob) {
 			add(p, id)
 		}
+		if p := compositionalPracticePlace(blob, focus); p != "" {
+			add(p, id)
+		}
 	}
 	scan := func(requireFocus bool) {
 		for _, h := range hops {
-			if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+				continue
+			}
+			if h.Source == "search_fallback" && !requireFocus {
 				continue
 			}
 			if h.Predicate != "" && h.Predicate != PredicateActivity && h.Predicate != PredicateEvent && h.Predicate != PredicateResidence {
@@ -1466,6 +1503,15 @@ func itemQueryScore(query, value, blob string) int {
 		"hobby": {}, "hobbies": {},
 		"activity": {}, "activities": {},
 		"item": {}, "items": {},
+		"instrument": {}, "instruments": {},
+	}
+	if looksInstrumentQuery(query) {
+		skip["play"] = struct{}{}
+		skip["plays"] = struct{}{}
+		skip["playing"] = struct{}{}
+		skip["practice"] = struct{}{}
+		skip["practices"] = struct{}{}
+		skip["practicing"] = struct{}{}
 	}
 	for _, e := range hopQueryEntities(query) {
 		el := strings.ToLower(e)
@@ -1499,6 +1545,15 @@ func itemQueryScore(query, value, blob string) int {
 		n += 2
 	}
 	if len(childhoodClauseTokens(query)) > 0 && (valueHasChildCue(value, blob) || itemHitsExclusion(hay, []string{"child", "childhood"})) {
+		n += 2
+	}
+	if looksUnwindQuery(query) && unwindEvidenceHit(hay) {
+		n += 2
+	}
+	if looksInstrumentQuery(query) && itemHitsExclusion(hay, []string{"play", "plays", "playing", "practice", "practices", "practicing"}) {
+		n += 2
+	}
+	if looksTrickQuery(query) && itemHitsExclusion(hay, []string{"trick", "tricks"}) {
 		n += 2
 	}
 	return n
@@ -2046,7 +2101,8 @@ func unNegationPositive(tok string) string {
 	switch tok {
 	case "unless", "until", "under", "unique", "university", "understand",
 		"unknown", "union", "united", "unusual", "uniform", "universe",
-		"uncle", "uncover", "unfold", "undo", "unit", "units":
+		"uncle", "uncover", "unfold", "undo", "unit", "units",
+		"unwind", "unwinds", "unwinding", "unwound":
 		return ""
 	}
 	rest := tok[2:]

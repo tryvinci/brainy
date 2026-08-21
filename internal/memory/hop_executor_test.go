@@ -258,3 +258,48 @@ func TestAttitudeObjectSlotFromDestFacts(t *testing.T) {
 		t.Fatal("source visit must not yield an attitude slot")
 	}
 }
+
+func TestPlayPracticeObjectSlots(t *testing.T) {
+	got := playPracticeObjectSlots("Riley plays the clarinet.")
+	if !containsFold(got, "clarinet") {
+		t.Fatalf("expected clarinet, got %#v", got)
+	}
+	got = playPracticeObjectSlots("Riley does daily violin practice after work.")
+	if !containsFold(got, "violin") {
+		t.Fatalf("expected violin from practice, got %#v", got)
+	}
+	if got := playPracticeObjectSlots("Riley enjoys hiking"); len(got) != 0 {
+		t.Fatalf("hobby must not yield play objects: %#v", got)
+	}
+}
+
+func TestUnwindActivitySlots(t *testing.T) {
+	got := unwindActivitySlots("Riley runs to destress")
+	if !containsFold(got, "runs") {
+		t.Fatalf("expected runs, got %#v", got)
+	}
+	got = unwindActivitySlots("Riley finds making pottery calming")
+	if !containsFold(got, "pottery") {
+		t.Fatalf("expected pottery, got %#v", got)
+	}
+}
+
+func TestTrickObjectSlots(t *testing.T) {
+	got := trickObjectSlots("James: They can do tricks like sit, stay, paw, and rollover")
+	if !containsFold(got, "sit") || !containsFold(got, "rollover") {
+		t.Fatalf("expected trick list, got %#v", got)
+	}
+	if got := trickObjectSlots("James coded in c++"); len(got) != 0 {
+		t.Fatalf("non-trick content must not yield trick slots: %#v", got)
+	}
+}
+
+func TestCompositionalPracticePlace(t *testing.T) {
+	got := compositionalPracticePlace("Riley recommends the yoga studio nearby.", []string{"yoga"})
+	if !strings.Contains(strings.ToLower(got), "studio") {
+		t.Fatalf("expected yoga studio, got %q", got)
+	}
+	if p := compositionalPracticePlace("Riley does yoga on the beach.", []string{"yoga"}); p != "" {
+		t.Fatalf("prep after practice object must not become a place: %q", p)
+	}
+}
