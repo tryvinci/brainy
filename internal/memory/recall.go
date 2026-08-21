@@ -747,6 +747,13 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	} else {
 		entity = hopEntityName(nameLikeTokens(contentBearingTokens(tokens)))
 	}
+	for _, h := range hops {
+		for _, d := range h.DependsOn {
+			if d == "e_rel" && strings.TrimSpace(h.Entity) != "" {
+				entity = h.Entity
+			}
+		}
+	}
 
 	add := func(value, predicate, memoryID, observed string) {
 		v := strings.TrimSpace(value)
@@ -779,32 +786,54 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		order = append(order, key)
 	}
 
-	for _, h := range hops {
-		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
-			continue
+	join := len(hopQueryEntities(req.Query)) >= 2
+	if join {
+		shared := hopSharedSlotValues(hops)
+		if len(shared) == 0 {
+			shared = hopSharedContentValues(hops)
 		}
-		if !hopUsefulForList(h.Predicate, pred) {
-			continue
-		}
-		slotPred := firstNonEmpty(h.Predicate, pred)
-		if len(h.Values) > 0 {
-			for i, v := range h.Values {
-				id := ""
-				if i < len(h.MemoryIDs) {
-					id = h.MemoryIDs[i]
-				} else if len(h.MemoryIDs) > 0 {
-					id = h.MemoryIDs[0]
-				}
-				add(v, slotPred, id, "")
+		slotPred := pred
+		for _, h := range hops {
+			if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+				continue
 			}
-			continue
+			if hopUsefulForList(h.Predicate, pred) && strings.TrimSpace(h.Predicate) != "" {
+				slotPred = firstNonEmpty(h.Predicate, pred)
+				break
+			}
 		}
-		if v := strings.TrimSpace(h.Value); v != "" && utf8.RuneCountInString(v) <= 80 {
-			add(v, slotPred, firstID(h.MemoryIDs), "")
+		for _, v := range shared {
+			add(v, slotPred, hopMemoryIDForValue(hops, v), "")
+		}
+	} else {
+		for _, h := range hops {
+			if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+				continue
+			}
+			if !hopUsefulForList(h.Predicate, pred) {
+				continue
+			}
+			slotPred := firstNonEmpty(h.Predicate, pred)
+			if len(h.Values) > 0 {
+				for i, v := range h.Values {
+					id := ""
+					if i < len(h.MemoryIDs) {
+						id = h.MemoryIDs[i]
+					} else if len(h.MemoryIDs) > 0 {
+						id = h.MemoryIDs[0]
+					}
+					add(v, slotPred, id, "")
+				}
+				continue
+			}
+			if v := strings.TrimSpace(h.Value); v != "" && utf8.RuneCountInString(v) <= 80 {
+				add(v, slotPred, firstID(h.MemoryIDs), "")
+			}
 		}
 	}
 
 	// Prefer indexed atoms when hops missed or to fill additional values.
+	// Multi-entity joins must not refill the union from the first entity's atoms.
 	preds := make([]string, 0, 2)
 	if pred != "" {
 		preds = append(preds, pred)
@@ -819,7 +848,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			preds = append(preds, PredicateActivity)
 		}
 	}
-	if len(preds) > 0 {
+	if !join && len(preds) > 0 {
 		if indexer, ok := s.store.(AtomIndexer); ok {
 			ids := make([]string, 0, 40)
 			seenID := map[string]struct{}{}
@@ -870,7 +899,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		}
 	}
 
-	if len(order) == 0 {
+	if !join && len(order) == 0 {
 		for _, r := range results {
 			if searchResultIsEpisode(r) {
 				continue
@@ -906,6 +935,33 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		items = append(items, seen[key])
 	}
 	return items
+}
+
+func hopMemoryIDForValue(hops []HopResult, value string) string {
+	want := strings.ToLower(strings.TrimSpace(value))
+	if want == "" {
+		return ""
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for i, v := range h.Values {
+			if strings.ToLower(strings.TrimSpace(v)) != want {
+				continue
+			}
+			if i < len(h.MemoryIDs) && h.MemoryIDs[i] != "" {
+				return h.MemoryIDs[i]
+			}
+			if len(h.MemoryIDs) > 0 {
+				return h.MemoryIDs[0]
+			}
+		}
+		if strings.ToLower(strings.TrimSpace(h.Value)) == want && len(h.MemoryIDs) > 0 {
+			return h.MemoryIDs[0]
+		}
+	}
+	return ""
 }
 
 func hopUsefulForList(hopPred, listPred string) bool {

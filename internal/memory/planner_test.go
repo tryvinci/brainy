@@ -515,6 +515,42 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 		t.Fatal("expected for-clause tokens")
 	}
 
+	dualAct := PlanQuery("Which community activities have Riley and Casey participated in?", nil)
+	dualEnts := map[string]bool{}
+	foundDualAct := false
+	for _, hop := range dualAct.Hops {
+		if hop.Kind == "resolve_entity" {
+			dualEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateActivity {
+			foundDualAct = true
+		}
+	}
+	if !dualEnts["riley"] || !dualEnts["casey"] {
+		t.Fatalf("dual community must hop both people, hops=%+v", dualAct.Hops)
+	}
+	if !foundDualAct {
+		t.Fatalf("dual community must hop activity, hops=%+v", dualAct.Hops)
+	}
+
+	told := PlanQuery("Who did Evan tell about his marriage?", nil)
+	foundToldFam := false
+	toldEnts := map[string]bool{}
+	for _, hop := range told.Hops {
+		if hop.Kind == "resolve_entity" {
+			toldEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateFamilyMember {
+			foundToldFam = true
+		}
+	}
+	if !toldEnts["evan"] {
+		t.Fatalf("who-told must hop the speaker, hops=%+v", told.Hops)
+	}
+	if !foundToldFam {
+		t.Fatalf("who-told must hop family, hops=%+v", told.Hops)
+	}
+
 	pronoun := PlanQuery("What do they like?", nil)
 	for _, hop := range pronoun.Hops {
 		if hop.Kind == "resolve_entity" && strings.EqualFold(hop.Entity, "they") {
