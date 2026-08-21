@@ -1069,7 +1069,7 @@ S0 ledger is still PROOF (112) not WRITE (3). `where` + unnamed kin was hopping 
 
 ### Landed
 
-Product change on `pr/mh-list-join-proof-1e9e` (#135, HEAD `050ef6f`). `/recall` now (1) **intersects dual-entity list queries** instead of unioning hop values and refilling from the first person's atoms; (2) **kinship hobby lists filter atoms to the dest person** so the source's activities do not crowd; (3) **how-many Ferraris counts the head noun**, not every possession; (4) **items-for** keeps matching possessions; (5) **who-told** and **polar teach** answer from typed hops. **No LoCoMo-named rules, no compiler regex batch, no fusion weights.** #133 / #131 stay unmerged. OpenAI A/B not re-run. n=1540 / Mem0 same-pin not burned. Integrity tenant is not on this VM. GitHub CI on prior HEAD `dcefa8a` was green (`test` + `docker-smoke`).
+Product change on `pr/mh-list-join-proof-1e9e` (#135, HEAD `5171e9d`). `/recall` now (1) **intersects dual-entity list queries** instead of unioning hop values and refilling from the first person's atoms; (2) **kinship hobby lists filter atoms to the dest person** so the source's activities do not crowd; (3) **how-many Ferraris counts the head noun**, not every possession; (4) **items-for** keeps matching possessions; (5) **who-told** and **polar teach** answer from typed hops. Journey-change lists and pets' names are locked with fixtures (no denylist surface forms). **No LoCoMo-named rules, no compiler regex batch, no fusion weights.** #133 / #131 stay unmerged. OpenAI A/B not re-run. n=1540 / Mem0 same-pin not burned. Integrity tenant is not on this VM. GitHub CI on HEAD `3bbeff6` was green (`test` + `docker-smoke`).
 
 ### Own pins
 
@@ -1077,7 +1077,7 @@ Product change on `pr/mh-list-join-proof-1e9e` (#135, HEAD `050ef6f`). `/recall`
 | --- | ---: | --- |
 | OpMem | **13/13** | Not re-run; prior integrity gate stands. |
 | Marketing vertical | **17/17** | Not re-run; prior integrity gate stands. |
-| LoCoMo S0 MH slice (product `/recall`) | **not re-run** | Prior **2/33** stands. Integrity API `:18100` is not on this VM. Mechanism proven with held-out fixtures (shared community garden vs private ceramics; mother's pottery vs source hiking; Ferrari count 2 vs cottage; puzzle toy for dogs vs couch; who-told Dana vs nurse; polar teach console). |
+| LoCoMo S0 MH slice (product `/recall`) | **not re-run** | Prior **2/33** stands. Integrity API `:18100` is not on this VM. Mechanism proven with held-out fixtures (shared community garden vs private ceramics; mother's pottery vs source hiking; Ferrari count 2 vs cottage; puzzle toy for dogs vs couch; who-told Dana vs nurse; polar teach console; journey voice changes vs hiking/nurse; pets' names vs nurse). |
 | LoCoMo S0 n=180 / 3×90 / 1×30 | **not re-run** | Prior pins stand. 1×30 **21/30** is still diagnostic. |
 | LME-20 / n=1540 / BEAM | **not re-run** | Prior pins stand (LME-20 **4/20**, full `/recall` **11.4%**). |
 | Embedding A/B | **not re-run** | 2026-08-20 pin stands. |
