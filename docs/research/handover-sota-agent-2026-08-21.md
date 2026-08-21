@@ -109,7 +109,7 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 
 | Increment | Plan name | Do now? |
 | --- | --- | --- |
-| S2 / S3 residue | Structured answer + hop proof | **In flight on #135.** List-head modifiers, named-community / during-clause, supporter-group who-answers, and practice-place lists are shipped. **Next: remasure MH 33** on `integrity-s0-1` (or a labeled diagnostic ingest if that tenant is absent). Residue after remasure is likely WRITE-miss identity gold (q65) and whatever the 33-slice still misses. |
+| S2 / S3 residue | Structured answer + hop proof | **In flight on #135.** List/join proof shipped. **Labeled diagnostic** on a fresh `brainy_mh` ingest is **7/33** (WRITE+PROOF mixed) — [artifact](../benchmarks/artifacts/locomo-mh-diag-135-20260821.md). **Integrity skip-ingest pin remains 2/33.** Next attributed remasure is still `integrity-s0-1 --fail-closed --skip-ingest`. Residue: list crowding, WRITE-miss identity gold (q65). |
 | S1 compiler | Provider-extract / named-subject mass | **No** until a fail-closed remasure says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
 | S4 LME | multi-session + KU | After LoCoMo proof moves. LME-20 4/20 is not the lever. |
