@@ -1707,3 +1707,75 @@ S0 ledger is still PROOF, not WRITE. Family hops often store a role word, not a 
 
 **One step:** remasure MH-only 33 on `integrity-s0-1` (`--fail-closed --skip-ingest`) so the 10/33 diagnostic delta is either confirmed or rejected on the integrity store. Remaining high-value PROOF on this tenant: practice places when locatives exist, polar Yes when typed hops carry the claim, unwind rank for `do to`. Do not merge #133. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin until an **integrity-tenant** 33-slice moves. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-21 — MH slot-aligned dest-subject skip-ingest (PROOF-only)
+
+### Landed
+
+Product on `pr/mh-list-join-proof-1e9e` (#135, HEAD `2e84435`). Dest-subject facts outside the typed atom window are recovered into hop slots: practice locatives (plus compositional `the {practice} {noun}`), unwind/calm/`to *stress` activities, `plays`/`{noun} practice` objects, trick-mentioned skills, and besides+stressor work facts. `unwind` is not treated as an `un-` negation. Kinship dest + community-join + enumerate refine remain. **No LoCoMo-named rules**, no park/beach/studio/instrument lexicon, no fusion weights. #133 / #131 stay unmerged. OpenAI A/B not re-run. n=1540 / Mem0 same-pin not burned.
+
+Skip-ingest re-score of frozen tenant `diag-mh-135` (same WRITE as the 7/33 diagnostic). Fail-closed runtime: ANN active, mixed_dimensions=false, signatures.match, fallbacks 0.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Not re-run; prior integrity gate stands. |
+| Marketing vertical | **17/17** | Not re-run; prior integrity gate stands. |
+| LoCoMo S0 MH slice (product `/recall`) integrity skip-ingest | **2/33** | Last integrity pin. **Unchanged.** |
+| LoCoMo S0 MH slice diagnostic fresh ingest | **7/33 (0.212)** | WRITE+PROOF mixed. [artifact](../../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
+| LoCoMo S0 MH slice diagnostic skip-ingest (kinship dest) | **10/33 (0.303)** | [artifact](../../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-kinship-dest-20260821.md) |
+| LoCoMo S0 MH slice diagnostic skip-ingest (this cycle) | **12/33 (0.364)** | +2 vs 10/33. [artifact](../../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md) |
+| LoCoMo S0 n=180 / 3×90 / 1×30 | **not re-run** | Prior pins stand. 1×30 **21/30** is still diagnostic. |
+| LME-20 / n=1540 / BEAM | **not re-run** | Prior pins stand (LME-20 **4/20**, full `/recall` **11.4%**). |
+| Embedding A/B | **not re-run** | 2026-08-20 pin stands. |
+
+This is **not** a 70–80% claim and **not** SOTA. **Integrity 2/33 is still the last attributed integrity-tenant pin.** 12/33 is a labeled diagnostic on `diag-mh-135`, not a replacement for 2/33.
+
+`go test ./internal/... ./cmd/...` was green on this SHA before the remasure. An intermediate on `94f119b` was also **12/33** with noisier place/unwind lists; do not cite it as a separate pin.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep same-pin this cycle. Reuse the 2026-08-15 freeze: Mem0 Platform 1×30 **11/30** (MH 6/10, OD 3/4, temporal 2/16). Do **not** mix diagnostic 12/33 or integrity 2/33 with that 30-item freeze.
+
+#### 1. LoCoMo conversational QA — proof mechanism only
+
+| Axis | This cycle | Mem0 Platform freeze | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | **11/30** | Prior freeze **lead**; this cycle does not refresh it |
+| S0 n=180 product | prior **32/180** | no same-n pin | **Do not trail/lead vs 11/30** |
+| S0 MH product (integrity) | **2/33** | no 33-item freeze | **Still the attributed integrity-tenant gap** |
+| S0 MH product (diagnostic skip-ingest) | **12/33** PROOF-only vs 10/33 | no 33-item freeze | Context / mechanism pin only; not a same-pin row |
+| Search p50 | n/a | 492 ms platform on the 1×30 freeze | No new latency pin |
+
+**Multi-hop (still trail on the integrity tenant).** Diagnostic skip-ingest moved **10→12/33**. Attributed wins: besides+stressor `work`; instrument list `clarinet, violin`. Place list now has beach/studio/park but still misses mother's old home (WRITE-thin). Unwind recovers running and still misses pottery. Pet tricks recover sit/stay/paw/rollover and miss swimming/frisbee/skateboard. Polar teach-console remains the named dip. Do not add a graph DB. Do not merge #133.
+
+**Open-domain.** Not re-run. Prior freeze OD **0/4** vs Mem0 **3/4** still stands as a trail axis. Do not restore OD by stuffing episodes.
+
+**Temporal.** Not re-run. Keep the freeze temporal lead (11/16 vs Mem0 2/16) as **stale until 1×30 is re-run**.
+
+#### 2. OpMem — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Do not package a new “+3” sentence.
+
+#### 3. Marketing vertical — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.** YAML packs remain the verticalisation layer; this cycle does not touch packs.
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.** Published headlines stay context. Postgres graph-shaped hops (ADR-004) unchanged.
+
+**Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
+
+### Why
+
+S0 ledger is still PROOF, not WRITE. Typed hops miss dest-subject locatives, unwind/`to *stress` facts, play/practice objects, and trick-mentioned skills that sit outside the atom top-k window or carry no matching predicate. Recovering those slots — and ranking them by unwind/play/trick evidence — moved two MH items without category dictionaries. `unwind` was incorrectly treated as `un-`+`wind`, which disabled enumerate drop-zero and kept camping dumps. Residual misses are mother's-home WRITE, pottery without unwind cues, incomplete trick coverage, polar Yes, mountaineering WRITE, and identity gold.
+
+### Next
+
+**One step:** remasure MH-only 33 on `integrity-s0-1` (`--fail-closed --skip-ingest`) so the 12/33 diagnostic delta is either confirmed or rejected on the integrity store. Remaining high-value PROOF on this tenant: practice-home locatives when WRITE exists, unwind objects that lack unwind cues, polar Yes when typed hops carry the claim. Do not merge #133. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin until an **integrity-tenant** 33-slice moves. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
