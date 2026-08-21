@@ -161,6 +161,9 @@ func predicateHintsFromQuery(query string) []string {
 		out = append(out, p)
 	}
 	switch {
+	case looksConsequenceQuery(query):
+		add(PredicateHealth)
+		add(PredicatePreference)
 	case queryHasToken(query, "visit", "visited", "travel", "travels", "traveled"):
 		add(PredicateActivity)
 		add(PredicateEvent)
@@ -172,6 +175,10 @@ func predicateHintsFromQuery(query string) []string {
 	case strings.Contains(lower, "live") || strings.Contains(lower, "reside") || strings.Contains(lower, "city"):
 		add(PredicateResidence)
 		add(PredicateOrigin)
+	case looksWhereQuery(query):
+		add(PredicateActivity)
+		add(PredicateEvent)
+		add(PredicateResidence)
 	case strings.Contains(lower, "job") || strings.Contains(lower, "work") || strings.Contains(lower, "occupation") || strings.Contains(lower, "career") || strings.Contains(lower, "pursue") || strings.Contains(lower, "educat"):
 		add(PredicateOccupation)
 		add(PredicateIdentity)

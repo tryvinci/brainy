@@ -82,7 +82,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query)) && hopPlanAllowed(query) {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query)) && hopPlanAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -414,7 +414,21 @@ func buildKinshipHops(query, entity, role string, preds []string) []HopStep {
 	} else if looksPlaceOrPersonSlot(query) {
 		fetch.Kind = "answer_slot"
 	}
-	return append(hops, fetch)
+	hops = append(hops, fetch)
+	// "X and her partner found … in Place" is often stored on X, not only
+	// the unnamed kin dest. Keep the dest fetch; add a source-person fetch.
+	if looksWhereQuery(query) && entity != "" && fetchPred != "" {
+		src := HopStep{
+			Kind:      fetch.Kind,
+			Entity:    entity,
+			Predicate: fetchPred,
+			Probe:     hopProbe(contentBearingTokens(tokenize(query)), entity, fetchPred),
+			Output:    "ans_src",
+			DependsOn: []string{"e1"},
+		}
+		hops = append(hops, src)
+	}
+	return hops
 }
 
 func capitalizedMentionTokens(query string) []string {
@@ -510,6 +524,8 @@ var hopEntityStop = map[string]struct{}{
 	"locations": {}, "location": {}, "tricks": {}, "trick": {},
 	"events": {}, "event": {}, "stressor": {}, "stressors": {},
 	"organizations": {}, "organization": {}, "colleagues": {},
+	"colleague": {}, "coworkers": {}, "coworker": {},
+	"teammates": {}, "teammate": {}, "classmates": {}, "classmate": {},
 	"travels": {}, "travel": {},
 }
 
@@ -553,6 +569,21 @@ func hopComposeAllowed(query string) bool {
 func looksWhenEventQuery(query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	return strings.HasPrefix(q, "when ")
+}
+
+func looksWhereQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	return strings.HasPrefix(q, "where ")
+}
+
+func looksConsequenceQuery(query string) bool {
+	if !queryHasToken(query, "having") {
+		return false
+	}
+	if queryHasToken(query, "get", "got", "gets") {
+		return true
+	}
+	return strings.Contains(strings.ToLower(query), "from having")
 }
 
 func transferRecipient(query string) string {

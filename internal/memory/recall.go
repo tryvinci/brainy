@@ -351,7 +351,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	case "answer":
 		out.ContextBlock = assembleContextFromPacket(pkt, budget)
-		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || transferRecipient(req.Query) != "" {
+		if (plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || transferRecipient(req.Query) != "") && !looksConsequenceQuery(req.Query) && !looksWhereQuery(req.Query) {
 			enumerated = true
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 			items = filterBesides(req.Query, items)
@@ -380,6 +380,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				enumerated = true
 				out.Items = s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 			}
+			out.Items = s.filterChildCountItems(ctx, req, out.Items, hopResults)
 			if n := countAnswer(req.Query, out.Items); n != "" {
 				out.Answer = n
 				out.AnswerStatus = AnswerSupported
@@ -391,6 +392,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
 				out.Explain["date_answer"] = true
+			}
+		}
+		if looksWhereQuery(req.Query) {
+			if ans := whereAnswerFromHops(hopResults); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["where_answer"] = true
 			}
 		}
 		if strings.TrimSpace(out.Answer) == "" && pkt.TemporalAnswer != "" && (plan.NeedsTemporal || temporalApplied) && !looksWhenEventQuery(req.Query) {
@@ -517,7 +525,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["hybrid_unresolved_targets"] = hybrid.UnresolvedTargets
 			}
 		}
-		if hybrid.OK && !(looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true) {
+		lockedDate := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
+		lockedWhere := looksWhereQuery(req.Query) && out.Explain["where_answer"] == true
+		if hybrid.OK && !lockedDate && !lockedWhere {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			if hopComposeAllowed(req.Query) {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
@@ -532,7 +542,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !(looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true) {
+		} else if hybrid.Abstain && !lockedDate && !lockedWhere {
 			if hopComposeAllowed(req.Query) {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
@@ -1397,6 +1407,12 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	if toks := afterClauseTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
+	if toks := groupCompanionTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
+	if toks := forClauseTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
 	return items
 }
 
@@ -1415,6 +1431,240 @@ func afterClauseTokens(query string) []string {
 		return nil
 	}
 	return toks
+}
+
+func groupCompanionTokens(query string) []string {
+	if personAfterCue(query, "with") != "" {
+		return nil
+	}
+	group := map[string]struct{}{
+		"colleagues": {}, "colleague": {},
+		"coworkers": {}, "coworker": {},
+		"teammates": {}, "teammate": {},
+		"classmates": {}, "classmate": {},
+		"friends": {}, "friend": {},
+	}
+	fields := strings.Fields(query)
+	for i, raw := range fields {
+		if !strings.EqualFold(strings.Trim(raw, "?,.!\""), "with") || i+1 >= len(fields) {
+			continue
+		}
+		j := i + 1
+		next := strings.ToLower(strings.Trim(fields[j], "?,.!\"'"))
+		switch next {
+		case "his", "her", "their", "the":
+			if j+1 >= len(fields) {
+				continue
+			}
+			j++
+			next = strings.ToLower(strings.Trim(fields[j], "?,.!\"'"))
+		}
+		if _, ok := group[next]; ok {
+			return []string{next}
+		}
+	}
+	return nil
+}
+
+func forClauseTokens(query string) []string {
+	if looksWhenEventQuery(query) || looksWhereQuery(query) || transferRecipient(query) != "" {
+		return nil
+	}
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, " for ")
+	if i < 0 {
+		return nil
+	}
+	rest := strings.TrimSpace(query[i+len(" for "):])
+	toks := contentBearingTokens(tokenize(rest))
+	if len(toks) == 0 {
+		return nil
+	}
+	return toks
+}
+
+func whereAnswerFromHops(hops []HopResult) string {
+	seen := map[string]struct{}{}
+	places := make([]string, 0, 2)
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" || anaphoricSlotValue(p) {
+			return
+		}
+		key := strings.ToLower(p)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		places = append(places, titleCaseWords(p))
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for _, c := range h.Contents {
+			add(placeFromContent(c))
+		}
+		if h.Value != "" {
+			add(placeFromContent(h.Value))
+		}
+	}
+	if len(places) == 0 {
+		return ""
+	}
+	return strings.Join(places, ", ")
+}
+
+func placeFromContent(content string) string {
+	content = strings.TrimSpace(stripTrailingStamp(content))
+	if content == "" {
+		return ""
+	}
+	lower := strings.ToLower(content)
+	best := ""
+	bestIdx := -1
+	for _, prep := range []string{" in ", " at ", " near ", " around "} {
+		i := strings.LastIndex(lower, prep)
+		if i < 0 || i < bestIdx {
+			continue
+		}
+		if cand := cleanPlaceCandidate(content[i+len(prep):]); cand != "" {
+			best = cand
+			bestIdx = i
+		}
+	}
+	return best
+}
+
+func cleanPlaceCandidate(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if j := strings.IndexAny(s, ".([;!?"); j >= 0 {
+		s = strings.TrimSpace(s[:j])
+	}
+	fields := strings.Fields(s)
+	if len(fields) == 0 {
+		return ""
+	}
+	first := strings.ToLower(strings.Trim(fields[0], ",'\"'"))
+	switch first {
+	case "his", "her", "their", "its", "my", "our", "this", "that", "these", "those",
+		"order", "common", "fact", "addition":
+		return ""
+	}
+	stopAt := map[string]struct{}{
+		"last": {}, "during": {}, "when": {}, "after": {}, "before": {},
+		"because": {}, "with": {}, "while": {}, "where": {}, "and": {},
+	}
+	keep := make([]string, 0, 4)
+	for i, f := range fields {
+		w := strings.ToLower(strings.Trim(f, ",'\"'"))
+		if _, ok := stopAt[w]; ok && i > 0 {
+			break
+		}
+		keep = append(keep, strings.Trim(f, ",'\"'"))
+		if len(keep) >= 4 {
+			break
+		}
+	}
+	if len(keep) == 0 {
+		return ""
+	}
+	if strings.EqualFold(keep[0], "the") && len(keep) == 1 {
+		return ""
+	}
+	out := strings.Join(keep, " ")
+	if anaphoricSlotValue(out) {
+		return ""
+	}
+	return out
+}
+
+func (s *Service) filterChildCountItems(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	head := countHeadNoun(req.Query)
+	switch head {
+	case "children", "kids", "child":
+	default:
+		return items
+	}
+	if len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		if valueHasChildCue(it.Value, blob) {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+func valueHasChildCue(value, blob string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	b := strings.ToLower(blob)
+	if v == "" || b == "" {
+		return false
+	}
+	childCues := []string{"son", "daughter", "child", "kid", "children", "kids"}
+	partnerCues := []string{"partner", "spouse", "wife", "husband"}
+	for _, c := range childCues {
+		if v == c || strings.HasPrefix(v, c+" ") {
+			return true
+		}
+	}
+	vidx := strings.Index(b, v)
+	if vidx < 0 {
+		return queryHasToken(b, childCues...) && !queryHasToken(b, partnerCues...)
+	}
+	childDist := minCueDist(b, vidx, childCues)
+	partnerDist := minCueDist(b, vidx, partnerCues)
+	if childDist < 0 {
+		return false
+	}
+	if partnerDist < 0 {
+		return true
+	}
+	return childDist <= partnerDist
+}
+
+func minCueDist(blob string, at int, cues []string) int {
+	best := -1
+	for _, c := range cues {
+		if c == "" {
+			continue
+		}
+		searchFrom := 0
+		for {
+			i := strings.Index(blob[searchFrom:], c)
+			if i < 0 {
+				break
+			}
+			i += searchFrom
+			end := i + len(c)
+			ok := (i == 0 || !isTokenChar(blob[i-1])) && (end >= len(blob) || !isTokenChar(blob[end]))
+			if ok {
+				d := i - at
+				if d < 0 {
+					d = -d
+				}
+				if best < 0 || d < best {
+					best = d
+				}
+			}
+			searchFrom = i + 1
+			if searchFrom >= len(blob) {
+				break
+			}
+		}
+	}
+	return best
+}
+
+func isTokenChar(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }
 
 func trimRecipientSuffix(v, recip string) string {

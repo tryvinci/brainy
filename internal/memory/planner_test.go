@@ -427,6 +427,94 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 		t.Fatalf("expected possession hop for childhood items, hops=%+v", childItems.Hops)
 	}
 
+	whereKin := PlanQuery("Where did Jolene and her partner find a cool diving spot?", nil)
+	foundWhereFam, foundWhereSrc, foundWhereDest := false, false, false
+	for _, hop := range whereKin.Hops {
+		if hop.Kind == "follow_relation" && hop.Predicate == PredicateFamilyMember {
+			foundWhereFam = true
+		}
+		if hop.Predicate == PredicateActivity || hop.Predicate == PredicateEvent || hop.Predicate == PredicateResidence {
+			if len(hop.DependsOn) == 1 && hop.DependsOn[0] == "e1" {
+				foundWhereSrc = true
+			}
+			if len(hop.DependsOn) == 1 && hop.DependsOn[0] == "e_rel" {
+				foundWhereDest = true
+			}
+		}
+	}
+	if !foundWhereFam || !foundWhereSrc || !foundWhereDest {
+		t.Fatalf("where+kinship must fetch source and dest, hops=%+v", whereKin.Hops)
+	}
+
+	group := PlanQuery("What outdoor activities has John done with his colleagues?", nil)
+	groupEnts := map[string]bool{}
+	foundGroupAct := false
+	for _, hop := range group.Hops {
+		if hop.Kind == "resolve_entity" {
+			groupEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateActivity {
+			foundGroupAct = true
+		}
+	}
+	if !groupEnts["john"] {
+		t.Fatalf("group-with must hop the person, hops=%+v", group.Hops)
+	}
+	if groupEnts["colleagues"] {
+		t.Fatalf("colleagues must not be a hop entity, hops=%+v", group.Hops)
+	}
+	if !foundGroupAct {
+		t.Fatalf("group-with activities must hop activity, hops=%+v", group.Hops)
+	}
+	if toks := groupCompanionTokens("What outdoor activities has John done with his colleagues?"); len(toks) == 0 {
+		t.Fatal("expected group companion tokens")
+	}
+
+	conseq := PlanQuery("What did Audrey get with having so many dogs?", nil)
+	foundConseqHealth, foundConseqPoss := false, false
+	for _, hop := range conseq.Hops {
+		if hop.Predicate == PredicateHealth {
+			foundConseqHealth = true
+		}
+		if hop.Predicate == PredicatePossession {
+			foundConseqPoss = true
+		}
+	}
+	if !foundConseqHealth {
+		t.Fatalf("get-with-having must hop health, hops=%+v", conseq.Hops)
+	}
+	if foundConseqPoss {
+		t.Fatalf("get-with-having must not hop possession lists, hops=%+v", conseq.Hops)
+	}
+	if conseq.NeedsEnumeration {
+		t.Fatalf("consequence must not enumerate, intents=%v", conseq.Intents)
+	}
+
+	kidsCount := PlanQuery("How many children does Riley have?", nil)
+	foundKidsFam := false
+	for _, hop := range kidsCount.Hops {
+		if hop.Predicate == PredicateFamilyMember {
+			foundKidsFam = true
+		}
+	}
+	if !foundKidsFam {
+		t.Fatalf("how-many children must hop family, hops=%+v", kidsCount.Hops)
+	}
+
+	ev := PlanQuery("What events is Maria planning for the homeless shelter fundraiser?", nil)
+	foundEv := false
+	for _, hop := range ev.Hops {
+		if hop.Predicate == PredicateEvent || hop.Predicate == PredicatePlan {
+			foundEv = true
+		}
+	}
+	if !foundEv {
+		t.Fatalf("planning-for events must hop event/plan, hops=%+v", ev.Hops)
+	}
+	if toks := forClauseTokens("What events is Maria planning for the homeless shelter fundraiser?"); len(toks) == 0 {
+		t.Fatal("expected for-clause tokens")
+	}
+
 	pronoun := PlanQuery("What do they like?", nil)
 	for _, hop := range pronoun.Hops {
 		if hop.Kind == "resolve_entity" && strings.EqualFold(hop.Entity, "they") {
