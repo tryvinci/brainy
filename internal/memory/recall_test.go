@@ -2165,6 +2165,48 @@ func TestRecallOutdoorModifierFiltersIndoorInEnumerateMode(t *testing.T) {
 	}
 }
 
+func TestRecallOutdoorPrefersHeadOverCompanionOnly(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-hike"] = MemoryRecord{
+		MemoryID: "mem_jhike", TenantID: "t-prefint", SubjectID: "u1",
+		Kind: KindFact, Content: "John enjoys being outdoors - going for hikes",
+		DedupeKey: "jhike", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+	}
+	store.records["j-conv"] = MemoryRecord{
+		MemoryID: "mem_jconv", TenantID: "t-prefint", SubjectID: "u1",
+		Kind: KindFact, Content: "John attended a convention with his colleagues",
+		DedupeKey: "jconv", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "convention attendance", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "convention attendance", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_jhike"},
+		stubAtom{pred: PredicateActivity, val: "convention attendance", memID: "mem_jconv"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-prefint", SubjectID: "u1",
+		Query: "What outdoor activities has John done with his colleagues?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "hik") && !strings.Contains(got, "outdoor") {
+		t.Fatalf("expected outdoor activity over colleague indoor, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "convention") {
+		t.Fatalf("colleague indoor crowded outdoor list: %q items=%#v", out.Answer, out.Items)
+	}
+}
+
 func TestRecallEnumerateModeCapsActivityDump(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

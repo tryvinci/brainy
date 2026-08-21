@@ -1780,8 +1780,25 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	if toks := afterClauseTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
-	if toks := groupCompanionTokens(req.Query); len(toks) > 0 {
-		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	head := listHeadModifierTokens(req.Query)
+	group := groupCompanionTokens(req.Query)
+	if len(head) > 0 && len(group) > 0 {
+		items = s.filterItemsByTokenGroupsPreferIntersect(ctx, req, items, hops, head, group)
+	} else {
+		if len(group) > 0 {
+			items = s.filterItemsByTokens(ctx, req, items, hops, group)
+		}
+		if len(head) > 0 {
+			pos := make([]string, 0, len(head))
+			for _, t := range head {
+				if unNegationPositive(t) == "" {
+					pos = append(pos, t)
+				}
+			}
+			if len(pos) > 0 {
+				items = s.filterItemsByTokens(ctx, req, items, hops, pos)
+			}
+		}
 	}
 	if toks := forClauseTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
@@ -1791,17 +1808,6 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	}
 	if toks := duringClauseTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
-	}
-	if toks := listHeadModifierTokens(req.Query); len(toks) > 0 {
-		pos := make([]string, 0, len(toks))
-		for _, t := range toks {
-			if unNegationPositive(t) == "" {
-				pos = append(pos, t)
-			}
-		}
-		if len(pos) > 0 {
-			items = s.filterItemsByTokens(ctx, req, items, hops, pos)
-		}
 	}
 	if toks := negatedModifierTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByNegatedModifier(ctx, req, items, hops, toks)
@@ -2471,6 +2477,53 @@ func (s *Service) filterItemsByTokens(ctx context.Context, req RecallRequest, it
 		return items
 	}
 	return out
+}
+
+// filterItemsByTokenGroupsPreferIntersect keeps items that hit both cue
+// groups when any exist; otherwise list-head hits; otherwise companion
+// hits; otherwise the original list. Sequential companion-then-head
+// filtering would keep a colleague indoor singleton and drop outdoor
+// evidence that never said "colleagues".
+func (s *Service) filterItemsByTokenGroupsPreferIntersect(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult, head, group []string) []RecallItem {
+	if len(items) == 0 {
+		return items
+	}
+	posHead := make([]string, 0, len(head))
+	for _, t := range head {
+		if unNegationPositive(t) == "" {
+			posHead = append(posHead, t)
+		}
+	}
+	if len(posHead) == 0 {
+		return s.filterItemsByTokens(ctx, req, items, hops, group)
+	}
+	if len(group) == 0 {
+		return s.filterItemsByTokens(ctx, req, items, hops, posHead)
+	}
+	var both, headHits, groupHits []RecallItem
+	for _, it := range items {
+		blob := it.Value + " " + s.itemEvidenceBlob(ctx, req, it, hops)
+		headHit := itemHitsExclusion(it.Value, posHead) || itemHitsExclusion(blob, posHead)
+		groupHit := itemHitsExclusion(it.Value, group) || itemHitsExclusion(blob, group)
+		switch {
+		case headHit && groupHit:
+			both = append(both, it)
+		case headHit:
+			headHits = append(headHits, it)
+		case groupHit:
+			groupHits = append(groupHits, it)
+		}
+	}
+	if len(both) > 0 {
+		return both
+	}
+	if len(headHits) > 0 {
+		return headHits
+	}
+	if len(groupHits) > 0 {
+		return groupHits
+	}
+	return items
 }
 
 func memoryMentionsEntity(rec MemoryRecord, entity string) bool {
