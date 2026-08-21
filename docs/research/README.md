@@ -4,6 +4,8 @@
 correct, fast enough to self-host, and honest about conversational recall.
 Not a single public-suite number. Not benchmax.
 
+**Next-agent start (2026-08-21):** [handover-sota-agent-2026-08-21.md](./handover-sota-agent-2026-08-21.md) — live pins, code map, kill list, and the proof-path increment. The 2026-08-17 assessment pack is architecture context; its “next is R5A / R6a compiler” is **not** live.
+
 **Program of record (2026-08-11): [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md)** — compile interactions into facts/entities/relations; retrieve those; keep episodes as provenance.
 **Internal competitive archaeology:** [competitive/README.md](./competitive/README.md) · **[cycle closeout (required)](./competitive/cycle-closeout.md)**
 **Prior PoR:** [sota-end-to-end-program.md](./sota-end-to-end-program.md) — still useful history; next sequence follows the competitive verdict.
@@ -20,15 +22,19 @@ Style: **reproducible, cited, honest about gaps**. The product README may carry 
 
 ## Headline (today)
 
+Live start + pins: [handover-sota-agent-2026-08-21.md](./handover-sota-agent-2026-08-21.md). R5A–R10 substrate is merged. S0 ledger is **PROOF**, not WRITE.
+
 | Axis | Result |
 | --- | --- |
 | **OpMem** (operational) | **13/13** vs Mem0 **10/13** this freeze |
 | **Marketing vertical** | **17/17** vs Mem0 **4/17** empirical |
-| **LOCOMO 1×30** | **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 **11/30** — measurement, not qualification |
+| **LOCOMO 1×30** | **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 **11/30** — measurement, not qualification. Do not overwrite. |
+| **LOCOMO S0 n=180** | product `/recall` **32/180** · industry **62/180** · ledger PROOF 112 / RETRIEVAL 22 / READER 11 / WRITE **3** |
+| **LOCOMO S0 MH** | product **2/33** after packet-proof (was 1/33). Coverage 32/33. |
 | **LOCOMO full n=1540** | **175/1540 (11.4%)** product `/recall` — **dip** vs July search+harness **49.8%**; not vs Mem0 **92.5%** on the same path. [why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) |
 | **LongMemEval-20** | **4/20** product `/recall` (lift vs 0/20 integrity; not vs published 94.4%). LME-500 not run |
 | **BEAM 100K** | **8/20** search+harness (non-reg; 1M/10M not run) |
-| **Next** | **R5A** structured-first `/recall` (retire `firstStatementFromPacket` as a normal factual strategy). OD 0/4 is a diagnostic. 11.4% to ~50% is directional; 49.8% is not a current-SHA ceiling. Then R5B-R10. Two lanes. Do not re-queue R0-R4. [verdict](./external-reviews/2026-08-17-parity-gap-verdict.md) · [sota-representation-path.md](./sota-representation-path.md) |
+| **Next** | Remaining MH list/join **proof** (not compiler fishing, not embedder). Do not merge #133. Do not re-queue R0–R10. [handover](./handover-sota-agent-2026-08-21.md) · [cycle-closeout](./competitive/cycle-closeout.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
 
@@ -51,7 +57,8 @@ Details: [competitive verdict](./external-reviews/2026-08-11-competitive-archite
 | BEAM 100K | Live measurement | [fresh pin](../benchmarks/artifacts/beam-100k-fresh-20260815.md) |
 | Public-bench ladder | L3 live; L4 gated | [public-bench-ladder.md](./public-bench-ladder.md) |
 | Proveable eval framework | Spec + harness | [proveable-eval-framework.md](./proveable-eval-framework.md) · [`evals/public/`](../../evals/public/) |
-| External agent assessment pack | **Preferred handoff** | [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) |
+| Next-agent SOTA/80% handover | **Live start (2026-08-21)** | [handover-sota-agent-2026-08-21.md](./handover-sota-agent-2026-08-21.md) |
+| External agent assessment pack | Architecture context (2026-08-17 pins) | [external-agent-assessment-pack.md](./external-agent-assessment-pack.md) |
 | Competitive architecture verdict | **Accepted PoR (2026-08-11)** | [external-reviews/2026-08-11-competitive-architecture-verdict.md](./external-reviews/2026-08-11-competitive-architecture-verdict.md) |
 | Representation path (execute now) | **Active** | [sota-representation-path.md](./sota-representation-path.md) |
 | Representation-path review (2026-08-14) | **Accepted amendment** | [external-reviews/2026-08-14-representation-path-additions.md](./external-reviews/2026-08-14-representation-path-additions.md) |
@@ -88,9 +95,10 @@ Empty / TBD cells beat invented numbers. Public posts describe Brainy; they do n
 
 ## Next engineering step
 
-1. **R6a** named-subject / addressee compiler (mass lever for full SH WRITE_MISS). Not a 70–80% n=1540 claim. [path](./locomo-full-70-80-path.md).
-2. **R5B** typed EvidencePacket + spans (hygiene).
-3. **R7-R9** canonical entities, relation V2, hop ID joins. **R10** frozen dual-path qualification (product `/recall` and industry-format, labeled separately).
-4. Keep bounded episode fallback until coverage is proven. Do not hard-drop episodes. Do not land v2 DDL here.
+R5A–R10 are **merged**. S0 WRITE_MISS is 3/180. Do not start with compiler mass.
 
-Details: [sota-representation-path.md](./sota-representation-path.md)
+1. Remaining MH list/join **packet/proof** (shared facts that are not only a `both X and Y` cue; enumerate lists still crowd). [handover](./handover-sota-agent-2026-08-21.md).
+2. Remeasure MH-only 33 fail-closed on a frozen integrity tenant before burning n=180 or n=1540.
+3. Only after proof moves: S6 freeze + Mem0 same-pin. No SOTA / beats-Mem0 in product copy until that win and explicit approval.
+
+Details: [sota-execution-plan.md](./sota-execution-plan.md) (histogram outranks the written S1-first order) · [locomo-full-70-80-path.md](./locomo-full-70-80-path.md)

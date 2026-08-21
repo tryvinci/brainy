@@ -797,5 +797,5 @@ Coverage 161/180 vs product QA 32/180, and MH coverage 32/33 vs QA 1/33, was not
 
 ### Next
 
-**One step:** remaining MH list/join proof (shared facts that are not a two-name `both` cue; enumerate lists still crowd). Do not merge #133 until a remasure says compiler work is justified. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin on this slice. Kill list unchanged.
+**One step:** remaining MH list/join proof (shared facts that are not a two-name `both` cue; enumerate lists still crowd). Do not merge #133 until a remasure says compiler work is justified. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin on this slice. Kill list unchanged. Incoming agent start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
