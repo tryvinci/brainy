@@ -2437,6 +2437,93 @@ func TestRecallKinshipHobbiesUseDestNotSource(t *testing.T) {
 	}
 }
 
+func TestRecallKinshipRoleDestHobbiesEnumerate(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["a-momr"] = MemoryRecord{
+		MemoryID: "mem_amr", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother is her mom.",
+		DedupeKey: "amr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "mother", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "mother", "subject": "Alex"},
+	}
+	store.records["m-read"] = MemoryRecord{
+		MemoryID: "mem_mr", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother had reading as one of her hobbies.",
+		DedupeKey: "mr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "reading", "subject": "Alex's mother"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "reading", "subject": "Alex's mother"},
+	}
+	store.records["m-trav"] = MemoryRecord{
+		MemoryID: "mem_mt", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother was passionate about travel.",
+		DedupeKey: "mt", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "travel", "subject": "Alex's mother"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "travel", "subject": "Alex's mother"},
+	}
+	store.records["m-art"] = MemoryRecord{
+		MemoryID: "mem_ma", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother was interested in art.",
+		DedupeKey: "ma", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "art", "subject": "Alex's mother"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "art", "subject": "Alex's mother"},
+	}
+	store.records["m-cook"] = MemoryRecord{
+		MemoryID: "mem_mc", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother had a big passion for cooking.",
+		DedupeKey: "mc", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "cooking", "subject": "Alex's mother"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "cooking", "subject": "Alex's mother"},
+	}
+	store.records["a-vis"] = MemoryRecord{
+		MemoryID: "mem_av", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex visited mother's old house last year.",
+		DedupeKey: "av", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "visiting mother's old house", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "visiting mother's old house", "subject": "Alex"},
+	}
+	store.records["a-hikr"] = MemoryRecord{
+		MemoryID: "mem_ahr", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex enjoys hiking",
+		DedupeKey: "ahr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Alex"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "mother", memID: "mem_amr"},
+		stubAtom{pred: PredicateActivity, val: "reading", memID: "mem_mr"},
+		stubAtom{pred: PredicateActivity, val: "travel", memID: "mem_mt"},
+		stubAtom{pred: PredicateActivity, val: "art", memID: "mem_ma"},
+		stubAtom{pred: PredicateActivity, val: "cooking", memID: "mem_mc"},
+		stubAtom{pred: PredicateActivity, val: "visiting mother's old house", memID: "mem_av"},
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_ahr"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-kinrole", SubjectID: "u1",
+		Query: "What were Alex's mother's hobbies?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	for _, want := range []string{"read", "travel", "art", "cook"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected dest hobby %q, answer=%q items=%#v hops=%v", want, out.Answer, out.Items, out.Explain["hop_results"])
+		}
+	}
+	if strings.Contains(got, "house") || strings.Contains(got, "visit") {
+		t.Fatalf("source visit crowded dest hobbies: %q", out.Answer)
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("source hobbies crowded dest list: %q", out.Answer)
+	}
+}
+
 func TestRecallDualCommunityIntersectsNotUnion(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

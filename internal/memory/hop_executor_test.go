@@ -168,3 +168,75 @@ func TestContainsEntityMentionDoesNotStealFirstNamePrefix(t *testing.T) {
 		t.Fatal("full-name mention should match")
 	}
 }
+
+func TestKinDestMentionRewritesBareRole(t *testing.T) {
+	got := kinDestMention(HopResult{
+		Entity:   "Alex",
+		Value:    "mother",
+		Contents: []string{"Alex's mother is her mom."},
+	})
+	if !strings.EqualFold(got, "Alex's mother") {
+		t.Fatalf("bare role must rewrite to dest mention, got %q", got)
+	}
+	gloss := kinDestMention(HopResult{
+		Entity:   "Alex",
+		Value:    "her mom",
+		Contents: []string{"Alex's mother is her mom."},
+	})
+	if !strings.EqualFold(gloss, "Alex's mother") {
+		t.Fatalf("copula gloss must rewrite to dest mention, got %q", gloss)
+	}
+	named := kinDestMention(HopResult{
+		Entity:   "Alex",
+		Value:    "dana",
+		Contents: []string{"Dana is Alex's mother"},
+	})
+	if !strings.EqualFold(named, "dana") {
+		t.Fatalf("named dest must stay, got %q", named)
+	}
+}
+
+func TestApplyHopDependencyClearsSourceIDForDest(t *testing.T) {
+	srcID := CanonicalEntityID("t1", "u1", "Alex")
+	res := HopResult{}
+	applyHopDependency(&res, HopResult{
+		Entity:   "Alex",
+		EntityID: srcID,
+		Value:    "mother",
+		Contents: []string{"Alex's mother is her mom."},
+	})
+	if !strings.EqualFold(res.Entity, "Alex's mother") {
+		t.Fatalf("expected dest entity, got %q", res.Entity)
+	}
+	if res.EntityID != "" {
+		t.Fatalf("source entity id must not ride onto dest hop, got %q", res.EntityID)
+	}
+	same := HopResult{}
+	applyHopDependency(&same, HopResult{Entity: "Alex", EntityID: srcID, Value: "Alex"})
+	if same.EntityID != srcID {
+		t.Fatalf("same-person dest must keep source id, got %q", same.EntityID)
+	}
+}
+
+func TestRecordMatchesHopEntityBareRoleNeedsDestSubject(t *testing.T) {
+	dest := MemoryRecord{
+		Content:  "Alex's mother enjoyed reading",
+		Metadata: map[string]any{"subject": "Alex's mother"},
+	}
+	src := MemoryRecord{
+		Content:  "Alex visited mother's old house last year",
+		Metadata: map[string]any{"subject": "Alex"},
+	}
+	if !recordMatchesHopEntity(dest, "mother", "") {
+		t.Fatal("dest-subject record must match bare kin role")
+	}
+	if recordMatchesHopEntity(src, "mother", "") {
+		t.Fatal("source possessive mention must not match bare kin role")
+	}
+	if !recordMatchesHopEntity(dest, "Alex's mother", "") {
+		t.Fatal("rewritten dest mention must match dest record")
+	}
+	if recordMatchesHopEntity(src, "Alex's mother", "") {
+		t.Fatal("rewritten dest mention must not match source visit")
+	}
+}

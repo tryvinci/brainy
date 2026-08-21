@@ -46,18 +46,14 @@ func (s *Service) executeTypedHops(
 			DependsOn: append([]string(nil), hop.DependsOn...),
 			Source:    "unresolved",
 		}
-		// Wire DependsOn: canonical ID is the join key; display name stays for answers.
+		// Wire DependsOn: dest slot (or rewritten kin dest) is the next entity.
+		// Source EntityID is kept only when dest is the same person.
 		for _, dep := range hop.DependsOn {
 			prev, ok := byKey[dep]
 			if !ok {
 				continue
 			}
-			if res.EntityID == "" && strings.TrimSpace(prev.EntityID) != "" {
-				res.EntityID = prev.EntityID
-			}
-			if strings.TrimSpace(prev.Value) != "" {
-				res.Entity = prev.Value
-			}
+			applyHopDependency(&res, prev)
 		}
 
 		switch hop.Kind {
@@ -448,6 +444,129 @@ func hopResultTypedExact(r HopResult) bool {
 	return r.Source == "typed_store" || r.ProofKind == "typed_exact"
 }
 
+func applyHopDependency(res *HopResult, prev HopResult) {
+	if res == nil {
+		return
+	}
+	if dest := strings.TrimSpace(kinDestMention(prev)); dest != "" {
+		res.Entity = dest
+		if strings.EqualFold(dest, strings.TrimSpace(prev.Entity)) {
+			if res.EntityID == "" && strings.TrimSpace(prev.EntityID) != "" {
+				res.EntityID = prev.EntityID
+			}
+			return
+		}
+		// Dest is not the source person (named kin or "Name's mother").
+		res.EntityID = ""
+		return
+	}
+	if res.EntityID == "" && strings.TrimSpace(prev.EntityID) != "" {
+		res.EntityID = prev.EntityID
+	}
+}
+
+func kinRoleToken(value string) string {
+	v := strings.ToLower(strings.TrimSpace(value))
+	v = strings.Trim(v, ".,!?\"'")
+	v = strings.TrimPrefix(v, "the ")
+	if v == "" {
+		return ""
+	}
+	fields := strings.Fields(v)
+	if len(fields) == 2 {
+		switch fields[0] {
+		case "her", "his", "their", "my", "our":
+			v = fields[1]
+		}
+	}
+	for _, role := range kinshipRoles {
+		if v == role {
+			return role
+		}
+	}
+	return ""
+}
+
+func kinRoleLookupForms(role string) []string {
+	switch role {
+	case "mom", "mother":
+		return []string{"mother", "mom"}
+	case "dad", "father":
+		return []string{"father", "dad"}
+	case "grandma", "grandmother":
+		return []string{"grandmother", "grandma"}
+	case "grandpa", "grandfather":
+		return []string{"grandfather", "grandpa"}
+	default:
+		return []string{role}
+	}
+}
+
+func kinDestMention(prev HopResult) string {
+	raw := strings.TrimSpace(prev.Value)
+	role := kinRoleToken(raw)
+	if role == "" {
+		return raw
+	}
+	forms := kinRoleLookupForms(role)
+	for _, form := range forms {
+		for _, c := range prev.Contents {
+			if m := possessiveKinMention(c, form); m != "" {
+				return m
+			}
+		}
+	}
+	src := strings.TrimSpace(prev.Entity)
+	if src != "" && kinRoleToken(src) == "" {
+		return src + "'s " + forms[0]
+	}
+	return raw
+}
+
+func possessiveKinMention(content, role string) string {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role == "" || strings.TrimSpace(content) == "" {
+		return ""
+	}
+	fields := strings.Fields(content)
+	for i, f := range fields {
+		name := trimPossessiveToken(strings.Trim(f, ".,;:!?\"'"))
+		if name == "" || i+1 >= len(fields) {
+			continue
+		}
+		next := strings.Trim(fields[i+1], ".,;:!?\"'")
+		if !strings.EqualFold(next, role) {
+			continue
+		}
+		return name + "'s " + role
+	}
+	return ""
+}
+
+func trimPossessiveToken(raw string) string {
+	r := []rune(raw)
+	if len(r) < 3 {
+		return ""
+	}
+	if r[len(r)-1] != 's' {
+		return ""
+	}
+	prev := r[len(r)-2]
+	if prev != '\'' && prev != '’' {
+		return ""
+	}
+	return strings.TrimSpace(string(r[:len(r)-2]))
+}
+
+func kinDestSubjectLooks(subj, role string) bool {
+	lower := strings.ToLower(strings.TrimSpace(subj))
+	role = strings.ToLower(strings.TrimSpace(role))
+	if lower == "" || role == "" {
+		return false
+	}
+	return strings.HasSuffix(lower, "'s "+role) || strings.HasSuffix(lower, "’s "+role)
+}
+
 func recordMatchesHopEntity(rec MemoryRecord, mention, entityID string) bool {
 	if entityID != "" {
 		if got := entityIDOf(rec); got != "" {
@@ -459,6 +578,19 @@ func recordMatchesHopEntity(rec MemoryRecord, mention, entityID string) bool {
 	}
 	if mention == "" {
 		return entityID == ""
+	}
+	// Bare kin role ("mother" / "her mom") matches dest-subject records,
+	// not every source memory that merely mentions the role.
+	if role := kinRoleToken(mention); role != "" {
+		for _, form := range kinRoleLookupForms(role) {
+			if kinDestSubjectLooks(entitySubjectOf(rec), form) {
+				return true
+			}
+			if possessiveKinMention(rec.Content, form) != "" {
+				return true
+			}
+		}
+		return false
 	}
 	return containsEntityMention(rec.Content, mention)
 }
