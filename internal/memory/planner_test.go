@@ -484,6 +484,18 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if looksLocationListQuery("Which community activities have Riley and Casey participated in?") {
 		t.Fatal("community activities must not be a location list")
 	}
+	if !looksLocationListQuery("Where does Riley practice yoga?") {
+		t.Fatal("where+practice must be a location list")
+	}
+	if hopComposeAllowed("Which locations does Riley practice her yoga at?") {
+		t.Fatal("location lists must not dump hop values")
+	}
+	if toks := practiceObjectTokens("Which locations does Riley practice her yoga at?"); len(toks) != 1 || toks[0] != "yoga" {
+		t.Fatalf("expected yoga practice object, toks=%v", toks)
+	}
+	if toks := listHeadModifierTokens("What are Riley's pets' names?"); len(toks) != 1 || toks[0] != "pets" {
+		t.Fatalf("expected pets name-head modifier, toks=%v", toks)
+	}
 
 	conseq := PlanQuery("What did Audrey get with having so many dogs?", nil)
 	foundConseqHealth, foundConseqPoss := false, false

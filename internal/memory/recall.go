@@ -15,6 +15,9 @@ import (
 // headroom at observed LoCoMo volume; LME-scale subjects overflow.
 const representationBlobBudget = 400000
 
+// maxEnumerateAnswerItems bounds list answers. Counts keep the full typed set.
+const maxEnumerateAnswerItems = 8
+
 // RecallRequest is the product synthesis surface (master-plan W4 / program §14).
 type RecallRequest struct {
 	TenantID          string `json:"tenant_id"`
@@ -351,11 +354,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	case "answer":
 		out.ContextBlock = assembleContextFromPacket(pkt, budget)
-		if (plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || transferRecipient(req.Query) != "") && !looksConsequenceQuery(req.Query) && !looksWhereQuery(req.Query) {
+		if (plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || looksLocationListQuery(req.Query) || transferRecipient(req.Query) != "") && !looksConsequenceQuery(req.Query) && !looksWhereQuery(req.Query) {
 			enumerated = true
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 			items = filterBesides(req.Query, items)
 			items = s.filterHopEvidence(ctx, req, items, hopResults)
+			if !looksCountQuery(req.Query) {
+				items = capEnumerateItems(items)
+			}
 			out.Items = items
 			if len(items) > 0 {
 				if looksSuperlativeQuery(req.Query) {
@@ -395,10 +401,26 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 		}
 		if looksWhereQuery(req.Query) {
-			if ans := whereAnswerFromHops(hopResults); ans != "" {
-				out.Answer = ans
-				out.AnswerStatus = AnswerSupported
-				out.Explain["where_answer"] = true
+			if looksLocationListQuery(req.Query) {
+				loc := s.locationItemsFromEvidence(ctx, req, hopResults, nil)
+				if len(loc) > 0 {
+					vals := make([]string, 0, len(loc))
+					for _, it := range loc {
+						vals = append(vals, it.Value)
+					}
+					out.Items = loc
+					out.Answer = strings.Join(vals, ", ")
+					out.AnswerStatus = AnswerSupported
+					out.Explain["where_answer"] = true
+					enumerated = true
+				}
+			}
+			if strings.TrimSpace(out.Answer) == "" {
+				if ans := whereAnswerFromHops(hopResults); ans != "" {
+					out.Answer = ans
+					out.AnswerStatus = AnswerSupported
+					out.Explain["where_answer"] = true
+				}
 			}
 		}
 		if strings.TrimSpace(out.Answer) == "" && pkt.TemporalAnswer != "" && (plan.NeedsTemporal || temporalApplied) && !looksWhenEventQuery(req.Query) {
@@ -420,7 +442,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["who_answer"] = true
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop && hopComposeAllowed(req.Query) {
+		blockSlotDump := looksLocationListQuery(req.Query)
+		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop && hopComposeAllowed(req.Query) && !blockSlotDump {
 			if composed := composeMultiHopAnswer(pkt); composed != "" {
 				out.Answer = composed
 				if packetOK {
@@ -431,14 +454,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "multihop_bridge_chain"
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" {
+		if strings.TrimSpace(out.Answer) == "" && !blockSlotDump {
 			if ans := pickStructuredAnswer(req.Query, search.Results); ans != "" {
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
 				out.Explain["structured_answer"] = true
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" {
+		if strings.TrimSpace(out.Answer) == "" && !blockSlotDump {
 			if ans := pickEpisodeFallback(req.Query, search.Results); ans != "" {
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
@@ -527,7 +550,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 		lockedDate := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
 		lockedWhere := looksWhereQuery(req.Query) && out.Explain["where_answer"] == true
-		if hybrid.OK && !lockedDate && !lockedWhere {
+		lockedList := enumerated && strings.TrimSpace(out.Answer) != "" && strings.TrimSpace(out.Answer) != "not in memory"
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedList {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			if hopComposeAllowed(req.Query) {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
@@ -542,7 +566,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !lockedDate && !lockedWhere {
+		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedList {
 			if hopComposeAllowed(req.Query) {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
@@ -851,7 +875,9 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			preds = append(preds, PredicateAffiliation)
 		}
 	}
-	if !join && len(preds) > 0 {
+	// Hops already listed typed values. Refilling the atom index dumps every
+	// activity/preference onto list answers that already had a slot.
+	if !join && len(preds) > 0 && len(order) == 0 {
 		if indexer, ok := s.store.(AtomIndexer); ok {
 			ids := make([]string, 0, 40)
 			seenID := map[string]struct{}{}
@@ -938,19 +964,53 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		items = append(items, seen[key])
 	}
 	if looksLocationListQuery(req.Query) {
-		if loc := s.locationItemsFromEvidence(ctx, req, hops, items); len(loc) > 0 {
-			return loc
-		}
+		return s.locationItemsFromEvidence(ctx, req, hops, items)
 	}
 	return items
 }
 
 func looksLocationListQuery(query string) bool {
-	q := strings.ToLower(query)
+	q := strings.ToLower(strings.TrimSpace(query))
 	if strings.Contains(q, "location") {
 		return true
 	}
-	return strings.Contains(q, "practice") && strings.Contains(q, " at")
+	if !strings.Contains(q, "practice") {
+		return false
+	}
+	return strings.Contains(q, " at") || strings.HasPrefix(q, "where ")
+}
+
+// practiceObjectTokens is the noun after practice/practices until at/in/near.
+func practiceObjectTokens(query string) []string {
+	lower := strings.ToLower(query)
+	cue := ""
+	idx := -1
+	for _, c := range []string{" practices ", " practice ", " practicing ", " practised ", " practiced "} {
+		i := strings.Index(lower, c)
+		if i < 0 {
+			continue
+		}
+		if idx < 0 || i < idx {
+			idx = i
+			cue = c
+		}
+	}
+	if idx < 0 {
+		return nil
+	}
+	rest := query[idx+len(cue):]
+	restLower := strings.ToLower(rest)
+	cut := len(rest)
+	for _, stop := range []string{" at", " in", " near", " on", "?"} {
+		if k := strings.Index(restLower, stop); k >= 0 && k < cut {
+			cut = k
+		}
+	}
+	toks := contentBearingTokens(tokenize(rest[:cut]))
+	if len(toks) == 0 {
+		return nil
+	}
+	return toks
 }
 
 func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallRequest, hops []HopResult, items []RecallItem) []RecallItem {
@@ -978,34 +1038,48 @@ func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallReque
 		}
 		order = append(order, key)
 	}
-	for _, h := range hops {
-		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
-			continue
+	focus := practiceObjectTokens(req.Query)
+	addFrom := func(blob, id string, requireFocus bool) {
+		if strings.TrimSpace(blob) == "" {
+			return
 		}
-		if h.Predicate != "" && h.Predicate != PredicateActivity && h.Predicate != PredicateEvent && h.Predicate != PredicateResidence {
-			continue
-		}
-		for i, c := range h.Contents {
-			id := ""
-			if i < len(h.MemoryIDs) {
-				id = h.MemoryIDs[i]
-			} else if len(h.MemoryIDs) > 0 {
-				id = h.MemoryIDs[0]
-			}
-			for _, p := range placesFromContent(c) {
-				add(p, id)
-			}
-		}
-	}
-	for _, it := range items {
-		blob := s.itemEvidenceBlob(ctx, req, it, hops)
-		id := ""
-		if len(it.Evidence) > 0 {
-			id = it.Evidence[0]
+		if requireFocus && len(focus) > 0 && !itemHitsExclusion(blob, focus) {
+			return
 		}
 		for _, p := range placesFromContent(blob) {
 			add(p, id)
 		}
+	}
+	scan := func(requireFocus bool) {
+		for _, h := range hops {
+			if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+				continue
+			}
+			if h.Predicate != "" && h.Predicate != PredicateActivity && h.Predicate != PredicateEvent && h.Predicate != PredicateResidence {
+				continue
+			}
+			for i, c := range h.Contents {
+				id := ""
+				if i < len(h.MemoryIDs) {
+					id = h.MemoryIDs[i]
+				} else if len(h.MemoryIDs) > 0 {
+					id = h.MemoryIDs[0]
+				}
+				addFrom(c, id, requireFocus)
+			}
+		}
+		for _, it := range items {
+			blob := s.itemEvidenceBlob(ctx, req, it, hops)
+			id := ""
+			if len(it.Evidence) > 0 {
+				id = it.Evidence[0]
+			}
+			addFrom(blob, id, requireFocus)
+		}
+	}
+	scan(len(focus) > 0)
+	if len(order) == 0 && len(focus) > 0 {
+		scan(false)
 	}
 	out := make([]RecallItem, 0, len(order))
 	for _, key := range order {
@@ -1278,10 +1352,17 @@ func exclusionStem(t string) string {
 	if strings.HasSuffix(t, "e") && len(t) > 3 {
 		t = t[:len(t)-1]
 	}
-	if strings.HasSuffix(t, "s") && len(t) > 4 {
+	if strings.HasSuffix(t, "s") && len(t) >= 4 {
 		t = t[:len(t)-1]
 	}
 	return t
+}
+
+func capEnumerateItems(items []RecallItem) []RecallItem {
+	if len(items) <= maxEnumerateAnswerItems {
+		return items
+	}
+	return items[:maxEnumerateAnswerItems]
 }
 
 func superlativeAnswer(items []RecallItem) string {
@@ -1582,6 +1663,9 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	if toks := listHeadModifierTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
+	if toks := practiceObjectTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
 	return items
 }
 
@@ -1709,6 +1793,7 @@ func listHeadModifierTokens(query string) []string {
 	heads := map[string]struct{}{
 		"activities": {}, "activity": {},
 		"collectible": {}, "collectibles": {},
+		"names": {}, "name": {},
 	}
 	skip := map[string]struct{}{
 		"kind": {}, "type": {}, "some": {}, "any": {},
@@ -1882,6 +1967,7 @@ func cleanPlaceCandidate(s string) string {
 	stopAt := map[string]struct{}{
 		"last": {}, "during": {}, "when": {}, "after": {}, "before": {},
 		"because": {}, "with": {}, "while": {}, "where": {}, "and": {},
+		"which": {}, "that": {}, "who": {}, "whose": {}, "whom": {},
 	}
 	keep := make([]string, 0, 4)
 	for i, f := range fields {
@@ -1898,6 +1984,9 @@ func cleanPlaceCandidate(s string) string {
 		return ""
 	}
 	if strings.EqualFold(keep[0], "the") && len(keep) == 1 {
+		return ""
+	}
+	if len(keep) == 1 && strings.HasSuffix(strings.ToLower(keep[0]), "ing") {
 		return ""
 	}
 	out := strings.Join(keep, " ")

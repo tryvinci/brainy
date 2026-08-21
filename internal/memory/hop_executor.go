@@ -666,7 +666,11 @@ func composeFromHopValues(results []HopResult) string {
 		}
 		return joinTitledHopValues(vals)
 	}
-	return joinTitledHopValues(hopSlotValues(results))
+	vals := hopSlotValues(results)
+	if len(vals) > 6 {
+		vals = vals[:6]
+	}
+	return joinTitledHopValues(vals)
 }
 
 func groundToHopValues(answer string, results []HopResult) string {

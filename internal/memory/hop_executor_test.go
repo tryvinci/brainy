@@ -36,6 +36,19 @@ func TestComposeFromHopValuesIntersectsEntities(t *testing.T) {
 	}
 }
 
+func TestComposeFromHopValuesCapsSingleEntityDump(t *testing.T) {
+	vals := make([]string, 0, 12)
+	for i := 0; i < 12; i++ {
+		vals = append(vals, "item"+strings.Repeat("x", i+1))
+	}
+	ans := composeFromHopValues([]HopResult{
+		{Kind: "fetch_predicate", Entity: "Riley", Values: vals, Source: "typed_store"},
+	})
+	if strings.Count(ans, ",") > 5 {
+		t.Fatalf("single-entity hop compose must bound the dump, got %q", ans)
+	}
+}
+
 func TestComposeFromHopValuesJoinDoesNotFallBackToUnion(t *testing.T) {
 	ans := composeFromHopValues([]HopResult{
 		{Kind: "fetch_predicate", Entity: "Nate", Value: "turtles", Values: []string{"turtles"}, Source: "typed_store"},

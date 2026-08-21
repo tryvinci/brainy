@@ -563,6 +563,9 @@ func hopComposeAllowed(query string) bool {
 	if strings.HasPrefix(q, "when ") || strings.HasPrefix(q, "how long") || strings.HasPrefix(q, "how old") {
 		return false
 	}
+	if looksLocationListQuery(query) {
+		return false
+	}
 	return true
 }
 

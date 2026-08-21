@@ -1172,6 +1172,82 @@ func TestRecallPracticeLocationPossessiveList(t *testing.T) {
 	}
 }
 
+func TestRecallPracticeLocationIgnoresUnrelatedActivityDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-yoga-crowd"] = MemoryRecord{
+		MemoryID: "mem_ryc", TenantID: "t-locc", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley practices yoga at her mother's old home, the park, and the beach",
+		DedupeKey: "ryc", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: "yoga", memID: "mem_ryc"})
+	extras := []struct {
+		key, val, content string
+	}{
+		{"hike", "hiking", "Riley goes hiking at the canyon"},
+		{"ceram", "ceramics", "Riley enjoys ceramics"},
+		{"relx", "relaxing", "Riley enjoys relaxing"},
+		{"escp", "escaping", "Riley enjoys escaping"},
+		{"spnd", "spending", "Riley enjoys spending"},
+		{"swim", "swimming", "Riley enjoys swimming"},
+		{"cook", "cooking", "Riley enjoys cooking"},
+		{"run", "running", "Riley enjoys running"},
+		{"knit", "knitting", "Riley enjoys knitting"},
+		{"gard", "gardening", "Riley enjoys gardening"},
+	}
+	for _, ex := range extras {
+		id := "mem_" + ex.key
+		store.records[ex.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-locc", SubjectID: "u1",
+			Kind: KindFact, Content: ex.content,
+			DedupeKey: ex.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": ex.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": ex.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: ex.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-locc", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "mother") || !strings.Contains(got, "park") || !strings.Contains(got, "beach") {
+		t.Fatalf("expected yoga practice places, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	for _, bad := range []string{"canyon", "relaxing", "escaping", "spending", "ceramics", "hiking", "knitting"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("unrelated activity crowded practice places: %q", out.Answer)
+		}
+	}
+}
+
+func TestPlacesFromContentStopsRelativeClauseAndGerund(t *testing.T) {
+	got := placesFromContent("Riley practices yoga at a cottage that blooms each spring")
+	joined := strings.ToLower(strings.Join(got, " | "))
+	if !strings.Contains(joined, "cottage") {
+		t.Fatalf("expected cottage, got %v", got)
+	}
+	if strings.Contains(joined, "bloom") {
+		t.Fatalf("relative clause leaked into place: %v", got)
+	}
+	gerund := placesFromContent("Riley unwinds at relaxing")
+	for _, p := range gerund {
+		if strings.EqualFold(strings.TrimSpace(p), "relaxing") {
+			t.Fatalf("lone gerund must not be a place: %v", gerund)
+		}
+	}
+}
+
 func TestFilterBesides(t *testing.T) {
 	items := []RecallItem{{Value: "hiking"}, {Value: "deadlines at work"}}
 	q := "What is the biggest stressor in Andrew's life besides not being able to hike frequently?"
@@ -2434,5 +2510,55 @@ func TestRecallPetNamesListDoesNotDumpOccupation(t *testing.T) {
 	}
 	if strings.Contains(got, "nurse") {
 		t.Fatalf("occupation crowded pet names: %q", out.Answer)
+	}
+}
+
+func TestRecallPetNamesDoesNotDumpOtherPossessions(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-pet2"] = MemoryRecord{
+		MemoryID: "mem_rpn2", TenantID: "t-pets2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's pet is named Whiskers",
+		DedupeKey: "rpn2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "whiskers", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "whiskers", "subject": "Riley"},
+	}
+	store.records["r-car"] = MemoryRecord{
+		MemoryID: "mem_rcar", TenantID: "t-pets2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns a sedan",
+		DedupeKey: "rcar", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "sedan", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "sedan", "subject": "Riley"},
+	}
+	store.records["r-gui"] = MemoryRecord{
+		MemoryID: "mem_rgui", TenantID: "t-pets2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns a guitar",
+		DedupeKey: "rgui", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "guitar", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "guitar", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "whiskers", memID: "mem_rpn2"},
+		stubAtom{pred: PredicatePossession, val: "sedan", memID: "mem_rcar"},
+		stubAtom{pred: PredicatePossession, val: "guitar", memID: "mem_rgui"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-pets2", SubjectID: "u1",
+		Query: "What are Riley's pets' names?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "whiskers") {
+		t.Fatalf("expected pet name, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "sedan") || strings.Contains(got, "guitar") {
+		t.Fatalf("other possessions crowded pet names: %q", out.Answer)
 	}
 }
