@@ -1130,6 +1130,48 @@ func TestRecallPracticeLocationListDoesNotDumpOccupation(t *testing.T) {
 	}
 }
 
+func TestRecallPracticeLocationPossessiveList(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-yogap"] = MemoryRecord{
+		MemoryID: "mem_ryp", TenantID: "t-locp", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley practices yoga at her mother's old home, the park, and the beach",
+		DedupeKey: "ryp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+	}
+	store.records["r-jobp"] = MemoryRecord{
+		MemoryID: "mem_rjp", TenantID: "t-locp", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "yoga", memID: "mem_ryp"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjp"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-locp", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "mother") || !strings.Contains(got, "park") || !strings.Contains(got, "beach") {
+		t.Fatalf("expected possessive/list practice places, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded possessive location list: %q", out.Answer)
+	}
+}
+
 func TestFilterBesides(t *testing.T) {
 	items := []RecallItem{{Value: "hiking"}, {Value: "deadlines at work"}}
 	q := "What is the biggest stressor in Andrew's life besides not being able to hike frequently?"
@@ -1302,6 +1344,45 @@ func TestRecallWhoSupportsFromTypedHop(t *testing.T) {
 	}
 	if strings.Contains(got, "nurse") {
 		t.Fatalf("occupation crowded who-answer: %q", out.Answer)
+	}
+}
+
+func TestRecallWhoSupportsGroupNotOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-supg"] = MemoryRecord{
+		MemoryID: "mem_rsg", TenantID: "t-whog", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's friends and team support her in tough times",
+		DedupeKey: "rsg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "friends and team", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "friends and team", "subject": "Riley"},
+	}
+	store.records["r-jobg"] = MemoryRecord{
+		MemoryID: "mem_rjg", TenantID: "t-whog", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "friends and team", memID: "mem_rsg"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjg"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-whog", SubjectID: "u1",
+		Query: "Who supports Riley in tough times?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "friend") || !strings.Contains(got, "team") {
+		t.Fatalf("expected supporter group, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded group who-answer: %q", out.Answer)
 	}
 }
 

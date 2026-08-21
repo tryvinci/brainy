@@ -478,6 +478,12 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if toks := listHeadModifierTokens("What activities does Riley enjoy?"); len(toks) != 0 {
 		t.Fatalf("bare activities must not take a modifier, toks=%v", toks)
 	}
+	if !looksLocationListQuery("Which locations does Riley practice her yoga at?") {
+		t.Fatal("practice location query must be a location list")
+	}
+	if looksLocationListQuery("Which community activities have Riley and Casey participated in?") {
+		t.Fatal("community activities must not be a location list")
+	}
 
 	conseq := PlanQuery("What did Audrey get with having so many dogs?", nil)
 	foundConseqHealth, foundConseqPoss := false, false

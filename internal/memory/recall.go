@@ -937,7 +937,81 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	for _, key := range order {
 		items = append(items, seen[key])
 	}
+	if looksLocationListQuery(req.Query) {
+		if loc := s.locationItemsFromEvidence(ctx, req, hops, items); len(loc) > 0 {
+			return loc
+		}
+	}
 	return items
+}
+
+func looksLocationListQuery(query string) bool {
+	q := strings.ToLower(query)
+	if strings.Contains(q, "location") {
+		return true
+	}
+	return strings.Contains(q, "practice") && strings.Contains(q, " at")
+}
+
+func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallRequest, hops []HopResult, items []RecallItem) []RecallItem {
+	seen := map[string]RecallItem{}
+	order := make([]string, 0)
+	add := func(p, id string) {
+		p = strings.TrimSpace(p)
+		if p == "" || anaphoricSlotValue(p) || !validEnumeratedValue(p) {
+			return
+		}
+		key := strings.ToLower(p)
+		if existing, ok := seen[key]; ok {
+			existing.Evidence = appendUnique(existing.Evidence, id)
+			seen[key] = existing
+			return
+		}
+		ev := []string{}
+		if id != "" {
+			ev = []string{id}
+		}
+		seen[key] = RecallItem{
+			Value:     titleCaseWords(p),
+			Predicate: PredicateActivity,
+			Evidence:  ev,
+		}
+		order = append(order, key)
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		if h.Predicate != "" && h.Predicate != PredicateActivity && h.Predicate != PredicateEvent && h.Predicate != PredicateResidence {
+			continue
+		}
+		for i, c := range h.Contents {
+			id := ""
+			if i < len(h.MemoryIDs) {
+				id = h.MemoryIDs[i]
+			} else if len(h.MemoryIDs) > 0 {
+				id = h.MemoryIDs[0]
+			}
+			for _, p := range placesFromContent(c) {
+				add(p, id)
+			}
+		}
+	}
+	for _, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		id := ""
+		if len(it.Evidence) > 0 {
+			id = it.Evidence[0]
+		}
+		for _, p := range placesFromContent(blob) {
+			add(p, id)
+		}
+	}
+	out := make([]RecallItem, 0, len(order))
+	for _, key := range order {
+		out = append(out, seen[key])
+	}
+	return out
 }
 
 func hopMemoryIDForValue(hops []HopResult, value string) string {
@@ -1246,7 +1320,7 @@ func whoAnswerFromHops(query string, hops []HopResult) string {
 	}
 	seen := map[string]struct{}{}
 	names := make([]string, 0, 4)
-	add := func(n string) {
+	addPerson := func(n string) {
 		n = strings.TrimSpace(n)
 		if n == "" {
 			return
@@ -1267,24 +1341,51 @@ func whoAnswerFromHops(query string, hops []HopResult) string {
 		seen[key] = struct{}{}
 		names = append(names, n)
 	}
+	addPhrase := func(n string) {
+		n = strings.TrimSpace(n)
+		if n == "" || !looksSupporterGroup(n) {
+			return
+		}
+		key := strings.ToLower(n)
+		if _, ok := skip[key]; ok {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		names = append(names, titleCaseWords(n))
+	}
 	for _, h := range hops {
 		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
 			continue
 		}
 		for _, v := range h.Values {
-			add(v)
+			addPerson(v)
+			addPhrase(v)
 		}
-		add(h.Value)
+		addPerson(h.Value)
+		addPhrase(h.Value)
 		for _, c := range h.Contents {
 			for _, w := range strings.Fields(c) {
-				add(strings.Trim(w, "?,.!'\"()"))
+				addPerson(strings.Trim(w, "?,.!'\"()"))
 			}
 		}
 	}
 	if len(names) == 0 {
-		return ""
+		return composeFromHopValues(hops)
 	}
 	return strings.Join(names, ", ")
+}
+
+func looksSupporterGroup(v string) bool {
+	lower := strings.ToLower(v)
+	for _, g := range []string{"friend", "team", "colleague", "coworker", "classmate"} {
+		if strings.Contains(lower, g) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hops []HopResult) string {
@@ -1658,10 +1759,14 @@ func whereAnswerFromHops(hops []HopResult) string {
 			continue
 		}
 		for _, c := range h.Contents {
-			add(placeFromContent(c))
+			for _, p := range placesFromContent(c) {
+				add(p)
+			}
 		}
 		if h.Value != "" {
-			add(placeFromContent(h.Value))
+			for _, p := range placesFromContent(h.Value) {
+				add(p)
+			}
 		}
 	}
 	if len(places) == 0 {
@@ -1671,24 +1776,78 @@ func whereAnswerFromHops(hops []HopResult) string {
 }
 
 func placeFromContent(content string) string {
-	content = strings.TrimSpace(stripTrailingStamp(content))
-	if content == "" {
+	places := placesFromContent(content)
+	if len(places) == 0 {
 		return ""
 	}
+	return places[len(places)-1]
+}
+
+func placesFromContent(content string) []string {
+	content = strings.TrimSpace(stripTrailingStamp(content))
+	if content == "" {
+		return nil
+	}
 	lower := strings.ToLower(content)
-	best := ""
-	bestIdx := -1
-	for _, prep := range []string{" in ", " at ", " near ", " around "} {
-		i := strings.LastIndex(lower, prep)
-		if i < 0 || i < bestIdx {
-			continue
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 4)
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" || anaphoricSlotValue(p) {
+			return
 		}
-		if cand := cleanPlaceCandidate(content[i+len(prep):]); cand != "" {
-			best = cand
-			bestIdx = i
+		key := strings.ToLower(p)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, p)
+	}
+	for _, prep := range []string{" in ", " at ", " near ", " around "} {
+		start := 0
+		for {
+			i := strings.Index(lower[start:], prep)
+			if i < 0 {
+				break
+			}
+			i += start
+			for _, part := range splitPlaceList(content[i+len(prep):]) {
+				if cand := cleanPlaceCandidate(part); cand != "" {
+					add(cand)
+				}
+			}
+			start = i + len(prep)
 		}
 	}
-	return best
+	return out
+}
+
+func splitPlaceList(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	if j := strings.IndexAny(s, ".([;!?"); j >= 0 {
+		s = strings.TrimSpace(s[:j])
+	}
+	raw := strings.Split(s, ",")
+	parts := make([]string, 0, len(raw))
+	for _, p := range raw {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		low := strings.ToLower(p)
+		if strings.HasPrefix(low, "and ") {
+			p = strings.TrimSpace(p[4:])
+		}
+		if i := strings.Index(strings.ToLower(p), " and "); i > 0 {
+			parts = append(parts, strings.TrimSpace(p[:i]), strings.TrimSpace(p[i+5:]))
+			continue
+		}
+		parts = append(parts, p)
+	}
+	return parts
 }
 
 func cleanPlaceCandidate(s string) string {
@@ -1700,13 +1859,24 @@ func cleanPlaceCandidate(s string) string {
 		s = strings.TrimSpace(s[:j])
 	}
 	fields := strings.Fields(s)
+	skipLead := map[string]struct{}{
+		"his": {}, "her": {}, "their": {}, "its": {}, "my": {}, "our": {},
+		"the": {}, "a": {}, "an": {}, "this": {}, "that": {}, "these": {}, "those": {},
+	}
+	for len(fields) > 0 {
+		w := strings.ToLower(strings.Trim(fields[0], ",'\"'"))
+		if _, ok := skipLead[w]; ok {
+			fields = fields[1:]
+			continue
+		}
+		break
+	}
 	if len(fields) == 0 {
 		return ""
 	}
 	first := strings.ToLower(strings.Trim(fields[0], ",'\"'"))
 	switch first {
-	case "his", "her", "their", "its", "my", "our", "this", "that", "these", "those",
-		"order", "common", "fact", "addition":
+	case "order", "common", "fact", "addition":
 		return ""
 	}
 	stopAt := map[string]struct{}{
