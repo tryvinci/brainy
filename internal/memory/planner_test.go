@@ -469,6 +469,15 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if toks := groupCompanionTokens("What outdoor activities has John done with his colleagues?"); len(toks) == 0 {
 		t.Fatal("expected group companion tokens")
 	}
+	if toks := listHeadModifierTokens("What outdoor activities has John done with his colleagues?"); len(toks) != 1 || toks[0] != "outdoor" {
+		t.Fatalf("expected outdoor modifier, toks=%v", toks)
+	}
+	if toks := listHeadModifierTokens("What similar sports collectible do Tim and John own?"); len(toks) != 1 || toks[0] != "sports" {
+		t.Fatalf("expected sports modifier, toks=%v", toks)
+	}
+	if toks := listHeadModifierTokens("What activities does Riley enjoy?"); len(toks) != 0 {
+		t.Fatalf("bare activities must not take a modifier, toks=%v", toks)
+	}
 
 	conseq := PlanQuery("What did Audrey get with having so many dogs?", nil)
 	foundConseqHealth, foundConseqPoss := false, false

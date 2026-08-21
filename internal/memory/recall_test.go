@@ -1761,6 +1761,48 @@ func TestRecallGroupCompanionActivities(t *testing.T) {
 	}
 }
 
+func TestRecallOutdoorModifierFiltersIndoorGroupActivities(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-out"] = MemoryRecord{
+		MemoryID: "mem_jo", TenantID: "t-out", SubjectID: "u1",
+		Kind: KindFact, Content: "John went outdoor hiking with his colleagues",
+		DedupeKey: "jo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+	}
+	store.records["j-pot"] = MemoryRecord{
+		MemoryID: "mem_jp2", TenantID: "t-out", SubjectID: "u1",
+		Kind: KindFact, Content: "John did pottery with his colleagues",
+		DedupeKey: "jp2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_jo"},
+		stubAtom{pred: PredicateActivity, val: "pottery", memID: "mem_jp2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-out", SubjectID: "u1",
+		Query: "What outdoor activities has John done with his colleagues?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "hik") {
+		t.Fatalf("expected outdoor colleague activity, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "potter") {
+		t.Fatalf("indoor colleague activity crowded outdoor list: %q", out.Answer)
+	}
+}
+
 func TestRecallEventsPlanningForClause(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

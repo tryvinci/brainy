@@ -1478,6 +1478,9 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	if toks := duringClauseTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
+	if toks := listHeadModifierTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
 	return items
 }
 
@@ -1596,6 +1599,43 @@ func duringClauseTokens(query string) []string {
 		return nil
 	}
 	return out
+}
+
+// listHeadModifierTokens pulls the adjective/noun immediately before a list
+// head (outdoor activities, sports collectible). Soft-filter only: if no item
+// hits, the original list is kept. "similar" is a join cue, not evidence.
+func listHeadModifierTokens(query string) []string {
+	heads := map[string]struct{}{
+		"activities": {}, "activity": {},
+		"collectible": {}, "collectibles": {},
+	}
+	skip := map[string]struct{}{
+		"kind": {}, "type": {}, "some": {}, "any": {},
+		"which": {}, "what": {}, "similar": {},
+	}
+	fields := strings.Fields(query)
+	for i, raw := range fields {
+		w := strings.ToLower(strings.Trim(raw, "?,.!\"'"))
+		if _, ok := heads[w]; !ok || i == 0 {
+			continue
+		}
+		prevRaw := strings.Trim(fields[i-1], "?,.!\"'")
+		prev := strings.ToLower(prevRaw)
+		if isQueryStopword(prev) {
+			continue
+		}
+		if _, ok := skip[prev]; ok {
+			continue
+		}
+		if looksHopPerson(prevRaw) {
+			continue
+		}
+		if len(prev) < 4 {
+			continue
+		}
+		return []string{prev}
+	}
+	return nil
 }
 
 func whereAnswerFromHops(hops []HopResult) string {
