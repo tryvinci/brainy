@@ -206,10 +206,13 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateFamilyMember)
 	case strings.Contains(lower, "organization") || strings.Contains(lower, "beneficiar"):
 		add(PredicateAffiliation)
-	case strings.Contains(lower, "community") || strings.Contains(lower, "participat") ||
-		strings.Contains(lower, "journey") || queryHasToken(query, "changes", "change"):
+	case strings.Contains(lower, "community") || strings.Contains(lower, "participat"):
 		add(PredicateActivity)
+		add(PredicateAffiliation)
 		add(PredicateIdentity)
+	case strings.Contains(lower, "journey") || queryHasToken(query, "changes", "change"):
+		add(PredicateIdentity)
+		add(PredicateActivity)
 	case strings.Contains(lower, "name") || strings.Contains(lower, "who is") || strings.Contains(lower, "identity"):
 		add(PredicateIdentity)
 	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop") || strings.Contains(lower, "do to") ||

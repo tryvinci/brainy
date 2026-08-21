@@ -847,6 +847,9 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		case PredicateSkill:
 			preds = append(preds, PredicateActivity)
 		}
+		if looksCommunityQuery(req.Query) && pred == PredicateActivity {
+			preds = append(preds, PredicateAffiliation)
+		}
 	}
 	if !join && len(preds) > 0 {
 		if indexer, ok := s.store.(AtomIndexer); ok {
@@ -976,7 +979,7 @@ func hopUsefulForList(hopPred, listPred string) bool {
 	case PredicatePreference:
 		return hopPred == PredicateFamilyMember || hopPred == PredicateActivity
 	case PredicateActivity:
-		return hopPred == PredicateEvent || hopPred == PredicatePreference || hopPred == PredicateSkill
+		return hopPred == PredicateEvent || hopPred == PredicatePreference || hopPred == PredicateSkill || hopPred == PredicateAffiliation
 	case PredicatePossession:
 		return hopPred == PredicateIdentity
 	case PredicateSkill:
@@ -1469,6 +1472,12 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	if toks := forClauseTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
+	if toks := inCommunityTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
+	if toks := duringClauseTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
 	return items
 }
 
@@ -1537,6 +1546,56 @@ func forClauseTokens(query string) []string {
 		return nil
 	}
 	return toks
+}
+
+// inCommunityTokens pulls a named group from "in the X community".
+// Unnamed "in the community" yields nothing so existing community lists stay intact.
+func inCommunityTokens(query string) []string {
+	lower := strings.ToLower(strings.TrimSpace(query))
+	lower = strings.TrimRight(lower, "?,.!")
+	if !strings.HasSuffix(lower, " community") {
+		return nil
+	}
+	i := strings.LastIndex(lower, " community")
+	if i < 0 {
+		return nil
+	}
+	prefix := lower[:i]
+	j := strings.LastIndex(prefix, " in ")
+	if j < 0 {
+		return nil
+	}
+	mid := strings.TrimSpace(prefix[j+len(" in "):])
+	toks := contentBearingTokens(tokenize(mid))
+	if len(toks) == 0 {
+		return nil
+	}
+	return toks
+}
+
+func duringClauseTokens(query string) []string {
+	if looksWhenEventQuery(query) || looksWhereQuery(query) {
+		return nil
+	}
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, " during ")
+	if i < 0 {
+		return nil
+	}
+	rest := strings.TrimSpace(query[i+len(" during "):])
+	toks := contentBearingTokens(tokenize(rest))
+	out := make([]string, 0, len(toks))
+	for _, t := range toks {
+		switch strings.ToLower(t) {
+		case "journey", "journeys", "time", "period", "life", "year", "years":
+			continue
+		}
+		out = append(out, t)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func whereAnswerFromHops(hops []HopResult) string {

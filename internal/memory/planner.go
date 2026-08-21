@@ -620,6 +620,11 @@ func looksUnwindQuery(query string) bool {
 	return strings.Contains(q, "do to") || strings.Contains(q, "unwind") || strings.Contains(q, "relax")
 }
 
+func looksCommunityQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "community") || strings.Contains(q, "participat")
+}
+
 func looksWhoQuery(query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	return strings.HasPrefix(q, "who ") || strings.Contains(q, " who ")

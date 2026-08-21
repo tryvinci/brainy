@@ -532,6 +532,39 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if !foundDualAct {
 		t.Fatalf("dual community must hop activity, hops=%+v", dualAct.Hops)
 	}
+	if toks := inCommunityTokens("Which community activities have Riley and Casey participated in?"); len(toks) != 0 {
+		t.Fatalf("dual community list is not a named in-the-X community, toks=%v", toks)
+	}
+
+	namedCom := PlanQuery("In what ways is Riley participating in the civic community?", nil)
+	foundNamedAct, foundNamedAff := false, false
+	namedEnts := map[string]bool{}
+	for _, hop := range namedCom.Hops {
+		if hop.Kind == "resolve_entity" {
+			namedEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateActivity {
+			foundNamedAct = true
+		}
+		if hop.Predicate == PredicateAffiliation {
+			foundNamedAff = true
+		}
+	}
+	if !namedEnts["riley"] {
+		t.Fatalf("named community must hop the person, hops=%+v", namedCom.Hops)
+	}
+	if !foundNamedAct {
+		t.Fatalf("named community must hop activity, hops=%+v", namedCom.Hops)
+	}
+	if !foundNamedAff {
+		t.Fatalf("named community must hop affiliation, hops=%+v", namedCom.Hops)
+	}
+	if toks := inCommunityTokens("In what ways is Riley participating in the civic community?"); len(toks) != 1 || toks[0] != "civic" {
+		t.Fatalf("expected civic community token, toks=%v", toks)
+	}
+	if toks := inCommunityTokens("In what ways is Riley participating in the community?"); len(toks) != 0 {
+		t.Fatalf("unnamed community must not filter, toks=%v", toks)
+	}
 
 	told := PlanQuery("Who did Evan tell about his marriage?", nil)
 	foundToldFam := false
@@ -567,6 +600,12 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	}
 	if !foundJourneyID {
 		t.Fatalf("journey changes must hop identity, hops=%+v", journey.Hops)
+	}
+	if toks := duringClauseTokens("What are some changes Riley has faced during her journey?"); len(toks) != 0 {
+		t.Fatalf("unnamed journey must not filter, toks=%v", toks)
+	}
+	if toks := duringClauseTokens("What are some changes Riley has faced during her recovery journey?"); len(toks) != 1 || toks[0] != "recovery" {
+		t.Fatalf("expected recovery during-token, toks=%v", toks)
 	}
 
 	pronoun := PlanQuery("What do they like?", nil)
