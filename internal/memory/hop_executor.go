@@ -522,7 +522,11 @@ func hopSlotValues(results []HopResult) []string {
 }
 
 func hopSharedSlotValues(results []HopResult) []string {
-	groups := map[string][]HopResult{}
+	return intersectHopValueGroups(results, hopSlotValues)
+}
+
+func hopFetchEntityCount(results []HopResult) int {
+	seen := map[string]struct{}{}
 	for _, r := range results {
 		switch r.Kind {
 		case "follow_relation", "fetch_predicate", "answer_slot":
@@ -530,19 +534,36 @@ func hopSharedSlotValues(results []HopResult) []string {
 			if ent == "" {
 				continue
 			}
+			seen[ent] = struct{}{}
+		}
+	}
+	return len(seen)
+}
+
+func intersectHopValueGroups(results []HopResult, valuesOf func([]HopResult) []string) []string {
+	groups := map[string][]HopResult{}
+	order := make([]string, 0, 2)
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			ent := strings.ToLower(strings.TrimSpace(r.Entity))
+			if ent == "" {
+				continue
+			}
+			if _, ok := groups[ent]; !ok {
+				order = append(order, ent)
+			}
 			groups[ent] = append(groups[ent], r)
 		}
 	}
-	if len(groups) < 2 {
+	if len(order) < 2 {
 		return nil
 	}
 	var inter []string
-	first := true
-	for _, hops := range groups {
-		vals := hopSlotValues(hops)
-		if first {
+	for i, ent := range order {
+		vals := valuesOf(groups[ent])
+		if i == 0 {
 			inter = append([]string(nil), vals...)
-			first = false
 			continue
 		}
 		allow := map[string]struct{}{}
@@ -560,11 +581,48 @@ func hopSharedSlotValues(results []HopResult) []string {
 	return inter
 }
 
-func composeFromHopValues(results []HopResult) string {
-	vals := hopSharedSlotValues(results)
-	if len(vals) == 0 {
-		vals = hopSlotValues(results)
+func hopContentSlotValues(results []HopResult) []string {
+	echo := map[string]struct{}{}
+	for _, h := range results {
+		if v := strings.ToLower(strings.TrimSpace(h.Entity)); v != "" {
+			echo[v] = struct{}{}
+		}
 	}
+	seen := map[string]struct{}{}
+	vals := make([]string, 0, 4)
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) || utf8Len(v) > 80 {
+			return
+		}
+		if _, ok := echo[strings.ToLower(v)]; ok {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		vals = append(vals, v)
+	}
+	for _, h := range results {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+			continue
+		}
+		for _, c := range h.Contents {
+			if extracted, ok := slotValueFromMemoryContent(c); ok {
+				add(extracted)
+			}
+		}
+	}
+	return vals
+}
+
+func hopSharedContentValues(results []HopResult) []string {
+	return intersectHopValueGroups(results, hopContentSlotValues)
+}
+
+func joinTitledHopValues(vals []string) string {
 	if len(vals) == 0 {
 		return ""
 	}
@@ -573,6 +631,17 @@ func composeFromHopValues(results []HopResult) string {
 		titled = append(titled, titleCaseWords(v))
 	}
 	return strings.Join(titled, ", ")
+}
+
+func composeFromHopValues(results []HopResult) string {
+	if hopFetchEntityCount(results) >= 2 {
+		vals := hopSharedSlotValues(results)
+		if len(vals) == 0 {
+			vals = hopSharedContentValues(results)
+		}
+		return joinTitledHopValues(vals)
+	}
+	return joinTitledHopValues(hopSlotValues(results))
 }
 
 func groundToHopValues(answer string, results []HopResult) string {

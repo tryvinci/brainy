@@ -276,40 +276,12 @@ func composeMultiHopAnswer(pkt EvidencePacket) string {
 }
 
 func composeFromHopContents(hops []HopResult) string {
-	echo := map[string]struct{}{}
-	for _, h := range hops {
-		if v := strings.ToLower(strings.TrimSpace(h.Entity)); v != "" {
-			echo[v] = struct{}{}
-		}
+	if hopFetchEntityCount(hops) >= 2 {
+		return joinTitledHopValues(hopSharedContentValues(hops))
 	}
-	seen := map[string]struct{}{}
-	vals := make([]string, 0, 4)
-	for _, h := range hops {
-		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
-			continue
-		}
-		for _, c := range h.Contents {
-			v := ""
-			if extracted, ok := slotValueFromMemoryContent(c); ok {
-				v = extracted
-			}
-			v = strings.TrimSpace(v)
-			if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) || utf8Len(v) > 80 {
-				continue
-			}
-			if _, ok := echo[strings.ToLower(v)]; ok {
-				continue
-			}
-			key := strings.ToLower(v)
-			if _, ok := seen[key]; ok {
-				continue
-			}
-			seen[key] = struct{}{}
-			vals = append(vals, v)
-			if len(vals) >= 4 {
-				return strings.Join(vals, ", ")
-			}
-		}
+	vals := hopContentSlotValues(hops)
+	if len(vals) > 4 {
+		vals = vals[:4]
 	}
 	if len(vals) == 0 {
 		return ""

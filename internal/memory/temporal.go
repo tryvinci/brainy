@@ -205,7 +205,9 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateEvent)
 		add(PredicateResidence)
 	case strings.Contains(lower, "own") || strings.Contains(lower, "possess") ||
-		(strings.Contains(lower, "how many") && (strings.Contains(lower, "have") || strings.Contains(lower, "has"))):
+		strings.Contains(lower, "bought") || strings.Contains(lower, "collectible") ||
+		(strings.Contains(lower, "items") && (strings.Contains(lower, "bought") || strings.Contains(lower, "made") || strings.Contains(lower, "have") || strings.Contains(lower, "has"))) ||
+		(strings.Contains(lower, "how many") && (strings.Contains(lower, "have") || strings.Contains(lower, "has") || strings.Contains(lower, "own"))):
 		add(PredicatePossession)
 	case strings.Contains(lower, "injur") || strings.Contains(lower, "health"):
 		add(PredicateHealth)

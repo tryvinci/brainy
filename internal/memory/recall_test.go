@@ -766,3 +766,50 @@ func TestRecallPreferenceHopUsesStructuredProof(t *testing.T) {
 		t.Fatalf("coverage should be satisfied when structured preference is in the packet, coverage=%v answer=%q", cov.Coverage, cov.Answer)
 	}
 }
+
+func TestRecallCoordinatedJoinWithoutBothCue(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["tim-jersey"] = MemoryRecord{
+		MemoryID: "mem_tj", TenantID: "t-mh-join", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim owns a jersey",
+		DedupeKey: "tj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "Tim"},
+	}
+	store.records["john-jersey"] = MemoryRecord{
+		MemoryID: "mem_jj", TenantID: "t-mh-join", SubjectID: "u1",
+		Kind: KindFact, Content: "John owns a jersey",
+		DedupeKey: "jj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "John"},
+	}
+	store.records["john-ball"] = MemoryRecord{
+		MemoryID: "mem_jb", TenantID: "t-mh-join", SubjectID: "u1",
+		Kind: KindFact, Content: "John owns a signed baseball",
+		DedupeKey: "jb", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "signed baseball", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "signed baseball", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "jersey", memID: "mem_tj"},
+		stubAtom{pred: PredicatePossession, val: "jersey", memID: "mem_jj"},
+		stubAtom{pred: PredicatePossession, val: "signed baseball", memID: "mem_jb"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-mh-join", SubjectID: "u1",
+		Query: "What similar collectible do Tim and John own?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "jersey") {
+		t.Fatalf("expected shared jersey, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "baseball") {
+		t.Fatalf("private possession leaked into join: %q", out.Answer)
+	}
+}

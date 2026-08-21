@@ -1002,9 +1002,10 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 	stripped := visibleTextBlockRE.ReplaceAllString(content, " ")
 	lower := strings.ToLower(stripped)
 	for _, sep := range []string{
-		" participates in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
+		" participates in ", " participated in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
+		" owns ", " owned ", " bought ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			if sep == " is " && (titleLikeCopula(content) || !identityCopulaSubject(stripped[:i])) {
@@ -1032,9 +1033,10 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 func hasSlotTemplate(v string) bool {
 	low := strings.ToLower(v)
 	for _, sep := range []string{
-		" participates in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
+		" participates in ", " participated in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
+		" owns ", " owned ", " bought ",
 	} {
 		if strings.Contains(low, sep) {
 			return true

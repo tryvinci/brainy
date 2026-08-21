@@ -118,6 +118,99 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 		t.Fatalf("expected preference hop for like-query, hops=%+v", like.Hops)
 	}
 
+	coord := PlanQuery("What similar collectible do Tim and John own?", nil)
+	coordEnts := map[string]bool{}
+	foundPoss := false
+	for _, hop := range coord.Hops {
+		if hop.Kind == "resolve_entity" {
+			coordEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicatePossession {
+			foundPoss = true
+		}
+	}
+	if !coordEnts["tim"] || !coordEnts["john"] {
+		t.Fatalf("coordinated names must both hop, hops=%+v", coord.Hops)
+	}
+	if coordEnts["collectible"] {
+		t.Fatalf("topic noun must not be a hop entity, hops=%+v", coord.Hops)
+	}
+	if !foundPoss {
+		t.Fatalf("expected possession hop for own-query, hops=%+v", coord.Hops)
+	}
+
+	bothAfter := PlanQuery("What do Nate and Joanna both like?", nil)
+	bothEnts := map[string]bool{}
+	for _, hop := range bothAfter.Hops {
+		if hop.Kind == "resolve_entity" {
+			bothEnts[strings.ToLower(hop.Entity)] = true
+		}
+	}
+	if !bothEnts["nate"] || !bothEnts["joanna"] {
+		t.Fatalf("both-after-names must hop both people, hops=%+v", bothAfter.Hops)
+	}
+
+	attrib := PlanQuery("What is Alex's occupation according to Dana?", nil)
+	attribEnts := map[string]bool{}
+	for _, hop := range attrib.Hops {
+		if hop.Kind == "resolve_entity" {
+			attribEnts[strings.ToLower(hop.Entity)] = true
+		}
+	}
+	if !attribEnts["alex"] {
+		t.Fatalf("expected alex hop, hops=%+v", attrib.Hops)
+	}
+	if attribEnts["dana"] {
+		t.Fatalf("attribution source must not be a join entity, hops=%+v", attrib.Hops)
+	}
+
+	withJoin := PlanQuery("What activities does Jordan enjoy with Casey?", nil)
+	withEnts := map[string]bool{}
+	for _, hop := range withJoin.Hops {
+		if hop.Kind == "resolve_entity" {
+			withEnts[strings.ToLower(hop.Entity)] = true
+		}
+	}
+	if !withEnts["jordan"] || !withEnts["casey"] {
+		t.Fatalf("with-person must hop both, hops=%+v", withJoin.Hops)
+	}
+
+	count := PlanQuery("How many cars does Calvin own?", nil)
+	countEnts := map[string]bool{}
+	for _, hop := range count.Hops {
+		if hop.Kind == "resolve_entity" {
+			countEnts[strings.ToLower(hop.Entity)] = true
+		}
+	}
+	if !countEnts["calvin"] {
+		t.Fatalf("count subject must hop the person, hops=%+v", count.Hops)
+	}
+
+	kin := PlanQuery("What were Alex's mother's hobbies?", nil)
+	foundFamily, foundActivity, relDep := false, false, false
+	for _, hop := range kin.Hops {
+		if hop.Kind == "follow_relation" && hop.Predicate == PredicateFamilyMember {
+			foundFamily = true
+			if len(hop.DependsOn) > 0 && hop.DependsOn[0] == "e1" {
+				relDep = true
+			}
+		}
+		if hop.Predicate == PredicateActivity && (hop.Kind == "fetch_predicate" || hop.Kind == "follow_relation") {
+			foundActivity = true
+			if len(hop.DependsOn) == 1 && hop.DependsOn[0] == "e_rel" {
+				relDep = relDep && true
+			} else {
+				t.Fatalf("activity fetch must depend on kinship dest, hop=%+v", hop)
+			}
+		}
+	}
+	if !foundFamily || !foundActivity {
+		t.Fatalf("expected kinship follow then activity, hops=%+v", kin.Hops)
+	}
+	if !relDep {
+		t.Fatalf("kinship hops must chain e1 → e_rel → ans, hops=%+v", kin.Hops)
+	}
+
 	pronoun := PlanQuery("What do they like?", nil)
 	for _, hop := range pronoun.Hops {
 		if hop.Kind == "resolve_entity" && strings.EqualFold(hop.Entity, "they") {

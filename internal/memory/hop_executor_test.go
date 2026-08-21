@@ -36,6 +36,36 @@ func TestComposeFromHopValuesIntersectsEntities(t *testing.T) {
 	}
 }
 
+func TestComposeFromHopValuesJoinDoesNotFallBackToUnion(t *testing.T) {
+	ans := composeFromHopValues([]HopResult{
+		{Kind: "fetch_predicate", Entity: "Nate", Value: "turtles", Values: []string{"turtles"}, Source: "typed_store"},
+		{Kind: "fetch_predicate", Entity: "Joanna", Value: "writing", Values: []string{"writing"}, Source: "typed_store"},
+	})
+	if strings.TrimSpace(ans) != "" {
+		t.Fatalf("disjoint join must not dump the union, got %q", ans)
+	}
+}
+
+func TestComposeFromHopContentsIntersectsEntities(t *testing.T) {
+	ans := composeFromHopContents([]HopResult{
+		{
+			Kind: "fetch_predicate", Entity: "Tim", Source: "search_fallback",
+			Contents: []string{"Tim owns a jersey.", "Tim owns a signed baseball."},
+		},
+		{
+			Kind: "fetch_predicate", Entity: "John", Source: "search_fallback",
+			Contents: []string{"John owns a jersey.", "John owns vintage posters."},
+		},
+	})
+	low := strings.ToLower(ans)
+	if !strings.Contains(low, "jersey") {
+		t.Fatalf("expected shared jersey, got %q", ans)
+	}
+	if strings.Contains(low, "baseball") || strings.Contains(low, "poster") {
+		t.Fatalf("union leaked into join contents: %q", ans)
+	}
+}
+
 func TestHopSlotValuesIgnoreSearchFallback(t *testing.T) {
 	vals := hopSlotValues([]HopResult{
 		{Kind: "fetch_predicate", Value: "watching pets play", Values: []string{"watching pets play"}, Source: "search_fallback"},
