@@ -194,7 +194,7 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateActivity)
 	case queryHasToken(query, "pet", "pets", "dog", "dogs"):
 		add(PredicatePossession)
-	case queryHasToken(query, "meal", "meals", "food") ||
+	case queryHasToken(query, "meal", "meals", "food", "snack", "snacks") ||
 		queryHasToken(query, "given", "gave", "give") || strings.Contains(lower, "suggest"):
 		add(PredicatePreference)
 		add(PredicateActivity)

@@ -443,7 +443,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["who_answer"] = true
 			}
 		}
-		blockSlotDump := looksLocationListQuery(req.Query)
+		blockSlotDump := looksLocationListQuery(req.Query) || looksPolarQuery(req.Query)
 		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop && hopComposeAllowed(req.Query) && !blockSlotDump {
 			if composed := composeMultiHopAnswer(pkt); composed != "" {
 				out.Answer = composed
@@ -552,7 +552,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedDate := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
 		lockedWhere := looksWhereQuery(req.Query) && out.Explain["where_answer"] == true
 		lockedList := enumerated && strings.TrimSpace(out.Answer) != "" && strings.TrimSpace(out.Answer) != "not in memory"
-		if hybrid.OK && !lockedDate && !lockedWhere && !lockedList {
+		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedList && !lockedPolar {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			if hopComposeAllowed(req.Query) {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
@@ -567,7 +568,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedList {
+		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedList && !lockedPolar {
 			if hopComposeAllowed(req.Query) {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
@@ -1017,9 +1018,13 @@ func practiceObjectTokens(query string) []string {
 func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallRequest, hops []HopResult, items []RecallItem) []RecallItem {
 	seen := map[string]RecallItem{}
 	order := make([]string, 0)
+	focus := practiceObjectTokens(req.Query)
 	add := func(p, id string) {
 		p = strings.TrimSpace(p)
 		if p == "" || anaphoricSlotValue(p) || !validEnumeratedValue(p) {
+			return
+		}
+		if placeEqualsAny(p, focus) {
 			return
 		}
 		key := strings.ToLower(p)
@@ -1039,7 +1044,6 @@ func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallReque
 		}
 		order = append(order, key)
 	}
-	focus := practiceObjectTokens(req.Query)
 	addFrom := func(blob, id string, requireFocus bool) {
 		if strings.TrimSpace(blob) == "" {
 			return
@@ -1763,6 +1767,9 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	if toks := listHeadModifierTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
+	if toks := negatedModifierTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByNegatedModifier(ctx, req, items, hops, toks)
+	}
 	if toks := practiceObjectTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
@@ -1936,6 +1943,103 @@ func listHeadModifierTokens(query string) []string {
 	return nil
 }
 
+// negatedModifierTokens returns un- adjectives in the query (unhealthy →
+// drop items whose evidence has the positive form only). Not a food list.
+func negatedModifierTokens(query string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 1)
+	add := func(t string) {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if unNegationPositive(t) == "" {
+			return
+		}
+		if _, ok := seen[t]; ok {
+			return
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	for _, t := range listHeadModifierTokens(query) {
+		add(t)
+	}
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		add(t)
+	}
+	return out
+}
+
+func unNegationPositive(tok string) string {
+	tok = strings.ToLower(strings.TrimSpace(tok))
+	if !strings.HasPrefix(tok, "un") || len(tok) < 6 {
+		return ""
+	}
+	switch tok {
+	case "unless", "until", "under", "unique", "university", "understand",
+		"unknown", "union", "united", "unusual", "uniform", "universe",
+		"uncle", "uncover", "unfold", "undo", "unit", "units":
+		return ""
+	}
+	rest := tok[2:]
+	if len(rest) < 4 {
+		return ""
+	}
+	for _, r := range rest {
+		if r < 'a' || r > 'z' {
+			return ""
+		}
+	}
+	return rest
+}
+
+func itemContradictsNegation(blob, unTok string) bool {
+	pos := unNegationPositive(unTok)
+	if pos == "" {
+		return false
+	}
+	hasUn := itemHitsExclusion(blob, []string{unTok})
+	hasPos := itemHitsExclusion(blob, polarityPositiveForms(pos))
+	return hasPos && !hasUn
+}
+
+func polarityPositiveForms(pos string) []string {
+	pos = strings.ToLower(strings.TrimSpace(pos))
+	if pos == "" {
+		return nil
+	}
+	out := []string{pos}
+	if strings.HasSuffix(pos, "y") && len(pos) > 4 {
+		stem := pos[:len(pos)-1] + "i"
+		out = append(out, stem+"er", stem+"est")
+	} else {
+		out = append(out, pos+"er", pos+"est")
+	}
+	return out
+}
+
+func (s *Service) filterItemsByNegatedModifier(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult, toks []string) []RecallItem {
+	if len(toks) == 0 || len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		blob := it.Value + " " + s.itemEvidenceBlob(ctx, req, it, hops)
+		drop := false
+		for _, t := range toks {
+			if itemContradictsNegation(blob, t) {
+				drop = true
+				break
+			}
+		}
+		if !drop {
+			out = append(out, it)
+		}
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
+}
+
 func whereAnswerFromHops(hops []HopResult) string {
 	seen := map[string]struct{}{}
 	places := make([]string, 0, 2)
@@ -1982,6 +2086,7 @@ func placeFromContent(content string) string {
 
 func placesFromContent(content string) []string {
 	content = strings.TrimSpace(stripTrailingStamp(content))
+	content = strings.ReplaceAll(content, "`", "'")
 	if content == "" {
 		return nil
 	}
@@ -2000,7 +2105,7 @@ func placesFromContent(content string) []string {
 		seen[key] = struct{}{}
 		out = append(out, p)
 	}
-	for _, prep := range []string{" in ", " at ", " near ", " around "} {
+	for _, prep := range []string{" in ", " at ", " near ", " around ", " on "} {
 		start := 0
 		for {
 			i := strings.Index(lower[start:], prep)
@@ -2008,7 +2113,12 @@ func placesFromContent(content string) []string {
 				break
 			}
 			i += start
-			for _, part := range splitPlaceList(content[i+len(prep):]) {
+			rest := content[i+len(prep):]
+			if placePrepRestIsDate(rest) {
+				start = i + len(prep)
+				continue
+			}
+			for _, part := range splitPlaceList(rest) {
 				if cand := cleanPlaceCandidate(part); cand != "" {
 					add(cand)
 				}
@@ -2048,7 +2158,7 @@ func splitPlaceList(s string) []string {
 }
 
 func cleanPlaceCandidate(s string) string {
-	s = strings.TrimSpace(s)
+	s = strings.TrimSpace(strings.ReplaceAll(s, "`", "'"))
 	if s == "" {
 		return ""
 	}
@@ -2076,15 +2186,22 @@ func cleanPlaceCandidate(s string) string {
 	case "order", "common", "fact", "addition":
 		return ""
 	}
+	if looksPlaceDateToken(first) {
+		return ""
+	}
 	stopAt := map[string]struct{}{
 		"last": {}, "during": {}, "when": {}, "after": {}, "before": {},
 		"because": {}, "with": {}, "while": {}, "where": {}, "and": {},
 		"which": {}, "that": {}, "who": {}, "whose": {}, "whom": {},
+		"in": {}, "at": {}, "on": {}, "near": {}, "around": {},
 	}
 	keep := make([]string, 0, 4)
 	for i, f := range fields {
 		w := strings.ToLower(strings.Trim(f, ",'\"'"))
 		if _, ok := stopAt[w]; ok && i > 0 {
+			break
+		}
+		if i > 0 && looksHopPerson(f) && i+1 < len(fields) && looksPlaceClauseVerb(fields[i+1]) {
 			break
 		}
 		keep = append(keep, strings.Trim(f, ",'\"'"))
@@ -2106,6 +2223,57 @@ func cleanPlaceCandidate(s string) string {
 		return ""
 	}
 	return out
+}
+
+func placePrepRestIsDate(s string) bool {
+	fields := strings.Fields(strings.TrimSpace(s))
+	if len(fields) == 0 {
+		return false
+	}
+	return looksPlaceDateToken(fields[0])
+}
+
+func looksPlaceDateToken(w string) bool {
+	w = strings.ToLower(strings.Trim(w, ",.'\"'"))
+	if w == "" {
+		return false
+	}
+	r := []rune(w)
+	if r[0] >= '0' && r[0] <= '9' {
+		return true
+	}
+	switch w {
+	case "january", "february", "march", "april", "may", "june", "july",
+		"august", "september", "october", "november", "december",
+		"jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept",
+		"oct", "nov", "dec",
+		"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday":
+		return true
+	}
+	return false
+}
+
+func looksPlaceClauseVerb(w string) bool {
+	switch strings.ToLower(strings.Trim(w, ",.'\"'")) {
+	case "met", "meets", "meet", "went", "goes", "go", "did", "does", "do",
+		"was", "were", "is", "are", "attended", "attends", "visited", "visits",
+		"saw", "sees", "told", "said", "practices", "practice", "tried":
+		return true
+	}
+	return false
+}
+
+func placeEqualsAny(place string, toks []string) bool {
+	p := strings.ToLower(strings.TrimSpace(place))
+	if p == "" {
+		return false
+	}
+	for _, t := range toks {
+		if p == strings.ToLower(strings.TrimSpace(t)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) filterChildCountItems(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {

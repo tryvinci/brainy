@@ -1144,7 +1144,8 @@ func looksListQuery(tokens []string) bool {
 			"kids", "children", "likes", "identity", "research", "researched",
 			"names", "instruments", "instrument", "items", "locations",
 			"pets", "dogs", "tricks", "events", "event", "meals", "meal",
-			"suggestions", "suggestion", "food", "community", "changes", "change",
+			"suggestions", "suggestion", "food", "snacks", "snack",
+			"community", "changes", "change",
 			"journey", "participating", "participate":
 			return true
 		}
@@ -1171,7 +1172,7 @@ func predicateFromListQuery(tokens []string) string {
 			return PredicateActivity
 		case "events", "event":
 			return PredicateEvent
-		case "meals", "meal", "suggestions", "suggestion", "food":
+		case "meals", "meal", "suggestions", "suggestion", "food", "snacks", "snack":
 			return PredicatePreference
 		case "community", "participating", "participate":
 			return PredicateActivity

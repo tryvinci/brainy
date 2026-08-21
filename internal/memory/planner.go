@@ -566,6 +566,9 @@ func hopComposeAllowed(query string) bool {
 	if looksLocationListQuery(query) {
 		return false
 	}
+	if looksPolarQuery(query) {
+		return false
+	}
 	return true
 }
 

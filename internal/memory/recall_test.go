@@ -1086,6 +1086,12 @@ func TestRecallPolarDoesNotYesFromUnrelatedHobby(t *testing.T) {
 	if strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
 		t.Fatalf("unrelated hobby must not prove polar yes: %q", out.Answer)
 	}
+	got := strings.ToLower(out.Answer)
+	for _, bad := range []string{"hiking", "beach", "relaxing", "escaping"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("polar miss must not dump activities: %q", out.Answer)
+		}
+	}
 }
 
 func TestRecallPracticeLocationListDoesNotDumpOccupation(t *testing.T) {
@@ -1231,6 +1237,88 @@ func TestRecallPracticeLocationIgnoresUnrelatedActivityDump(t *testing.T) {
 	}
 }
 
+func TestRecallPracticeLocationOnPrepAndNestedClause(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, val, content string
+	}{
+		{"beach", "yoga", "Riley does yoga on the beach."},
+		{"nested", "yoga", "Riley met Alex at yoga in the park."},
+		{"clause", "yoga", "Riley met Alex at the park Deborah met Jolene."},
+		{"near", "yoga", "The yoga retreat Riley attended was near her mother`s old cottage."},
+		{"hike", "hiking", "Riley goes hiking at the canyon"},
+		{"relx", "relaxing", "Riley enjoys relaxing"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-locon", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-locon", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "beach") || !strings.Contains(got, "park") || !strings.Contains(got, "cottage") {
+		t.Fatalf("expected on-prep / nested / near places, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	for _, bad := range []string{"yoga in the park", "deborah", "jolene", "canyon", "relaxing"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("nested practice object or person clause leaked: %q", out.Answer)
+		}
+	}
+}
+
+func TestPlacesFromContentOnPrepNestedPersonAndDate(t *testing.T) {
+	onBeach := placesFromContent("Riley does yoga on the beach in Bali")
+	joined := strings.ToLower(strings.Join(onBeach, " | "))
+	if !strings.Contains(joined, "beach") {
+		t.Fatalf("expected beach from on-prep, got %v", onBeach)
+	}
+	if strings.Contains(joined, "yoga") {
+		t.Fatalf("practice object leaked as place: %v", onBeach)
+	}
+	nested := placesFromContent("Riley met Alex at yoga in the park")
+	njoin := strings.ToLower(strings.Join(nested, " | "))
+	if strings.Contains(njoin, "yoga in") {
+		t.Fatalf("nested in must cut practice object phrase: %v", nested)
+	}
+	clause := placesFromContent("Riley met Alex at the park Deborah met Jolene")
+	cjoin := strings.ToLower(strings.Join(clause, " | "))
+	if !strings.Contains(cjoin, "park") {
+		t.Fatalf("expected park, got %v", clause)
+	}
+	if strings.Contains(cjoin, "deborah") || strings.Contains(cjoin, "jolene") {
+		t.Fatalf("person clause leaked into place: %v", clause)
+	}
+	dated := placesFromContent("Riley started on 8 September 2023")
+	for _, p := range dated {
+		if looksPlaceDateToken(strings.Fields(p)[0]) {
+			t.Fatalf("date tail must not be a place: %v", dated)
+		}
+	}
+	btick := placesFromContent("The retreat was near her mother`s old cottage")
+	bjoin := strings.ToLower(strings.Join(btick, " | "))
+	if !strings.Contains(bjoin, "cottage") {
+		t.Fatalf("expected backtick mother cottage, got %v", btick)
+	}
+}
+
 func TestPlacesFromContentStopsRelativeClauseAndGerund(t *testing.T) {
 	got := placesFromContent("Riley practices yoga at a cottage that blooms each spring")
 	joined := strings.ToLower(strings.Join(got, " | "))
@@ -1244,6 +1332,52 @@ func TestPlacesFromContentStopsRelativeClauseAndGerund(t *testing.T) {
 	for _, p := range gerund {
 		if strings.EqualFold(strings.TrimSpace(p), "relaxing") {
 			t.Fatalf("lone gerund must not be a place: %v", gerund)
+		}
+	}
+}
+
+func TestRecallUnhealthyListDropsPositiveSlogans(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"soda", PredicatePreference, "soda", "Riley continues to enjoy soda and candy."},
+		{"candy", PredicatePreference, "candy", "Riley continues to enjoy soda and candy."},
+		{"hs", PredicateActivity, "healthy snacks", "Riley is starting a new campaign called Healthy Snacks"},
+		{"hsi", PredicateActivity, "healthier snack ideas", "Riley posted Healthier Snack Ideas"},
+		{"god", PredicateMediaConsumed, "the godfather", "Riley watched The Godfather"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-unh", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-unh", SubjectID: "u1",
+		Query: "What kind of unhealthy snacks does Riley enjoy eating?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "soda") || !strings.Contains(got, "candy") {
+		t.Fatalf("expected soda and candy, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	for _, bad := range []string{"healthy snacks", "healthier snack", "godfather"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("positive slogan crowded un- list: %q", out.Answer)
 		}
 	}
 }

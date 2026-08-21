@@ -475,6 +475,12 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if toks := listHeadModifierTokens("What unhealthy snacks does Casey avoid?"); len(toks) != 1 || toks[0] != "unhealthy" {
 		t.Fatalf("expected unhealthy snack modifier, toks=%v", toks)
 	}
+	if toks := negatedModifierTokens("What kind of unhealthy snacks does Casey enjoy eating?"); len(toks) != 1 || toks[0] != "unhealthy" {
+		t.Fatalf("expected un- modifier, toks=%v", toks)
+	}
+	if !looksListQuery(tokenize("What kind of unhealthy snacks does Casey enjoy eating?")) {
+		t.Fatal("snack lists must enumerate")
+	}
 	if toks := listHeadModifierTokens("What activities does Riley enjoy?"); len(toks) != 0 {
 		t.Fatalf("bare activities must not take a modifier, toks=%v", toks)
 	}
@@ -489,6 +495,9 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	}
 	if hopComposeAllowed("Which locations does Riley practice her yoga at?") {
 		t.Fatal("location lists must not dump hop values")
+	}
+	if hopComposeAllowed("Has Riley tried surfing?") {
+		t.Fatal("polar queries must not dump hop values")
 	}
 	if toks := practiceObjectTokens("Which locations does Riley practice her yoga at?"); len(toks) != 1 || toks[0] != "yoga" {
 		t.Fatalf("expected yoga practice object, toks=%v", toks)
