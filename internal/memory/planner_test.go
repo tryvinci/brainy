@@ -211,6 +211,72 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 		t.Fatalf("kinship hops must chain e1 → e_rel → ans, hops=%+v", kin.Hops)
 	}
 
+	pets := PlanQuery("What are Riley's dogs' names?", nil)
+	if !pets.NeedsEnumeration {
+		t.Fatalf("expected enumeration for names list, intents=%v", pets.Intents)
+	}
+	petEnts := map[string]bool{}
+	foundPossPets := false
+	for _, hop := range pets.Hops {
+		if hop.Kind == "resolve_entity" {
+			petEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicatePossession {
+			foundPossPets = true
+		}
+	}
+	if !petEnts["riley"] {
+		t.Fatalf("expected riley hop, hops=%+v", pets.Hops)
+	}
+	if petEnts["dogs"] || petEnts["names"] {
+		t.Fatalf("slot nouns must not hop as entities, hops=%+v", pets.Hops)
+	}
+	if !foundPossPets {
+		t.Fatalf("expected possession hop for dogs' names, hops=%+v", pets.Hops)
+	}
+
+	inst := PlanQuery("What instruments does Jordan play?", nil)
+	instEnts := map[string]bool{}
+	foundSkill := false
+	for _, hop := range inst.Hops {
+		if hop.Kind == "resolve_entity" {
+			instEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateSkill {
+			foundSkill = true
+		}
+	}
+	if !instEnts["jordan"] {
+		t.Fatalf("expected jordan hop, hops=%+v", inst.Hops)
+	}
+	if instEnts["instruments"] {
+		t.Fatalf("instrument slot must not hop as entity, hops=%+v", inst.Hops)
+	}
+	if !foundSkill {
+		t.Fatalf("expected skill hop for instruments, hops=%+v", inst.Hops)
+	}
+
+	tricks := PlanQuery("What kind of tricks do James's pets know?", nil)
+	trickEnts := map[string]bool{}
+	foundTrickSkill := false
+	for _, hop := range tricks.Hops {
+		if hop.Kind == "resolve_entity" {
+			trickEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateSkill {
+			foundTrickSkill = true
+		}
+	}
+	if !trickEnts["james"] {
+		t.Fatalf("expected james hop, hops=%+v", tricks.Hops)
+	}
+	if trickEnts["pets"] || trickEnts["tricks"] {
+		t.Fatalf("slot nouns must not hop as entities, hops=%+v", tricks.Hops)
+	}
+	if !foundTrickSkill {
+		t.Fatalf("expected skill hop for pets' tricks, hops=%+v", tricks.Hops)
+	}
+
 	pronoun := PlanQuery("What do they like?", nil)
 	for _, hop := range pronoun.Hops {
 		if hop.Kind == "resolve_entity" && strings.EqualFold(hop.Entity, "they") {

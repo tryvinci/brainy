@@ -690,7 +690,12 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	}
 	seen := map[string]RecallItem{}
 	order := make([]string, 0)
-	entity := hopEntityName(nameLikeTokens(contentBearingTokens(tokens)))
+	entity := ""
+	if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+		entity = ents[0]
+	} else {
+		entity = hopEntityName(nameLikeTokens(contentBearingTokens(tokens)))
+	}
 
 	add := func(value, predicate, memoryID, observed string) {
 		v := strings.TrimSpace(value)
@@ -724,7 +729,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	}
 
 	for _, h := range hops {
-		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
 			continue
 		}
 		if !hopUsefulForList(h.Predicate, pred) {
@@ -757,6 +762,10 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			preds = append(preds, PredicatePreference)
 		case PredicateOccupation:
 			preds = append(preds, PredicateIdentity)
+		case PredicatePossession:
+			preds = append(preds, PredicateIdentity)
+		case PredicateSkill:
+			preds = append(preds, PredicateActivity)
 		}
 	}
 	if len(preds) > 0 {
@@ -860,7 +869,11 @@ func hopUsefulForList(hopPred, listPred string) bool {
 	case PredicatePreference:
 		return hopPred == PredicateFamilyMember || hopPred == PredicateActivity
 	case PredicateActivity:
-		return hopPred == PredicateEvent || hopPred == PredicatePreference
+		return hopPred == PredicateEvent || hopPred == PredicatePreference || hopPred == PredicateSkill
+	case PredicatePossession:
+		return hopPred == PredicateIdentity
+	case PredicateSkill:
+		return hopPred == PredicateActivity
 	}
 	return false
 }
@@ -1005,7 +1018,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		" participates in ", " participated in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
-		" owns ", " owned ", " bought ",
+		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			if sep == " is " && (titleLikeCopula(content) || !identityCopulaSubject(stripped[:i])) {
@@ -1036,7 +1049,7 @@ func hasSlotTemplate(v string) bool {
 		" participates in ", " participated in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
-		" owns ", " owned ", " bought ",
+		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
 	} {
 		if strings.Contains(low, sep) {
 			return true

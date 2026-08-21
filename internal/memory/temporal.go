@@ -173,8 +173,15 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateIdentity)
 		add(PredicateEducation)
 		add(PredicatePlan)
-	case strings.Contains(lower, "married") || strings.Contains(lower, "relationship") || strings.Contains(lower, "partner") || strings.Contains(lower, "single"):
+	case strings.Contains(lower, "married") || strings.Contains(lower, "relationship") ||
+		(strings.Contains(lower, "partner") && !queryHasToken(query, "dogs", "dog", "pets", "pet")) ||
+		strings.Contains(lower, "single"):
 		add(PredicateRelationshipStatus)
+	case queryHasToken(query, "trick", "tricks", "instrument", "instruments"):
+		add(PredicateSkill)
+		add(PredicateActivity)
+	case queryHasToken(query, "pet", "pets", "dog", "dogs"):
+		add(PredicatePossession)
 	case strings.Contains(lower, "name") || strings.Contains(lower, "who is") || strings.Contains(lower, "identity"):
 		add(PredicateIdentity)
 	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop") || strings.Contains(lower, "do to"):
@@ -220,4 +227,19 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateIdentity)
 	}
 	return out
+}
+
+func queryHasToken(query string, want ...string) bool {
+	set := map[string]struct{}{}
+	for _, w := range want {
+		set[strings.ToLower(w)] = struct{}{}
+	}
+	for _, t := range tokenize(query) {
+		t = strings.Trim(t, "'\"")
+		t = strings.TrimSuffix(t, "'s")
+		if _, ok := set[t]; ok {
+			return true
+		}
+	}
+	return false
 }

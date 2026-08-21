@@ -501,6 +501,9 @@ var hopEntityStop = map[string]struct{}{
 	"they": {}, "them": {}, "their": {}, "theirs": {},
 	"partner": {}, "mother": {}, "father": {}, "family": {},
 	"collectible": {}, "collectibles": {},
+	"dogs": {}, "dog": {}, "pets": {}, "pet": {}, "names": {}, "name": {},
+	"instruments": {}, "instrument": {}, "items": {}, "item": {},
+	"locations": {}, "location": {}, "tricks": {}, "trick": {},
 }
 
 func relationFollowPredicate(pred string) bool {
