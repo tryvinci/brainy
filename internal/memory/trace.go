@@ -86,7 +86,7 @@ func AnalyzeQueryIntents(query string) []string {
 	}
 	if looksCountQuery(query) {
 		add(IntentAggregation)
-	} else if looksListQuery(tokens) {
+	} else if looksListQuery(tokens) || looksUnwindQuery(query) || looksSuperlativeQuery(query) {
 		add(IntentEnumeration)
 	}
 	if looksPolarQuery(query) || looksMultiHopQuery(tokens) {

@@ -319,6 +319,66 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 		t.Fatalf("expected skill hop for pets' tricks, hops=%+v", tricks.Hops)
 	}
 
+	unwind := PlanQuery("What does Riley do to unwind?", nil)
+	if !unwind.NeedsEnumeration {
+		t.Fatalf("expected enumeration for do-to unwind, intents=%v", unwind.Intents)
+	}
+	foundUnwindAct := false
+	for _, hop := range unwind.Hops {
+		if hop.Predicate == PredicateActivity {
+			foundUnwindAct = true
+		}
+	}
+	if !foundUnwindAct {
+		t.Fatalf("expected activity hop for unwind, hops=%+v", unwind.Hops)
+	}
+
+	visit := PlanQuery("which country has Tim visited most frequently in his travels?", nil)
+	foundVisitAct := false
+	for _, hop := range visit.Hops {
+		if hop.Predicate == PredicateActivity {
+			foundVisitAct = true
+		}
+	}
+	if !foundVisitAct {
+		t.Fatalf("visited country must hop activity not origin-first, hops=%+v", visit.Hops)
+	}
+	if !visit.NeedsEnumeration {
+		t.Fatalf("superlative must enumerate, intents=%v", visit.Intents)
+	}
+
+	who := PlanQuery("Who supports Calvin in tough times?", nil)
+	foundFam := false
+	whoEnts := map[string]bool{}
+	for _, hop := range who.Hops {
+		if hop.Kind == "resolve_entity" {
+			whoEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateFamilyMember {
+			foundFam = true
+		}
+	}
+	if !whoEnts["calvin"] {
+		t.Fatalf("expected calvin hop, hops=%+v", who.Hops)
+	}
+	if !foundFam {
+		t.Fatalf("who-supports must hop family, hops=%+v", who.Hops)
+	}
+
+	childItems := PlanQuery("What items does John mention having as a child?", nil)
+	foundChildPoss := false
+	for _, hop := range childItems.Hops {
+		if hop.Predicate == PredicatePossession {
+			foundChildPoss = true
+		}
+		if hop.Predicate == PredicateFamilyMember {
+			t.Fatalf("childhood items must not hop family, hops=%+v", childItems.Hops)
+		}
+	}
+	if !foundChildPoss {
+		t.Fatalf("expected possession hop for childhood items, hops=%+v", childItems.Hops)
+	}
+
 	pronoun := PlanQuery("What do they like?", nil)
 	for _, hop := range pronoun.Hops {
 		if hop.Kind == "resolve_entity" && strings.EqualFold(hop.Entity, "they") {

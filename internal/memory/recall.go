@@ -351,16 +351,23 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	case "answer":
 		out.ContextBlock = assembleContextFromPacket(pkt, budget)
-		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) {
+		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) {
 			enumerated = true
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
+			items = filterBesides(req.Query, items)
 			out.Items = items
 			if len(items) > 0 {
-				vals := make([]string, 0, len(items))
-				for _, it := range items {
-					vals = append(vals, it.Value)
+				if looksSuperlativeQuery(req.Query) {
+					if v := superlativeAnswer(items); v != "" {
+						out.Answer = v
+					}
+				} else {
+					vals := make([]string, 0, len(items))
+					for _, it := range items {
+						vals = append(vals, it.Value)
+					}
+					out.Answer = strings.Join(vals, ", ")
 				}
-				out.Answer = strings.Join(vals, ", ")
 				out.AnswerStatus = AnswerSupported
 				if plan.NeedsMultiHop && !packetOK {
 					out.AnswerStatus = AnswerPartiallySupported
@@ -388,6 +395,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
 				out.Explain["polar_answer"] = true
+			}
+		}
+		if strings.TrimSpace(out.Answer) == "" && looksWhoQuery(req.Query) {
+			if ans := whoAnswerFromHops(req.Query, hopResults); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["who_answer"] = true
 			}
 		}
 		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop {
@@ -895,6 +909,10 @@ func hopUsefulForList(hopPred, listPred string) bool {
 		return hopPred == PredicateActivity
 	case PredicateHealth:
 		return hopPred == PredicateEvent
+	case PredicateEvent:
+		return hopPred == PredicatePlan || hopPred == PredicateActivity
+	case PredicatePlan:
+		return hopPred == PredicateEvent
 	}
 	return false
 }
@@ -1031,6 +1049,159 @@ func polarAnswerFromHops(query string, hops []HopResult) string {
 		}
 	}
 	return ""
+}
+
+func filterBesides(query string, items []RecallItem) []RecallItem {
+	excl := besidesExclusionTokens(query)
+	if len(excl) == 0 || len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		if itemHitsExclusion(it.Value, excl) {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+func besidesExclusionTokens(query string) []string {
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, " besides ")
+	if i < 0 {
+		i = strings.Index(lower, " besides")
+	}
+	if i < 0 {
+		return nil
+	}
+	rest := query
+	if i+len(" besides ") <= len(query) && strings.HasPrefix(lower[i:], " besides ") {
+		rest = query[i+len(" besides "):]
+	} else if i+len(" besides") <= len(query) {
+		rest = strings.TrimSpace(query[i+len(" besides"):])
+	}
+	return contentBearingTokens(tokenize(rest))
+}
+
+func itemHitsExclusion(value string, excl []string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return false
+	}
+	vtoks := tokenize(value)
+	vstems := map[string]struct{}{exclusionStem(v): {}}
+	for _, vt := range vtoks {
+		vstems[exclusionStem(vt)] = struct{}{}
+		vstems[vt] = struct{}{}
+	}
+	for _, t := range excl {
+		if len(t) < 4 {
+			continue
+		}
+		if strings.Contains(v, t) || strings.HasPrefix(v, t) {
+			return true
+		}
+		if _, ok := vstems[exclusionStem(t)]; ok && exclusionStem(t) != "" {
+			return true
+		}
+		for _, vt := range vtoks {
+			if tokensMatch(t, vt) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func exclusionStem(t string) string {
+	t = strings.ToLower(strings.TrimSpace(t))
+	for _, suf := range []string{"ingly", "ing", "edly", "ed", "es"} {
+		if strings.HasSuffix(t, suf) && len(t)-len(suf) >= 3 {
+			t = t[:len(t)-len(suf)]
+			break
+		}
+	}
+	if strings.HasSuffix(t, "e") && len(t) > 3 {
+		t = t[:len(t)-1]
+	}
+	if strings.HasSuffix(t, "s") && len(t) > 4 {
+		t = t[:len(t)-1]
+	}
+	return t
+}
+
+func superlativeAnswer(items []RecallItem) string {
+	if len(items) == 0 {
+		return ""
+	}
+	best := items[0]
+	bestN := len(items[0].Evidence)
+	if bestN == 0 {
+		bestN = 1
+	}
+	for _, it := range items[1:] {
+		n := len(it.Evidence)
+		if n == 0 {
+			n = 1
+		}
+		if n > bestN {
+			best = it
+			bestN = n
+		}
+	}
+	return best.Value
+}
+
+func whoAnswerFromHops(query string, hops []HopResult) string {
+	skip := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		skip[strings.ToLower(e)] = struct{}{}
+	}
+	if len(skip) == 0 {
+		return ""
+	}
+	seen := map[string]struct{}{}
+	names := make([]string, 0, 4)
+	add := func(n string) {
+		n = strings.TrimSpace(n)
+		if n == "" {
+			return
+		}
+		if i := strings.IndexAny(n, " ,."); i > 0 {
+			n = strings.TrimSpace(n[:i])
+		}
+		if !looksHopPerson(n) {
+			return
+		}
+		key := strings.ToLower(n)
+		if _, ok := skip[key]; ok {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		names = append(names, n)
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for _, v := range h.Values {
+			add(v)
+		}
+		add(h.Value)
+		for _, c := range h.Contents {
+			for _, w := range strings.Fields(c) {
+				add(strings.Trim(w, "?,.!'\"()"))
+			}
+		}
+	}
+	if len(names) == 0 {
+		return ""
+	}
+	return strings.Join(names, ", ")
 }
 
 func memoryMentionsEntity(rec MemoryRecord, entity string) bool {
@@ -1175,6 +1346,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
 		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
 		" tried ", " injured ", " practices ", " practiced ",
+		" supports ", " told ", " visited ", " given ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			if sep == " is " && (titleLikeCopula(content) || !identityCopulaSubject(stripped[:i])) {
@@ -1188,6 +1360,11 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 			if sep == " has done " || sep == " practices " || sep == " practiced " {
 				if _, place, ok := strings.Cut(v, " at "); ok {
 					v = strings.TrimSpace(place)
+				}
+			}
+			if sep == " told " || sep == " given " {
+				if head, _, ok := strings.Cut(v, " about "); ok {
+					v = strings.TrimSpace(head)
 				}
 			}
 			if strings.TrimSpace(v) == "" {
@@ -1207,6 +1384,7 @@ func hasSlotTemplate(v string) bool {
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
 		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
 		" tried ", " injured ", " practices ", " practiced ",
+		" supports ", " told ", " visited ", " given ",
 	} {
 		if strings.Contains(low, sep) {
 			return true

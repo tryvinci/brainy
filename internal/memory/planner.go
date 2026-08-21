@@ -504,6 +504,9 @@ var hopEntityStop = map[string]struct{}{
 	"dogs": {}, "dog": {}, "pets": {}, "pet": {}, "names": {}, "name": {},
 	"instruments": {}, "instrument": {}, "items": {}, "item": {},
 	"locations": {}, "location": {}, "tricks": {}, "trick": {},
+	"events": {}, "event": {}, "stressor": {}, "stressors": {},
+	"organizations": {}, "organization": {}, "colleagues": {},
+	"travels": {}, "travel": {},
 }
 
 func relationFollowPredicate(pred string) bool {
@@ -551,6 +554,23 @@ func looksPolarQuery(query string) bool {
 		}
 	}
 	return false
+}
+
+func looksUnwindQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "do to") || strings.Contains(q, "unwind") || strings.Contains(q, "relax")
+}
+
+func looksWhoQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	return strings.HasPrefix(q, "who ") || strings.Contains(q, " who ")
+}
+
+func looksSuperlativeQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "most frequently") || strings.Contains(q, "most often") ||
+		strings.Contains(q, "the biggest") || strings.Contains(q, "biggest") ||
+		strings.Contains(q, "most common")
 }
 
 func firstNonEmpty(vals ...string) string {

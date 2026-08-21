@@ -1140,10 +1140,10 @@ func looksListQuery(tokens []string) bool {
 		token = strings.TrimSuffix(token, "'s")
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "books", "book",
-			"places", "place", "stress", "camping", "camped",
+			"places", "place", "stress", "stressor", "stressors", "camping", "camped",
 			"kids", "children", "likes", "identity", "research", "researched",
 			"names", "instruments", "instrument", "items", "locations",
-			"pets", "dogs", "tricks":
+			"pets", "dogs", "tricks", "events", "event", "meals", "meal":
 			return true
 		}
 	}
@@ -1167,12 +1167,16 @@ func predicateFromListQuery(tokens []string) string {
 			return PredicateSkill
 		case "locations", "location":
 			return PredicateActivity
+		case "events", "event":
+			return PredicateEvent
+		case "meals", "meal":
+			return PredicatePreference
 		}
 	}
 	for _, token := range normed {
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "stress",
-			"camped", "camping", "places", "place":
+			"stressor", "stressors", "camped", "camping", "places", "place":
 			return PredicateActivity
 		case "books", "book", "read", "reading":
 			return PredicateMediaConsumed
