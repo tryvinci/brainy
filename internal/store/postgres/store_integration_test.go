@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"net"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -189,7 +190,13 @@ func fmtUint(value uint32) string {
 }
 
 func randomPort(offset uint32) uint32 {
-	return 45000 + uint32(time.Now().UTC().UnixNano()%5000) + offset
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 45000 + uint32(time.Now().UTC().UnixNano()%5000) + offset
+	}
+	port := uint32(ln.Addr().(*net.TCPAddr).Port)
+	_ = ln.Close()
+	return port
 }
 
 func TestApplyMigrationsSupportsFreshAndUpgradeFlows(t *testing.T) {
