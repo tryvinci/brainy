@@ -34,7 +34,7 @@ Live start + pins: [handover-sota-agent-2026-08-21.md](./handover-sota-agent-202
 | **LOCOMO full n=1540** | **175/1540 (11.4%)** product `/recall` — **dip** vs July search+harness **49.8%**; not vs Mem0 **92.5%** on the same path. [why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) |
 | **LongMemEval-20** | **4/20** product `/recall` (lift vs 0/20 integrity; not vs published 94.4%). LME-500 not run |
 | **BEAM 100K** | **8/20** search+harness (non-reg; 1M/10M not run) |
-| **Next** | Remasure MH-only 33 on integrity (`#135` list/count/polar proof). Then who/transfer/superlative residue. Do not merge #133. Do not re-queue R0–R10. [handover](./handover-sota-agent-2026-08-21.md) · [cycle-closeout](./competitive/cycle-closeout.md) |
+| **Next** | Remasure MH-only 33 on integrity (`#135` list/count/polar/who/superlative proof). Then temporal-MH / transfer residue. Do not merge #133. Do not re-queue R0–R10. [handover](./handover-sota-agent-2026-08-21.md) · [cycle-closeout](./competitive/cycle-closeout.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
 

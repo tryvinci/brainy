@@ -109,7 +109,7 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 
 | Increment | Plan name | Do now? |
 | --- | --- | --- |
-| S2 / S3 residue | Structured answer + hop proof | **In flight on #135.** Coordinated/`with`/kinship join, single-entity list (names/instruments/tricks/locations), how-many count, and polar Yes from typed hops are shipped. **Next: remasure MH 33** on `integrity-s0-1`. Then who/transfer/superlative/temporal-MH residue the remasure still misses. |
+| S2 / S3 residue | Structured answer + hop proof | **In flight on #135.** Coordinated/`with`/kinship join, list/count/polar, unwind, visit superlative, who-slots, besides exclusion, childhood possession are shipped. **Next: remasure MH 33** on `integrity-s0-1`. Then temporal-MH dates / transfer crowding the remasure still misses. |
 | S1 compiler | Provider-extract / named-subject mass | **No** until a fail-closed remasure says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
 | S4 LME | multi-session + KU | After LoCoMo proof moves. LME-20 4/20 is not the lever. |
@@ -118,7 +118,7 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 
 **Suggested first remasure:** MH-only 33 on `integrity-s0-1` with `--fail-closed --skip-ingest`. Attribute every new CORRECT. Do not invent a new 180 pin unless a full fail-closed S0 actually finishes. Do not treat unit-test jersey/turtles/count/polar fixtures as a 2/33 replacement.
 
-**Shipped this increment (generic linguistic, fixtures not dataset IDs):** hop `Name and Name` / `Name and Name both` / `with Name`; hop the person after `does`/`has` on count questions; kinship `'s mother` / `her partner` chains family → slot; join compose intersects and does not dump the union; possession/skill lists without occupation/hobby crowding; how-many counts the typed set; Has/Did polar Yes from typed hops only; `practices … at` place extract.
+**Shipped this increment (generic linguistic, fixtures not dataset IDs):** hop `Name and Name` / `Name and Name both` / `with Name`; hop the person after `does`/`has` on count questions; kinship `'s mother` / `her partner` chains family → slot; join compose intersects and does not dump the union; possession/skill lists without occupation/hobby crowding; how-many counts the typed set; Has/Did polar Yes from typed hops only; `practices … at` place extract; unwind/`do to` activity lists; visit/travel superlative; who-answers from other person mentions; `besides` exclusion (stemmed); childhood items as possession.
 
 ---
 
