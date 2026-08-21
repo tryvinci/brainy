@@ -2453,22 +2453,22 @@ func TestRecallKinshipRoleDestHobbiesEnumerate(t *testing.T) {
 		MemoryID: "mem_mr", TenantID: "t-kinrole", SubjectID: "u1",
 		Kind: KindFact, Content: "Alex's mother had reading as one of her hobbies.",
 		DedupeKey: "mr", Status: StatusActive, UpdatedAt: now,
-		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "reading", "subject": "Alex's mother"},
-		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "reading", "subject": "Alex's mother"},
+		Metadata: map[string]any{"subject": "Alex's mother"},
+		Explain:  map[string]any{"subject": "Alex's mother"},
 	}
 	store.records["m-trav"] = MemoryRecord{
 		MemoryID: "mem_mt", TenantID: "t-kinrole", SubjectID: "u1",
 		Kind: KindFact, Content: "Alex's mother was passionate about travel.",
 		DedupeKey: "mt", Status: StatusActive, UpdatedAt: now,
-		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "travel", "subject": "Alex's mother"},
-		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "travel", "subject": "Alex's mother"},
+		Metadata: map[string]any{"subject": "Alex's mother"},
+		Explain:  map[string]any{"subject": "Alex's mother"},
 	}
 	store.records["m-art"] = MemoryRecord{
 		MemoryID: "mem_ma", TenantID: "t-kinrole", SubjectID: "u1",
 		Kind: KindFact, Content: "Alex's mother was interested in art.",
 		DedupeKey: "ma", Status: StatusActive, UpdatedAt: now,
-		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "art", "subject": "Alex's mother"},
-		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "art", "subject": "Alex's mother"},
+		Metadata: map[string]any{"subject": "Alex's mother"},
+		Explain:  map[string]any{"subject": "Alex's mother"},
 	}
 	store.records["m-cook"] = MemoryRecord{
 		MemoryID: "mem_mc", TenantID: "t-kinrole", SubjectID: "u1",
@@ -2493,9 +2493,6 @@ func TestRecallKinshipRoleDestHobbiesEnumerate(t *testing.T) {
 	}
 	store.atoms = append(store.atoms,
 		stubAtom{pred: PredicateFamilyMember, val: "mother", memID: "mem_amr"},
-		stubAtom{pred: PredicateActivity, val: "reading", memID: "mem_mr"},
-		stubAtom{pred: PredicateActivity, val: "travel", memID: "mem_mt"},
-		stubAtom{pred: PredicateActivity, val: "art", memID: "mem_ma"},
 		stubAtom{pred: PredicateActivity, val: "cooking", memID: "mem_mc"},
 		stubAtom{pred: PredicateActivity, val: "visiting mother's old house", memID: "mem_av"},
 		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_ahr"},

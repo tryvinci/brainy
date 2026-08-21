@@ -1463,6 +1463,9 @@ func itemQueryScore(query, value, blob string) int {
 		"like": {}, "likes": {}, "liked": {},
 		"love": {}, "loves": {}, "loved": {},
 		"prefer": {}, "prefers": {}, "preferred": {},
+		"hobby": {}, "hobbies": {},
+		"activity": {}, "activities": {},
+		"item": {}, "items": {},
 	}
 	for _, e := range hopQueryEntities(query) {
 		el := strings.ToLower(e)

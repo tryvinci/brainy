@@ -240,3 +240,21 @@ func TestRecordMatchesHopEntityBareRoleNeedsDestSubject(t *testing.T) {
 		t.Fatal("rewritten dest mention must not match source visit")
 	}
 }
+
+func TestAttitudeObjectSlotFromDestFacts(t *testing.T) {
+	got, ok := attitudeObjectSlot("Alex's mother had reading as one of her hobbies, often sitting with a book.")
+	if !ok || !strings.EqualFold(got, "reading") {
+		t.Fatalf("expected reading, got %q ok=%v", got, ok)
+	}
+	got, ok = attitudeObjectSlot("Alex's mother was passionate about travel.")
+	if !ok || !strings.Contains(strings.ToLower(got), "travel") {
+		t.Fatalf("expected travel, got %q ok=%v", got, ok)
+	}
+	got, ok = attitudeObjectSlot("Alex's mother was interested in art.")
+	if !ok || !strings.EqualFold(got, "art") {
+		t.Fatalf("expected art, got %q ok=%v", got, ok)
+	}
+	if _, ok := attitudeObjectSlot("Alex visited mother's old house last year."); ok {
+		t.Fatal("source visit must not yield an attitude slot")
+	}
+}
