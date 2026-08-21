@@ -216,43 +216,46 @@ func (s *Service) fetchPredicateHop(
 	}
 
 	// Current-state typed read — entity-scoped keys only for typed_exact.
+	// Historical / when-event hops need the full atom set, not the latest row.
 	if pred != "" {
-		if cs, ok := s.store.(CurrentStateStore); ok {
-			keys := make([]string, 0, 2)
-			if res.EntityID != "" {
-				keys = append(keys, statePredicateKey(res.EntityID, pred))
-			}
-			if entity != "" {
-				keys = append(keys, statePredicateKey(entity, pred))
-			}
-			for _, key := range keys {
-				memID, val, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, key)
-				if err != nil || !found {
-					continue
+		if !includeHistorical {
+			if cs, ok := s.store.(CurrentStateStore); ok {
+				keys := make([]string, 0, 2)
+				if res.EntityID != "" {
+					keys = append(keys, statePredicateKey(res.EntityID, pred))
 				}
-				if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID); err == nil {
-					if !recordMatchesHopEntity(rec, entity, res.EntityID) && entity != "" {
+				if entity != "" {
+					keys = append(keys, statePredicateKey(entity, pred))
+				}
+				for _, key := range keys {
+					memID, val, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, key)
+					if err != nil || !found {
 						continue
 					}
-					res.Contents = append(res.Contents, rec.Content)
-					if val == "" {
-						val = rec.Content
-					}
-				}
-				res.MemoryIDs = []string{memID}
-				res.Value = firstNonEmpty(val, "")
-				res.Source = "typed_store"
-				res.ProofKind = "typed_exact"
-				return
-			}
-			// Unscoped predicate miss may enrich context, never typed_exact.
-			if entity != "" {
-				if memID, _, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, pred); err == nil && found {
 					if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID); err == nil {
+						if !recordMatchesHopEntity(rec, entity, res.EntityID) && entity != "" {
+							continue
+						}
 						res.Contents = append(res.Contents, rec.Content)
+						if val == "" {
+							val = rec.Content
+						}
 					}
-					res.MemoryIDs = append(res.MemoryIDs, memID)
-					res.ProofKind = "context"
+					res.MemoryIDs = []string{memID}
+					res.Value = firstNonEmpty(val, "")
+					res.Source = "typed_store"
+					res.ProofKind = "typed_exact"
+					return
+				}
+				// Unscoped predicate miss may enrich context, never typed_exact.
+				if entity != "" {
+					if memID, _, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, pred); err == nil && found {
+						if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID); err == nil {
+							res.Contents = append(res.Contents, rec.Content)
+						}
+						res.MemoryIDs = append(res.MemoryIDs, memID)
+						res.ProofKind = "context"
+					}
 				}
 			}
 		}
@@ -261,6 +264,7 @@ func (s *Service) fetchPredicateHop(
 			if err == nil && len(ids) > 0 {
 				filtered := make([]string, 0, len(ids))
 				filteredContents := make([]string, 0, len(ids))
+				filteredNorms := make([]string, 0, len(ids))
 				if entity != "" || res.EntityID != "" {
 					for _, id := range ids {
 						rec, err := s.store.GetMemory(ctx, tenantID, subjectID, id)
@@ -270,6 +274,7 @@ func (s *Service) fetchPredicateHop(
 						if recordMatchesHopEntity(rec, entity, res.EntityID) {
 							filtered = append(filtered, id)
 							filteredContents = append(filteredContents, rec.Content)
+							filteredNorms = append(filteredNorms, recordValueNorm(rec))
 						}
 					}
 				} else {
@@ -291,10 +296,14 @@ func (s *Service) fetchPredicateHop(
 					res.MemoryIDs = filtered
 					if len(res.Contents) > 0 {
 						seenVal := map[string]struct{}{}
-						for _, c := range res.Contents {
+						for i, c := range res.Contents {
 							v, ok := slotValueFromMemoryContent(c)
-							if !ok {
-								v = strings.TrimSpace(c)
+							if !ok || looksTitleCaseSlogan(titleCaseWords(v)) {
+								if i < len(filteredNorms) && strings.TrimSpace(filteredNorms[i]) != "" {
+									v = filteredNorms[i]
+								} else if !ok {
+									v = strings.TrimSpace(c)
+								}
 							}
 							if v == "" || anaphoricSlotValue(v) {
 								continue
@@ -466,6 +475,22 @@ func containsEntityMention(content, mention string) bool {
 	padded := " " + c + " "
 	needle := " " + m + " "
 	return strings.Contains(padded, needle)
+}
+
+func recordValueNorm(rec MemoryRecord) string {
+	if rec.Metadata != nil {
+		if v, ok := rec.Metadata["value_norm"].(string); ok {
+			if s := strings.TrimSpace(v); s != "" {
+				return s
+			}
+		}
+	}
+	if rec.Explain != nil {
+		if v, ok := rec.Explain["value_norm"].(string); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
 }
 
 func anaphoricSlotValue(s string) bool {

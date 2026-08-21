@@ -351,10 +351,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	case "answer":
 		out.ContextBlock = assembleContextFromPacket(pkt, budget)
-		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) {
+		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || transferRecipient(req.Query) != "" {
 			enumerated = true
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 			items = filterBesides(req.Query, items)
+			items = s.filterHopEvidence(ctx, req, items, hopResults)
 			out.Items = items
 			if len(items) > 0 {
 				if looksSuperlativeQuery(req.Query) {
@@ -385,7 +386,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["count_answer"] = true
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" && pkt.TemporalAnswer != "" && (plan.NeedsTemporal || temporalApplied) {
+		if looksWhenEventQuery(req.Query) {
+			if ans := s.dateAnswerFromHops(ctx, req, hopResults); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["date_answer"] = true
+			}
+		}
+		if strings.TrimSpace(out.Answer) == "" && pkt.TemporalAnswer != "" && (plan.NeedsTemporal || temporalApplied) && !looksWhenEventQuery(req.Query) {
 			out.Answer = pkt.TemporalAnswer
 			out.AnswerStatus = AnswerSupported
 			out.Coverage = map[string]any{"targets": 1, "satisfied": true, "source": "temporal_resolver"}
@@ -404,7 +412,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["who_answer"] = true
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop {
+		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop && hopComposeAllowed(req.Query) {
 			if composed := composeMultiHopAnswer(pkt); composed != "" {
 				out.Answer = composed
 				if packetOK {
@@ -509,7 +517,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["hybrid_unresolved_targets"] = hybrid.UnresolvedTargets
 			}
 		}
-		if hybrid.OK {
+		if hybrid.OK && !(looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true) {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			if hopComposeAllowed(req.Query) {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
@@ -524,7 +532,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain {
+		} else if hybrid.Abstain && !(looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true) {
 			if hopComposeAllowed(req.Query) {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
@@ -909,6 +917,8 @@ func hopUsefulForList(hopPred, listPred string) bool {
 		return hopPred == PredicateActivity
 	case PredicateHealth:
 		return hopPred == PredicateEvent
+	case PredicateAffiliation:
+		return hopPred == PredicateEvent || hopPred == PredicateFamilyMember
 	case PredicateEvent:
 		return hopPred == PredicatePlan || hopPred == PredicateActivity
 	case PredicatePlan:
@@ -1154,6 +1164,10 @@ func superlativeAnswer(items []RecallItem) string {
 }
 
 func whoAnswerFromHops(query string, hops []HopResult) string {
+	if queryHasToken(query, "organization", "organizations") ||
+		strings.Contains(strings.ToLower(query), "beneficiar") {
+		return composeFromHopValues(hops)
+	}
 	skip := map[string]struct{}{}
 	for _, e := range hopQueryEntities(query) {
 		skip[strings.ToLower(e)] = struct{}{}
@@ -1202,6 +1216,281 @@ func whoAnswerFromHops(query string, hops []HopResult) string {
 		return ""
 	}
 	return strings.Join(names, ", ")
+}
+
+func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hops []HopResult) string {
+	year := queryCalendarYear(req.Query)
+	focus := whenEventFocusTokens(req.Query)
+	type hit struct {
+		t     time.Time
+		score int
+	}
+	var hits []hit
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for i, id := range h.MemoryIDs {
+			content := ""
+			if i < len(h.Contents) {
+				content = h.Contents[i]
+			} else if len(h.Contents) > 0 {
+				content = h.Contents[0]
+			}
+			var rec MemoryRecord
+			if id != "" {
+				if got, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, id); err == nil {
+					rec = got
+					if content == "" {
+						content = rec.Content
+					}
+				}
+			}
+			blob := strings.ToLower(strings.TrimSpace(content + " " + h.Value))
+			for _, v := range h.Values {
+				blob += " " + strings.ToLower(v)
+			}
+			t := eventTimeFromRecord(rec, content)
+			if t == nil {
+				continue
+			}
+			if year != 0 && t.Year() != year {
+				continue
+			}
+			hits = append(hits, hit{t: t.UTC(), score: focusHitScore(blob, focus)})
+		}
+	}
+	if len(hits) == 0 {
+		return ""
+	}
+	best := hits[0].score
+	for _, h := range hits[1:] {
+		if h.score > best {
+			best = h.score
+		}
+	}
+	var pick *hit
+	for i := range hits {
+		h := hits[i]
+		if best > 0 && h.score < best {
+			continue
+		}
+		if pick == nil || h.t.Before(pick.t) {
+			pick = &hits[i]
+		}
+	}
+	if pick == nil {
+		return ""
+	}
+	return pick.t.Format("2 January 2006")
+}
+
+func eventTimeFromRecord(rec MemoryRecord, content string) *time.Time {
+	if rec.ObservedAt != nil && !rec.ObservedAt.IsZero() {
+		t := rec.ObservedAt.UTC()
+		return &t
+	}
+	return parseDateFromText(firstNonEmpty(content, rec.Content))
+}
+
+func parseDateFromText(s string) *time.Time {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	if t := parseFlexibleTime(s); t != nil && t.Year() > 1900 {
+		return t
+	}
+	fields := strings.Fields(s)
+	for n := 5; n >= 2; n-- {
+		for i := 0; i+n <= len(fields); i++ {
+			chunk := strings.Trim(strings.Join(fields[i:i+n], " "), "()[];,")
+			if t := parseFlexibleTime(chunk); t != nil && t.Year() > 1900 {
+				return t
+			}
+		}
+	}
+	return nil
+}
+
+func queryCalendarYear(query string) int {
+	for _, tok := range tokenize(query) {
+		if len(tok) != 4 {
+			continue
+		}
+		digits := true
+		for _, r := range tok {
+			if r < '0' || r > '9' {
+				digits = false
+				break
+			}
+		}
+		if !digits {
+			continue
+		}
+		y, err := strconv.Atoi(tok)
+		if err == nil && y >= 1900 && y <= 2100 {
+			return y
+		}
+	}
+	return 0
+}
+
+func whenEventFocusTokens(query string) []string {
+	skip := map[string]struct{}{
+		"get": {}, "got": {}, "gone": {}, "go": {}, "going": {},
+	}
+	for _, e := range hopQueryEntities(query) {
+		skip[strings.ToLower(e)] = struct{}{}
+	}
+	if y := queryCalendarYear(query); y != 0 {
+		skip[strconv.Itoa(y)] = struct{}{}
+	}
+	out := make([]string, 0)
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		t = strings.ToLower(t)
+		if _, ok := skip[t]; ok {
+			continue
+		}
+		if looksLikeDateToken(t) {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+func focusHitScore(blob string, focus []string) int {
+	n := 0
+	for _, t := range focus {
+		if len(t) < 4 {
+			continue
+		}
+		if strings.Contains(blob, t) {
+			n++
+			continue
+		}
+		stem := exclusionStem(t)
+		hit := stem != "" && strings.Contains(blob, stem)
+		if !hit {
+			for _, w := range tokenize(blob) {
+				if tokensMatch(t, w) || (stem != "" && stem == exclusionStem(w)) {
+					hit = true
+					break
+				}
+			}
+		}
+		if hit {
+			n++
+		}
+	}
+	return n
+}
+
+func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	if recip := transferRecipient(req.Query); recip != "" {
+		items = s.filterItemsByMention(ctx, req, items, hops, strings.ToLower(recip))
+		for i := range items {
+			items[i].Value = trimRecipientSuffix(items[i].Value, recip)
+		}
+	}
+	if toks := afterClauseTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
+	return items
+}
+
+func afterClauseTokens(query string) []string {
+	if looksWhenEventQuery(query) {
+		return nil
+	}
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, " after ")
+	if i < 0 {
+		return nil
+	}
+	rest := strings.TrimSpace(query[i+len(" after "):])
+	toks := contentBearingTokens(tokenize(rest))
+	if len(toks) == 0 {
+		return nil
+	}
+	return toks
+}
+
+func trimRecipientSuffix(v, recip string) string {
+	v = strings.TrimSpace(v)
+	if recip == "" {
+		return v
+	}
+	suf := " to " + recip
+	if len(v) > len(suf) && strings.EqualFold(v[len(v)-len(suf):], suf) {
+		return strings.TrimSpace(v[:len(v)-len(suf)])
+	}
+	return v
+}
+
+func (s *Service) itemEvidenceBlob(ctx context.Context, req RecallRequest, it RecallItem, hops []HopResult) string {
+	var b strings.Builder
+	b.WriteString(it.Value)
+	seen := map[string]struct{}{}
+	for _, id := range it.Evidence {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		for _, h := range hops {
+			for i, hid := range h.MemoryIDs {
+				if hid != id {
+					continue
+				}
+				if i < len(h.Contents) {
+					b.WriteByte(' ')
+					b.WriteString(h.Contents[i])
+				}
+			}
+		}
+		if rec, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, id); err == nil {
+			b.WriteByte(' ')
+			b.WriteString(rec.Content)
+		}
+	}
+	return strings.ToLower(b.String())
+}
+
+func (s *Service) filterItemsByMention(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult, mention string) []RecallItem {
+	if mention == "" || len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		if strings.Contains(s.itemEvidenceBlob(ctx, req, it, hops), mention) {
+			out = append(out, it)
+		}
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
+}
+
+func (s *Service) filterItemsByTokens(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult, toks []string) []RecallItem {
+	if len(toks) == 0 || len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		if itemHitsExclusion(it.Value, toks) || itemHitsExclusion(blob, toks) {
+			out = append(out, it)
+		}
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
 }
 
 func memoryMentionsEntity(rec MemoryRecord, entity string) bool {
@@ -1346,7 +1635,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
 		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
 		" tried ", " injured ", " practices ", " practiced ",
-		" supports ", " told ", " visited ", " given ",
+		" supports ", " told ", " visited ", " given ", " gave ", " suggested ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			if sep == " is " && (titleLikeCopula(content) || !identityCopulaSubject(stripped[:i])) {
@@ -1384,7 +1673,7 @@ func hasSlotTemplate(v string) bool {
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
 		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
 		" tried ", " injured ", " practices ", " practiced ",
-		" supports ", " told ", " visited ", " given ",
+		" supports ", " told ", " visited ", " given ", " gave ", " suggested ",
 	} {
 		if strings.Contains(low, sep) {
 			return true

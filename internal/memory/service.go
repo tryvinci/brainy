@@ -1143,7 +1143,9 @@ func looksListQuery(tokens []string) bool {
 			"places", "place", "stress", "stressor", "stressors", "camping", "camped",
 			"kids", "children", "likes", "identity", "research", "researched",
 			"names", "instruments", "instrument", "items", "locations",
-			"pets", "dogs", "tricks", "events", "event", "meals", "meal":
+			"pets", "dogs", "tricks", "events", "event", "meals", "meal",
+			"suggestions", "suggestion", "food", "community", "changes", "change",
+			"journey", "participating", "participate":
 			return true
 		}
 	}
@@ -1169,8 +1171,12 @@ func predicateFromListQuery(tokens []string) string {
 			return PredicateActivity
 		case "events", "event":
 			return PredicateEvent
-		case "meals", "meal":
+		case "meals", "meal", "suggestions", "suggestion", "food":
 			return PredicatePreference
+		case "community", "participating", "participate":
+			return PredicateActivity
+		case "changes", "change", "journey":
+			return PredicateIdentity
 		}
 	}
 	for _, token := range normed {

@@ -68,8 +68,56 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	}
 
 	when := PlanQuery("When did Jordan go to the support group?", nil)
-	if len(when.Hops) != 0 {
-		t.Fatalf("when-questions must not dump event hops, hops=%+v", when.Hops)
+	if hopComposeAllowed("When did Jordan go to the support group?") {
+		t.Fatal("when-questions must not dump hop values as answers")
+	}
+	whenEnt := ""
+	for _, hop := range when.Hops {
+		if hop.Kind == "resolve_entity" {
+			whenEnt = hop.Entity
+		}
+	}
+	if !strings.EqualFold(whenEnt, "jordan") {
+		t.Fatalf("when-event must hop the person, hops=%+v", when.Hops)
+	}
+
+	injWhen := PlanQuery("When did Jordan get an ankle injury in 2023?", nil)
+	foundInjHealth := false
+	injEnts := map[string]bool{}
+	for _, hop := range injWhen.Hops {
+		if hop.Kind == "resolve_entity" {
+			injEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicateHealth {
+			foundInjHealth = true
+		}
+	}
+	if !injEnts["jordan"] {
+		t.Fatalf("injury when-query must hop the person, hops=%+v", injWhen.Hops)
+	}
+	if !foundInjHealth {
+		t.Fatalf("injury when-query must hop health, hops=%+v", injWhen.Hops)
+	}
+
+	xfer := PlanQuery("What kind of healthy food suggestions has Evan given to Sam?", nil)
+	xferEnts := map[string]bool{}
+	foundPrefXfer := false
+	for _, hop := range xfer.Hops {
+		if hop.Kind == "resolve_entity" {
+			xferEnts[strings.ToLower(hop.Entity)] = true
+		}
+		if hop.Predicate == PredicatePreference {
+			foundPrefXfer = true
+		}
+	}
+	if !xferEnts["evan"] {
+		t.Fatalf("transfer must hop the giver, hops=%+v", xfer.Hops)
+	}
+	if xferEnts["sam"] {
+		t.Fatalf("transfer recipient must not be a join entity, hops=%+v", xfer.Hops)
+	}
+	if !foundPrefXfer {
+		t.Fatalf("expected preference hop for given-to, hops=%+v", xfer.Hops)
 	}
 
 	kids := PlanQuery("What do Riley's kids like?", nil)

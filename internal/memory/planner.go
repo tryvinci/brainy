@@ -82,7 +82,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration) && hopComposeAllowed(query) {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query)) && hopPlanAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -200,6 +200,7 @@ func buildTypedHops(query string) []HopStep {
 func hopQueryEntities(query string) []string {
 	seen := map[string]struct{}{}
 	out := make([]string, 0, 2)
+	recipient := strings.ToLower(transferRecipient(query))
 	add := func(n string) bool {
 		n = strings.TrimSpace(n)
 		n = strings.TrimSuffix(n, "'s")
@@ -209,6 +210,9 @@ func hopQueryEntities(query string) []string {
 			return false
 		}
 		key := strings.ToLower(n)
+		if recipient != "" && key == recipient {
+			return false
+		}
 		if _, stop := hopEntityStop[key]; stop {
 			return false
 		}
@@ -530,12 +534,36 @@ func looksPlaceOrPersonSlot(query string) bool {
 	return false
 }
 
+func hopPlanAllowed(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if strings.HasPrefix(q, "how long") || strings.HasPrefix(q, "how old") {
+		return false
+	}
+	return true
+}
+
 func hopComposeAllowed(query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	if strings.HasPrefix(q, "when ") || strings.HasPrefix(q, "how long") || strings.HasPrefix(q, "how old") {
 		return false
 	}
 	return true
+}
+
+func looksWhenEventQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	return strings.HasPrefix(q, "when ")
+}
+
+func transferRecipient(query string) string {
+	if looksWhoQuery(query) {
+		return ""
+	}
+	lower := strings.ToLower(query)
+	if !queryHasToken(query, "given", "gave", "give") && !strings.Contains(lower, "suggest") {
+		return ""
+	}
+	return personAfterCue(query, "to")
 }
 
 func looksCountQuery(query string) bool {
@@ -671,6 +699,8 @@ func preferredModeHint(plan QueryPlan) string {
 		return "answer"
 	case plan.NeedsEnumeration:
 		return "enumerate"
+	case len(plan.Hops) > 0:
+		return "answer"
 	case plan.NeedsTemporal && plan.PrimaryIntent == IntentCurrentState:
 		return "answer"
 	case plan.NeedsMultiHop:

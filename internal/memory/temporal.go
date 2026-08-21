@@ -187,7 +187,11 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateActivity)
 	case queryHasToken(query, "pet", "pets", "dog", "dogs"):
 		add(PredicatePossession)
-	case strings.Contains(lower, "injur") || strings.Contains(lower, "health"):
+	case queryHasToken(query, "meal", "meals", "food") ||
+		queryHasToken(query, "given", "gave", "give") || strings.Contains(lower, "suggest"):
+		add(PredicatePreference)
+		add(PredicateActivity)
+	case strings.Contains(lower, "injur") || queryHasToken(query, "health"):
 		add(PredicateHealth)
 		add(PredicateEvent)
 	case (queryHasToken(query, "support", "supports", "supported") ||
@@ -195,6 +199,10 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateFamilyMember)
 	case strings.Contains(lower, "organization") || strings.Contains(lower, "beneficiar"):
 		add(PredicateAffiliation)
+	case strings.Contains(lower, "community") || strings.Contains(lower, "participat") ||
+		strings.Contains(lower, "journey") || queryHasToken(query, "changes", "change"):
+		add(PredicateActivity)
+		add(PredicateIdentity)
 	case strings.Contains(lower, "name") || strings.Contains(lower, "who is") || strings.Contains(lower, "identity"):
 		add(PredicateIdentity)
 	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop") || strings.Contains(lower, "do to") ||
@@ -209,9 +217,6 @@ func predicateHintsFromQuery(query string) []string {
 	case strings.Contains(lower, "kid") || strings.Contains(lower, "child"):
 		add(PredicateFamilyMember)
 		add(PredicatePreference)
-	case queryHasToken(query, "given", "gave", "give") || strings.Contains(lower, "suggestion"):
-		add(PredicatePreference)
-		add(PredicateActivity)
 	case strings.Contains(lower, "when did") || strings.Contains(lower, "when was") || strings.Contains(lower, "when is"):
 		add(PredicateEvent)
 		add(PredicateActivity)
