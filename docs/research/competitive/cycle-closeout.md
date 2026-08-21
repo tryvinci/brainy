@@ -1063,3 +1063,69 @@ S0 ledger is still PROOF (112) not WRITE (3). `where` + unnamed kin was hopping 
 
 **One step:** remasure MH-only 33 on `integrity-s0-1` (`--fail-closed --skip-ingest`) and attribute every new CORRECT. Do not merge #133. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin until the 33-slice moves. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+---
+
+## 2026-08-21 — MH dual-list / kinship-dest / specific-count proof
+
+### Landed
+
+Product change on `pr/mh-list-join-proof-1e9e` (#135, HEAD `050ef6f`). `/recall` now (1) **intersects dual-entity list queries** instead of unioning hop values and refilling from the first person's atoms; (2) **kinship hobby lists filter atoms to the dest person** so the source's activities do not crowd; (3) **how-many Ferraris counts the head noun**, not every possession; (4) **items-for** keeps matching possessions; (5) **who-told** and **polar teach** answer from typed hops. **No LoCoMo-named rules, no compiler regex batch, no fusion weights.** #133 / #131 stay unmerged. OpenAI A/B not re-run. n=1540 / Mem0 same-pin not burned. Integrity tenant is not on this VM. GitHub CI on prior HEAD `dcefa8a` was green (`test` + `docker-smoke`).
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Not re-run; prior integrity gate stands. |
+| Marketing vertical | **17/17** | Not re-run; prior integrity gate stands. |
+| LoCoMo S0 MH slice (product `/recall`) | **not re-run** | Prior **2/33** stands. Integrity API `:18100` is not on this VM. Mechanism proven with held-out fixtures (shared community garden vs private ceramics; mother's pottery vs source hiking; Ferrari count 2 vs cottage; puzzle toy for dogs vs couch; who-told Dana vs nurse; polar teach console). |
+| LoCoMo S0 n=180 / 3×90 / 1×30 | **not re-run** | Prior pins stand. 1×30 **21/30** is still diagnostic. |
+| LME-20 / n=1540 / BEAM | **not re-run** | Prior pins stand (LME-20 **4/20**, full `/recall` **11.4%**). |
+| Embedding A/B | **not re-run** | 2026-08-20 pin stands. |
+
+This is **not** a 70–80% claim and **not** SOTA. Name the MH dip: **2/33 is still the last measured product MH pin.** Unit tests are not a 33-slice replacement.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep same-pin this cycle. Reuse the 2026-08-15 freeze: Mem0 Platform 1×30 **11/30** (MH 6/10, OD 3/4, temporal 2/16). Do **not** mix an unremeasured 2/33 with that 30-item freeze.
+
+#### 1. LoCoMo conversational QA — proof mechanism only
+
+| Axis | This cycle | Mem0 Platform freeze | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | **11/30** | Prior freeze **lead**; this cycle does not refresh it |
+| S0 n=180 product | prior **32/180** | no same-n pin | **Do not trail/lead vs 11/30** |
+| S0 MH product | prior **2/33** (not remasured) | no 33-item freeze | **Still the largest conversational gap**; this cycle ships dual-list intersect / kinship-dest / specific-count proof paths |
+| Search p50 | n/a | 492 ms platform on the 1×30 freeze | No new latency pin |
+
+**Multi-hop (still trail until remasured).** Dual-entity list intersect, kinship-dest hobbies, specific possession counts, items-for, who-told, and polar teach are shipped on this PR. Remaining live misses after remasure will likely be identity-surface lists (denylist blocks benchmark names) and any class the 33-slice still misses. Gold is usually written (P4 MH coverage 32/33). Do not add a graph DB. Do not merge #133.
+
+**Open-domain.** Not re-run. Prior freeze OD **0/4** vs Mem0 **3/4** still stands as a trail axis. Do not restore OD by stuffing episodes.
+
+**Temporal.** Not re-run. Keep the freeze temporal lead (11/16 vs Mem0 2/16) as **stale until 1×30 is re-run**.
+
+#### 2. OpMem — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Do not package a new “+3” sentence.
+
+#### 3. Marketing vertical — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.** YAML packs remain the verticalisation layer; this cycle does not touch packs.
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.** Published headlines stay context. Postgres graph-shaped hops (ADR-004) unchanged.
+
+**Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
+
+### Why
+
+S0 ledger is still PROOF (112) not WRITE (3). Dual-person list questions enumerated the union of hop values and then refilled from the first entity's atoms, so collectible-style intersect never applied to "activities have X and Y participated in". Kinship hobby lists scanned the source person's activities. Specific "how many Ferraris" already stemmed the head noun; the fixture locks that against counting every possession. Identity-surface lists remain denylist-blocked.
+
+### Next
+
+**One step:** remasure MH-only 33 on `integrity-s0-1` (`--fail-closed --skip-ingest`) and attribute every new CORRECT. Do not merge #133. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin until the 33-slice moves. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
