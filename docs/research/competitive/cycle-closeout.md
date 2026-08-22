@@ -1779,3 +1779,81 @@ S0 ledger is still PROOF, not WRITE. Typed hops miss dest-subject locatives, unw
 
 **One step:** remasure MH-only 33 on `integrity-s0-1` (`--fail-closed --skip-ingest`) so the 12/33 diagnostic delta is either confirmed or rejected on the integrity store. Remaining high-value PROOF on this tenant: practice-home locatives when WRITE exists, unwind objects that lack unwind cues, polar Yes when typed hops carry the claim. Do not merge #133. Do not re-run OpenAI A/B. Do not burn n=1540 or Mem0 same-pin until an **integrity-tenant** 33-slice moves. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-22 — current-SHA S0 this-VM (`diag-mh-135` + conv-30)
+
+### Landed
+
+Product `/recall` on `origin/dev` **`453a929`** (merge of #135). This VM's harness SHA is **`98d5db8`** (PR #136): Mem0 Platform adapter aligned to v3 search/add + event wait, chunk 1, session timestamps, default top_k 200; product-recall S0 records a hung `/recall` as an item miss instead of aborting the 180. **No product `/recall` behavior change in those harness commits.** Hybrid reader **off** (`BRAINY_RECALL_LLM` unset). `#133` / `#131` stay unmerged. `main` stays at the packet/proof SHA; this cycle does **not** fast-forward production.
+
+Store: local `:18100` / DB `brainy_mh`, tenant `diag-mh-135`, 10/10 LoCoMo conversations after ingesting `conv-30` (369 turns; 98/99 extract jobs completed; one `session_17` batch of four turns failed on a non-JSON provider body). ANN active, signatures match, embedder/extractor fallbacks 0, 22475 memories at 768-d. Dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`. Sample: stratified 180 seed 1.
+
+Pin: [locomo-s0-diag-mh-135-20260822.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-20260822.md). Mem0 faithfulness audit (not a score): [mem0-harness-audit-2026-08-22.md](./mem0-harness-audit-2026-08-22.md).
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Not re-run; merge gate stands. |
+| Marketing vertical | **17/17** | Not re-run; merge gate stands. |
+| LoCoMo S0 product `/recall` **this VM** (`diag-mh-135`, reader off) | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. Search p50 168 ms. Ledger: **PROOF 59 / READER 52 / RETRIEVAL 39 / WRITE 10 / HARNESS 1**. |
+| LoCoMo S0 industry search+harness **this VM** | **62/180 (0.344)** | MH 10/33 · OD 3/11 · SH 27/98 · temporal 22/38. Search p50 142 ms. Same overall as integrity-VM industry. |
+| LoCoMo S0 product **integrity VM** (`integrity-s0-1`) | **32/180** | Different tenant. Ledger PROOF 112 / RETRIEVAL 22 / READER 11 / WRITE 3. **Do not mix with 19/180.** |
+| LoCoMo S0 MH slice integrity skip-ingest | **2/33** | Last attributed integrity-tenant pin. **Unchanged.** |
+| LoCoMo S0 MH slice diagnostic skip-ingest | **12/33** | Matches this-VM S0 MH 12/33. Does not replace 2/33. |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. OD **0/4**. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old product SHA `1b5ab3e`. Not re-run. |
+| Industry historical | **49.8%** | July, old stack. **Not** this SHA. This-VM industry is **34.4%**. |
+| LME-20 / BEAM | **not re-run** | 4/20 and 8/20 stand. |
+| Embedding A/B | **not re-run** | 2026-08-20 pin stands. |
+
+This is **not** 80%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 19/180 does not replace integrity 32/180. 12/33 MH on this tenant is the #135 slot-recovery pin at S0 n, not a path by itself to 80%.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. The 2026-08-15 Mem0 Platform 1×30 freeze remains **11/30** (MH 6/10, OD 3/4, temporal 2/16) — and the audit now shows that freeze is **not** their published protocol. A Brainy lead over that freeze is not a fair win.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol **handicapped** (v2, top_k 30, chunk 8, no timestamps) | Do **not** refresh lead/trail from 21 vs 11. Fair row is the in-flight stratified 180. |
+| S0 n=180 product this VM | **19/180** reader off | **no same-n pin yet** | **Do not trail/lead vs 11/30 or vs published 92.5%** |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin yet** | Same-pin lane vs Mem0 once the fair 180 lands (top_k 200, shared judge) |
+| S0 MH product (integrity) | **2/33** | no 33-item freeze | Still the attributed integrity-tenant gap |
+| S0 MH product (this tenant) | **12/33** | no 33-item freeze | Product MH **leads** this-VM industry MH (10/33). Do not regress it. |
+| Search p50 | product 168 ms / industry 142 ms local | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop.** This-VM product MH **12/33** vs industry **10/33**. Integrity **2/33** is still the other store. Do not add a graph DB. Do not merge #133. Closing 80% is not an MH-only program: even perfect MH+OD on this sample still needs most of SH 98 + temporal 38.
+
+**Open-domain.** This-VM product **0/11**, industry **3/11**. 1×30 freeze OD **0/4** vs Mem0 **3/4** remains a trail axis on that freeze. Do not restore OD by stuffing episodes.
+
+**Single-hop / temporal (the mass).** Product SH **5/98** and temporal **2/38** vs industry **27/98** and **22/38**. Largest product cells: `single-hop:PROOF_MISS` 48, `temporal:READER_MISS` 24, `single-hop:READER_MISS` 22, `single-hop:RETRIEVAL_MISS` 19. Reader-off `/recall` is the labeled gap vs the industry answerer; PROOF is still the largest bucket. P1 (hybrid reader, including enumerate mode) is the next product measurement. P2 (unlock date/where/polar / rebuild answer path) waits on whether P1 moves SH/temporal.
+
+**Published Mem0 92.5% (n=1540, top_k 200, their harness)** stays a context row, never a scoreboard row.
+
+#### 2. OpMem — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Do not package a new “+3” sentence.
+
+#### 3. Marketing vertical — lead (Mem0 pin stale; Brainy not re-run)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.** Published headlines stay context.
+
+**Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
+
+### Why
+
+Two stores, two product numbers: integrity 32/180 (PROOF-heavy, reader mostly unused) vs this-VM 19/180 (reader off, SH/temporal collapse). Industry matched at 62/180, so search+harness on current SHA is not the 49.8% historical stack. Product MH held at 12/33 after #135; the 80% hole is SH/temporal proof and reading, not another MH regex. WRITE 10/180 is still not the mass — do not merge compiler-fishing #133. The Mem0 11/30 freeze cannot decide lead/trail because the harness was not their protocol.
+
+### Next
+
+**One step:** P1 reader A/B on this frozen store (`BRAINY_RECALL_LLM=1`, skip-ingest product 180, hybrid reachable in **enumerate** as well as `answer`; keep date/where/polar locks). In parallel: fair Mem0 Platform 180 (`--system mem0 --top-k 200`, chunk 1, v3). P2 only if P1 moves SH/temporal. P3 follows the ledger (PROOF 48 on SH). n=1540 only after a stratified delta. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+

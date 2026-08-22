@@ -57,6 +57,12 @@ Search p50 on the LoCoMo 1×30 pin: Brainy **175 ms** local vs Mem0 Platform
 Mem0 OSS was **not** re-measured. Do not treat Platform 11/30 as an
 OSS-reproducible number.
 
+The 2026-08-15 Mem0 1×30 freeze used v2 search, v1 add, chunk 8, no session
+timestamps, and top_k 30. That is **not** their published LoCoMo protocol
+(v3 search/add, chunk 1, unix `timestamp`, top_k 200). Do **not** write a
+new lead/trail sentence from 21/30 vs 11/30 until the fair stratified 180
+lands. Audit: [mem0-harness-audit-2026-08-22.md](../research/competitive/mem0-harness-audit-2026-08-22.md).
+
 Do not paste the published-% table into this same-pin n/N table. Those
 percents (and the Zep 58–84 dispute) are catalogued in
 [published-claims.md](./published-claims.md).
@@ -137,6 +143,7 @@ Ladder: [research/public-bench-ladder.md](../research/public-bench-ladder.md).
 | Marketing | [marketing-fresh-local-20260815.md](./artifacts/marketing-fresh-local-20260815.md) · [Mem0](./artifacts/marketing-mem0-fresh-20260815.md) · [moat](./marketing-moat-report.md) |
 | Cycle closeout (detailed why) | [cycle-closeout.md](../research/competitive/cycle-closeout.md) |
 | Fail-closed integrity remasure (2026-08-19/20) | [S0 dual-lane](./artifacts/locomo-integrity-s0-20260819.md) · [3×90](./artifacts/locomo-integrity-3x90-20260820.md) · [extraction ceiling](./artifacts/extraction-ceiling-20260819.md) · [embedding A/B](./artifacts/embedding-ab-20260819.md). Invalidates Aug-19 17/180 / 52/180. **Not** a replacement for the 1×30 freeze above. |
+| Current-SHA S0 this-VM (2026-08-22) | Tenant `diag-mh-135` + conv-30, hybrid **off**: product **19/180**, industry **62/180**. [pin](./artifacts/locomo-s0-diag-mh-135-20260822.md). **Not** a replacement for integrity 32/180 or the 1×30 freeze. |
 | BEAM 100K this cycle | [beam-100k-fresh-20260815.md](./artifacts/beam-100k-fresh-20260815.md) |
 | BEAM 100K historical | [beam-100k-c0-async.md](./artifacts/beam-100k-c0-async.md) |
 

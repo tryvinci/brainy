@@ -1,6 +1,6 @@
 # Handover — next agent: LoCoMo 80% / same-pin vs Mem0
 
-**Date:** 2026-08-21  
+**Date:** 2026-08-22  
 **Audience:** the next coding agent. Read this first. Do not start from the 2026-08-17 assessment pack as live truth.  
 **Owner ask:** take Brainy to a defensible conversational claim — user phrasing is “SOTA / beat Mem0 / 80% LoCoMo.”  
 **Repo SOP:** that phrasing is a *goal*, not a claim you may write in product copy. Competitive language requires a **frozen same-pin win** (same dataset SHA, same judge temp 0, same answerer, same question set, same harness) **and** explicit approval. The word “SOTA” stays gated even after a same-pin win until the owner lifts it.
@@ -11,13 +11,13 @@ This file is the live start doc. Older research notes stay useful as history. If
 
 ## 0. First 30 minutes
 
-1. Confirm you are on `dev` (staging) at `f6638d4` (or later). `main` is production and was fast-forwarded to the same SHA on 2026-08-21. Do not push `main` unless the owner asks again.
-2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-20 — MH packet/proof**.
+1. Confirm you are on `dev` (staging) at `453a929` (or later). `main` is production (`6d05e1b` packet/proof) and is **not** fast-forwarded this cycle. Do not push `main` unless the owner asks.
+2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-22 — current-SHA S0 this-VM**.
 3. Skim [sota-execution-plan.md](./sota-execution-plan.md) but **do not** treat its “expected S1 compiler first” as live. S0 ledger **outranks** that expectation.
 4. Do **not** re-queue R0–R10. Substrate is merged.
 5. Do **not** merge [PR #133](https://github.com/tryvinci/brainy/pull/133) (compiler S1–S5 fishing) or revive [PR #131](https://github.com/tryvinci/brainy/pull/131).
 6. Do **not** re-run the OpenAI embedding A/B unless `GET /runtime` or the JSON pins are broken.
-7. Do **not** burn full n=1540 or a Mem0 same-pin until product `/recall` proof actually moves.
+7. Do **not** burn full n=1540 until a stratified delta exists. A **fair** Mem0 Platform 180 (v3, top_k 200, chunk 1) **is** the next same-pin — do not reuse the handicapped 11/30 freeze as lead/trail.
 
 ---
 
@@ -36,26 +36,27 @@ Path docs (do not invent a new program):
 - [locomo-dual-path-freeze.md](./locomo-dual-path-freeze.md) — product `/recall` vs industry search+harness.
 - [sota-representation-path.md](./sota-representation-path.md) — compile facts; episodes are provenance.
 
-**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180**. MH product after this merge is **2/33**. Industry S0 is **62/180**. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR.
+**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant and **19/180** on this-VM `diag-mh-135` (hybrid off). Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR.
 
 ---
 
-## 2. Where we landed (2026-08-21)
+## 2. Where we landed (2026-08-22)
 
 ### Landed SHAs / PRs
 
 | Ref | Role |
 | --- | --- |
-| `dev` / `main` **now** | `f6638d4` — #134 merge (packet/proof + this handover). Fast-forwarded 2026-08-21. |
-| Parent before #134 | `6b8ac5f` — fail-closed + OpenAI A/B (PR #132) |
-| PR **#134** `pr/mh-packet-proof-3086` | **Merged** 2026-08-21. MH packet/proof. |
-| PR **#132** | Merged. Fail-closed flags, `GET /runtime`, `cmd/reembed`, extraction actually hosted. |
+| `dev` **now** | `453a929` — #135 merge (MH slot-aligned dest-subject). Staging. |
+| `main` | `6d05e1b` — #134 packet/proof. Production. **Do not FF** unless the owner asks. |
+| PR **#136** `pr/s0-current-sha-baseline-1e9e` | Open draft. Harness: Mem0 v3 same-pin + S0 180 pin on this VM. |
+| PR **#135** | Merged. MH list/join proof. |
+| PR **#134** | Merged. MH packet/proof + earlier handover. |
 | PR **#133** | OPEN draft. Compiler S1–S5. **Do not merge.** |
 | PR **#131** | CLOSED. Mixed. **Do not revive.** |
 
 Linear: [ENG-176](https://linear.app/engramhq/issue/ENG-176/eng-multi-hop-memory-synthesis-consolidation-for-conversational-qa) (MH), parent [ENG-168](https://linear.app/engramhq/issue/ENG-168/epic-conversational-long-memory-product-gaps-from-locomo-smoke).
 
-`dev` = staging. `main` = production. Fast-forward `main` only with explicit owner approval (this handover job had that approval for #134).
+`dev` = staging. `main` = production. Fast-forward `main` only with explicit owner approval.
 
 ### What #134 shipped (product)
 
@@ -78,8 +79,9 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | OpMem | **13/13** | Merge gate. Do not spend a cycle here. |
 | Marketing vertical | **17/17** | Merge gate. |
 | Extraction ceiling | det **139/180**, provider **161/180** | MH coverage **32/33**. Gold is written. |
-| S0 product `POST /recall` | **32/180** | Long-lived integrity VM. Ledger: **PROOF 112 / RETRIEVAL 22 / READER 11 / WRITE 3**. |
-| S0 industry search+harness | **62/180** | Same tenant. Different path. Do not average with 32/180. |
+| S0 product `POST /recall` integrity VM | **32/180** | Tenant `integrity-s0-1`. Ledger: **PROOF 112 / RETRIEVAL 22 / READER 11 / WRITE 3**. |
+| S0 industry search+harness | **62/180** | Integrity VM **and** this-VM `diag-mh-135`. Do not average with product. |
+| S0 product `POST /recall` this VM | **19/180 (0.106)** | Tenant `diag-mh-135` + conv-30, hybrid **off**, SHA `453a929`. MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. Ledger: **PROOF 59 / READER 52 / RETRIEVAL 39 / WRITE 10**. Does **not** replace 32/180. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-20260822.md) |
 | S0 MH product (post-#134) | **2/33** | Was **1/33**. Attributed win: turtles. Second hit (soda/candy) is a crowded-list judge accept. [pin](../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
 | S0 MH product diagnostic ingest | **7/33** | WRITE+PROOF mixed on `diag-mh-135`. Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
 | S0 MH product diagnostic skip-ingest | **12/33** | PROOF-only on frozen `diag-mh-135`. Kinship dest `9d8dbeb` was **10/33**; slot-aligned recovery `2e84435` is **12/33** (`conv-44-q26` work, `conv-26-q60` clarinet/violin). Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md) |
@@ -88,17 +90,17 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old product SHA `1b5ab3e`. Full n=1540 only at S6. |
 | Industry historical | **49.8%** | July, **old stack**, search+harness. Not a current-SHA ceiling. |
 | LME-20 | **4/20** | Not re-run. Do not spend a cycle on LME-500. |
-| Mem0 Platform 1×30 | **11/30** | Freeze 2026-08-15. MH 6/10, OD 3/4, temporal 2/16. **Do not mix with 32/180.** |
+| Mem0 Platform 1×30 | **11/30** | Freeze 2026-08-15. MH 6/10, OD 3/4, temporal 2/16. **Handicapped protocol** (v2, top_k 30, chunk 8). Do not mix with 32/180 or 19/180. Fair 180 is the next pin. [audit](./competitive/mem0-harness-audit-2026-08-22.md) |
 | Embedding A/B | OpenAI @768 r@10 **0.333** vs this-rebuild BGE **0.306** | Retrieval-only. Long-lived VM BGE was **0.239** — **do not average**. [pin](../benchmarks/artifacts/embedding-ab-20260820.md) |
 
 **Invalidated:** Aug-19 S0 17/180 / 52/180 (no pgvector, silent extract degrade). Never cite those as quality.
 
-**Bottleneck is PROOF, not compiler WRITE and not embedder.** S0 WRITE_MISS is **3/180**. Coverage 161/180 vs QA 32/180. MH coverage 32/33 vs integrity QA **2/33** (diagnostic skip-ingest **12/33** on `diag-mh-135`).
+**Bottleneck on this VM is split:** product S0 WRITE_MISS is **10/180** (integrity was **3/180**). Coverage is not the 80% hole — QA is 19/180 vs industry 62/180. MH coverage was already high; this-VM product MH is **12/33** vs integrity **2/33**. SH 5/98 and temporal 2/38 plus PROOF 59 / READER 52 are the mass.
 
 ### Competitor stand (honest)
 
-- **1×30 freeze:** Brainy 21/30 vs Mem0 Platform 11/30 is a prior **lead on that 30-item pin**. It is not full LoCoMo and not permission to write “we beat Mem0.”
-- **S0 / n=1540:** no same-n Mem0 pin. Do not trail/lead 32/180 or 11.4% vs 11/30 or vs published 92.5%.
+- **1×30 freeze:** Brainy 21/30 vs Mem0 Platform 11/30 is a prior **lead on a handicapped Mem0 protocol**. It is not full LoCoMo and not permission to write “we beat Mem0.”
+- **S0 / n=1540:** no same-n Mem0 pin yet. Do not trail/lead 32/180, 19/180, or 11.4% vs 11/30 or vs published 92.5%.
 - **Ops / marketing:** Brainy lead (Mem0 pins stale). Must not regress. Not the next cycle.
 - **Graphiti / Zep / SuperMemory:** no same-pin. Published headlines are context.
 - **Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
@@ -111,14 +113,16 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 
 | Increment | Plan name | Do now? |
 | --- | --- | --- |
-| S2 / S3 residue | Structured answer + hop proof | **In flight on #135.** List/join + enumerate refine + outdoor∩group + community-join + kinship dest + slot-aligned dest-subject recovery shipped. Labeled diagnostic ingest **7/33** (WRITE+PROOF mixed). **Skip-ingest PROOF-only on the same tenant is 12/33** — latest [slot-recover artifact](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md). **Integrity skip-ingest pin remains 2/33.** Next attributed remasure is still `integrity-s0-1 --fail-closed --skip-ingest`. Residue: mother's-home WRITE, pottery without unwind cues, incomplete tricks, polar Yes, mountaineering WRITE, identity gold (q65). |
-| S1 compiler | Provider-extract / named-subject mass | **No** until a fail-closed remasure says WRITE is the bucket again. #133 stays closed. |
+| S0 this-VM | Dual-lane 180 on `diag-mh-135` | **Done.** Product **19/180** reader off; industry **62/180**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-20260822.md) |
+| P1 reader | `BRAINY_RECALL_LLM=1` including enumerate | **Next on this store.** Skip-ingest product 180. Date/where/polar locks stay. Count `hybrid_reader_reason`. |
+| P4 Mem0 180 | Fair Platform same-pin (v3, top_k 200, chunk 1) | **In parallel.** Do not compare to the 11/30 freeze. |
+| S2 / S3 residue | Structured answer + hop proof | **Merged on #135.** Diagnostic skip-ingest **12/33**. Integrity **2/33**. Do not keep MH-only as the 80% path. |
+| P2 | Answer-path rebuild / unlock date-where-polar | **Only if P1 moves SH/temporal.** |
+| S1 compiler | Provider-extract / named-subject mass | **No** until the ledger says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
-| S4 LME | multi-session + KU | After LoCoMo proof moves. LME-20 4/20 is not the lever. |
-| S5 industry | atoms-first answerer | After product proof moves; label the lane. |
-| S6 freeze | n=1540 + Mem0 same-pin | **Once**, after stratified deltas exist. |
+| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19/180. |
 
-**Suggested first remasure:** MH-only 33 on `integrity-s0-1` with `--fail-closed --skip-ingest`. Attribute every new CORRECT. Do not invent a new 180 pin unless a full fail-closed S0 actually finishes. Do not treat unit-test date/transfer/list fixtures as a 2/33 replacement.
+**Suggested first remasure:** P1 skip-ingest product 180 with `BRAINY_RECALL_LLM=1` on `diag-mh-135`, and the fair Mem0 180. Do not treat unit-test fixtures as a 2/33 replacement. Do not start n=1540 yet.
 
 **Shipped this increment (generic linguistic, fixtures not dataset IDs):** hop `Name and Name` / `Name and Name both` / `with Name`; hop the person after `does`/`has` on count questions; kinship `'s mother` / `her partner` chains family → slot; join compose intersects and does not dump the union; possession/skill lists without occupation/hobby crowding; how-many counts the typed set; Has/Did polar Yes from typed hops only; `practices … at` place extract; unwind/`do to` activity lists; visit/travel superlative; who-answers from other person mentions; `besides` exclusion (stemmed); childhood items as possession; **when-event hops prove a date from observed_at (do not dump event names)**; **given-to hops the giver only and keeps recipient-mentioned values**; **after-clause keeps matching evidence**; community/journey activity lists; family-injury who; organization beneficiaries from affiliation; **where+kinship answers a place from `in`/`at`/`near`, hopping the source person as well as the unnamed partner**; **`with colleagues/friends` is a group filter, not a CapName join**; **`for` clauses keep matching evidence**; **`get with having` hops health, not possession dumps**; **how-many children counts child-cued family members, not partners**; **dual-entity list queries intersect instead of unioning**; **kinship hobby lists filter to the dest person**; **how-many Ferraris counts the head noun, not every possession**; **who-told and polar teach from typed hops**; **journey-change lists stay identity, not occupation**; **pets' names are possession**; **named `in the X community` filters to X (affiliation hops too)**; **named `during X journey` filters identity to the period**; **list-head modifiers** (`outdoor activities`, `sports collectible`, `unhealthy snacks`) soft-filter evidence; **when list-head and group-companion cues are both present, prefer intersect, else list-head, else companion**; **community dual-entity lists join by organized/started/group token-subset and partner mention (fallback slots allowed)**; **unnamed kin-role dests rewrite to `{Name}'s {role}` and merge dest-subject attitude slots**; **who-supports keeps group nouns** (`friends and team`) from typed hops, not only CapNames; **practice location lists extract `in`/`at`/`near` places**, split comma/and lists, skip leading `her`/`his`, stop relative clauses / lone gerunds, and **never dump activities as locations**; **atom refill skipped when hops already listed**; **enumerate answers rank by query evidence then cap at 8** (enumerate mode shares that refine path); **dest-subject slot recovery** prepends practice locatives, unwind/calm/`to *stress` activities, play/practice objects, trick-mentioned skills, and besides+work stressors; compositional places require a definite `the {practice} {noun}`; `unwind` is not an `un-` negation.
 
@@ -272,7 +276,7 @@ Auth: if `BRAINY_API_KEYS` / `BRAINY_REQUIRE_API_KEY` are set, unauthenticated c
 ## 7. Docs the next agent should trust (in order)
 
 1. **This file**
-2. [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) — **2026-08-21 slot-aligned dest-subject**, then kinship dest / community-join / packet-proof
+2. [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) — **2026-08-22 this-VM S0**, then 2026-08-21 slot-aligned dest-subject
 3. [sota-execution-plan.md](./sota-execution-plan.md) — gates, not the S1-first guess
 4. [locomo-full-70-80-path.md](./locomo-full-70-80-path.md)
 5. [codebase-graph.md](./codebase-graph.md) — topology (dated 2026-08-04; planes are mid-migration)
@@ -285,7 +289,7 @@ Auth: if `BRAINY_API_KEYS` / `BRAINY_REQUIRE_API_KEY` are set, unauthenticated c
 - [docs/research/README.md](./README.md) headline table — updated to point here; older “next R6a” sentences elsewhere are history.
 - Wave 1 archaeology / Gate 0 / “next is R1b” / LME 0/20.
 
-Every remasure or merge must add a dated section to cycle-closeout **in this order:** Landed → Own pins → Competitor compare (detailed) → Why → Next. Scores-only is incomplete. README gets published-% + same-pin **summary** only, outlinking [docs/benchmarks/README.md](../benchmarks/README.md). No SOTA. Trail axes stay visible (today: open-domain, and product MH).
+Every remasure or merge must add a dated section to cycle-closeout **in this order:** Landed → Own pins → Competitor compare (detailed) → Why → Next. Scores-only is incomplete. README gets published-% + same-pin **summary** only, outlinking [docs/benchmarks/README.md](../benchmarks/README.md). No SOTA. Trail axes stay visible (today: open-domain, product SH/temporal on this VM, and integrity MH).
 
 ---
 
@@ -293,11 +297,11 @@ Every remasure or merge must add a dated section to cycle-closeout **in this ord
 
 You are not done when a blog sentence says 80%. You are done when:
 
-1. Fail-closed S0 product `/recall` moves for **attributed** proof-path reasons (ledger PROOF shrinks; WRITE stays small unless you can show new WRITE).
-2. MH product is no longer a 2/33 dip — hop-plan coverage and `hop_join_proven` are measured, not vibed.
-3. Stratified SH / temporal / OD are labeled. OD 0/4 stays a diagnostic; do not stuff episodes to fake it.
+1. Fail-closed S0 product `/recall` moves for **attributed** proof-path or reader-path reasons (ledger PROOF and/or READER shrink; WRITE stays small unless you can show new WRITE).
+2. MH product is no longer a 2/33 dip on the **integrity** tenant — hop-plan coverage and `hop_join_proven` are measured, not vibed. This-VM 12/33 is not a substitute.
+3. Stratified SH / temporal / OD are labeled. This-VM SH 5/98 and temporal 2/38 are the 80% hole. OD 0/11 stays a diagnostic; do not stuff episodes to fake it.
 4. OpMem 13/13 and marketing 17/17 stay green.
-5. Only then: 3×90 both lanes, then **one** n=1540 freeze, then Mem0 Platform same-pin on the identical harness.
-6. If that same-pin wins: write the cycle-closeout + README same-pin table. Still do not write “SOTA” until the owner says so.
+5. Fair Mem0 Platform 180 (v3 / top_k 200 / chunk 1) exists on the same question set as Brainy industry. Product `/recall` is a separate labeled row.
+6. Only then: 3×90 both lanes, then **one** n=1540 freeze. If that same-pin wins: write the cycle-closeout + README same-pin table. Still do not write “SOTA” until the owner says so.
 
 If you cannot show a stratified delta after one iteration, re-scope. Do not polish.

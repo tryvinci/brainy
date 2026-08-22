@@ -1,0 +1,113 @@
+{
+  "tenant_prefix": "diag-mh-135",
+  "runs": [
+    {
+      "lane": "product-recall",
+      "run_id": "locomo-s0-diag-mh-135-product-recall-s1-3973ae",
+      "accuracy": 0.10555555555555556,
+      "correct": 19,
+      "total": 180,
+      "by_group": {
+        "temporal": {
+          "correct": 2,
+          "total": 38
+        },
+        "multi-hop": {
+          "correct": 12,
+          "total": 33
+        },
+        "open-domain": {
+          "correct": 0,
+          "total": 11
+        },
+        "single-hop": {
+          "correct": 5,
+          "total": 98
+        }
+      },
+      "failure_histogram": {
+        "total": 161,
+        "by_primary": {
+          "PROOF_MISS": 59,
+          "READER_MISS": 52,
+          "RETRIEVAL_MISS": 39,
+          "WRITE_MISS": 10,
+          "HARNESS_ERROR": 1
+        },
+        "by_group": {
+          "single-hop:PROOF_MISS": 48,
+          "temporal:READER_MISS": 24,
+          "single-hop:READER_MISS": 22,
+          "single-hop:RETRIEVAL_MISS": 19,
+          "multi-hop:RETRIEVAL_MISS": 13,
+          "multi-hop:READER_MISS": 6,
+          "open-domain:PROOF_MISS": 6,
+          "temporal:RETRIEVAL_MISS": 5,
+          "temporal:PROOF_MISS": 4,
+          "open-domain:WRITE_MISS": 3,
+          "temporal:WRITE_MISS": 3,
+          "single-hop:WRITE_MISS": 3,
+          "open-domain:RETRIEVAL_MISS": 2,
+          "multi-hop:WRITE_MISS": 1,
+          "single-hop:HARNESS_ERROR": 1,
+          "multi-hop:PROOF_MISS": 1
+        }
+      }
+    },
+    {
+      "lane": "industry-search",
+      "run_id": "locomo-s0-diag-mh-135-industry-search-s1-d59657",
+      "accuracy": 0.34444444444444444,
+      "correct": 62,
+      "total": 180,
+      "by_group": {
+        "temporal": {
+          "correct": 22,
+          "total": 38
+        },
+        "multi-hop": {
+          "correct": 10,
+          "total": 33
+        },
+        "open-domain": {
+          "correct": 3,
+          "total": 11
+        },
+        "single-hop": {
+          "correct": 27,
+          "total": 98
+        }
+      },
+      "failure_histogram": {
+        "total": 118,
+        "by_primary": {
+          "PROOF_MISS": 43,
+          "RETRIEVAL_MISS": 35,
+          "READER_MISS": 30,
+          "WRITE_MISS": 8,
+          "JUDGE_MISS": 1,
+          "HARNESS_ERROR": 1
+        },
+        "by_group": {
+          "single-hop:PROOF_MISS": 37,
+          "single-hop:RETRIEVAL_MISS": 19,
+          "single-hop:READER_MISS": 12,
+          "multi-hop:RETRIEVAL_MISS": 11,
+          "multi-hop:READER_MISS": 10,
+          "temporal:READER_MISS": 8,
+          "temporal:RETRIEVAL_MISS": 4,
+          "open-domain:PROOF_MISS": 4,
+          "temporal:WRITE_MISS": 3,
+          "open-domain:WRITE_MISS": 2,
+          "single-hop:WRITE_MISS": 2,
+          "multi-hop:WRITE_MISS": 1,
+          "open-domain:RETRIEVAL_MISS": 1,
+          "open-domain:JUDGE_MISS": 1,
+          "temporal:PROOF_MISS": 1,
+          "single-hop:HARNESS_ERROR": 1,
+          "multi-hop:PROOF_MISS": 1
+        }
+      }
+    }
+  ]
+}
