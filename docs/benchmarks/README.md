@@ -146,6 +146,7 @@ Ladder: [research/public-bench-ladder.md](../research/public-bench-ladder.md).
 | Current-SHA S0 this-VM (2026-08-22) | Tenant `diag-mh-135` + conv-30, hybrid **off**: product **19/180**, industry **62/180**. [pin](./artifacts/locomo-s0-diag-mh-135-20260822.md). **Not** a replacement for integrity 32/180 or the 1×30 freeze. |
 | P1 hybrid-on S0 this-VM (2026-08-22) | Same store, `BRAINY_RECALL_LLM=1`: product **37/180**. MH **10/33 dip** vs reader-off 12/33. SH 19/98, temporal 7/38. [pin](./artifacts/locomo-s0-diag-mh-135-llm-20260822.md). **Not** n=1540, **not** a Mem0 same-pin. |
 | P2-narrow S0 this-VM (2026-08-22) | Same store, hybrid on. Length-lock **56/180** (MH 11/33, temporal **21/38**). [pin](./artifacts/locomo-s0-diag-mh-135-p2-20260822.md). Extras-lock + skip hop-ground **61/180** (MH **16/33**, temporal **19/38 dip** vs 21/38). [pin](./artifacts/locomo-s0-diag-mh-135-p2b-20260822.md). **Not** n=1540, **not** a Mem0 same-pin. |
+| P3 distinctive-token S0 this-VM (2026-08-22) | Same store, hybrid on. Admit leftover query tokens; skip unproven hop dumps. **73/180** (MH **16/33** held, OD **3/11**, SH **32/98**, temporal **22/38**). [pin](./artifacts/locomo-s0-diag-mh-135-p3-20260822.md). **Not** n=1540, **not** a Mem0 same-pin. |
 | BEAM 100K this cycle | [beam-100k-fresh-20260815.md](./artifacts/beam-100k-fresh-20260815.md) |
 | BEAM 100K historical | [beam-100k-c0-async.md](./artifacts/beam-100k-c0-async.md) |
 
