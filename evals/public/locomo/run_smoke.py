@@ -177,11 +177,16 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     system = (getattr(args, "system", None) or "brainy").strip().lower()
     lane_flag = str(getattr(args, "eval_lane", "") or "").strip()
     eval_lane = resolve_eval_lane(lane_flag, os.environ.get("BRAINY_USE_RECALL", ""))
+    explicit_top_k = getattr(args, "top_k", None)
     args.top_k = default_lane_top_k(
         eval_lane,
-        explicit=getattr(args, "top_k", None),
+        explicit=explicit_top_k,
         lane_flag_set=bool(lane_flag),
     )
+    # Mem0's published LoCoMo protocol is top_k=200 (memory-benchmarks default).
+    # Without --eval-lane, default_lane_top_k stays 30 and handicaps Platform.
+    if system == "mem0" and explicit_top_k is None:
+        args.top_k = 200
     answer_path = lane_answer_path(eval_lane)
     if system != "mem0" and eval_lane == "product-recall":
         os.environ["BRAINY_USE_RECALL"] = "1"
@@ -193,7 +198,10 @@ def run(args: argparse.Namespace) -> UnifiedResult:
 
         backend = Mem0Backend(async_timeout_s=float(getattr(args, "async_timeout", 180.0)))
         base_url = "https://api.mem0.ai"
-        print("system=mem0 (Platform API; same-pin compare GAP-M1)", flush=True)
+        print(
+            f"system=mem0 (Platform API; same-pin compare GAP-M1) top_k={args.top_k}",
+            flush=True,
+        )
     else:
         prefix = str(getattr(args, "tenant_prefix", "") or "").strip() or f"locomo-{nonce}"
         backend = BrainyBackend(
@@ -279,7 +287,10 @@ def run(args: argparse.Namespace) -> UnifiedResult:
             n_ingested = 0
             print(f"[{sample_id}] skip-ingest ({n_turns} turns, {len(sessions)} sessions)", flush=True)
         else:
-            n_ingested = ingest_conversation(backend, user_id, sessions)
+            # Mem0's public LoCoMo runner ingests one turn per add (CHUNK_SIZE=1)
+            # and stamps session dates as unix timestamps. Do not batch to 8.
+            ingest_chunk = 1 if system == "mem0" else 8
+            n_ingested = ingest_conversation(backend, user_id, sessions, chunk=ingest_chunk)
             print(f"[{sample_id}] ingested {n_ingested} turns ({n_turns} total, {len(sessions)} sessions)", flush=True)
 
         questions = iter_questions(conversation)

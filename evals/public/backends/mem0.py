@@ -9,7 +9,11 @@ import uuid
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "evals"))
 
-from competitors.mem0_adapter import Mem0Adapter, mem0_user_id  # noqa: E402
+from competitors.mem0_adapter import (  # noqa: E402
+    Mem0Adapter,
+    mem0_user_id,
+    observed_at_to_epoch,
+)
 
 
 class Mem0Backend:
@@ -37,7 +41,6 @@ class Mem0Backend:
         *,
         wait: bool | None = None,
     ) -> list[str]:
-        _ = metadata
         uid = self._user(user_id)
         cleaned = []
         for m in messages:
@@ -48,7 +51,9 @@ class Mem0Backend:
             cleaned.append({"role": role, "content": content})
         if not cleaned:
             return []
-        self._client.add_messages(uid, cleaned)
+        meta = metadata or {}
+        timestamp = observed_at_to_epoch(meta.get("observed_at") or meta.get("timestamp"))
+        self._client.add_messages(uid, cleaned, timestamp=timestamp)
         if wait is False:
             return []
         self._client.wait_until_ready(uid, min_count=1, timeout_s=min(60.0, self.async_timeout_s))
@@ -62,7 +67,7 @@ class Mem0Backend:
         min_results: int = 1,
         timeout_s: float | None = None,
         settle_polls: int = 2,
-        min_indexed: int = 40,
+        min_indexed: int = 200,
     ) -> bool:
         """Wait until search hits *and* a minimum indexed memory count.
 
@@ -97,7 +102,7 @@ class Mem0Backend:
                     "memory_id": item.get("memory_id") or "",
                     "content": item.get("content") or "",
                     "score": float(item.get("score") or 0),
-                    "observed_at": "",
+                    "observed_at": item.get("created_at") or "",
                 }
             )
         return results, latency_ms

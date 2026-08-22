@@ -8,6 +8,42 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
+
+
+_LOCOMO_DATE_FORMATS = (
+    "%I:%M %p on %d %B, %Y",
+    "%I:%M %p on %d %b, %Y",
+    "%Y-%m-%dT%H:%M:%S%z",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%d",
+)
+
+
+def observed_at_to_epoch(value: str | int | float | None) -> int | None:
+    """Convert LoCoMo session dates / ISO / unix timestamps to epoch seconds."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        n = int(value)
+        return n if n > 0 else None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        n = int(text)
+        return n if n > 0 else None
+    for fmt in _LOCOMO_DATE_FORMATS:
+        try:
+            parsed = datetime.strptime(text, fmt)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return int(parsed.timestamp())
+        except ValueError:
+            continue
+    return None
 
 
 class Mem0Adapter:
@@ -16,29 +52,85 @@ class Mem0Adapter:
     def __init__(self, api_key: str | None = None, base_url: str = "https://api.mem0.ai") -> None:
         self.api_key = api_key or os.environ.get("MEM0_API_KEY", "")
         self.base_url = base_url.rstrip("/")
+        self.search_path = "/v3/memories/search/"
+        self.add_path = "/v3/memories/"
 
     def available(self) -> bool:
         return bool(self.api_key)
 
-    def _request(self, method: str, path: str, payload: dict | None = None) -> dict | list:
+    def _request(self, method: str, path: str, payload: dict | None = None, *, timeout: float = 60) -> dict | list:
         headers = {
             "Authorization": f"Token {self.api_key}",
             "Content-Type": "application/json",
         }
         data = None if payload is None else json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
-        with urllib.request.urlopen(req, timeout=60) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             body = resp.read().decode("utf-8")
             if not body:
                 return {}
             return json.loads(body)
 
-    def add_messages(self, user_id: str, messages: list[dict]) -> dict:
-        return self._request(
+    def _request_with_fallback(
+        self,
+        method: str,
+        path: str,
+        fallback: str,
+        payload: dict | None = None,
+        *,
+        timeout: float = 60,
+    ) -> tuple[str, dict | list]:
+        try:
+            return path, self._request(method, path, payload, timeout=timeout)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 404:
+                raise
+            return fallback, self._request(method, fallback, payload, timeout=timeout)
+
+    def _wait_for_event(self, event_id: str, *, timeout_s: float = 300.0) -> dict:
+        deadline = time.time() + timeout_s
+        last: dict | list = {}
+        while time.time() < deadline:
+            last = self._request("GET", f"/v1/event/{event_id}/", timeout=30)
+            if not isinstance(last, dict):
+                time.sleep(1.0)
+                continue
+            status = str(last.get("status") or "").upper()
+            if status == "SUCCEEDED":
+                return last
+            if status == "FAILED":
+                raise RuntimeError(f"mem0 event {event_id} failed: {last.get('error') or last}")
+            time.sleep(0.5)
+        raise TimeoutError(f"mem0 event {event_id} timed out after {timeout_s:.0f}s")
+
+    def add_messages(
+        self,
+        user_id: str,
+        messages: list[dict],
+        *,
+        timestamp: int | None = None,
+        metadata: dict | None = None,
+        wait_event: bool = True,
+    ) -> dict:
+        payload: dict = {"messages": messages, "user_id": user_id}
+        if timestamp is not None:
+            payload["timestamp"] = int(timestamp)
+        if metadata:
+            payload["metadata"] = metadata
+        path, response = self._request_with_fallback(
             "POST",
+            "/v3/memories/",
             "/v1/memories/",
-            {"messages": messages, "user_id": user_id},
+            payload,
+            timeout=120,
         )
+        self.add_path = path
+        if not wait_event or not isinstance(response, dict):
+            return response if isinstance(response, dict) else {"results": response}
+        event_id = str(response.get("event_id") or "").strip()
+        if event_id:
+            return self._wait_for_event(event_id)
+        return response
 
     def list_memories(self, user_id: str) -> list[dict]:
         response = self._request("GET", f"/v1/memories/?user_id={urllib.parse.quote(user_id)}")
@@ -57,12 +149,20 @@ class Mem0Adapter:
             time.sleep(2)
         return last
 
-    def search(self, user_id: str, query: str, top_k: int = 10) -> list[dict]:
-        response = self._request(
+    def search(self, user_id: str, query: str, top_k: int = 10, *, rerank: bool = False) -> list[dict]:
+        payload = {
+            "query": query,
+            "filters": {"user_id": user_id},
+            "top_k": top_k,
+            "rerank": bool(rerank),
+        }
+        path, response = self._request_with_fallback(
             "POST",
+            "/v3/memories/search/",
             "/v2/memories/search/",
-            {"query": query, "filters": {"user_id": user_id}, "top_k": top_k},
+            payload,
         )
+        self.search_path = path
         if isinstance(response, list):
             return response
         return response.get("results", response.get("memories", []))
@@ -76,9 +176,10 @@ class Mem0Adapter:
             normalized.append(
                 {
                     "memory_id": item.get("id") or item.get("memory_id") or "",
-                    "kind": item.get("metadata", {}).get("kind", "fact"),
+                    "kind": item.get("metadata", {}).get("kind", "fact") if isinstance(item.get("metadata"), dict) else "fact",
                     "content": content,
                     "score": float(item.get("score") or item.get("similarity") or 0),
+                    "created_at": item.get("created_at") or item.get("updated_at") or "",
                 }
             )
         return normalized
