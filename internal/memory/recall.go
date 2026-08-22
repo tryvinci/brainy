@@ -541,7 +541,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	// Enumerate mode must be reachable: the product harness sends list /
 	// multi-evidence questions as mode=enumerate, and answer mode also
 	// enumerates internally. Where/polar stay locked. Dates may be rewritten.
-	// Typed counts, dual-entity lists, and short typed lists stay locked.
+	// Typed counts, dual-entity lists, and enumerated lists that hybrid
+	// does not shorten stay locked so dumps cannot replace a typed join.
 	if mode == "answer" || mode == "enumerate" {
 		hybrid := s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt)
 		if hybrid.Reason != "" {
@@ -567,25 +568,27 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
 		lockedCount := looksCountQuery(req.Query) && out.Explain["count_answer"] == true
 		typedAnswer := strings.TrimSpace(out.Answer)
+		typedN := listItemCount(typedAnswer, out.Items)
+		hybridN := len(itemsFromCommaAnswer(hybrid.Answer))
 		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && enumerated && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
-		lockedShortList := enumerated && hybrid.OK && hybridExpandsShortList(typedAnswer, hybrid.Answer)
-		if hybrid.OK && (lockedWhere || lockedPolar || lockedCount || lockedMHList || lockedShortList) {
+		lockedList := enumerated && hybrid.OK && typedN > 0 && hybridN >= typedN
+		if hybrid.OK && (lockedWhere || lockedPolar || lockedCount || lockedMHList || lockedList) {
 			lock := "where"
+			if lockedList {
+				lock = "list"
+			}
+			if lockedMHList {
+				lock = "mh_list"
+			}
 			if lockedPolar {
 				lock = "polar"
 			}
 			if lockedCount {
 				lock = "count"
 			}
-			if lockedMHList {
-				lock = "mh_list"
-			}
-			if lockedShortList {
-				lock = "short_list"
-			}
 			out.Explain["hybrid_skipped_lock"] = lock
 		}
-		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedShortList {
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			if hopComposeAllowed(req.Query) {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
@@ -606,7 +609,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedShortList {
+		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
 			if hopComposeAllowed(req.Query) {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
@@ -637,24 +640,18 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	return out, nil
 }
 
-// hybridExpandsShortList is true when typed enumerate already produced a
-// short list and hybrid only adds extra untyped items on top of it.
-func hybridExpandsShortList(typed, hybrid string) bool {
-	typedItems := itemsFromCommaAnswer(typed)
-	hybItems := itemsFromCommaAnswer(hybrid)
-	if n := len(typedItems); n == 0 || n > 4 {
-		return false
-	}
-	if len(hybItems) <= len(typedItems) {
-		return false
-	}
-	hyb := strings.ToLower(hybrid)
-	for _, it := range typedItems {
-		if !strings.Contains(hyb, strings.ToLower(it.Value)) {
-			return false
+// listItemCount prefers structured items, then comma-split answer text.
+func listItemCount(answer string, items []RecallItem) int {
+	n := 0
+	for _, it := range items {
+		if strings.TrimSpace(it.Value) != "" {
+			n++
 		}
 	}
-	return true
+	if n > 0 {
+		return n
+	}
+	return len(itemsFromCommaAnswer(answer))
 }
 
 func itemsFromCommaAnswer(answer string) []RecallItem {

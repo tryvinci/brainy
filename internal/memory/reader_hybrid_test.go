@@ -589,16 +589,19 @@ func TestRecallHybridDoesNotExpandShortTypedList(t *testing.T) {
 	if strings.Contains(got, "pottery") || strings.Contains(got, "beach") {
 		t.Fatalf("hybrid expanded short list: %q explain=%v", out.Answer, out.Explain)
 	}
+	if out.Explain["hybrid_skipped_lock"] != "list" && out.Explain["hybrid_skipped_lock"] != "mh_list" {
+		t.Fatalf("expected list lock, explain=%v answer=%q", out.Explain, out.Answer)
+	}
 }
 
-func TestHybridExpandsShortList(t *testing.T) {
-	if !hybridExpandsShortList("clarinet, violin", "clarinet, violin, pottery, beach") {
-		t.Fatal("expected expansion")
+func TestListItemCount(t *testing.T) {
+	if listItemCount("clarinet, violin", nil) != 2 {
+		t.Fatal("comma split")
 	}
-	if hybridExpandsShortList("camping, slogans, nurse, hiking, pottery", "horseback riding") {
-		t.Fatal("short hybrid replacing a long dump is not an expansion")
+	if listItemCount("", []RecallItem{{Value: "a"}, {Value: "b"}, {Value: "c"}}) != 3 {
+		t.Fatal("items win")
 	}
-	if hybridExpandsShortList("", "pottery") {
-		t.Fatal("empty typed is not an expansion")
+	if listItemCount("not in memory", nil) != 0 {
+		t.Fatal("sentinel")
 	}
 }

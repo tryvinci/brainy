@@ -226,6 +226,7 @@ func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan
 	system := `Answer the question using only the memories below.
 Prefer Structured slot values (places, names, lists) over anaphoric phrases like "home country".
 Prefer a concrete short answer (dates, names, places, lists).
+If memories place an event on a weekday or weekend relative to a calendar date, keep that relative phrasing. Do not substitute a different calendar day.
 When several memories support different parts of the answer, combine every distinct supported item — do not stop at the first memory.
 Never invent facts that are not in the memories.
 If memories truly lack the answer, set abstain=true and answer to an empty string.
