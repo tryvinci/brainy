@@ -1646,9 +1646,16 @@ func hopEntityRawValueGroups(results []HopResult) ([]string, map[string][]string
 
 // intersectHopValuesByRareSharedToken keeps values that share a rare 8+ letter
 // token across every hop entity (signed basketball ∩ basketball trophy).
-// Generic high-df tokens (collection, photo) lose to rarer ones.
+// Generic high-df tokens (collection, photo) lose to rarer ones. When typed
+// Values omit the shared object, fall back to hop-content snippets.
 func intersectHopValuesByRareSharedToken(results []HopResult) []string {
-	order, groups := hopEntityRawValueGroups(results)
+	if got := rareSharedFromGroups(hopEntityOmittedContentGroups(results)); len(got) > 0 {
+		return got
+	}
+	return rareSharedFromGroups(hopEntityRawValueGroups(results))
+}
+
+func rareSharedFromGroups(order []string, groups map[string][]string) []string {
 	if len(order) < 2 {
 		return nil
 	}
@@ -1697,7 +1704,6 @@ func intersectHopValuesByRareSharedToken(results []HopResult) []string {
 	if best == "" {
 		return nil
 	}
-	// debug
 	_ = bestDF
 	_ = bestLen
 	seen := map[string]struct{}{}
@@ -1724,6 +1730,101 @@ func intersectHopValuesByRareSharedToken(results []HopResult) []string {
 		out = append(out, strings.TrimSpace(bestVal))
 	}
 	return out
+}
+
+func hopContentSnippet(content string) string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	if v, ok := slotValueFromMemoryContent(content); ok {
+		v = strings.TrimSpace(v)
+		if v != "" && utf8Len(v) <= 80 && !looksCrowdedHopDump(v) {
+			return v
+		}
+	}
+	lower := strings.ToLower(content)
+	for _, sep := range []string{" possesses ", " possessed "} {
+		i := strings.Index(lower, sep)
+		if i < 0 {
+			continue
+		}
+		v := strings.TrimSpace(content[i+len(sep):])
+		if j := strings.IndexAny(v, ".(["); j > 0 {
+			v = strings.TrimSpace(v[:j])
+		}
+		if v != "" && utf8Len(v) <= 80 && !looksCrowdedHopDump(v) {
+			return v
+		}
+	}
+	if utf8Len(content) <= 80 && !looksCrowdedHopDump(content) {
+		return content
+	}
+	return ""
+}
+
+func snippetCoveredByValues(snip string, vals []string) bool {
+	snip = strings.TrimSpace(snip)
+	if snip == "" {
+		return false
+	}
+	low := strings.ToLower(snip)
+	for _, v := range vals {
+		v = strings.ToLower(strings.TrimSpace(v))
+		if v == "" || utf8Len(v) < 4 {
+			continue
+		}
+		if strings.Contains(low, v) || strings.Contains(v, low) {
+			return true
+		}
+		if coveredSlotValue(v, snip) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hopEntityOmittedContentGroups(results []HopResult) ([]string, map[string][]string) {
+	valOrder, valGroups := hopEntityRawValueGroups(results)
+	order := append([]string(nil), valOrder...)
+	seenEnt := map[string]struct{}{}
+	for _, ent := range order {
+		seenEnt[ent] = struct{}{}
+	}
+	groups := map[string][]string{}
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			ent := strings.ToLower(strings.TrimSpace(r.Entity))
+			if ent == "" {
+				continue
+			}
+			if _, ok := seenEnt[ent]; !ok {
+				order = append(order, ent)
+				seenEnt[ent] = struct{}{}
+			}
+			for _, c := range r.Contents {
+				if looksCrowdedHopDump(c) {
+					continue
+				}
+				snip := hopContentSnippet(c)
+				if snip == "" {
+					continue
+				}
+				if snippetCoveredByValues(snip, valGroups[ent]) {
+					continue
+				}
+				groups[ent] = append(groups[ent], snip)
+			}
+		}
+	}
+	filtered := make([]string, 0, len(order))
+	for _, ent := range order {
+		if len(groups[ent]) > 0 {
+			filtered = append(filtered, ent)
+		}
+	}
+	return filtered, groups
 }
 
 func joinTitledHopValues(vals []string) string {
