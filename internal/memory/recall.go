@@ -621,7 +621,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			// Enumerated answers already have a typed list; hop-slot
 			// grounding re-expands them into unrelated dumps. Unproven
 			// search_fallback hops must not replace a hybrid answer either.
-			if hopComposeAllowed(req.Query) && hopJoinProven(hopResults) && !enumerated {
+			if shouldGroundHybridToHops(req.Query, hopResults, pkt, enumerated) {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
 				out.Answer = grounded
 				if composed := composeFromHopValues(hopResults); composed != "" && grounded == composed && grounded != strings.TrimSpace(hybrid.Answer) {
@@ -720,6 +720,13 @@ func lockHybridListExtras(enumerated bool, typedN, hybridN, extras int) bool {
 		return false
 	}
 	return (typedN >= 3 && hybridN >= 3) || hybridN > typedN
+}
+
+func shouldGroundHybridToHops(query string, hops []HopResult, pkt EvidencePacket, enumerated bool) bool {
+	if enumerated || !hopComposeAllowed(query) || !hopJoinProven(hops) {
+		return false
+	}
+	return !skipUnrelatedHopSlots(query, hops, pkt)
 }
 
 func listItemCount(answer string, items []RecallItem) int {

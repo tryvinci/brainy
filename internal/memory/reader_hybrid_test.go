@@ -842,6 +842,29 @@ func TestLockHybridListExtras(t *testing.T) {
 	}
 }
 
+func TestShouldGroundHybridToHopsSkipsIdentityDumps(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Maria", EntityID: "e-maria", Value: "Maria", Source: "typed_store"},
+		{Kind: "follow_relation", Entity: "Maria", EntityID: "e-maria", Predicate: PredicateIdentity, Source: "typed_store",
+			Value: "inspiration", Values: []string{"inspiration", "family", "team"}},
+	}
+	pkt := EvidencePacket{
+		Contents:        []string{"Maria has a dog named Shadow.", "Maria has a new puppy."},
+		ContextEvidence: []PacketItem{{Content: "Maria has a dog named Shadow."}},
+		Coverage:        map[string]any{"hop_results": hops},
+	}
+	q := "What is the name of Maria's second puppy?"
+	if !hopJoinProven(hops) {
+		t.Fatalf("fixture must be hop-join proven")
+	}
+	if shouldGroundHybridToHops(q, hops, pkt, false) {
+		t.Fatal("must not hop-ground identity dumps over covering memories")
+	}
+	if shouldGroundHybridToHops(q, hops, pkt, true) {
+		t.Fatal("enumerated answers already skip hop-ground")
+	}
+}
+
 func TestListItemCount(t *testing.T) {
 	if listItemCount("clarinet, violin", nil) != 2 {
 		t.Fatal("comma split")
