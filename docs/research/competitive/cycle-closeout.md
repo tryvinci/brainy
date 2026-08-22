@@ -1857,3 +1857,75 @@ Two stores, two product numbers: integrity 32/180 (PROOF-heavy, reader mostly un
 
 **One step:** P1 reader A/B on this frozen store (`BRAINY_RECALL_LLM=1`, skip-ingest product 180, hybrid reachable in **enumerate** as well as `answer`; keep date/where/polar locks). In parallel: fair Mem0 Platform 180 (`--system mem0 --top-k 200`, chunk 1, v3). P2 only if P1 moves SH/temporal. P3 follows the ledger (PROOF 48 on SH). n=1540 only after a stratified delta. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-22 — P1 hybrid reader A/B (this-VM `diag-mh-135`)
+
+### Landed
+
+Product `/recall` hybrid reader reachable in **enumerate** as well as `answer` (`d86dcf1`), plus `max_tokens: 2048` so hosted gpt-oss can emit JSON (`3d42b17`). Staging may set `BRAINY_RECALL_LLM=1`; the Go **default stays off** until an owner yes. Same frozen store as the reader-off pin: tenant `diag-mh-135` + conv-30, dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`, stratified 180 seed 1, `--fail-closed --skip-ingest`. `#133` / `#131` stay unmerged. `main` is not fast-forwarded.
+
+Pin: [locomo-s0-diag-mh-135-llm-20260822.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-llm-20260822.md). Reader-off pair: [locomo-s0-diag-mh-135-20260822.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-20260822.md).
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Not re-run; merge gate stands. |
+| Marketing vertical | **17/17** | Not re-run; merge gate stands. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product `/recall` this VM **hybrid on** | **37/180 (0.206)** | MH **10/33 (dip)** · OD **1/11** · SH **19/98** · temporal **7/38**. SHA `3d42b17`. Ledger: **PROOF 44 / READER 49 / RETRIEVAL 39 / WRITE 10 / HARNESS 1**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 37/180 does not replace integrity 32/180. MH 12→10 is a **dip** (lost clarinet/violin dump, dual collectible, community join, snack filter, Ferrari count; gained polar-teach, family-injury who, who-supports).
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`--system mem0 --top-k 200`, chunk 1, v3 add `/v3/memories/add/` + event wait) is still ingesting. The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19/180** off → **37/180** on | **no same-n pin yet** | Product doubled vs itself. Still trails this-VM industry **62/180**. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin yet** | Same-pin lane vs Mem0 once the fair 180 lands. |
+| S0 MH product (this tenant) | reader-off **12/33** → hybrid **10/33** | no 33-item freeze | **Dip.** Do not treat hybrid-on MH as the #135 recovery pin. |
+| Search p50 | hybrid-on product 130 ms local | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (dip 12→10).** Hybrid overwrote typed lists/counts (Melanie instruments + pottery/beach; Ferrari 2 → hop dump). Dual-entity joins that were nonempty also lost. Reader-off MH **12/33** still leads this-VM industry MH **10/33**; hybrid-on **ties** industry. Closing the dip is a lock, not more LLM.
+
+**Open-domain.** 0→1/11. Industry **3/11**. Still a trail axis vs published Mem0 OD on the 1×30 freeze. Do not restore OD by stuffing episodes.
+
+**Single-hop / temporal (the P1 move).** SH **5→19/98**, temporal **2→7/38**. Industry remains **27/98** and **22/38**. Largest hybrid-on cells: `single-hop:PROOF_MISS` 37, `temporal:READER_MISS` 22 (locked calendar dates vs gold “Sunday before …”), `single-hop:READER_MISS` 19, `single-hop:RETRIEVAL_MISS` 19. P1 **justifies P2** for SH/temporal. Where/polar stay locked.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (not re-run)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.**
+
+#### 3. Marketing vertical — lead (not re-run)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured.
+
+### Why
+
+Enumerate-mode hybrid is the mechanism for the SH/temporal lift: list questions now reach the packet reader instead of a locked dump. The MH dip is the same mechanism overwriting typed joins/counts that were already correct. PROOF 59→44 is SH dump cleanup, not new compiler coverage. WRITE stays 10 — do not merge #133. Reader-off 19/180 remains the labeled no-LLM product pin; 37/180 is staging-hybrid only.
+
+### Next
+
+**One step:** P2-narrow on this frozen store — unlock when-event dates so hybrid can keep weekday-relative phrasing; lock typed counts, dual-entity enumerated lists, and short typed lists that hybrid only expands. Remasure skip-ingest product 180 (`locomo-s0-diag-mh-135-p2`). Keep where/polar locked. Fair Mem0 180 continues in parallel. P3 follows the ledger (SH PROOF 37 is still the mass). n=1540 only after a stratified **delta** that is not just 19→37. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
