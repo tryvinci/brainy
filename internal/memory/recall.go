@@ -1993,7 +1993,7 @@ func parseDateFromText(s string) *time.Time {
 	fields := strings.Fields(s)
 	for n := 5; n >= 2; n-- {
 		for i := 0; i+n <= len(fields); i++ {
-			chunk := strings.Trim(strings.Join(fields[i:i+n], " "), "()[];,")
+			chunk := strings.Trim(strings.Join(fields[i:i+n], " "), "()[];,.\"'")
 			if t := parseFlexibleTime(chunk); t != nil && t.Year() > 1900 {
 				return t
 			}
@@ -3400,11 +3400,56 @@ func namedInstanceFromContent(content string) string {
 	return name
 }
 
+func expandPetKindTokens(toks []string) []string {
+	pet := []string{"puppy", "puppies", "dog", "dogs", "pup", "pet", "pets"}
+	hasPet := false
+	for _, t := range toks {
+		for _, p := range pet {
+			if t == p {
+				hasPet = true
+				break
+			}
+		}
+		if hasPet {
+			break
+		}
+	}
+	if !hasPet {
+		return toks
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(toks)+len(pet))
+	for _, t := range append(append([]string{}, toks...), pet...) {
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	return out
+}
+
+func ordinalKindTokens(query string) []string {
+	skip := map[string]struct{}{
+		"name": {}, "named": {}, "first": {}, "second": {}, "third": {}, "fourth": {},
+		"1st": {}, "2nd": {}, "3rd": {}, "4th": {},
+	}
+	toks := make([]string, 0, 4)
+	for _, t := range distinctiveQueryTokens(tokenize(query)) {
+		if _, ok := skip[t]; ok {
+			continue
+		}
+		toks = append(toks, t)
+	}
+	return expandPetKindTokens(toks)
+}
+
 func ordinalNameFromPacket(query string, pkt EvidencePacket) string {
 	ord := queryNameOrdinal(query)
 	if ord <= 0 {
 		return ""
 	}
+	kind := ordinalKindTokens(query)
 	ents := map[string]struct{}{}
 	for _, e := range hopQueryEntities(query) {
 		ents[strings.ToLower(e)] = struct{}{}
@@ -3417,6 +3462,12 @@ func ordinalNameFromPacket(query string, pkt EvidencePacket) string {
 	found := make([]named, 0, 4)
 	seen := map[string]struct{}{}
 	for _, line := range packetContentLines(pkt) {
+		if looksChatTurnLine(line) {
+			continue
+		}
+		if len(kind) > 0 && !contentCoversAnyQueryToken(line, kind) {
+			continue
+		}
 		name := namedInstanceFromContent(line)
 		if name == "" {
 			continue

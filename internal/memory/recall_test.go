@@ -3301,10 +3301,15 @@ func TestRecallChildhoodItemsPreferChildEvidence(t *testing.T) {
 func TestOrdinalNameFromPacketPicksSecondDatedThenUndated(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
-			{Content: "Riley got a puppy named Coco on 28 July 2023."},
 			{Content: "Riley has a dog named Shadow."},
+			{Content: "Riley got a puppy named Coco on 28 July 2023."},
 			{Content: "Riley has a new puppy."},
+			{Content: "Riley had a conversation with someone named David"},
+			{Content: "John had a family member named Max, a dog, who was part of his family for 10 years."},
 		},
+	}
+	if dt := parseDateFromText("Riley got a puppy named Coco on 28 July 2023."); dt == nil {
+		t.Fatal("expected trailing-period date on Coco line to parse")
 	}
 	got := ordinalNameFromPacket("What is the name of Riley's second puppy?", pkt)
 	if got != "Shadow" {
