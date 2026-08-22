@@ -538,7 +538,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	out.Explain["memory_count"] = len(search.Results)
 	out.Explain["context_runes"] = utf8.RuneCountInString(out.ContextBlock)
 	// Bounded hybrid LLM reader over the packet when composition is needed.
-	if mode == "answer" {
+	// Enumerate mode must be reachable: the product harness sends list /
+	// multi-evidence questions as mode=enumerate, and answer mode also
+	// enumerates internally. Date / where / polar locks stay (P2).
+	if mode == "answer" || mode == "enumerate" {
 		hybrid := s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt)
 		if hybrid.Reason != "" {
 			out.Explain["hybrid_reader_reason"] = hybrid.Reason
@@ -557,9 +560,18 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 		lockedDate := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
 		lockedWhere := looksWhereQuery(req.Query) && out.Explain["where_answer"] == true
-		lockedList := enumerated && strings.TrimSpace(out.Answer) != "" && strings.TrimSpace(out.Answer) != "not in memory"
 		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
-		if hybrid.OK && !lockedDate && !lockedWhere && !lockedList && !lockedPolar {
+		if hybrid.OK && (lockedDate || lockedWhere || lockedPolar) {
+			lock := "date"
+			if lockedWhere {
+				lock = "where"
+			}
+			if lockedPolar {
+				lock = "polar"
+			}
+			out.Explain["hybrid_skipped_lock"] = lock
+		}
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			if hopComposeAllowed(req.Query) {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
@@ -568,13 +580,19 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 					out.Explain["hybrid_grounded_to_hops"] = true
 				}
 			}
+			if mode == "enumerate" || enumerated {
+				if items := itemsFromCommaAnswer(out.Answer); len(items) > 0 {
+					out.Items = items
+					out.Explain["item_count"] = len(items)
+				}
+			}
 			out.Abstained = false
 			out.AnswerStatus = hybridAnswerStatus(hybrid, plan, pkt, packetOK)
 			out.Explain["reader_source"] = "hybrid_llm_packet"
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedList && !lockedPolar {
+		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar {
 			if hopComposeAllowed(req.Query) {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
@@ -603,6 +621,29 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	pkt.Plan = plan
 	out.Explain["evidence_packet"] = pkt
 	return out, nil
+}
+
+func itemsFromCommaAnswer(answer string) []RecallItem {
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") {
+		return nil
+	}
+	parts := strings.Split(answer, ",")
+	out := make([]RecallItem, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, part := range parts {
+		v := strings.TrimSpace(part)
+		if v == "" {
+			continue
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, RecallItem{Value: v})
+	}
+	return out
 }
 
 // hybridAnswerStatus maps hybrid outcomes to truthful AnswerStatus values.

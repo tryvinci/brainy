@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHybridReaderAcceptsAnswerWithoutSupportIDs(t *testing.T) {
@@ -260,5 +261,108 @@ func TestFormatHybridMemoryLinesLeadsWithStructuredSlots(t *testing.T) {
 	joined := strings.Join(lines, "\n")
 	if !strings.Contains(joined, "New York") {
 		t.Fatalf("context must still be present, lines=%v", lines)
+	}
+}
+
+func TestItemsFromCommaAnswer(t *testing.T) {
+	got := itemsFromCommaAnswer("running, pottery, running")
+	if len(got) != 2 || got[0].Value != "running" || got[1].Value != "pottery" {
+		t.Fatalf("got %#v", got)
+	}
+	if itemsFromCommaAnswer("not in memory") != nil {
+		t.Fatal("empty sentinel should yield no items")
+	}
+}
+
+func TestRecallHybridReplacesEnumerateDump(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"horseback riding","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL,
+		APIKey:  "test",
+		Model:   "test-model",
+	})
+	_, err := svc.Ingest(context.Background(), IngestRequest{
+		TenantID: "t-enum-hyb", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Caroline used to go horseback riding with her dad."},
+			{Role: "user", Content: "Caroline also likes camping trips and quality time in nature."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-enum-hyb", SubjectID: "u1",
+		Query: "What activities does Caroline enjoy?",
+		Mode:  "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Explain["reader_source"] != "hybrid_llm_packet" {
+		t.Fatalf("enumerate must be hybrid-reachable, explain=%v answer=%q", out.Explain, out.Answer)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "horseback") {
+		t.Fatalf("hybrid enumerate answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if len(out.Items) == 0 || !strings.Contains(strings.ToLower(out.Items[0].Value), "horseback") {
+		t.Fatalf("harness reads items; got %#v", out.Items)
+	}
+}
+
+func TestRecallHybridDoesNotOverwriteDateAnswer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"yesterday","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL,
+		APIKey:  "test",
+		Model:   "test-model",
+	})
+	now := svc.now()
+	d := time.Date(2023, 5, 7, 0, 0, 0, 0, time.UTC)
+	store.records["ja"] = MemoryRecord{
+		MemoryID: "mem_ja3", TenantID: "t-hyb-when", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan got an ankle injury",
+		DedupeKey: "ja", Status: StatusActive, UpdatedAt: now, ObservedAt: &d,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Jordan"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateHealth, val: "ankle", memID: "mem_ja3"})
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-when", SubjectID: "u1",
+		Query: "When did Jordan get an ankle injury in 2023?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.ToLower(out.Answer), "yesterday") {
+		t.Fatalf("hybrid overwrote date_answer: %q explain=%v", out.Answer, out.Explain)
+	}
+	if out.Explain["date_answer"] == true && out.Explain["hybrid_skipped_lock"] != "date" && out.Explain["reader_source"] == "hybrid_llm_packet" {
+		t.Fatalf("date lock should skip hybrid apply, explain=%v", out.Explain)
 	}
 }
