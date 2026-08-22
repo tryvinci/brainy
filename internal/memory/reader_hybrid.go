@@ -195,7 +195,7 @@ func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string 
 			}
 			// Skip drops Structured dumps, but hop contents still hold leftover
 			// covering facts and specific place/name lines (chili cook-off, Phuket).
-			if skipSlots && !hopDumpsUnproven(hops) {
+			if skipSlots && !hopDumpsUnproven(hops) && !hopsAreIdentityOnly(hops) {
 				for _, h := range hops {
 					if h.Kind == "resolve_entity" || h.Source == "unresolved" {
 						continue
@@ -1030,12 +1030,22 @@ func hopsAreIdentityOnly(hops []HopResult) bool {
 func leftoverNonEntityQueryTokens(query string, hops []HopResult) []string {
 	ents := map[string]struct{}{}
 	for _, e := range hopQueryEntities(query) {
-		ents[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+		e = strings.ToLower(strings.TrimSpace(e))
+		if e == "" {
+			continue
+		}
+		ents[e] = struct{}{}
+		ents[e+"'s"] = struct{}{}
+		ents[e+"’s"] = struct{}{}
 	}
 	slotBlob := strings.Join(hopSlotValues(hops), " ")
 	out := make([]string, 0, 4)
 	for _, tok := range distinctiveQueryTokens(tokenize(query)) {
 		if _, ok := ents[tok]; ok {
+			continue
+		}
+		base := strings.TrimSuffix(strings.TrimSuffix(tok, "'s"), "’s")
+		if _, ok := ents[base]; ok {
 			continue
 		}
 		if contentCoversQueryToken(slotBlob, tok) {

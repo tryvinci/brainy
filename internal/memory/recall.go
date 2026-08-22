@@ -738,45 +738,6 @@ func lockHybridListExtras(enumerated bool, typedN, hybridN, extras int, typedDum
 	return !typedDump && typedN >= 3 && hybridN > 0 && hybridN < typedN
 }
 
-func limitHopListValues(vals []string, leftover []string, limit int) []string {
-	if limit <= 0 {
-		return nil
-	}
-	short := make([]string, 0, len(vals))
-	for _, v := range vals {
-		v = strings.TrimSpace(v)
-		if v == "" || looksTitleCaseSlogan(v) || utf8Len(v) > 80 {
-			continue
-		}
-		short = append(short, v)
-	}
-	if len(short) <= limit {
-		return short
-	}
-	out := make([]string, 0, limit)
-	seen := map[string]struct{}{}
-	add := func(v string) {
-		key := strings.ToLower(v)
-		if _, ok := seen[key]; ok {
-			return
-		}
-		if len(out) >= limit {
-			return
-		}
-		seen[key] = struct{}{}
-		out = append(out, v)
-	}
-	for _, v := range short {
-		if len(leftover) > 0 && contentCoversAnyQueryToken(v, leftover) {
-			add(v)
-		}
-	}
-	for _, v := range short {
-		add(v)
-	}
-	return out
-}
-
 func shouldGroundHybridToHops(query string, hops []HopResult, pkt EvidencePacket, enumerated bool) bool {
 	if enumerated || !hopComposeAllowed(query) || !hopJoinProven(hops) {
 		return false
@@ -1097,8 +1058,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			}
 			slotPred := firstNonEmpty(h.Predicate, pred)
 			if len(h.Values) > 0 {
-				vals := limitHopListValues(h.Values, leftoverNonEntityQueryTokens(req.Query, hops), 6)
-				for i, v := range vals {
+				for i, v := range h.Values {
 					id := ""
 					if i < len(h.MemoryIDs) {
 						id = h.MemoryIDs[i]

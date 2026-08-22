@@ -1612,32 +1612,69 @@ func hopSharedContentValues(results []HopResult) []string {
 	return intersectHopValueGroups(results, hopContentSlotValues)
 }
 
+func hopEntityRawValueGroups(results []HopResult) ([]string, map[string][]string) {
+	order := make([]string, 0, 2)
+	groups := map[string][]string{}
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			ent := strings.ToLower(strings.TrimSpace(r.Entity))
+			if ent == "" {
+				continue
+			}
+			vals := r.Values
+			if len(vals) == 0 && strings.TrimSpace(r.Value) != "" {
+				vals = []string{r.Value}
+			}
+			if len(vals) == 0 {
+				continue
+			}
+			if _, ok := groups[ent]; !ok {
+				order = append(order, ent)
+			}
+			for _, v := range vals {
+				v = strings.TrimSpace(v)
+				if v == "" || utf8Len(v) > 80 {
+					continue
+				}
+				groups[ent] = append(groups[ent], v)
+			}
+		}
+	}
+	return order, groups
+}
+
 // intersectHopValuesByRareSharedToken keeps values that share a rare 8+ letter
 // token across every hop entity (signed basketball ∩ basketball trophy).
 // Generic high-df tokens (collection, photo) lose to rarer ones.
 func intersectHopValuesByRareSharedToken(results []HopResult) []string {
-	order, groups := hopEntitySlotGroups(results)
+	order, groups := hopEntityRawValueGroups(results)
 	if len(order) < 2 {
 		return nil
 	}
 	type hit struct {
-		ents map[string]struct{}
-		df   int
+		ents     map[string]struct{}
+		df       int
+		minWords int
 	}
 	toks := map[string]*hit{}
 	for _, ent := range order {
 		seenTok := map[string]struct{}{}
 		for _, v := range groups[ent] {
+			nWords := len(strings.Fields(v))
 			for _, tok := range slotValueTokens(v) {
 				if len(tok) < 8 {
 					continue
 				}
 				h := toks[tok]
 				if h == nil {
-					h = &hit{ents: map[string]struct{}{}}
+					h = &hit{ents: map[string]struct{}{}, minWords: 1 << 20}
 					toks[tok] = h
 				}
 				h.df++
+				if nWords < h.minWords {
+					h.minWords = nWords
+				}
 				if _, ok := seenTok[tok]; !ok {
 					h.ents[ent] = struct{}{}
 					seenTok[tok] = struct{}{}
@@ -1645,18 +1682,24 @@ func intersectHopValuesByRareSharedToken(results []HopResult) []string {
 			}
 		}
 	}
-	best, bestDF, bestLen := "", 1<<20, 0
+	best, bestDF, bestWords, bestLen := "", 1<<20, 1<<20, 0
 	for tok, h := range toks {
 		if len(h.ents) < len(order) {
 			continue
 		}
-		if h.df < bestDF || (h.df == bestDF && len(tok) > bestLen) {
-			best, bestDF, bestLen = tok, h.df, len(tok)
+		better := h.df < bestDF ||
+			(h.df == bestDF && h.minWords < bestWords) ||
+			(h.df == bestDF && h.minWords == bestWords && len(tok) > bestLen)
+		if better {
+			best, bestDF, bestWords, bestLen = tok, h.df, h.minWords, len(tok)
 		}
 	}
 	if best == "" {
 		return nil
 	}
+	// debug
+	_ = bestDF
+	_ = bestLen
 	seen := map[string]struct{}{}
 	out := make([]string, 0, len(order))
 	for _, ent := range order {
