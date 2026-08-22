@@ -230,7 +230,8 @@ def _product_recall_answer(
             base,
             "/recall",
             {"tenant_id": tenant, "subject_id": subject, "q": question, "mode": mode, "top_k": 30},
-            timeout=120,
+            timeout=30,
+            retries=2,
         )
         if body.get("abstained"):
             return "not in memory", "brainy-recall+abstain"
@@ -242,8 +243,8 @@ def _product_recall_answer(
         if ans:
             return ans, "brainy-recall+" + mode
     except Exception:
-        return None
-    return None
+        return "not in memory", "brainy-recall+error"
+    return "not in memory", "brainy-recall+empty"
 
 
 def _looks_list_question(question: str) -> bool:

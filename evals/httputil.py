@@ -17,14 +17,15 @@ def auth_headers(extra: dict[str, str] | None = None) -> dict[str, str]:
     return headers
 
 
-def post_json(base_url: str, path: str, payload: dict, timeout: float = 30) -> dict:
+def post_json(base_url: str, path: str, payload: dict, timeout: float = 30, retries: int = 5) -> dict:
     import time
     import urllib.error
 
     body = json.dumps(payload).encode("utf-8")
     url = f"{base_url.rstrip('/')}{path}"
     last_err: Exception | None = None
-    for attempt in range(5):
+    attempts = max(1, int(retries))
+    for attempt in range(attempts):
         request = urllib.request.Request(
             url,
             data=body,
@@ -37,13 +38,13 @@ def post_json(base_url: str, path: str, payload: dict, timeout: float = 30) -> d
         except urllib.error.HTTPError as exc:
             last_err = exc
             # Staging WAF intermittently 403s large conversational payloads.
-            if exc.code in {403, 429, 502, 503} and attempt < 4:
+            if exc.code in {403, 429, 502, 503} and attempt < attempts - 1:
                 time.sleep(1.5 * (attempt + 1))
                 continue
             raise
         except (TimeoutError, urllib.error.URLError) as exc:
             last_err = exc
-            if attempt < 4:
+            if attempt < attempts - 1:
                 time.sleep(1.5 * (attempt + 1))
                 continue
             raise
