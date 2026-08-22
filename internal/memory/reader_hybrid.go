@@ -506,11 +506,18 @@ func ensureLeftoverTokenCover(kept, ranked []string, toks []string) []string {
 }
 
 func preferredHopSlotDisplay(query string, hops []HopResult, h HopResult) string {
-	vals := append([]string(nil), h.Values...)
-	if len(vals) == 0 {
+	raw := append([]string(nil), h.Values...)
+	if len(raw) == 0 {
 		if v := strings.TrimSpace(h.Value); v != "" {
-			vals = []string{v}
+			raw = []string{v}
 		}
+	}
+	vals := make([]string, 0, len(raw))
+	for _, v := range raw {
+		if hopValueIsAttendedEvent(v) || hopValueHasForeignPossessive(v, h.Entity, hops) {
+			continue
+		}
+		vals = append(vals, v)
 	}
 	if len(vals) == 0 {
 		return ""

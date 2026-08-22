@@ -491,6 +491,15 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Answer = "not in memory"
 			out.AnswerStatus = AnswerInsufficient
 		}
+		if ans := ordinalNameFromPacket(req.Query, pkt); ans != "" {
+			cur := strings.TrimSpace(out.Answer)
+			if cur == "" || strings.EqualFold(cur, "not in memory") || typedAnswerIsHopDump(cur) || hopsAreIdentityOnly(hopResults) {
+				out.Answer = ans
+				out.Abstained = false
+				out.AnswerStatus = AnswerSupported
+				out.Explain["ordinal_name"] = true
+			}
+		}
 		if plan.NeedsMultiHop && !packetOK && !out.Abstained {
 			out.AnswerStatus = AnswerPartiallySupported
 			out.Coverage = map[string]any{
@@ -559,10 +568,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if hybrid.Reason != "" {
 			out.Explain["hybrid_reader_reason"] = hybrid.Reason
 		}
-		if raw, ok := pkt.Coverage["hop_results"]; ok {
-			if hops, ok := raw.([]HopResult); ok && skipUnrelatedHopSlots(req.Query, hops, pkt) {
-				out.Explain["hybrid_skipped_unrelated_slots"] = true
-			}
+		skipSlots := skipUnrelatedHopSlots(req.Query, hopResults, pkt)
+		if skipSlots {
+			out.Explain["hybrid_skipped_unrelated_slots"] = true
 		}
 		if hybrid.RawSnippet != "" {
 			out.Explain["hybrid_reader_raw_prefix"] = hybrid.RawSnippet
@@ -592,9 +600,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		hybridN := len(itemsFromCommaAnswer(hybrid.Answer))
 		extras := uncoveredHybridItemCount(typedItems, hybrid.Answer)
 		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
-		if typedAnswerIsHopDump(typedAnswer) {
+		lockedOrdinal := out.Explain["ordinal_name"] == true
+		if typedAnswerIsHopDump(typedAnswer) || skipSlots {
 			// Dual-entity SH questions often plan as MH and lock a slogan
-			// dump (sushi, title-case places) over a covering hybrid answer.
+			// dump or a leftover-unrelated short slot (Rocks) over hybrid.
 			lockedWhere = false
 			lockedMHList = false
 		}
@@ -606,7 +615,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
 		}
-		if hybrid.OK && (lockedWhere || lockedPolar || lockedCount || lockedMHList || lockedList) {
+		if hybrid.OK && (lockedWhere || lockedPolar || lockedCount || lockedMHList || lockedList || lockedOrdinal) {
 			lock := "where"
 			if lockedList {
 				lock = "list"
@@ -620,9 +629,12 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			if lockedCount {
 				lock = "count"
 			}
+			if lockedOrdinal {
+				lock = "ordinal"
+			}
 			out.Explain["hybrid_skipped_lock"] = lock
 		}
-		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			// Enumerated answers already have a typed list; hop-slot
 			// grounding re-expands them into unrelated dumps. Unproven
@@ -648,9 +660,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
+		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			leftover := leftoverNonEntityQueryTokens(req.Query, hopResults)
-			skipSlots := skipUnrelatedHopSlots(req.Query, hopResults, pkt)
 			canComposeHops := hopComposeAllowed(req.Query) && hopJoinProven(hopResults) &&
 				!skipSlots &&
 				(len(leftover) == 0 || hopsKeepTypedJoin(hopResults))
@@ -685,6 +696,15 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Answer = "not in memory"
 				out.AnswerStatus = AnswerInsufficient
 				out.Explain["reader_source"] = "hybrid_llm_packet"
+			}
+		}
+		if (out.Abstained || strings.EqualFold(strings.TrimSpace(out.Answer), "not in memory")) &&
+			out.Explain["ordinal_name"] != true {
+			if covering := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt); covering != "" {
+				out.Answer = covering
+				out.Abstained = false
+				out.AnswerStatus = AnswerSupported
+				out.Explain["reader_source"] = "leftover_packet_fact"
 			}
 		}
 	}
@@ -1066,6 +1086,9 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			slotPred := firstNonEmpty(h.Predicate, pred)
 			if len(h.Values) > 0 {
 				for i, v := range h.Values {
+					if hopValueIsAttendedEvent(v) || hopValueHasForeignPossessive(v, h.Entity, hops) {
+						continue
+					}
 					id := ""
 					if i < len(h.MemoryIDs) {
 						id = h.MemoryIDs[i]
@@ -3299,6 +3322,215 @@ func pickEpisodeFallback(query string, results []SearchResult) string {
 		}
 	}
 	if bestHits < 2 {
+		return ""
+	}
+	return best
+}
+
+func packetContentLines(pkt EvidencePacket) []string {
+	out := make([]string, 0, 16)
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	for _, it := range pkt.ContextEvidence {
+		add(it.Content)
+	}
+	for _, it := range pkt.ProofChain {
+		add(it.Content)
+	}
+	for _, it := range pkt.Items {
+		add(it.Content)
+	}
+	for _, c := range pkt.Contents {
+		add(c)
+	}
+	return out
+}
+
+func queryNameOrdinal(query string) int {
+	if !queryHasToken(query, "name", "named") {
+		return 0
+	}
+	q := strings.ToLower(query)
+	ords := []struct {
+		needle string
+		n      int
+	}{
+		{"first ", 1}, {"1st ", 1},
+		{"second ", 2}, {"2nd ", 2},
+		{"third ", 3}, {"3rd ", 3},
+		{"fourth ", 4}, {"4th ", 4},
+	}
+	for _, o := range ords {
+		if strings.Contains(q, o.needle) {
+			return o.n
+		}
+	}
+	return 0
+}
+
+func namedInstanceFromContent(content string) string {
+	lower := strings.ToLower(content)
+	idx := strings.Index(lower, " named ")
+	rest := ""
+	if idx >= 0 {
+		rest = strings.TrimSpace(content[idx+len(" named "):])
+	} else {
+		idx = strings.Index(lower, " name is ")
+		if idx < 0 {
+			return ""
+		}
+		rest = strings.TrimSpace(content[idx+len(" name is "):])
+	}
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return ""
+	}
+	name := strings.Trim(fields[0], ".,;:!?\"'")
+	if name == "" || utf8Len(name) < 2 {
+		return ""
+	}
+	r := name[0]
+	if r < 'A' || r > 'Z' {
+		return ""
+	}
+	return name
+}
+
+func ordinalNameFromPacket(query string, pkt EvidencePacket) string {
+	ord := queryNameOrdinal(query)
+	if ord <= 0 {
+		return ""
+	}
+	ents := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		ents[strings.ToLower(e)] = struct{}{}
+	}
+	type named struct {
+		name string
+		t    time.Time
+		has  bool
+	}
+	found := make([]named, 0, 4)
+	seen := map[string]struct{}{}
+	for _, line := range packetContentLines(pkt) {
+		name := namedInstanceFromContent(line)
+		if name == "" {
+			continue
+		}
+		if _, ok := ents[strings.ToLower(name)]; ok {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		item := named{name: name}
+		if dt := parseDateFromText(line); dt != nil {
+			item.t = *dt
+			item.has = true
+		}
+		found = append(found, item)
+	}
+	if len(found) < ord {
+		return ""
+	}
+	for i := 0; i < len(found); i++ {
+		for j := i + 1; j < len(found); j++ {
+			li, lj := found[i], found[j]
+			swap := false
+			switch {
+			case li.has && lj.has:
+				swap = lj.t.Before(li.t)
+			case lj.has && !li.has:
+				swap = true
+			}
+			if swap {
+				found[i], found[j] = found[j], found[i]
+			}
+		}
+	}
+	return found[ord-1].name
+}
+
+func looksChatTurnLine(s string) bool {
+	t := strings.TrimSpace(s)
+	if t == "" || strings.HasSuffix(t, "?") {
+		return true
+	}
+	lower := strings.ToLower(t)
+	if strings.HasPrefix(lower, "oh,") || strings.HasPrefix(lower, "oh ") {
+		return true
+	}
+	if i := strings.Index(t, ": "); i > 0 && i < 24 {
+		head := strings.TrimSpace(t[:i])
+		if head != "" && !strings.Contains(head, " ") && consecutiveProperNouns(head) >= 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func looksCodedEventToken(s string) bool {
+	for _, w := range strings.Fields(s) {
+		w = strings.Trim(w, ".,;()[]\"'")
+		if strings.Contains(w, ":") && utf8Len(w) >= 4 {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt EvidencePacket) string {
+	if looksWhereQuery(query) || looksPolarQuery(query) || hopsKeepTypedJoin(hops) {
+		return ""
+	}
+	leftover := leftoverNonEntityQueryTokens(query, hops)
+	if len(leftover) == 0 {
+		leftover = distinctiveQueryTokens(tokenize(query))
+	}
+	rare := make([]string, 0, len(leftover))
+	for _, tok := range leftover {
+		if utf8Len(tok) >= 6 {
+			rare = append(rare, tok)
+		}
+	}
+	if len(rare) == 0 {
+		return ""
+	}
+	best := ""
+	bestScore := 0
+	for _, line := range packetContentLines(pkt) {
+		if looksChatTurnLine(line) || looksTitleCaseSlogan(line) {
+			continue
+		}
+		if !contentCoversAnyQueryToken(line, rare) {
+			continue
+		}
+		score := 1
+		if looksCodedEventToken(line) {
+			score += 3
+		}
+		if looksSpecificPlaceOrNameLine(line) || looksHyphenatedEventLine(line) {
+			score += 2
+		}
+		hits := 0
+		for _, tok := range rare {
+			if contentCoversQueryToken(line, tok) {
+				hits++
+			}
+		}
+		score += hits
+		if score > bestScore {
+			bestScore = score
+			best = line
+		}
+	}
+	if bestScore < 2 {
 		return ""
 	}
 	return best

@@ -1310,6 +1310,9 @@ func hopSlotValuesFiltered(results []HopResult, includeFallback bool) []string {
 		if entity != "" && strings.EqualFold(v, entity) {
 			return
 		}
+		if hopValueIsAttendedEvent(v) || hopValueHasForeignPossessive(v, entity, results) {
+			return
+		}
 		if utf8Len(v) > 80 {
 			return
 		}
@@ -1339,6 +1342,34 @@ func hopSlotValuesFiltered(results []HopResult, includeFallback bool) []string {
 		}
 	}
 	return out
+}
+
+func hopValueIsAttendedEvent(v string) bool {
+	lower := strings.ToLower(strings.TrimSpace(v))
+	return strings.HasPrefix(lower, "attended ")
+}
+
+func hopValueHasForeignPossessive(v, entity string, hops []HopResult) bool {
+	lower := strings.ToLower(strings.TrimSpace(v))
+	if lower == "" {
+		return false
+	}
+	self := strings.ToLower(strings.TrimSpace(entity))
+	seen := map[string]struct{}{}
+	for _, h := range hops {
+		other := strings.ToLower(strings.TrimSpace(h.Entity))
+		if other == "" || other == self || utf8Len(other) < 3 {
+			continue
+		}
+		if _, ok := seen[other]; ok {
+			continue
+		}
+		seen[other] = struct{}{}
+		if strings.Contains(lower, other+"'s") || strings.Contains(lower, other+"’s") {
+			return true
+		}
+	}
+	return false
 }
 
 func hopSharedSlotValues(results []HopResult) []string {

@@ -431,3 +431,22 @@ func TestCompositionalPracticePlace(t *testing.T) {
 		t.Fatalf("gerund after practice object is not a place: %q", p)
 	}
 }
+
+func TestHopSlotValuesDropsAttendedAndForeignPossessive(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Deborah", Value: "Deborah", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "mother", Predicate: PredicateFamilyMember, Source: "typed_store",
+			Value: "mother", Values: []string{"mother"}},
+		{Kind: "follow_relation", Entity: "mother", Predicate: PredicateActivity, Source: "typed_store",
+			Value:  "reading, travel, art, cooking, attended deborah's yoga classes",
+			Values: []string{"reading", "travel", "art", "cooking", "attended deborah's yoga classes"}},
+	}
+	vals := hopSlotValues(hops)
+	joined := strings.ToLower(strings.Join(vals, ","))
+	if !strings.Contains(joined, "reading") || !strings.Contains(joined, "cooking") {
+		t.Fatalf("expected dest hobbies, got %#v", vals)
+	}
+	if strings.Contains(joined, "yoga") || strings.Contains(joined, "attended") {
+		t.Fatalf("foreign attended event leaked into dest slots: %#v", vals)
+	}
+}

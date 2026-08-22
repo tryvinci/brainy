@@ -1273,3 +1273,60 @@ func TestRecallHybridKeepsFillingWhenHopsUnproven(t *testing.T) {
 		t.Fatalf("unproven hops must not ground hybrid: explain=%v", out.Explain)
 	}
 }
+
+func TestRecallHybridUnlocksMHListWhenSkipSlots(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"at a music festival","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	facts := []struct {
+		key, sub, pred, val, content string
+	}{
+		{"c-rock", "Calvin", PredicateActivity, "rocks", "Calvin has done crashing at Rocks"},
+		{"d-rock", "Dave", PredicateActivity, "rocks", "Dave has done crashing at Rocks"},
+		{"fest", "Calvin", "", "", "I had the opportunity to meet Frank Ocean at a music festival in Tokyo and we clicked"},
+	}
+	for _, f := range facts {
+		rec := MemoryRecord{
+			MemoryID: "mem_" + f.key, TenantID: "t-hyb-fest", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+		}
+		if f.pred != "" {
+			rec.Metadata = map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": f.sub}
+			rec.Explain = map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": f.sub}
+			store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: rec.MemoryID})
+		}
+		store.records[f.key] = rec
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-fest", SubjectID: "u1",
+		Query: "Where did Calvin and Dave meet Frank Ocean to start collaborating?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "festival") {
+		t.Fatalf("skip-unrelated mh_list must not lock Rocks over hybrid festival: %q explain=%v", out.Answer, out.Explain)
+	}
+	if strings.EqualFold(strings.TrimSpace(out.Answer), "Rocks") {
+		t.Fatalf("short unrelated slot leaked: %q", out.Answer)
+	}
+	if out.Explain["hybrid_skipped_lock"] == "mh_list" {
+		t.Fatalf("mh_list must unlock when hop slots skip leftover tokens: explain=%v", out.Explain)
+	}
+}

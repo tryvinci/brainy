@@ -3297,3 +3297,77 @@ func TestRecallChildhoodItemsPreferChildEvidence(t *testing.T) {
 		t.Fatalf("adult possession crowded childhood items: %q", out.Answer)
 	}
 }
+
+func TestOrdinalNameFromPacketPicksSecondDatedThenUndated(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley got a puppy named Coco on 28 July 2023."},
+			{Content: "Riley has a dog named Shadow."},
+			{Content: "Riley has a new puppy."},
+		},
+	}
+	got := ordinalNameFromPacket("What is the name of Riley's second puppy?", pkt)
+	if got != "Shadow" {
+		t.Fatalf("expected Shadow as second named pet, got %q", got)
+	}
+	if first := ordinalNameFromPacket("What is the name of Riley's first puppy?", pkt); first != "Coco" {
+		t.Fatalf("expected Coco as first dated pet, got %q", first)
+	}
+}
+
+func TestLeftoverCoveringSpecificAnswerSkipsChatTurn(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "John", Value: "John", Source: "search_fallback"},
+		{Kind: "fetch_predicate", Entity: "John", Source: "search_fallback",
+			Value: "metal detecting", Values: []string{"metal detecting"}},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Oh, I've been organizing something with my friends yesterday - it was cool (7 May 2022; the day before 8 May 2022)"},
+			{Content: "John organized a charity gaming tournament for the game CS:GO on 7 May 2022."},
+		},
+	}
+	q := "What did John organize with his friends on May 8, 2022?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "cs:go") {
+		t.Fatalf("expected CS:GO fact over chat turn, got %q", got)
+	}
+}
+
+func TestRecallOrdinalNameBeatsIdentityDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["insp"] = MemoryRecord{
+		MemoryID: "mem_insp", TenantID: "t-ord", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley is a inspiration",
+		DedupeKey: "insp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "inspiration", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "inspiration", "subject": "Riley"},
+	}
+	store.records["coco"] = MemoryRecord{
+		MemoryID: "mem_coco", TenantID: "t-ord", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley got a puppy named Coco on 28 July 2023.",
+		DedupeKey: "coco", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["shadow"] = MemoryRecord{
+		MemoryID: "mem_sh", TenantID: "t-ord", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley has a dog named Shadow.",
+		DedupeKey: "shadow", Status: StatusActive, UpdatedAt: now,
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateIdentity, val: "inspiration", memID: "mem_insp"})
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-ord", SubjectID: "u1",
+		Query: "What is the name of Riley's second puppy?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(out.Answer), "Shadow") {
+		t.Fatalf("expected Shadow, got %q explain=%v", out.Answer, out.Explain)
+	}
+	if strings.Contains(strings.ToLower(out.Answer), "inspiration") {
+		t.Fatalf("identity dump leaked: %q", out.Answer)
+	}
+}
