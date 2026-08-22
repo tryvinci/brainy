@@ -1023,6 +1023,9 @@ func hopComposeUsable(composed string, hops []HopResult) bool {
 	if composed == "" || strings.EqualFold(composed, "not in memory") {
 		return false
 	}
+	if hopsAreIdentityOnly(hops) {
+		return false
+	}
 	if !typedAnswerIsHopDump(composed) {
 		return true
 	}

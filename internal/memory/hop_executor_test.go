@@ -132,6 +132,13 @@ func TestHopComposeUsableKeepsTitleCasedBasketballJoin(t *testing.T) {
 	if hopComposeUsable("Way, Road Trip, McGee's Bar, Playing Cyberpunk 2077, Notebook, First, Simple Dishes, Tried Cyberpunk 2077", activity) {
 		t.Fatal("activity dumps must not become usable hop compose")
 	}
+	identity := []HopResult{
+		{Kind: "follow_relation", Entity: "Maria", Predicate: PredicateIdentity, Source: "typed_store",
+			Values: []string{"inspiration", "family", "team"}},
+	}
+	if hopComposeUsable("Inspiration, Family, Team", identity) {
+		t.Fatal("identity dumps must not become usable hop compose")
+	}
 }
 
 func TestComposeFromHopValuesDoesNotRareJoinActivityDumps(t *testing.T) {

@@ -650,26 +650,31 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["tools_executed"] = plan.Tools
 		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
 			leftover := leftoverNonEntityQueryTokens(req.Query, hopResults)
+			skipSlots := skipUnrelatedHopSlots(req.Query, hopResults, pkt)
 			canComposeHops := hopComposeAllowed(req.Query) && hopJoinProven(hopResults) &&
-				!skipUnrelatedHopSlots(req.Query, hopResults, pkt) &&
+				!skipSlots &&
 				(len(leftover) == 0 || hopsKeepTypedJoin(hopResults))
 			typedKeep := strings.TrimSpace(out.Answer)
-			keepTyped := typedKeep != "" && !strings.EqualFold(typedKeep, "not in memory") && hopComposeUsable(typedKeep, hopResults)
-			if keepTyped {
-				out.Abstained = false
-				out.AnswerStatus = AnswerSupported
-			} else if canComposeHops {
+			keepTyped := typedKeep != "" && !strings.EqualFold(typedKeep, "not in memory") &&
+				!typedAnswerIsHopDump(typedKeep) && !skipSlots && !hopsAreIdentityOnly(hopResults)
+			if canComposeHops {
 				if composed := composeFromHopValues(hopResults); hopComposeUsable(composed, hopResults) {
 					out.Answer = composed
 					out.Abstained = false
 					out.AnswerStatus = AnswerSupported
 					out.Explain["reader_source"] = "multihop_bridge_chain"
+				} else if keepTyped {
+					out.Abstained = false
+					out.AnswerStatus = AnswerSupported
 				} else {
 					out.Abstained = true
 					out.Answer = "not in memory"
 					out.AnswerStatus = AnswerInsufficient
 					out.Explain["reader_source"] = "hybrid_llm_packet"
 				}
+			} else if keepTyped {
+				out.Abstained = false
+				out.AnswerStatus = AnswerSupported
 			} else if ta, _ := out.Explain["temporal_answer"].(string); strings.TrimSpace(ta) != "" && !strings.Contains(strings.ToLower(ta), "::") {
 				out.Answer = ta
 				out.Abstained = false
