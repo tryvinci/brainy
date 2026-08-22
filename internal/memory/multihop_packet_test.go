@@ -102,6 +102,34 @@ func TestHopBindKeepsContextEvidence(t *testing.T) {
 	}
 }
 
+func TestBindPacketFromHopResultsKeepsLexicalUncovered(t *testing.T) {
+	plan := PlanQuery("What filling did Alex use in the cake?", nil)
+	pkt := EvidencePacket{
+		Plan:     plan,
+		Contents: []string{"Alex made a cake for the party"},
+		Coverage: map[string]any{"uncovered": []string{"filling"}},
+	}
+	hops := []HopResult{
+		{Kind: "resolve_entity", OutputKey: "e1", Value: "Alex", Source: "search_fallback"},
+		{Kind: "fetch_predicate", OutputKey: "ans", Entity: "Alex", Source: "search_fallback", ProofKind: "context",
+			Contents: []string{"Alex made a cake for the party"}},
+	}
+	bindPacketFromHopResults(&pkt, hops, nil)
+	if hopJoinProven(hops) {
+		t.Fatal("search_fallback must stay unproven")
+	}
+	unc := uncoveredTargets(pkt)
+	found := false
+	for _, t := range unc {
+		if t == "filling" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("lexical uncovered filling must survive unproven hops, got %v", unc)
+	}
+}
+
 func TestLexicalOverlapWithoutJoinStaysUnsatisfied(t *testing.T) {
 	plan := PlanQuery("What is Melanie's occupation according to Caroline?", nil)
 	results := []SearchResult{
@@ -126,6 +154,21 @@ func TestMergeSearchResultsDedupesByID(t *testing.T) {
 		if r.MemoryID == "m1" && r.Score != 0.9 {
 			t.Fatalf("expected higher score for m1, got %+v", r)
 		}
+	}
+}
+
+func TestMergePreferQueryCoveragePrependsCovering(t *testing.T) {
+	primary := make([]SearchResult, 0, 8)
+	for i := 0; i < 8; i++ {
+		primary = append(primary, SearchResult{MemoryID: "p" + itoa(i), Content: "Alex made a cake", Score: 1})
+	}
+	extra := []SearchResult{{MemoryID: "fill", Content: "The filling is strawberry", Score: 0.2}}
+	out := mergePreferQueryCoverage(primary, extra, "What filling did Alex use in the cake", 8)
+	if len(out) != 8 {
+		t.Fatalf("len=%d", len(out))
+	}
+	if out[0].MemoryID != "fill" {
+		t.Fatalf("filling fact should lead, got %+v", out)
 	}
 }
 
@@ -157,6 +200,17 @@ func TestBuildTypedHopsResolveThenFetch(t *testing.T) {
 	probe := nextHopProbe(plan, EvidencePacket{Items: nil, Coverage: map[string]any{"uncovered": []string{"melanie"}}})
 	if probe == "" {
 		t.Fatal("expected probe")
+	}
+}
+
+func TestNextHopProbePrefersUncoveredToken(t *testing.T) {
+	plan := PlanQuery("What filling did Alex use in the cake?", nil)
+	probe := nextHopProbe(plan, EvidencePacket{
+		Items:    []PacketItem{{Role: "bridge", Content: "Alex made a cake"}},
+		Coverage: map[string]any{"uncovered": []string{"filling", "cake"}},
+	})
+	if probe != "filling" {
+		t.Fatalf("expected filling probe, got %q", probe)
 	}
 }
 

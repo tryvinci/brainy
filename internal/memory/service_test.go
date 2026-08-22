@@ -668,6 +668,39 @@ func TestSearchPrefersNewerConflictingPreference(t *testing.T) {
 	}
 }
 
+func TestSearchAdmitsRareQueryToken(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	for i := 0; i < 24; i++ {
+		key := "dump" + itoa(i)
+		store.records[key] = MemoryRecord{
+			MemoryID: "mem_" + key, TenantID: "t-fill", SubjectID: "u1",
+			Kind: KindFact, Content: "Alex made a cake for the party last week",
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+		}
+	}
+	store.records["fill"] = MemoryRecord{
+		MemoryID: "mem_fill", TenantID: "t-fill", SubjectID: "u1",
+		Kind: KindFact, Content: "The filling is strawberry",
+		DedupeKey: "fill", Status: StatusActive, UpdatedAt: now,
+	}
+	out, err := svc.SearchOpt(context.Background(), "t-fill", "u1", "", "",
+		"What filling did Alex use in the cake", SearchOptions{Limit: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range out.Results {
+		if strings.Contains(strings.ToLower(r.Content), "strawberry") || strings.Contains(strings.ToLower(r.Content), "filling") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected filling fact in top-k, got %+v", out.Results)
+	}
+}
+
 func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

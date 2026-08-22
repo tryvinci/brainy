@@ -322,6 +322,28 @@ func TestFormatHybridMemoryLinesLeadsWithStructuredSlots(t *testing.T) {
 	}
 }
 
+func TestFormatHybridMemoryLinesSkipsUnprovenHopDumps(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "The filling is strawberry", MemoryID: "m-fill"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "resolve_entity", OutputKey: "e1", Value: "Alex", Source: "search_fallback"},
+				{HopIndex: 1, Kind: "fetch_predicate", Entity: "Alex", Source: "search_fallback", ProofKind: "context",
+					Contents: []string{"Alex does pottery", "Alex goes to the beach"}},
+			},
+		},
+	}
+	joined := strings.Join(formatHybridMemoryLines(pkt), "\n")
+	if strings.Contains(joined, "Hop chain:") || strings.Contains(joined, "pottery") {
+		t.Fatalf("unproven hops must not dump into hybrid prompt, got %q", joined)
+	}
+	if !strings.Contains(joined, "strawberry") {
+		t.Fatalf("context filling fact must remain, got %q", joined)
+	}
+}
+
 func TestHybridReaderStripsThinkAndExtractsJSON(t *testing.T) {
 	raw := "<think>plan</think>\n{\"answer\":\"pottery\",\"supporting_memory_ids\":[],\"unresolved_targets\":[],\"abstain\":false}"
 	got := stripThinkTags(raw)
@@ -698,5 +720,57 @@ func TestListItemCount(t *testing.T) {
 	}
 	if listItemCount("not in memory", nil) != 0 {
 		t.Fatal("sentinel")
+	}
+}
+
+func TestRecallHybridKeepsFillingWhenHopsUnproven(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"strawberry","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	facts := []struct {
+		key, content string
+	}{
+		{"fill", "Alex made a dairy-free vanilla cake with strawberry filling recently."},
+		{"pot", "Alex does pottery on weekends."},
+		{"beach", "Jordan likes the beach."},
+		{"camp", "Alex and Jordan went camping together."},
+	}
+	for _, f := range facts {
+		store.records[f.key] = MemoryRecord{
+			MemoryID: "mem_" + f.key, TenantID: "t-hyb-fill", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+		}
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-fill", SubjectID: "u1",
+		Query: "What filling did Alex use in the cake she made for Jordan?", Mode: "answer", TopK: 8,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "strawberry") {
+		t.Fatalf("expected strawberry filling, got %q explain=%v", out.Answer, out.Explain)
+	}
+	if strings.Contains(got, "pottery") || strings.Contains(got, "beach") || strings.Contains(got, "camping") {
+		t.Fatalf("unproven hops replaced hybrid filling: %q explain=%v", out.Answer, out.Explain)
+	}
+	if out.Explain["hybrid_grounded_to_hops"] == true {
+		t.Fatalf("unproven hops must not ground hybrid: explain=%v", out.Explain)
 	}
 }

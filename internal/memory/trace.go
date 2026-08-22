@@ -62,6 +62,7 @@ type SearchTrace struct {
 	DenseAdmitted        int                `json:"dense_admitted,omitempty"`
 	EntityHubAdmitted    int                `json:"entity_hub_admitted,omitempty"`
 	AtomScanAdmitted     int                `json:"atom_scan_admitted,omitempty"`
+	QueryTokenAdmitted   int                `json:"query_token_admitted,omitempty"`
 	ListedSubject        bool               `json:"listed_subject,omitempty"`
 	FusionV2             bool               `json:"fusion_v2,omitempty"`
 	Intents              []string           `json:"intents,omitempty"`

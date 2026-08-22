@@ -149,29 +149,31 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 					lines = append(lines, "- "+slot+" = "+val)
 				}
 			}
-			lines = append(lines, "Hop chain:")
-			for _, h := range hops {
-				dep := ""
-				if len(h.DependsOn) > 0 {
-					dep = " depends_on=" + strings.Join(h.DependsOn, ",")
-				}
-				val := firstNonEmpty(h.Value, "")
-				if val == "" && len(h.Contents) > 0 {
-					val = h.Contents[0]
-				}
-				lines = append(lines,
-					"- hop "+itoa(h.HopIndex)+": "+h.Kind+
-						" target="+firstNonEmpty(h.OutputKey, h.Entity)+
-						dep+
-						" source="+h.Source+
-						" result="+truncateRunes(val, 120),
-				)
-				for i, c := range h.Contents {
-					id := ""
-					if i < len(h.MemoryIDs) {
-						id = h.MemoryIDs[i]
+			if !hopDumpsUnproven(hops) {
+				lines = append(lines, "Hop chain:")
+				for _, h := range hops {
+					dep := ""
+					if len(h.DependsOn) > 0 {
+						dep = " depends_on=" + strings.Join(h.DependsOn, ",")
 					}
-					add(c, id)
+					val := firstNonEmpty(h.Value, "")
+					if val == "" && len(h.Contents) > 0 {
+						val = h.Contents[0]
+					}
+					lines = append(lines,
+						"- hop "+itoa(h.HopIndex)+": "+h.Kind+
+							" target="+firstNonEmpty(h.OutputKey, h.Entity)+
+							dep+
+							" source="+h.Source+
+							" result="+truncateRunes(val, 120),
+					)
+					for i, c := range h.Contents {
+						id := ""
+						if i < len(h.MemoryIDs) {
+							id = h.MemoryIDs[i]
+						}
+						add(c, id)
+					}
 				}
 			}
 		}

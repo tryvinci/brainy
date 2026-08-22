@@ -633,6 +633,11 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// Rare query tokens (filling, gym, series) lose the lexical pool when FTS
+	// ANDs every term or ILIKE is recency-capped on common names. Admit a
+	// bounded per-token hit set so compiled facts can rank.
+	trace.QueryTokenAdmitted = s.admitUncoveredQueryTokens(ctx, tenantID, subjectID, includeSuperseded, candidates, queryTokens)
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -820,14 +825,14 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	})
 
 	// List / multi-hop: evidence-set selection (coverage-aware) instead of flat top-k.
+	limit := opts.Limit
+	if limit <= 0 {
+		limit = 32
+	}
 	if listQuery || looksMultiHopQuery(queryTokens) {
-		limit := opts.Limit
-		if limit <= 0 {
-			limit = 32
-		}
-		ranked = selectEvidenceSet(ranked, limit)
-	} else if opts.Limit > 0 && len(ranked) > opts.Limit {
-		ranked = ranked[:opts.Limit]
+		ranked = selectEvidenceSetCovering(ranked, limit, queryTokens)
+	} else if len(ranked) > limit {
+		ranked = coverQueryTokensThenCap(ranked, limit, queryTokens)
 	}
 
 	results := make([]SearchResult, len(ranked))
@@ -836,6 +841,35 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 
 	return SearchResponse{Results: results, Trace: trace}, nil
+}
+
+func (s *Service) admitUncoveredQueryTokens(ctx context.Context, tenantID, subjectID string, includeSuperseded bool, candidates map[string]MemoryRecord, queryTokens []string) int {
+	if s == nil || s.store == nil || candidates == nil {
+		return 0
+	}
+	uncovered := uncoveredQueryTokensInCandidates(candidates, queryTokens)
+	if len(uncovered) == 0 {
+		return 0
+	}
+	if len(uncovered) > 6 {
+		uncovered = uncovered[:6]
+	}
+	admitted := 0
+	for _, tok := range uncovered {
+		hits, err := s.store.SearchMemories(ctx, tenantID, subjectID, []string{"%" + tok + "%"}, 8, includeSuperseded)
+		if err != nil {
+			continue
+		}
+		for _, rec := range hits {
+			if !contentCoversQueryToken(rec.Content, tok) {
+				continue
+			}
+			if admitRecord(candidates, rec, includeSuperseded) {
+				admitted++
+			}
+		}
+	}
+	return admitted
 }
 
 func admitRecord(candidates map[string]MemoryRecord, record MemoryRecord, includeSuperseded bool) bool {

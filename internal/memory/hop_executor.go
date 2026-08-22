@@ -443,6 +443,23 @@ func hopJoinProven(results []HopResult) bool {
 	return false
 }
 
+// hopDumpsUnproven is true when fetch/follow hops exist but none are typed
+// exact (search_fallback activity dumps). Those dumps crowd the hybrid
+// prompt without proving a join.
+func hopDumpsUnproven(results []HopResult) bool {
+	n, typed := 0, 0
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			n++
+			if hopResultTypedExact(r) {
+				typed++
+			}
+		}
+	}
+	return n > 0 && typed == 0
+}
+
 func hopResultTypedExact(r HopResult) bool {
 	if r.Source == "unresolved" || r.Source == "search_fallback" {
 		return false
@@ -1750,6 +1767,7 @@ func bindPacketFromHopResults(pkt *EvidencePacket, hopResults []HopResult, byKey
 	if pkt.Coverage == nil {
 		pkt.Coverage = map[string]any{}
 	}
+	prevUnc := uncoveredTargets(*pkt)
 	pkt.Coverage["hop_join_proven"] = proven
 	pkt.Coverage["hop_results"] = hopResults
 	pkt.Coverage["bridge_count"] = countRole(items, "bridge")
@@ -1759,10 +1777,25 @@ func bindPacketFromHopResults(pkt *EvidencePacket, hopResults []HopResult, byKey
 	if proven {
 		pkt.Coverage["uncovered"] = []string{}
 	} else {
-		unc := make([]string, 0)
+		seen := map[string]struct{}{}
+		unc := make([]string, 0, len(prevUnc)+2)
+		add := func(s string) {
+			s = strings.ToLower(strings.TrimSpace(s))
+			if s == "" {
+				return
+			}
+			if _, ok := seen[s]; ok {
+				return
+			}
+			seen[s] = struct{}{}
+			unc = append(unc, s)
+		}
+		for _, t := range prevUnc {
+			add(t)
+		}
 		for _, r := range hopResults {
 			if r.Source == "unresolved" {
-				unc = append(unc, firstNonEmpty(r.OutputKey, r.Kind))
+				add(firstNonEmpty(r.OutputKey, r.Kind))
 			}
 		}
 		pkt.Coverage["uncovered"] = unc

@@ -151,20 +151,28 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 		}
 		if len(extra) > 0 {
-			merged := mergeSearchResults(search.Results, extra, topK)
+			merged := mergePreferQueryCoverage(search.Results, extra, req.Query, topK)
 			search.Results = merged
 			out.Memories = merged
 		}
-		// Second pass only when join not yet proven — single unresolved hop probe.
+		// Second pass only when join not yet proven — leftover query tokens
+		// first, then unresolved hop keys. Entity-name probes are last.
 		if plan.BudgetPasses >= 2 && !hopJoinProven(hopResults) {
-			if unc := uncoveredTargets(pkt); len(unc) > 0 {
+			unc := uncoveredTargets(pkt)
+			if len(unc) == 0 {
+				unc = uncoveredQueryTokensFromResults(req.Query, search.Results)
+			}
+			if len(unc) > 0 {
 				probe := nextHopProbe(plan, pkt)
+				if tok := distinctiveProbeToken(unc); tok != "" {
+					probe = tok
+				}
 				if probe != "" {
 					if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
 						IncludeHistorical: hist,
 						Limit:             topK,
 					}); err == nil && len(second.Results) > 0 {
-						merged := mergeSearchResults(search.Results, second.Results, topK)
+						merged := mergePreferQueryCoverage(search.Results, second.Results, req.Query, topK)
 						search.Results = merged
 						out.Memories = merged
 						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK, req.Query)
@@ -188,12 +196,15 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		// Legacy lexical second pass when no typed hops were planned.
 		if unc := uncoveredTargets(pkt); len(unc) > 0 {
 			probe := nextHopProbe(plan, pkt)
+			if tok := distinctiveProbeToken(unc); tok != "" {
+				probe = tok
+			}
 			if probe != "" {
 				if second, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", probe, SearchOptions{
 					IncludeHistorical: hist,
 					Limit:             topK,
 				}); err == nil && len(second.Results) > 0 {
-					merged := mergeSearchResults(search.Results, second.Results, topK)
+					merged := mergePreferQueryCoverage(search.Results, second.Results, req.Query, topK)
 					search.Results = merged
 					out.Memories = merged
 					pkt = BuildEvidencePacket(plan, merged, out.Explain)
@@ -603,8 +614,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			// Enumerated answers already have a typed list; hop-slot
-			// grounding re-expands them into unrelated dumps.
-			if hopComposeAllowed(req.Query) && !enumerated {
+			// grounding re-expands them into unrelated dumps. Unproven
+			// search_fallback hops must not replace a hybrid answer either.
+			if hopComposeAllowed(req.Query) && hopJoinProven(hopResults) && !enumerated {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
 				out.Answer = grounded
 				if composed := composeFromHopValues(hopResults); composed != "" && grounded == composed && grounded != strings.TrimSpace(hybrid.Answer) {
@@ -624,7 +636,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
 		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
-			if hopComposeAllowed(req.Query) {
+			if hopComposeAllowed(req.Query) && hopJoinProven(hopResults) {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
 					out.Abstained = false

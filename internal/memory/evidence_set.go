@@ -8,6 +8,13 @@ import (
 // selectEvidenceSet maximizes marginal coverage for list/multi-hop queries
 // (program §12.6 greedy set-cover). limit caps selected items.
 func selectEvidenceSet(ranked []rankedSearchResult, limit int) []rankedSearchResult {
+	return selectEvidenceSetCovering(ranked, limit, nil)
+}
+
+// selectEvidenceSetCovering first admits memories that cover leftover query
+// tokens (rare nouns starved by name/recency pooling), then the existing
+// content-diversity greedy fill.
+func selectEvidenceSetCovering(ranked []rankedSearchResult, limit int, queryTokens []string) []rankedSearchResult {
 	if limit <= 0 || len(ranked) <= limit {
 		return ranked
 	}
@@ -18,6 +25,41 @@ func selectEvidenceSet(ranked []rankedSearchResult, limit int) []rankedSearchRes
 	coverageTokens := func(content string) []string {
 		return contentBearingTokens(tokenize(content))
 	}
+	markUsed := func(i int) {
+		used[i] = true
+		picked := ranked[i]
+		selected = append(selected, picked)
+		for _, t := range coverageTokens(picked.result.Content) {
+			covered[t] = struct{}{}
+		}
+	}
+
+	for _, tok := range queryTokensByRarity(queryTokens, ranked) {
+		if len(selected) >= limit {
+			break
+		}
+		if queryTokenCoveredInRanked(selected, tok) {
+			continue
+		}
+		bestI := -1
+		bestScore := -1.0
+		for i, item := range ranked {
+			if used[i] {
+				continue
+			}
+			if !contentCoversQueryToken(item.result.Content, tok) {
+				continue
+			}
+			if item.result.Score > bestScore {
+				bestScore = item.result.Score
+				bestI = i
+			}
+		}
+		if bestI >= 0 {
+			markUsed(bestI)
+		}
+	}
+
 	marginal := func(content string) float64 {
 		toks := coverageTokens(content)
 		if len(toks) == 0 {
@@ -57,12 +99,7 @@ func selectEvidenceSet(ranked []rankedSearchResult, limit int) []rankedSearchRes
 		if bestI < 0 || bestScore <= 0 {
 			break
 		}
-		used[bestI] = true
-		picked := ranked[bestI]
-		selected = append(selected, picked)
-		for _, t := range coverageTokens(picked.result.Content) {
-			covered[t] = struct{}{}
-		}
+		markUsed(bestI)
 		if math.IsNaN(bestScore) {
 			break
 		}
@@ -80,4 +117,126 @@ func selectEvidenceSet(ranked []rankedSearchResult, limit int) []rankedSearchRes
 		}
 	}
 	return selected
+}
+
+func contentCoversQueryToken(content, token string) bool {
+	token = strings.ToLower(strings.TrimSpace(token))
+	if token == "" {
+		return false
+	}
+	return recordTokensCover(tokenize(content), token)
+}
+
+func queryTokenCoveredInRanked(items []rankedSearchResult, token string) bool {
+	for _, item := range items {
+		if contentCoversQueryToken(item.result.Content, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func queryTokenCoveredInResults(results []SearchResult, token string) bool {
+	for _, r := range results {
+		if contentCoversQueryToken(r.Content, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func distinctiveQueryTokens(tokens []string) []string {
+	out := make([]string, 0, len(tokens))
+	seen := map[string]struct{}{}
+	for _, t := range contentBearingTokens(tokens) {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if len(t) < 4 {
+			continue
+		}
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	return out
+}
+
+func queryTokensByRarity(queryTokens []string, ranked []rankedSearchResult) []string {
+	toks := distinctiveQueryTokens(queryTokens)
+	if len(toks) <= 1 || len(ranked) == 0 {
+		return toks
+	}
+	df := make(map[string]int, len(toks))
+	for _, item := range ranked {
+		for _, tok := range toks {
+			if contentCoversQueryToken(item.result.Content, tok) {
+				df[tok]++
+			}
+		}
+	}
+	for i := 0; i < len(toks); i++ {
+		for j := i + 1; j < len(toks); j++ {
+			di, dj := df[toks[i]], df[toks[j]]
+			if dj < di || (dj == di && len(toks[j]) > len(toks[i])) {
+				toks[i], toks[j] = toks[j], toks[i]
+			}
+		}
+	}
+	return toks
+}
+
+func uncoveredQueryTokensFromResults(query string, results []SearchResult) []string {
+	toks := distinctiveQueryTokens(tokenize(query))
+	out := make([]string, 0, len(toks))
+	for _, tok := range toks {
+		if !queryTokenCoveredInResults(results, tok) {
+			out = append(out, tok)
+		}
+	}
+	return out
+}
+
+func distinctiveProbeToken(tokens []string) string {
+	best := ""
+	for _, t := range tokens {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if len(t) < 4 {
+			continue
+		}
+		if len(t) > len(best) {
+			best = t
+		}
+	}
+	return best
+}
+
+func candidatesCoverQueryToken(candidates map[string]MemoryRecord, token string) bool {
+	for _, rec := range candidates {
+		if contentCoversQueryToken(rec.Content, token) {
+			return true
+		}
+	}
+	return false
+}
+
+func uncoveredQueryTokensInCandidates(candidates map[string]MemoryRecord, queryTokens []string) []string {
+	toks := distinctiveQueryTokens(queryTokens)
+	out := make([]string, 0, len(toks))
+	for _, tok := range toks {
+		if !candidatesCoverQueryToken(candidates, tok) {
+			out = append(out, tok)
+		}
+	}
+	return out
+}
+
+func coverQueryTokensThenCap(ranked []rankedSearchResult, limit int, queryTokens []string) []rankedSearchResult {
+	if limit <= 0 || len(ranked) <= limit {
+		return ranked
+	}
+	if len(distinctiveQueryTokens(queryTokens)) == 0 {
+		return ranked[:limit]
+	}
+	return selectEvidenceSetCovering(ranked, limit, queryTokens)
 }

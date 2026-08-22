@@ -426,3 +426,25 @@ func mergeSearchResults(a, b []SearchResult, limit int) []SearchResult {
 	}
 	return out
 }
+
+// mergePreferQueryCoverage prepends extra hits that cover leftover query tokens
+// so a full original top-k cannot starve a distinctive noun.
+func mergePreferQueryCoverage(primary, extra []SearchResult, query string, limit int) []SearchResult {
+	uncovered := uncoveredQueryTokensFromResults(query, primary)
+	if len(uncovered) == 0 {
+		return mergeSearchResults(primary, extra, limit)
+	}
+	covering := make([]SearchResult, 0, 4)
+	for _, r := range extra {
+		for _, tok := range uncovered {
+			if contentCoversQueryToken(r.Content, tok) {
+				covering = append(covering, r)
+				break
+			}
+		}
+	}
+	if len(covering) == 0 {
+		return mergeSearchResults(primary, extra, limit)
+	}
+	return mergeSearchResults(append(append([]SearchResult{}, covering...), primary...), extra, limit)
+}

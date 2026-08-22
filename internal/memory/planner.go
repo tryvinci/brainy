@@ -667,6 +667,9 @@ func firstNonEmpty(vals ...string) string {
 // nextHopProbe returns a single-subgoal second-pass probe from typed hops
 // when the prior packet has not yet satisfied coverage.
 func nextHopProbe(plan QueryPlan, pkt EvidencePacket) string {
+	if tok := distinctiveProbeToken(uncoveredTargets(pkt)); tok != "" {
+		return tok
+	}
 	if len(plan.Hops) == 0 {
 		return strings.Join(uncoveredTargets(pkt), " ")
 	}

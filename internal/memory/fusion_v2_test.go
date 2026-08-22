@@ -132,6 +132,32 @@ func TestSelectEvidenceSetCoversDistinct(t *testing.T) {
 	}
 }
 
+func TestSelectEvidenceSetCoversRareQueryTokens(t *testing.T) {
+	ranked := make([]rankedSearchResult, 0, 12)
+	for i := 0; i < 10; i++ {
+		ranked = append(ranked, rankedSearchResult{result: SearchResult{
+			MemoryID: "dump" + itoa(i),
+			Content:  "Alex made a cake for the party last week",
+			Score:    3.0,
+		}})
+	}
+	ranked = append(ranked, rankedSearchResult{result: SearchResult{
+		MemoryID: "fill",
+		Content:  "The filling is strawberry",
+		Score:    0.4,
+	}})
+	got := selectEvidenceSetCovering(ranked, 4, tokenize("What filling did Alex use in the cake"))
+	found := false
+	for _, g := range got {
+		if g.result.MemoryID == "fill" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected filling fact in evidence set, got %+v", got)
+	}
+}
+
 func TestFailureTaxonomyConstants(t *testing.T) {
 	if FailRetrievalMiss == "" || AnswerInsufficient == "" {
 		t.Fatal("empty constants")
