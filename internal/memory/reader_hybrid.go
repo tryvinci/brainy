@@ -234,6 +234,7 @@ func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string)
 	}
 	coverToks := leftoverNonEntityQueryTokens(query, hops)
 	head := make([]string, 0, 8)
+	place := make([]string, 0, len(lines))
 	cover := make([]string, 0, len(lines))
 	specific := make([]string, 0, len(lines))
 	thin := make([]string, 0, len(lines))
@@ -241,6 +242,10 @@ func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string)
 		trim := strings.TrimSpace(line)
 		if trim == "Structured:" || trim == "Hop chain:" || strings.HasPrefix(trim, "- hop ") {
 			head = append(head, line)
+			continue
+		}
+		if looksSpecificPlaceOrNameLine(line) {
+			place = append(place, line)
 			continue
 		}
 		if len(coverToks) > 0 && contentCoversAnyQueryToken(line, coverToks) {
@@ -267,6 +272,7 @@ func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string)
 		}
 	}
 	appendCap(head)
+	appendCap(place)
 	appendCap(cover)
 	appendCap(specific)
 	appendCap(thin)
@@ -338,6 +344,45 @@ func looksThinPacketLine(line string) bool {
 		return true
 	}
 	return len(strings.Fields(body)) <= 4
+}
+
+func consecutiveProperNouns(line string) int {
+	best, run := 0, 0
+	for _, w := range strings.Fields(hybridLineBody(line)) {
+		w = strings.Trim(w, ".,;:()[]\"'")
+		if w == "" {
+			run = 0
+			continue
+		}
+		r := w[0]
+		if r >= 'A' && r <= 'Z' && len(w) > 1 {
+			run++
+			if run > best {
+				best = run
+			}
+			continue
+		}
+		run = 0
+	}
+	return best
+}
+
+func looksSpecificPlaceOrNameLine(line string) bool {
+	body := hybridLineBody(line)
+	if looksThinPacketLine(line) || looksCrowdedHopDump(body) {
+		return false
+	}
+	if consecutiveProperNouns(line) >= 2 {
+		return true
+	}
+	for _, w := range strings.Fields(strings.ToLower(body)) {
+		w = strings.Trim(w, ".,;:()[]\"'")
+		switch w {
+		case "gym", "studio", "park", "school", "library", "hospital":
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan QueryPlan, pkt EvidencePacket) hybridReaderResult {

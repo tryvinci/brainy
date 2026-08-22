@@ -654,7 +654,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				!skipUnrelatedHopSlots(req.Query, hopResults, pkt) &&
 				(len(leftover) == 0 || hopsKeepTypedJoin(hopResults))
 			if canComposeHops {
-				if composed := composeFromHopValues(hopResults); composed != "" {
+				if composed := composeFromHopValues(hopResults); composed != "" && !typedAnswerIsHopDump(composed) {
 					out.Answer = composed
 					out.Abstained = false
 					out.AnswerStatus = AnswerSupported

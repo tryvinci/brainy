@@ -572,6 +572,23 @@ func TestPrioritizeHybridMemoryLinesKeepsUKAmongVisaCover(t *testing.T) {
 	}
 }
 
+func TestPrioritizeHybridMemoryLinesKeepsGymAmongWorkCover(t *testing.T) {
+	lines := make([]string, 0, 42)
+	for i := 0; i < 40; i++ {
+		lines = append(lines, "- Maria does community work with church friends.")
+	}
+	lines = append(lines, "- Maria joined a gym on 2023-06-09.")
+	hops := []HopResult{
+		{Kind: "follow_relation", Entity: "Maria", Predicate: PredicateActivity, Source: "typed_store",
+			Value: "community work", Values: []string{"community work with church friends", "volunteered at shelter"}},
+	}
+	got := prioritizeHybridMemoryLines("Where does Maria go to work out?", hops, lines)
+	joined := strings.Join(got, "\n")
+	if !strings.Contains(strings.ToLower(joined), "gym") {
+		t.Fatalf("gym fact must survive leftover work covering, got %q", joined)
+	}
+}
+
 func TestIsHybridGarbageAnswer(t *testing.T) {
 	if !isHybridGarbageAnswer(strings.Repeat("!", 80)) {
 		t.Fatal("repeated punctuation")
