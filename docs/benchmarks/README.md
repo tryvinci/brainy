@@ -149,6 +149,7 @@ Ladder: [research/public-bench-ladder.md](../research/public-bench-ladder.md).
 | P3 distinctive-token S0 this-VM (2026-08-22) | Same store, hybrid on. Admit leftover query tokens; skip unproven hop dumps. **73/180** (MH **16/33** held, OD **3/11**, SH **32/98**, temporal **22/38**). [pin](./artifacts/locomo-s0-diag-mh-135-p3-20260822.md). **Not** n=1540, **not** a Mem0 same-pin. |
 | P4 identity/garbage S0 this-VM (2026-08-22) | Same store, hybrid on. Reject garbage hybrid; skip identity-only hop dumps; do not hop-ground those dumps. **79/180** (MH **16/33** held, OD **3/11**, SH **37/98**, temporal **23/38**). [pin](./artifacts/locomo-s0-diag-mh-135-p4-20260822.md). **Not** n=1540, **not** a Mem0 same-pin. |
 | P5 activity-dump S0 this-VM (2026-08-22) | Same store, hybrid on. Skip activity/event hop dumps that miss leftover query tokens. **84/180** (MH **17/33**, OD **2/11 dip**, SH **45/98**, temporal **20/38 dip**). [pin](./artifacts/locomo-s0-diag-mh-135-p5-20260822.md). **Not** n=1540, **not** a Mem0 same-pin. |
+| P6 dump-lock S0 this-VM (2026-08-22) | Same store, hybrid on. Skip dual-entity activity dumps; unlock hop-dump locks; place-fact ranking. **87/180** (MH **13/33 dip**, OD **3/11**, SH **52/98**, temporal **19/38 dip**). [pin](./artifacts/locomo-s0-diag-mh-135-p6-20260822.md). **Not** n=1540, **not** a Mem0 same-pin. |
 | BEAM 100K this cycle | [beam-100k-fresh-20260815.md](./artifacts/beam-100k-fresh-20260815.md) |
 | BEAM 100K historical | [beam-100k-c0-async.md](./artifacts/beam-100k-c0-async.md) |
 
