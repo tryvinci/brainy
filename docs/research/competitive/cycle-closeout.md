@@ -2167,3 +2167,84 @@ Hybrid freeform accepted `!!!!` because garbage detection was sentinel-only; tha
 
 **One step:** remaining mass is SH **PROOF 26 + READER 19**. Restart the fair Mem0 180 with the event-wait timeout wired to `--async-timeout` (do not call it handicapped until org/project IDs are tried if the 180 is weak). n=1540 only at S6 — 19→79 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+---
+
+## 2026-08-22 — P5 activity-dump skip (84/180)
+
+### Landed
+
+P5 on the same frozen `diag-mh-135` + conv-30 store (dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`, stratified 180 seed 1, `--fail-closed --skip-ingest`, `BRAINY_RECALL_LLM=1`). SHA `5ad07c4` on branch `pr/s0-current-sha-baseline-1e9e` (PR #136). Go **default for hybrid stays off**. `#133` / `#131` stay unmerged. `main` is not fast-forwarded.
+
+Product change: skip activity/event hop dumps that miss leftover distinctive query tokens (skill/possession/preference joins stay); keep specific packet facts whose gold is a synonym of the leftover token (United Kingdom / country); do not hop-ground or compose those dumps when hybrid abstains. No LoCoMo-named rules. Pin: [locomo-s0-diag-mh-135-p5-20260822.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p5-20260822.md) — **84/180**.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; re-run on this SHA before merge. |
+| Marketing vertical | **17/17** | Merge gate; re-run on this SHA before merge. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P1 | **37/180 (0.206)** | MH **10/33 (dip)** · OD **1/11** · SH **19/98** · temporal **7/38**. SHA `3d42b17`. |
+| LoCoMo S0 product hybrid **on** P2 length-lock | **56/180 (0.311)** | MH **11/33** · OD **1/11** · SH **23/98** · temporal **21/38**. SHA `681028e`. |
+| LoCoMo S0 product hybrid **on** P2b | **61/180 (0.339)** | MH **16/33** · OD **1/11** · SH **25/98** · temporal **19/38 (dip vs P2 21/38)**. SHA `fb41ece`. |
+| LoCoMo S0 product hybrid **on** P3 | **73/180 (0.406)** | MH **16/33** · OD **3/11** · SH **32/98** · temporal **22/38**. SHA `5bc28ea`. |
+| LoCoMo S0 product hybrid **on** P4 | **79/180 (0.439)** | MH **16/33** · OD **3/11** · SH **37/98** · temporal **23/38**. SHA `6f74024`. |
+| LoCoMo S0 product hybrid **on** P5 | **84/180 (0.467)** | MH **17/33** · OD **2/11 (dip)** · SH **45/98** · temporal **20/38 (dip vs P4 23/38)**. SHA `5ad07c4`. Ledger: **PROOF 32 / RETRIEVAL 29 / READER 26 / WRITE 7 / HARNESS 2**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 84/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. Temporal **23→20** and OD **3→2** are named dips. Item flips vs P4: **+10 / −5 = net +5**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`--system mem0 --top-k 200`, chunk 1, v3 add `/v3/memories/add/` + event wait wired to `--async-timeout 1800`) was restarted as `locomo-s0-mem0-v3-s1-fair2` after the prior run crashed on a hardcoded 300s event wait. The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 84 vs 11, or 84 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **37** P1 → **56** P2 → **61** P2b → **73** P3 → **79** P4 → **84** P5 | **no same-n pin yet** (fair 180 restarted) | Product 19→84 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin yet** | Same-pin lane vs Mem0 once the fair 180 lands. |
+| S0 MH product (this tenant) | reader-off **12/33** → P1 **10/33** → P2 **11/33** → P2b/P3/P4 **16/33** → P5 **17/33** | no 33-item freeze | Tim-UK recovered. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P5 product ~147 ms local (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (17/33).** P5 recovered the P4 named MH loss (`conv-43-q38` Tim UK). Locks held: clarinet/violin, snacks, Ferrari count=2, pet names. Do not treat 17/33 as n=1540 MH.
+
+**Open-domain.** **3→2/11 dip**. Named loss `conv-47-q12` (James girlfriend No → not in memory). Industry **3/11**. Do not restore OD by stuffing episodes.
+
+**Single-hop.** **5→19→23→25→32→37→45/98**. Industry **27/98**. Mechanism: skip activity/event slogan dumps. Gains include Max, school funding, memorials, winter reading, seltzer/chocolate, dream book. SH **READER 19→12**. SH **PROOF 26→25**.
+
+**Temporal.** **23→20/38 dip** vs P4 and vs this-VM industry **22/38**. Named losses: mentorship weekend (`conv-26-q36`, extra clause the judge rejected), biking date (`conv-26-q67`), Pacific Northwest 2022 (`conv-41-q20` → not in memory). Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (re-run before merge)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Re-confirm on `5ad07c4` before merge.
+
+#### 3. Marketing vertical — lead (re-run before merge)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured.
+
+### Why
+
+P4 skipped identity-only hops. Typed **activity** hops (`visa requirements, explore nature, traveling`) are not identity, so they still led the hybrid prompt. The covering UK fact was in the packet; the reader abstained; `composeFromHopValues` dumped the slogans. P5 skips those dumps unless hops are a skill/possession/preference join, and keeps non-crowded packet facts whose gold is a synonym of the leftover token. WRITE stays 7; do not merge #133. Reader-off 19/180 remains the labeled no-LLM product pin; 84/180 is staging-hybrid only.
+
+### Next
+
+**One step:** remaining mass is SH **PROOF 25**. Name the temporal 23→20 dip; do not add date rules. Fair Mem0 180 (`fair2`) is the same-pin (still running). n=1540 only at S6 — 19→84 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
