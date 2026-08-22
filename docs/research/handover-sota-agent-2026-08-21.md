@@ -36,7 +36,7 @@ Path docs (do not invent a new program):
 - [locomo-dual-path-freeze.md](./locomo-dual-path-freeze.md) — product `/recall` vs industry search+harness.
 - [sota-representation-path.md](./sota-representation-path.md) — compile facts; episodes are provenance.
 
-**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b / **73/180** P3 / **79/180** P4 / **84/180** P5 / **87/180** P6 / **88/180** P7 hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **17/33** P5 / **13/33** P6 / **14/33** P7 hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR.
+**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b / **73/180** P3 / **79/180** P4 / **84/180** P5 / **87/180** P6 / **88/180** P7 / **93/180** P8 hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **17/33** P5 / **13/33** P6 / **14/33** P7 / **15/33** P8 hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR.
 
 ---
 
@@ -48,7 +48,7 @@ Path docs (do not invent a new program):
 | --- | --- |
 | `dev` **now** | `453a929` — #135 merge (MH slot-aligned dest-subject). Staging. |
 | `main` | `6d05e1b` — #134 packet/proof. Production. **Do not FF** unless the owner asks. |
-| PR **#136** `pr/s0-current-sha-baseline-1e9e` | Open draft. Mem0 v3 harness, S0 19/180 reader-off, P1 37/180, P2 56/180, P2b 61/180, P3 73/180, P4 79/180, P5 84/180, P6 87/180, P7 88/180. |
+| PR **#136** `pr/s0-current-sha-baseline-1e9e` | Open draft. Mem0 v3 harness, S0 19/180 reader-off, P1 37/180, P2 56/180, P2b 61/180, P3 73/180, P4 79/180, P5 84/180, P6 87/180, P7 88/180, P8 93/180 (`86eab77`). |
 | PR **#135** | Merged. MH list/join proof. |
 | PR **#134** | Merged. MH packet/proof + earlier handover. |
 | PR **#133** | OPEN draft. Compiler S1–S5. **Do not merge.** |
@@ -90,6 +90,7 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | S0 product P5 activity-dump skip | **84/180 (0.467)** | SHA `5ad07c4`. MH **17/33** · OD **2/11 (dip)** · SH **45/98** · temporal **20/38 (dip vs P4 23/38)**. Ledger: **PROOF 32 / RETRIEVAL 29 / READER 26 / WRITE 7 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p5-20260822.md) |
 | S0 product P6 dump-lock skip | **87/180 (0.483)** | SHA `45a83b5`. MH **13/33 (dip vs P5 17/33)** · OD **3/11** · SH **52/98** · temporal **19/38 (dip vs P5 20/38)**. Ledger: **READER 29 / RETRIEVAL 28 / PROOF 28 / WRITE 6 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p6-20260822.md) |
 | S0 product P7 hop-local joins | **88/180 (0.489)** | SHA `f3e0a7f`. MH **14/33** · OD **4/11** · SH **49/98 (dip vs P6 52/98)** · temporal **21/38**. Ledger: **PROOF 29 / RETRIEVAL 29 / READER 27 / WRITE 5 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p7-20260822.md) |
+| S0 product P8 SH recovery | **93/180 (0.517)** | SHA `86eab77`. MH **15/33** · OD **4/11** · SH **52/98** · temporal **22/38**. Ledger: **RETRIEVAL 29 / PROOF 28 / READER 24 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p8-20260822.md) |
 | S0 MH product (post-#134) | **2/33** | Was **1/33**. Attributed win: turtles. Second hit (soda/candy) is a crowded-list judge accept. [pin](../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
 | S0 MH product diagnostic ingest | **7/33** | WRITE+PROOF mixed on `diag-mh-135`. Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
 | S0 MH product diagnostic skip-ingest | **12/33** | PROOF-only on frozen `diag-mh-135`. Kinship dest `9d8dbeb` was **10/33**; slot-aligned recovery `2e84435` is **12/33** (`conv-44-q26` work, `conv-26-q60` clarinet/violin). Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md) |
@@ -103,12 +104,12 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 
 **Invalidated:** Aug-19 S0 17/180 / 52/180 (no pgvector, silent extract degrade). Never cite those as quality.
 
-**Bottleneck on this VM is split:** product S0 WRITE_MISS is **5/180** on P7 (integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **88/180** P7 hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **17/33** P5 / **14/33** P7 vs integrity **2/33**. SH 5→52→49 is the hybrid+admit+dump-skip path with a named P7 dip; SH PROOF 23 is the remaining mass. MH **17→14** vs P5 and SH **52→49** vs P6 are named dips.
+**Bottleneck on this VM is split:** product S0 WRITE_MISS is **4/180** on P8 (integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **93/180** P8 hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **17/33** P5 / **15/33** P8 vs integrity **2/33**. SH 5→52 is the hybrid+admit+dump-skip path (P7 dipped 52→49; P8 recovered 52). Remaining mass is SH **PROOF 22**. MH **17→15** vs P5 is still a named dip.
 
 ### Competitor stand (honest)
 
 - **1×30 freeze:** Brainy 21/30 vs Mem0 Platform 11/30 is a prior **lead on a handicapped Mem0 protocol**. It is not full LoCoMo and not permission to write “we beat Mem0.”
-- **S0 / n=1540:** no same-n Mem0 pin yet (fair 180 429 quota until 2026-09-01). Do not trail/lead 32/180, 19/180, 61/180, 73/180, 79/180, 84/180, 87/180, 88/180, or 11.4% vs 11/30 or vs published 92.5%.
+- **S0 / n=1540:** no same-n Mem0 pin yet (fair 180 429 quota until 2026-09-01). Do not trail/lead 32/180, 19/180, 61/180, 73/180, 79/180, 84/180, 87/180, 88/180, 93/180, or 11.4% vs 11/30 or vs published 92.5%.
 - **Ops / marketing:** Brainy lead (Mem0 pins stale). Must not regress. Not the next cycle.
 - **Graphiti / Zep / SuperMemory:** no same-pin. Published headlines are context.
 - **Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
@@ -131,13 +132,16 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 | P5 | Activity/event dump skip (not #133) | **Done.** Product **84/180**. MH **17/33** (Tim-UK recovered). SH 37→45. OD **3→2 dip**. Temporal **23→20 dip**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p5-20260822.md) |
 | P6 | Dual-entity dump-lock skip (not #133) | **Done.** Product **87/180**. MH **13/33 dip**. SH 45→52. OD 2→3. Temporal **20→19 dip**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p6-20260822.md) |
 | P7 | Hop-local leftover facts + rare-share possessions (not #133) | **Done.** Product **88/180**. MH **14/33**. SH **52→49 dip**. OD 3→4. Temporal **19→21**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p7-20260822.md) |
+| P8 | Recover SH 52 without restoring dumps (where-only mh_list unlock, ordinal names, leftover specific facts) | **Done.** Product **93/180**. MH **15/33**. SH **49→52**. OD held 4/11. Temporal **21→22**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p8-20260822.md) |
 | S1 compiler | Provider-extract / named-subject mass | **No** until the ledger says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
 | S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19→87. Full n=1540 only at S6. |
 
-**Suggested first remasure:** recover SH **52/98** (Shadow, festival, CS:GO) without giving back basketball / chili / walking / UK / gym. Name the SH 52→49 dip and the MH 17→14 dip vs P5. Remaining SH PROOF 23. Fair Mem0 180 is quota-blocked until 2026-09-01. Do not start n=1540 yet. Do not merge #133.
+**Suggested first remasure:** remaining SH **PROOF 22** (nearby-wrong / incomplete compose) without giving back Shadow / festival / CS:GO / basketball / chili / walking / UK / gym / community yoga+running. Name the MH 17→15 dip vs P5. Fair Mem0 180 is quota-blocked until 2026-09-01. Do not start n=1540 yet. Do not merge #133.
 
-**Shipped this increment (P7):** leftover-covering hop contents under skip (including identity leftover names); rare-share omitted possession snippets; shortest-value rare-token scoring; keep title-cased typed joins on hybrid abstain without identity slogans; locative leftover where-answers.
+**Shipped this increment (P8):** unlock skipped `mh_list` only on where-queries; drop attended-event / foreign-possessive hop values; dated-then-undated ordinal names; leftover-covering specific packet facts on hybrid abstain with conflicting date tails stripped.
+
+**Prior (P7):** leftover-covering hop contents under skip (including identity leftover names); rare-share omitted possession snippets; shortest-value rare-token scoring; keep title-cased typed joins on hybrid abstain without identity slogans; locative leftover where-answers.
 
 **Prior (P6):** skip dual-entity activity dumps unless hops are a typed skill/possession/preference join; unlock hybrid when the typed answer is a hop dump; cap the hybrid prompt and promote proper-noun/venue facts ahead of generic leftover-cover; do not compose crowded hop dumps when hybrid abstains.
 
