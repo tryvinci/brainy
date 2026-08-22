@@ -59,6 +59,27 @@ func TestComposeFromHopValuesJoinDoesNotFallBackToUnion(t *testing.T) {
 	}
 }
 
+func TestIntersectHopValuesByRareSharedToken(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "fetch_predicate", Entity: "Tim", Predicate: PredicatePossession, Source: "typed_store",
+			Values: []string{"map of middle-earth", "dvd and game collection", "basketball signed by favorite player", "harry potter books"}},
+		{Kind: "fetch_predicate", Entity: "John", Predicate: PredicatePossession, Source: "typed_store",
+			Values: []string{"lord of the rings dvd collection", "star wars movies", "basketball trophy", "hiking gear"}},
+	}
+	got := intersectHopValuesByRareSharedToken(hops)
+	blob := strings.ToLower(strings.Join(got, " | "))
+	if !strings.Contains(blob, "basketball") {
+		t.Fatalf("expected basketball join, got %#v", got)
+	}
+	if strings.Contains(blob, "collection") {
+		t.Fatalf("high-df collection must not win, got %#v", got)
+	}
+	ans := composeFromHopValues(hops)
+	if !strings.Contains(strings.ToLower(ans), "basketball") {
+		t.Fatalf("compose should use rare shared basketball, got %q", ans)
+	}
+}
+
 func TestComposeFromHopValuesContainmentAndPartner(t *testing.T) {
 	got := intersectHopValuesByContainment([]HopResult{
 		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity, Values: []string{"yoga", "relaxing", "pottery"}, Source: "typed_store"},

@@ -601,7 +601,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		// Keep typed multi-item lists when hybrid adds uncovered values as
 		// another multi-item list, or expands a short typed list. A long
 		// dump may still be replaced by a 1–2 item hybrid answer.
-		lockedList := lockHybridListExtras(enumerated, typedN, hybridN, extras)
+		lockedList := lockHybridListExtras(enumerated, typedN, hybridN, extras, typedAnswerIsHopDump(typedAnswer))
 		if hybrid.Attempted {
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
@@ -727,11 +727,54 @@ func uncoveredHybridItemCount(typed []RecallItem, hybrid string) int {
 // lockHybridListExtras keeps a typed list when hybrid injects uncovered
 // values as another multi-item list, or expands a short typed list. A long
 // dump may still be replaced by a 1–2 item hybrid answer.
-func lockHybridListExtras(enumerated bool, typedN, hybridN, extras int) bool {
-	if !enumerated || typedN <= 0 || extras <= 0 {
+func lockHybridListExtras(enumerated bool, typedN, hybridN, extras int, typedDump bool) bool {
+	if !enumerated || typedN <= 0 {
 		return false
 	}
-	return (typedN >= 3 && hybridN >= 3) || hybridN > typedN
+	if extras > 0 {
+		return (typedN >= 3 && hybridN >= 3) || hybridN > typedN
+	}
+	// Hybrid dropped items from a real typed list (not a slogan dump).
+	return !typedDump && typedN >= 3 && hybridN > 0 && hybridN < typedN
+}
+
+func limitHopListValues(vals []string, leftover []string, limit int) []string {
+	if limit <= 0 {
+		return nil
+	}
+	short := make([]string, 0, len(vals))
+	for _, v := range vals {
+		v = strings.TrimSpace(v)
+		if v == "" || looksTitleCaseSlogan(v) || utf8Len(v) > 80 {
+			continue
+		}
+		short = append(short, v)
+	}
+	if len(short) <= limit {
+		return short
+	}
+	out := make([]string, 0, limit)
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if len(out) >= limit {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, v := range short {
+		if len(leftover) > 0 && contentCoversAnyQueryToken(v, leftover) {
+			add(v)
+		}
+	}
+	for _, v := range short {
+		add(v)
+	}
+	return out
 }
 
 func shouldGroundHybridToHops(query string, hops []HopResult, pkt EvidencePacket, enumerated bool) bool {
@@ -1028,6 +1071,9 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		if len(shared) == 0 {
 			shared = hopSharedContentValues(hops)
 		}
+		if len(shared) == 0 {
+			shared = intersectHopValuesByRareSharedToken(hops)
+		}
 		slotPred := pred
 		for _, h := range hops {
 			if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
@@ -1051,7 +1097,8 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			}
 			slotPred := firstNonEmpty(h.Predicate, pred)
 			if len(h.Values) > 0 {
-				for i, v := range h.Values {
+				vals := limitHopListValues(h.Values, leftoverNonEntityQueryTokens(req.Query, hops), 6)
+				for i, v := range vals {
 					id := ""
 					if i < len(h.MemoryIDs) {
 						id = h.MemoryIDs[i]

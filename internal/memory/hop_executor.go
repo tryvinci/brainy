@@ -1612,6 +1612,77 @@ func hopSharedContentValues(results []HopResult) []string {
 	return intersectHopValueGroups(results, hopContentSlotValues)
 }
 
+// intersectHopValuesByRareSharedToken keeps values that share a rare 8+ letter
+// token across every hop entity (signed basketball ∩ basketball trophy).
+// Generic high-df tokens (collection, photo) lose to rarer ones.
+func intersectHopValuesByRareSharedToken(results []HopResult) []string {
+	order, groups := hopEntitySlotGroups(results)
+	if len(order) < 2 {
+		return nil
+	}
+	type hit struct {
+		ents map[string]struct{}
+		df   int
+	}
+	toks := map[string]*hit{}
+	for _, ent := range order {
+		seenTok := map[string]struct{}{}
+		for _, v := range groups[ent] {
+			for _, tok := range slotValueTokens(v) {
+				if len(tok) < 8 {
+					continue
+				}
+				h := toks[tok]
+				if h == nil {
+					h = &hit{ents: map[string]struct{}{}}
+					toks[tok] = h
+				}
+				h.df++
+				if _, ok := seenTok[tok]; !ok {
+					h.ents[ent] = struct{}{}
+					seenTok[tok] = struct{}{}
+				}
+			}
+		}
+	}
+	best, bestDF, bestLen := "", 1<<20, 0
+	for tok, h := range toks {
+		if len(h.ents) < len(order) {
+			continue
+		}
+		if h.df < bestDF || (h.df == bestDF && len(tok) > bestLen) {
+			best, bestDF, bestLen = tok, h.df, len(tok)
+		}
+	}
+	if best == "" {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(order))
+	for _, ent := range order {
+		bestVal, bestN := "", 1<<20
+		for _, v := range groups[ent] {
+			if !contentCoversQueryToken(v, best) {
+				continue
+			}
+			n := utf8Len(v)
+			if n < bestN {
+				bestVal, bestN = v, n
+			}
+		}
+		key := strings.ToLower(strings.TrimSpace(bestVal))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, strings.TrimSpace(bestVal))
+	}
+	return out
+}
+
 func joinTitledHopValues(vals []string) string {
 	if len(vals) == 0 {
 		return ""
@@ -1628,6 +1699,14 @@ func composeFromHopValues(results []HopResult) string {
 		vals := hopSharedSlotValues(results)
 		if len(vals) == 0 {
 			vals = hopSharedContentValues(results)
+		}
+		if len(vals) == 0 {
+			vals = intersectHopValuesByRareSharedToken(results)
+		}
+		if typedAnswerIsHopDump(strings.Join(vals, ", ")) {
+			if rare := intersectHopValuesByRareSharedToken(results); len(rare) > 0 && len(rare) < len(vals) {
+				vals = rare
+			}
 		}
 		return joinTitledHopValues(vals)
 	}

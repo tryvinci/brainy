@@ -159,10 +159,7 @@ func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string 
 						continue
 					}
 					slot := firstNonEmpty(h.Predicate, h.OutputKey, h.Kind)
-					val := firstNonEmpty(h.Value, "")
-					if val == "" && len(h.Values) > 0 {
-						val = strings.Join(h.Values, ", ")
-					}
+					val := preferredHopSlotDisplay(query, hops, h)
 					if strings.TrimSpace(val) == "" {
 						continue
 					}
@@ -188,6 +185,25 @@ func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string 
 							" result="+truncateRunes(val, 120),
 					)
 					for i, c := range h.Contents {
+						id := ""
+						if i < len(h.MemoryIDs) {
+							id = h.MemoryIDs[i]
+						}
+						add(c, id)
+					}
+				}
+			}
+			// Skip drops Structured dumps, but hop contents still hold leftover
+			// covering facts and specific place/name lines (chili cook-off, Phuket).
+			if skipSlots && !hopDumpsUnproven(hops) {
+				for _, h := range hops {
+					if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+						continue
+					}
+					for i, c := range h.Contents {
+						if !keepSkippedHopContent(c, coverToks) {
+							continue
+						}
 						id := ""
 						if i < len(h.MemoryIDs) {
 							id = h.MemoryIDs[i]
@@ -260,7 +276,8 @@ func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string)
 	}
 	cover = rankLinesByRareCover(cover, coverToks)
 	if len(cover) > hybridCoverLineLimit {
-		cover = cover[:hybridCoverLineLimit]
+		kept := cover[:hybridCoverLineLimit]
+		cover = ensureLeftoverTokenCover(kept, cover, coverToks)
 	}
 	out := make([]string, 0, hybridMemoryLineLimit)
 	appendCap := func(src []string) {
@@ -375,6 +392,12 @@ func looksSpecificPlaceOrNameLine(line string) bool {
 	if consecutiveProperNouns(line) >= 2 {
 		return true
 	}
+	if looksHyphenatedEventLine(body) {
+		return true
+	}
+	if looksPossessiveKinLine(line) {
+		return true
+	}
 	for _, w := range strings.Fields(strings.ToLower(body)) {
 		w = strings.Trim(w, ".,;:()[]\"'")
 		switch w {
@@ -383,6 +406,151 @@ func looksSpecificPlaceOrNameLine(line string) bool {
 		}
 	}
 	return false
+}
+
+func looksHyphenatedEventLine(body string) bool {
+	for _, w := range strings.Fields(body) {
+		w = strings.Trim(w, ".,;:()[]\"'")
+		if strings.Count(w, "-") != 1 {
+			continue
+		}
+		left, right, ok := strings.Cut(w, "-")
+		if !ok || utf8Len(left) < 4 || utf8Len(right) < 3 {
+			continue
+		}
+		if isMonthWord(left) || isMonthWord(right) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func isMonthWord(s string) bool {
+	switch strings.ToLower(strings.Trim(s, ".,")) {
+	case "january", "february", "march", "april", "may", "june",
+		"july", "august", "september", "october", "november", "december":
+		return true
+	}
+	return false
+}
+
+func looksPossessiveKinLine(line string) bool {
+	lower := strings.ToLower(hybridLineBody(line))
+	if !strings.Contains(lower, "'s ") && !strings.Contains(lower, "’s ") {
+		return false
+	}
+	roles := append([]string{"son", "daughter", "child", "kids", "children"}, kinshipRoles...)
+	for _, role := range roles {
+		if strings.Contains(lower, "'s "+role) || strings.Contains(lower, "’s "+role) {
+			return consecutiveProperNouns(line) >= 1
+		}
+	}
+	return false
+}
+
+func keepSkippedHopContent(content string, coverToks []string) bool {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return false
+	}
+	covers := len(coverToks) == 0 || contentCoversAnyQueryToken(content, coverToks)
+	if looksCrowdedHopDump(content) && !covers {
+		return false
+	}
+	if covers || looksSpecificPlaceOrNameLine("- "+content) {
+		return true
+	}
+	return false
+}
+
+func ensureLeftoverTokenCover(kept, ranked []string, toks []string) []string {
+	if len(toks) == 0 {
+		return kept
+	}
+	out := append([]string(nil), kept...)
+	seen := map[string]struct{}{}
+	for _, line := range out {
+		seen[line] = struct{}{}
+	}
+	for _, tok := range toks {
+		covered := false
+		for _, line := range out {
+			if contentCoversQueryToken(line, tok) {
+				covered = true
+				break
+			}
+		}
+		if covered {
+			continue
+		}
+		for _, line := range ranked {
+			if _, ok := seen[line]; ok {
+				continue
+			}
+			if !contentCoversQueryToken(line, tok) {
+				continue
+			}
+			out = append(out, line)
+			seen[line] = struct{}{}
+			break
+		}
+	}
+	return out
+}
+
+func preferredHopSlotDisplay(query string, hops []HopResult, h HopResult) string {
+	vals := append([]string(nil), h.Values...)
+	if len(vals) == 0 {
+		if v := strings.TrimSpace(h.Value); v != "" {
+			vals = []string{v}
+		}
+	}
+	if len(vals) == 0 {
+		return ""
+	}
+	joined := strings.Join(vals, ", ")
+	if len(vals) <= 6 && !typedAnswerIsHopDump(joined) {
+		return joined
+	}
+	leftover := leftoverNonEntityQueryTokens(query, hops)
+	shared := hopSharedSlotValues(hops)
+	if len(shared) == 0 {
+		shared = intersectHopValuesByRareSharedToken(hops)
+	}
+	out := make([]string, 0, 6)
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" || looksTitleCaseSlogan(v) || utf8Len(v) > 80 {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if len(out) >= 6 {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, v := range shared {
+		add(v)
+	}
+	for _, v := range vals {
+		if len(leftover) > 0 && contentCoversAnyQueryToken(v, leftover) {
+			add(v)
+		}
+	}
+	if len(out) == 0 {
+		for _, v := range vals {
+			if utf8Len(v) <= 48 {
+				add(v)
+			}
+		}
+	}
+	return strings.Join(out, ", ")
 }
 
 func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan QueryPlan, pkt EvidencePacket) hybridReaderResult {
@@ -760,12 +928,30 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 }
 
 func hopsKeepTypedJoin(hops []HopResult) bool {
+	kin := false
 	for _, h := range hops {
 		if !hopResultTypedExact(h) {
 			continue
 		}
-		switch strings.ToLower(strings.TrimSpace(h.Predicate)) {
+		pred := strings.ToLower(strings.TrimSpace(h.Predicate))
+		if pred == PredicateFamilyMember {
+			if kinRoleToken(firstNonEmpty(h.Value, strings.Join(h.Values, " "))) != "" {
+				kin = true
+			}
+		}
+		switch pred {
 		case PredicateSkill, PredicatePossession, PredicatePreference:
+			return true
+		}
+	}
+	if !kin {
+		return false
+	}
+	for _, h := range hops {
+		if !hopResultTypedExact(h) {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(h.Predicate), PredicateActivity) {
 			return true
 		}
 	}

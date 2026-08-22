@@ -515,6 +515,110 @@ func TestTypedAnswerIsHopDump(t *testing.T) {
 	}
 }
 
+func TestPrioritizeHybridMemoryLinesKeepsHyphenatedEvents(t *testing.T) {
+	lines := make([]string, 0, 20)
+	for i := 0; i < 15; i++ {
+		lines = append(lines, "- Maria volunteered at a homeless shelter during a kids' event.")
+	}
+	lines = append(lines, "- Maria's fundraiser will feature a chili cook-off event.")
+	lines = append(lines, "- Maria is planning a ring-toss tournament fundraiser for the homeless shelter.")
+	hops := []HopResult{
+		{Kind: "follow_relation", Entity: "Maria", Predicate: PredicatePlan, Source: "typed_store",
+			Value: "ring-toss", Values: []string{"ring-toss tournament fundraiser"}},
+	}
+	got := prioritizeHybridMemoryLines("What events is Maria planning for the homeless shelter funraiser?", hops, lines)
+	joined := strings.ToLower(strings.Join(got, "\n"))
+	if !strings.Contains(joined, "chili") {
+		t.Fatalf("chili cook-off must survive leftover-cover crowding, got %q", joined)
+	}
+	if !strings.Contains(joined, "ring-toss") && !strings.Contains(joined, "ring") {
+		t.Fatalf("ring-toss must remain, got %q", joined)
+	}
+}
+
+func TestFormatHybridMemoryLinesKeepsPlaceHopContentWhenSkipping(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Jolene participates in diving.", MemoryID: "m-div"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene", Source: "search_fallback"},
+				{HopIndex: 1, Kind: "follow_relation", Entity: "Jolene", Predicate: PredicateActivity, Source: "typed_store",
+					Value:  "hiking, yoga, meditation retreat in phuket, diving",
+					Values: []string{"hiking", "yoga", "meditation retreat in phuket", "diving"},
+					Contents: []string{
+						"Jolene attended a meditation retreat in Phuket with her partner.",
+						"Jolene went hiking last weekend.",
+					},
+					MemoryIDs: []string{"m-phu", "m-hike"},
+				},
+			},
+		},
+	}
+	q := "Where did Jolene and her partner find a cool diving spot?"
+	hops, _ := pkt.Coverage["hop_results"].([]HopResult)
+	if hopsKeepTypedJoin(hops) {
+		t.Fatal("activity dump without typed kin must not count as typed join")
+	}
+	if !skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatal("expected skip")
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery(q, pkt), "\n")
+	if strings.Contains(joined, "Structured:") {
+		t.Fatalf("activity dump must not lead, got %q", joined)
+	}
+	if !strings.Contains(joined, "Phuket") {
+		t.Fatalf("place hop content must remain when skipping dumps, got %q", joined)
+	}
+}
+
+func TestFormatHybridMemoryLinesKeepsHyphenatedHopContentWhenSkipping(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Maria volunteered at a homeless shelter during a kids' event.", MemoryID: "m-vol"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "follow_relation", Entity: "Maria", Predicate: PredicateEvent, Source: "typed_store",
+					Value:     "picnic, chili cook-off, charity event",
+					Values:    []string{"picnic", "chili cook-off", "charity event"},
+					Contents:  []string{"Maria's fundraiser will feature a chili cook-off event."},
+					MemoryIDs: []string{"m-chili"},
+				},
+			},
+		},
+	}
+	q := "What events is Maria planning for the homeless shelter funraiser?"
+	hops, _ := pkt.Coverage["hop_results"].([]HopResult)
+	if !skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatal("event dump with leftover tokens should skip")
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery(q, pkt), "\n")
+	if strings.Contains(joined, "Structured:") {
+		t.Fatalf("dump must not lead, got %q", joined)
+	}
+	if !strings.Contains(strings.ToLower(joined), "chili") {
+		t.Fatalf("chili hop content must remain, got %q", joined)
+	}
+}
+
+func TestHopsKeepTypedJoinKinshipActivity(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "follow_relation", Entity: "Deborah", Predicate: PredicateFamilyMember, Source: "typed_store",
+			Value: "mother", Values: []string{"mother"}},
+		{Kind: "follow_relation", Entity: "Deborah's mother", Predicate: PredicateActivity, Source: "typed_store",
+			Value: "reading", Values: []string{"reading", "travel", "art", "cooking"}},
+	}
+	if !hopsKeepTypedJoin(hops) {
+		t.Fatal("typed kinship dest activity is a join")
+	}
+	pkt := EvidencePacket{Contents: []string{"Deborah's mother had reading as one of her hobbies."}}
+	if skipUnrelatedHopSlots("What were Deborah's mother's hobbies?", hops, pkt) {
+		t.Fatal("kinship activity join must not skip")
+	}
+}
+
 func TestPrioritizeHybridMemoryLinesPrefersCovering(t *testing.T) {
 	lines := make([]string, 0, 40)
 	for i := 0; i < 40; i++ {
@@ -982,6 +1086,7 @@ func TestLockHybridListExtras(t *testing.T) {
 		name                    string
 		enumerated              bool
 		typedN, hybridN, extras int
+		typedDump               bool
 		want                    bool
 	}{
 		{name: "equal-length dump", enumerated: true, typedN: 6, hybridN: 6, extras: 4, want: true},
@@ -990,12 +1095,13 @@ func TestLockHybridListExtras(t *testing.T) {
 		{name: "1-item dump replacement", enumerated: true, typedN: 1, hybridN: 1, extras: 1, want: false},
 		{name: "long dump to short hybrid", enumerated: true, typedN: 8, hybridN: 1, extras: 1, want: false},
 		{name: "empty typed fills", enumerated: true, typedN: 0, hybridN: 3, extras: 3, want: false},
-		{name: "no extras", enumerated: true, typedN: 6, hybridN: 4, extras: 0, want: false},
+		{name: "shortened real list", enumerated: true, typedN: 6, hybridN: 4, extras: 0, want: true},
+		{name: "dump shortened without extras", enumerated: true, typedN: 6, hybridN: 1, extras: 0, typedDump: true, want: false},
 		{name: "not enumerated", enumerated: false, typedN: 6, hybridN: 6, extras: 4, want: false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := lockHybridListExtras(tc.enumerated, tc.typedN, tc.hybridN, tc.extras)
+			got := lockHybridListExtras(tc.enumerated, tc.typedN, tc.hybridN, tc.extras, tc.typedDump)
 			if got != tc.want {
 				t.Fatalf("got %v want %v", got, tc.want)
 			}
