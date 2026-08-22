@@ -11,6 +11,33 @@ import (
 	"time"
 )
 
+func TestHybridReaderReadsReasoningWhenContentEmpty(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"finish_reason": "length", "message": map[string]any{
+					"content":   nil,
+					"reasoning": `prefix {"answer":"ceramics","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	svc := NewService(newMemoryStoreStub()).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	plan := QueryPlan{NeedsMultiHop: true, PrimaryIntent: IntentMultiHop}
+	pkt := EvidencePacket{
+		Items:    []PacketItem{{MemoryID: "m1", Content: "Melanie loves ceramics"}},
+		Contents: []string{"Melanie loves ceramics"},
+	}
+	res := svc.synthesizeHybridAnswer(context.Background(), "What hobby?", plan, pkt)
+	if !res.OK || res.Answer != "ceramics" {
+		t.Fatalf("got %#v", res)
+	}
+}
+
 func TestHybridReaderAcceptsAnswerWithoutSupportIDs(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -261,6 +288,21 @@ func TestFormatHybridMemoryLinesLeadsWithStructuredSlots(t *testing.T) {
 	joined := strings.Join(lines, "\n")
 	if !strings.Contains(joined, "New York") {
 		t.Fatalf("context must still be present, lines=%v", lines)
+	}
+}
+
+func TestHybridReaderStripsThinkAndExtractsJSON(t *testing.T) {
+	raw := "<think>plan</think>\n{\"answer\":\"pottery\",\"supporting_memory_ids\":[],\"unresolved_targets\":[],\"abstain\":false}"
+	got := stripThinkTags(raw)
+	if strings.Contains(strings.ToLower(got), "<think>") {
+		t.Fatalf("think remains: %q", got)
+	}
+	obj := extractJSONObject("intro " + got + " trailing")
+	var out struct {
+		Answer string `json:"answer"`
+	}
+	if err := json.Unmarshal([]byte(obj), &out); err != nil || out.Answer != "pottery" {
+		t.Fatalf("obj=%q out=%#v err=%v", obj, out, err)
 	}
 }
 

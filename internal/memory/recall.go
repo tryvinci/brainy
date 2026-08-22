@@ -546,6 +546,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if hybrid.Reason != "" {
 			out.Explain["hybrid_reader_reason"] = hybrid.Reason
 		}
+		if hybrid.RawSnippet != "" {
+			out.Explain["hybrid_reader_raw_prefix"] = hybrid.RawSnippet
+		}
 		if hybrid.Attempted {
 			out.Explain["hybrid_reader_attempted"] = true
 			if hybrid.ParseMode != "" {

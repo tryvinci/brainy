@@ -59,6 +59,7 @@ type hybridReaderResult struct {
 	UnresolvedTargets []string
 	Abstain           bool
 	ParseMode         string // json | freeform | ""
+	RawSnippet        string
 }
 
 func (s *Service) resolveHybridReaderConfig() HybridReaderConfig {
@@ -233,6 +234,7 @@ Include supporting_memory_ids from the bracketed ids when possible; missing ids 
 	body, err := json.Marshal(map[string]any{
 		"model":           cfg.Model,
 		"temperature":     0,
+		"max_tokens":      2048,
 		"response_format": map[string]string{"type": "json_object"},
 		"messages": []map[string]string{
 			{"role": "system", "content": system},
@@ -253,6 +255,7 @@ Include supporting_memory_ids from the bracketed ids when possible; missing ids 
 		return hybridReaderResult{Attempted: true, Reason: "request_build_error"}
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("User-Agent", "brainy-hybrid-reader")
 	if key := strings.TrimSpace(cfg.APIKey); key != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+key)
 	}
@@ -270,8 +273,11 @@ Include supporting_memory_ids from the bracketed ids when possible; missing ids 
 	}
 	var completion struct {
 		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
+			FinishReason string `json:"finish_reason"`
+			Message      struct {
+				Content          string `json:"content"`
+				Reasoning        string `json:"reasoning"`
+				ReasoningContent string `json:"reasoning_content"`
 			} `json:"message"`
 		} `json:"choices"`
 	}
@@ -279,14 +285,23 @@ Include supporting_memory_ids from the bracketed ids when possible; missing ids 
 		return hybridReaderResult{Attempted: true, Reason: "llm_parse_error"}
 	}
 	raw := strings.TrimSpace(completion.Choices[0].Message.Content)
+	if raw == "" {
+		raw = strings.TrimSpace(completion.Choices[0].Message.Reasoning)
+	}
+	if raw == "" {
+		raw = strings.TrimSpace(completion.Choices[0].Message.ReasoningContent)
+	}
 	raw = strings.TrimPrefix(raw, "```json")
 	raw = strings.TrimPrefix(raw, "```")
 	raw = strings.TrimSuffix(raw, "```")
 	raw = strings.TrimSpace(raw)
+	raw = stripThinkTags(raw)
+	if obj := extractJSONObject(raw); obj != "" {
+		raw = obj
+	}
 
 	var out outPayload
 	if err := json.Unmarshal([]byte(raw), &out); err != nil {
-		// Soft path: accept free-form non-empty answers (harness-compatible).
 		if ans := softFreeformAnswer(raw); ans != "" {
 			return hybridReaderResult{
 				Answer:    ans,
@@ -296,7 +311,6 @@ Include supporting_memory_ids from the bracketed ids when possible; missing ids 
 				ParseMode: "freeform",
 			}
 		}
-		// Partial JSON salvage: {"answer":"..."} with trailing junk.
 		if ans := salvageJSONAnswer(raw); ans != "" {
 			return hybridReaderResult{
 				Answer:    ans,
@@ -306,7 +320,11 @@ Include supporting_memory_ids from the bracketed ids when possible; missing ids 
 				ParseMode: "json_salvage",
 			}
 		}
-		return hybridReaderResult{Attempted: true, Reason: "json_parse_error"}
+		snippet := raw
+		if len(snippet) > 160 {
+			snippet = snippet[:160]
+		}
+		return hybridReaderResult{Attempted: true, Reason: "json_parse_error", RawSnippet: snippet}
 	}
 
 	ans := strings.TrimSpace(out.Answer)
@@ -358,14 +376,70 @@ func softFreeformAnswer(raw string) string {
 	return ans
 }
 
+func stripThinkTags(raw string) string {
+	s := raw
+	for _, tag := range []string{"think", "analysis", "reasoning"} {
+		open := "<" + tag + ">"
+		close := "</" + tag + ">"
+		for {
+			start := strings.Index(strings.ToLower(s), open)
+			end := strings.Index(strings.ToLower(s), close)
+			if start < 0 || end < 0 || end < start {
+				break
+			}
+			s = strings.TrimSpace(s[:start] + s[end+len(close):])
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
+func extractJSONObject(raw string) string {
+	start := strings.Index(raw, "{")
+	if start < 0 {
+		return ""
+	}
+	depth := 0
+	inStr := false
+	escaped := false
+	for i := start; i < len(raw); i++ {
+		c := raw[i]
+		if inStr {
+			if escaped {
+				escaped = false
+				continue
+			}
+			if c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '"' {
+				inStr = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inStr = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return strings.TrimSpace(raw[start : i+1])
+			}
+		}
+	}
+	return ""
+}
+
 func salvageJSONAnswer(raw string) string {
 	// Best-effort extract of "answer":"..." when full JSON unmarshal fails.
-	const key = `"answer"`
-	idx := strings.Index(raw, key)
+	lower := strings.ToLower(raw)
+	idx := strings.Index(lower, `"answer"`)
 	if idx < 0 {
 		return ""
 	}
-	rest := raw[idx+len(key):]
+	rest := raw[idx+len(`"answer"`):]
 	rest = strings.TrimSpace(rest)
 	if !strings.HasPrefix(rest, ":") {
 		return ""
