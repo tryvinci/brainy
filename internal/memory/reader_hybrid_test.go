@@ -423,6 +423,42 @@ func TestSkipUnrelatedIdentityDumpLiveShape(t *testing.T) {
 	}
 }
 
+func TestFormatHybridMemoryLinesKeepsLeftoverIdentityHopContent(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Maria has a dog named Shadow.", MemoryID: "m-shadow"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "resolve_entity", Entity: "Maria", Value: "Maria", Source: "search_fallback"},
+				{HopIndex: 1, Kind: "follow_relation", Entity: "Maria", Predicate: PredicateIdentity, Source: "typed_store",
+					Value: "inspiration, family, team", Values: []string{"inspiration", "family", "team"},
+					Contents: []string{
+						"Maria is a inspiration",
+						"Maria got a puppy named Coco on 28 July 2023.",
+					},
+					MemoryIDs: []string{"m-insp", "m-coco"},
+				},
+			},
+		},
+	}
+	q := "What is the name of Maria's second puppy?"
+	hops, _ := pkt.Coverage["hop_results"].([]HopResult)
+	if !hopsAreIdentityOnly(hops) {
+		t.Fatal("fixture must be identity-only")
+	}
+	if !skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatal("identity dump must skip")
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery(q, pkt), "\n")
+	if strings.Contains(joined, "Structured:") || strings.Contains(joined, "inspiration") {
+		t.Fatalf("identity dump must not lead, got %q", joined)
+	}
+	if !strings.Contains(joined, "Coco") {
+		t.Fatalf("leftover-covering puppy hop content must remain, got %q", joined)
+	}
+}
+
 func TestFormatHybridMemoryLinesKeepsSkillSlotsForInstrumentQuery(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{

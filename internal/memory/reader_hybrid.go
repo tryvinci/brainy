@@ -194,14 +194,16 @@ func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string 
 				}
 			}
 			// Skip drops Structured dumps, but hop contents still hold leftover
-			// covering facts and specific place/name lines (chili cook-off, Phuket).
-			if skipSlots && !hopDumpsUnproven(hops) && !hopsAreIdentityOnly(hops) {
+			// covering facts and specific place/name lines (chili cook-off, Coco).
+			// Identity-only hops may still carry leftover-covering names.
+			if skipSlots && !hopDumpsUnproven(hops) {
+				identityOnly := hopsAreIdentityOnly(hops)
 				for _, h := range hops {
 					if h.Kind == "resolve_entity" || h.Source == "unresolved" {
 						continue
 					}
 					for i, c := range h.Contents {
-						if !keepSkippedHopContent(c, coverToks) {
+						if !keepSkippedHopContent(c, coverToks, identityOnly) {
 							continue
 						}
 						id := ""
@@ -449,16 +451,20 @@ func looksPossessiveKinLine(line string) bool {
 	return false
 }
 
-func keepSkippedHopContent(content string, coverToks []string) bool {
+func keepSkippedHopContent(content string, coverToks []string, identityOnly bool) bool {
 	content = strings.TrimSpace(content)
 	if content == "" {
 		return false
 	}
-	covers := len(coverToks) == 0 || contentCoversAnyQueryToken(content, coverToks)
-	if looksCrowdedHopDump(content) && !covers {
+	covers := contentCoversAnyQueryToken(content, coverToks)
+	if identityOnly {
+		// Do not keep identity slogans just because they contain a name.
+		return len(coverToks) > 0 && covers && !looksCrowdedHopDump(content)
+	}
+	if looksCrowdedHopDump(content) && !(len(coverToks) == 0 || covers) {
 		return false
 	}
-	if covers || looksSpecificPlaceOrNameLine("- "+content) {
+	if len(coverToks) == 0 || covers || looksSpecificPlaceOrNameLine("- "+content) {
 		return true
 	}
 	return false
