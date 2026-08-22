@@ -555,6 +555,23 @@ func TestPrioritizeHybridMemoryLinesKeepsSpecificPlaceFacts(t *testing.T) {
 	}
 }
 
+func TestPrioritizeHybridMemoryLinesKeepsUKAmongVisaCover(t *testing.T) {
+	lines := make([]string, 0, 42)
+	for i := 0; i < 40; i++ {
+		lines = append(lines, "- Tim is researching visa requirements for the countries he wants to visit.")
+	}
+	lines = append(lines, "- Tim has experiences in the United Kingdom.")
+	hops := []HopResult{
+		{Kind: "follow_relation", Entity: "Tim", Predicate: PredicateActivity, Source: "typed_store",
+			Value: "visa requirements", Values: []string{"visa requirements", "explore nature", "traveling"}},
+	}
+	got := prioritizeHybridMemoryLines("which country has Tim visited most frequently in his travels?", hops, lines)
+	joined := strings.Join(got, "\n")
+	if !strings.Contains(joined, "United Kingdom") {
+		t.Fatalf("UK fact must survive leftover-covering visa crowding, got %q", joined)
+	}
+}
+
 func TestIsHybridGarbageAnswer(t *testing.T) {
 	if !isHybridGarbageAnswer(strings.Repeat("!", 80)) {
 		t.Fatal("repeated punctuation")

@@ -223,6 +223,11 @@ func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string 
 // crowd leftover-covering facts or leak chain-of-thought as the answer.
 const hybridMemoryLineLimit = 28
 
+// hybridCoverLineLimit keeps leftover-token matches from filling the cap
+// with generic "countries he wants to visit" lines and dropping the specific
+// place/name fact (United Kingdom, gym, Max).
+const hybridCoverLineLimit = 12
+
 func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string) []string {
 	if len(lines) == 0 {
 		return lines
@@ -248,6 +253,10 @@ func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string)
 		}
 		specific = append(specific, line)
 	}
+	cover = rankLinesByRareCover(cover, coverToks)
+	if len(cover) > hybridCoverLineLimit {
+		cover = cover[:hybridCoverLineLimit]
+	}
 	out := make([]string, 0, hybridMemoryLineLimit)
 	appendCap := func(src []string) {
 		for _, line := range src {
@@ -261,6 +270,54 @@ func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string)
 	appendCap(cover)
 	appendCap(specific)
 	appendCap(thin)
+	return out
+}
+
+func rankLinesByRareCover(lines []string, toks []string) []string {
+	if len(lines) <= 1 || len(toks) == 0 {
+		return lines
+	}
+	df := make(map[string]int, len(toks))
+	for _, tok := range toks {
+		for _, line := range lines {
+			if contentCoversQueryToken(line, tok) {
+				df[tok]++
+			}
+		}
+	}
+	type scored struct {
+		line string
+		n    int
+		rare int
+	}
+	items := make([]scored, 0, len(lines))
+	for _, line := range lines {
+		n, rare := 0, 1<<20
+		for _, tok := range toks {
+			if !contentCoversQueryToken(line, tok) {
+				continue
+			}
+			n++
+			if d := df[tok]; d < rare {
+				rare = d
+			}
+		}
+		if n == 0 {
+			rare = 1 << 20
+		}
+		items = append(items, scored{line: line, n: n, rare: rare})
+	}
+	for i := 0; i < len(items); i++ {
+		for j := i + 1; j < len(items); j++ {
+			if items[j].n > items[i].n || (items[j].n == items[i].n && items[j].rare < items[i].rare) {
+				items[i], items[j] = items[j], items[i]
+			}
+		}
+	}
+	out := make([]string, len(items))
+	for i, it := range items {
+		out[i] = it.line
+	}
 	return out
 }
 
