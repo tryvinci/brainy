@@ -1743,10 +1743,10 @@ func composeFromHopValues(results []HopResult) string {
 		if len(vals) == 0 {
 			vals = hopSharedContentValues(results)
 		}
-		if len(vals) == 0 {
+		if len(vals) == 0 && hopsKeepTypedJoin(results) {
 			vals = intersectHopValuesByRareSharedToken(results)
 		}
-		if typedAnswerIsHopDump(strings.Join(vals, ", ")) {
+		if typedAnswerIsHopDump(strings.Join(vals, ", ")) && hopsKeepTypedJoin(results) {
 			if rare := intersectHopValuesByRareSharedToken(results); len(rare) > 0 && len(rare) < len(vals) {
 				vals = rare
 			}

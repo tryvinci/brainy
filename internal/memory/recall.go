@@ -1032,9 +1032,6 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		if len(shared) == 0 {
 			shared = hopSharedContentValues(hops)
 		}
-		if len(shared) == 0 {
-			shared = intersectHopValuesByRareSharedToken(hops)
-		}
 		slotPred := pred
 		for _, h := range hops {
 			if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {

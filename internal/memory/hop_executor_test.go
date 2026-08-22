@@ -80,6 +80,19 @@ func TestIntersectHopValuesByRareSharedToken(t *testing.T) {
 	}
 }
 
+func TestComposeFromHopValuesDoesNotRareJoinActivityDumps(t *testing.T) {
+	ans := composeFromHopValues([]HopResult{
+		{Kind: "follow_relation", Entity: "Andrew", Predicate: PredicateActivity, Source: "typed_store",
+			Values: []string{"bike ride with girlfriend", "trying sushi", "walks with buddy"}},
+		{Kind: "follow_relation", Entity: "Buddy", Predicate: PredicateActivity, Source: "search_fallback",
+			Values: []string{"bike ride with girlfriend", "discover new places to eat"}},
+	})
+	low := strings.ToLower(ans)
+	if strings.Contains(low, "bike") || strings.Contains(low, "sushi") {
+		t.Fatalf("activity dump must not rare-join, got %q", ans)
+	}
+}
+
 func TestComposeFromHopValuesContainmentAndPartner(t *testing.T) {
 	got := intersectHopValuesByContainment([]HopResult{
 		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity, Values: []string{"yoga", "relaxing", "pottery"}, Source: "typed_store"},
