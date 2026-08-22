@@ -3333,9 +3333,18 @@ func TestLeftoverCoveringSpecificAnswerSkipsChatTurn(t *testing.T) {
 		},
 	}
 	q := "What did John organize with his friends on May 8, 2022?"
+	if dt := parseDateFromText("What did John organize with his friends on May 8, 2022?"); dt == nil || dt.Day() != 8 || dt.Month() != 5 {
+		t.Fatalf("expected query May 8 parse, got %#v", dt)
+	}
+	if dt := parseDateFromText("John organized a charity gaming tournament for the game CS:GO on 7 May 2022."); dt == nil || dt.Day() != 7 {
+		t.Fatalf("expected fact May 7 parse, got %#v", dt)
+	}
 	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
 	if !strings.Contains(strings.ToLower(got), "cs:go") {
 		t.Fatalf("expected CS:GO fact over chat turn, got %q", got)
+	}
+	if strings.Contains(got, "7 May") || strings.Contains(got, "7 May 2022") {
+		t.Fatalf("conflicting 7 May tail must not remain when query is May 8: %q", got)
 	}
 }
 

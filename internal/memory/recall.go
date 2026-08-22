@@ -601,9 +601,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		extras := uncoveredHybridItemCount(typedItems, hybrid.Answer)
 		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
 		lockedOrdinal := out.Explain["ordinal_name"] == true
-		if typedAnswerIsHopDump(typedAnswer) || skipSlots {
+		if typedAnswerIsHopDump(typedAnswer) || (skipSlots && looksWhereQuery(req.Query)) {
 			// Dual-entity SH questions often plan as MH and lock a slogan
 			// dump or a leftover-unrelated short slot (Rocks) over hybrid.
+			// Only unlock mh_list on where-questions so typed community/skill
+			// joins stay locked when slots skip.
 			lockedWhere = false
 			lockedMHList = false
 		}
@@ -1993,7 +1995,7 @@ func parseDateFromText(s string) *time.Time {
 	fields := strings.Fields(s)
 	for n := 5; n >= 2; n-- {
 		for i := 0; i+n <= len(fields); i++ {
-			chunk := strings.Trim(strings.Join(fields[i:i+n], " "), "()[];,.\"'")
+			chunk := strings.Trim(strings.Join(fields[i:i+n], " "), "()[];,.\"'?")
 			if t := parseFlexibleTime(chunk); t != nil && t.Year() > 1900 {
 				return t
 			}
@@ -3584,7 +3586,28 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if bestScore < 2 {
 		return ""
 	}
-	return best
+	return stripConflictingDateTail(query, best)
+}
+
+func stripConflictingDateTail(query, line string) string {
+	qd := parseDateFromText(query)
+	ld := parseDateFromText(line)
+	if qd == nil || ld == nil {
+		return line
+	}
+	if qd.Year() == ld.Year() && qd.YearDay() == ld.YearDay() {
+		return line
+	}
+	lower := strings.ToLower(line)
+	idx := strings.LastIndex(lower, " on ")
+	if idx < 4 {
+		return line
+	}
+	head := strings.TrimSpace(line[:idx])
+	if utf8Len(head) < 12 {
+		return line
+	}
+	return strings.TrimRight(head, ".,;:")
 }
 
 func looksLikeQueryNameEcho(query, value string) bool {
