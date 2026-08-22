@@ -85,11 +85,13 @@ func (s *Service) resolveHybridReaderConfig() HybridReaderConfig {
 	return cfg
 }
 
-func shouldAttemptHybrid(plan QueryPlan, pkt EvidencePacket) (bool, string) {
-	if plan.NeedsTemporal && pkt.TemporalAnswer != "" && !plan.NeedsMultiHop {
+func shouldAttemptHybrid(query string, plan QueryPlan, pkt EvidencePacket) (bool, string) {
+	// Calendar temporal_answer is not the last word on "when …" questions —
+	// hybrid may keep a weekday-relative phrasing the typed date collapsed.
+	if plan.NeedsTemporal && pkt.TemporalAnswer != "" && !plan.NeedsMultiHop && !looksWhenEventQuery(query) {
 		return false, "temporal_resolved"
 	}
-	if plan.NeedsMultiHop || plan.NeedsEnumeration || plan.PrimaryIntent == IntentMultiHop {
+	if plan.NeedsMultiHop || plan.NeedsEnumeration || plan.PrimaryIntent == IntentMultiHop || looksWhenEventQuery(query) {
 		if len(pkt.Items) == 0 && len(pkt.Contents) == 0 {
 			return false, "empty_packet"
 		}
@@ -203,7 +205,7 @@ func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan
 	if !cfg.Configured() {
 		return hybridReaderResult{Reason: "reader_unconfigured"}
 	}
-	if ok, reason := shouldAttemptHybrid(plan, pkt); !ok {
+	if ok, reason := shouldAttemptHybrid(query, plan, pkt); !ok {
 		return hybridReaderResult{Reason: reason}
 	}
 

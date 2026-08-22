@@ -214,10 +214,41 @@ func TestRecallOpenDomainNotBlankedWhenHybridEnabled(t *testing.T) {
 
 func TestShouldAttemptHybridMultiHop(t *testing.T) {
 	ok, reason := shouldAttemptHybrid(
+		"What hobby does Melanie enjoy?",
 		QueryPlan{NeedsMultiHop: true},
 		EvidencePacket{Contents: []string{"a"}, Items: []PacketItem{{Content: "a"}}},
 	)
 	if !ok || reason != "composition_needed" {
+		t.Fatalf("ok=%v reason=%q", ok, reason)
+	}
+}
+
+func TestShouldAttemptHybridWhenEventDespiteTemporalAnswer(t *testing.T) {
+	ok, reason := shouldAttemptHybrid(
+		"When did Jordan get an ankle injury in 2023?",
+		QueryPlan{NeedsTemporal: true},
+		EvidencePacket{
+			Contents:       []string{"Jordan got an ankle injury"},
+			TemporalAnswer: "7 May 2023",
+			Items:          []PacketItem{{Content: "Jordan got an ankle injury"}},
+		},
+	)
+	if !ok {
+		t.Fatalf("when-event must still attempt hybrid, reason=%q", reason)
+	}
+}
+
+func TestShouldAttemptHybridSkipsResolvedNonWhenTemporal(t *testing.T) {
+	ok, reason := shouldAttemptHybrid(
+		"How long ago was the injury?",
+		QueryPlan{NeedsTemporal: true},
+		EvidencePacket{
+			Contents:       []string{"Jordan got an ankle injury"},
+			TemporalAnswer: "7 May 2023",
+			Items:          []PacketItem{{Content: "Jordan got an ankle injury"}},
+		},
+	)
+	if ok || reason != "temporal_resolved" {
 		t.Fatalf("ok=%v reason=%q", ok, reason)
 	}
 }
@@ -365,12 +396,12 @@ func TestRecallHybridReplacesEnumerateDump(t *testing.T) {
 	}
 }
 
-func TestRecallHybridDoesNotOverwriteDateAnswer(t *testing.T) {
+func TestRecallHybridMayOverwriteDateAnswer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"choices": []map[string]any{
 				{"message": map[string]any{
-					"content": `{"answer":"yesterday","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+					"content": `{"answer":"the sunday before 25 May 2023","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
 				}},
 			},
 		})
@@ -401,10 +432,173 @@ func TestRecallHybridDoesNotOverwriteDateAnswer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(strings.ToLower(out.Answer), "yesterday") {
-		t.Fatalf("hybrid overwrote date_answer: %q explain=%v", out.Answer, out.Explain)
+	if !strings.Contains(strings.ToLower(out.Answer), "sunday") {
+		t.Fatalf("date lock must not block hybrid relative dates: %q explain=%v", out.Answer, out.Explain)
 	}
-	if out.Explain["date_answer"] == true && out.Explain["hybrid_skipped_lock"] != "date" && out.Explain["reader_source"] == "hybrid_llm_packet" {
-		t.Fatalf("date lock should skip hybrid apply, explain=%v", out.Explain)
+}
+
+func TestRecallHybridDoesNotOverwriteCountAnswer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"one","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	store.records["cal-car1"] = MemoryRecord{
+		MemoryID: "mem_c1", TenantID: "t-hyb-count", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin owns a red coupe",
+		DedupeKey: "c1", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "red coupe", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "red coupe", "subject": "Calvin"},
+	}
+	store.records["cal-car2"] = MemoryRecord{
+		MemoryID: "mem_c2", TenantID: "t-hyb-count", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin owns a black sedan",
+		DedupeKey: "c2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "black sedan", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "black sedan", "subject": "Calvin"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "red coupe", memID: "mem_c1"},
+		stubAtom{pred: PredicatePossession, val: "black sedan", memID: "mem_c2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-count", SubjectID: "u1",
+		Query: "How many cars does Calvin own?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Answer != "2" {
+		t.Fatalf("count_answer should stay locked, got %q explain=%v", out.Answer, out.Explain)
+	}
+	if out.Explain["hybrid_skipped_lock"] != "count" {
+		t.Fatalf("expected count lock, explain=%v", out.Explain)
+	}
+}
+
+func TestRecallHybridDoesNotOverwriteMHListAnswer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"pottery, beach","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	store.records["tim-jersey"] = MemoryRecord{
+		MemoryID: "mem_tj", TenantID: "t-hyb-mh", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim owns a jersey",
+		DedupeKey: "tj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "Tim"},
+	}
+	store.records["john-jersey"] = MemoryRecord{
+		MemoryID: "mem_jj", TenantID: "t-hyb-mh", SubjectID: "u1",
+		Kind: KindFact, Content: "John owns a jersey",
+		DedupeKey: "jj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "jersey", memID: "mem_tj"},
+		stubAtom{pred: PredicatePossession, val: "jersey", memID: "mem_jj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-mh", SubjectID: "u1",
+		Query: "What similar collectible do Tim and John own?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "jersey") {
+		t.Fatalf("MH list should stay locked, got %q explain=%v", out.Answer, out.Explain)
+	}
+	if strings.Contains(got, "pottery") || strings.Contains(got, "beach") {
+		t.Fatalf("hybrid dump overwrote MH list: %q explain=%v", out.Answer, out.Explain)
+	}
+}
+
+func TestRecallHybridDoesNotExpandShortTypedList(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"clarinet, violin, pottery, beach","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"clar", PredicateSkill, "plays clarinet", "Riley plays the clarinet."},
+		{"viol", PredicateActivity, "playing violin", "Riley does daily violin practice after work."},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-hyb-short", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-short", SubjectID: "u1",
+		Query: "What instruments does Riley play?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "clarinet") || !strings.Contains(got, "violin") {
+		t.Fatalf("typed instruments lost: %q explain=%v", out.Answer, out.Explain)
+	}
+	if strings.Contains(got, "pottery") || strings.Contains(got, "beach") {
+		t.Fatalf("hybrid expanded short list: %q explain=%v", out.Answer, out.Explain)
+	}
+}
+
+func TestHybridExpandsShortList(t *testing.T) {
+	if !hybridExpandsShortList("clarinet, violin", "clarinet, violin, pottery, beach") {
+		t.Fatal("expected expansion")
+	}
+	if hybridExpandsShortList("camping, slogans, nurse, hiking, pottery", "horseback riding") {
+		t.Fatal("short hybrid replacing a long dump is not an expansion")
+	}
+	if hybridExpandsShortList("", "pottery") {
+		t.Fatal("empty typed is not an expansion")
 	}
 }
