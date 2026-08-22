@@ -865,6 +865,28 @@ func TestShouldGroundHybridToHopsSkipsIdentityDumps(t *testing.T) {
 	}
 }
 
+func TestShouldGroundHybridToHopsSkipsUncoveredTravelDumps(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Tim", EntityID: "e-tim", Value: "Tim", Source: "typed_store"},
+		{Kind: "follow_relation", Entity: "Tim", EntityID: "e-tim", Predicate: PredicateEvent, Source: "typed_store",
+			Value: "visa requirements", Values: []string{"visa requirements", "explore nature", "traveling"}},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{"Tim visits the United Kingdom most often."},
+		Coverage: map[string]any{"hop_results": hops},
+	}
+	q := "which country has Tim visited most frequently in his travels?"
+	if !hopJoinProven(hops) {
+		t.Fatalf("fixture must be hop-join proven")
+	}
+	if hopsAreIdentityOnly(hops) {
+		t.Fatal("fixture must not be identity-only; that path is covered elsewhere")
+	}
+	if shouldGroundHybridToHops(q, hops, pkt, false) {
+		t.Fatal("must not hop-ground travel dumps that miss leftover query tokens")
+	}
+}
+
 func TestListItemCount(t *testing.T) {
 	if listItemCount("clarinet, violin", nil) != 2 {
 		t.Fatal("comma split")

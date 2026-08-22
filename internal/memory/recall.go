@@ -627,6 +627,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if composed := composeFromHopValues(hopResults); composed != "" && grounded == composed && grounded != strings.TrimSpace(hybrid.Answer) {
 					out.Explain["hybrid_grounded_to_hops"] = true
 				}
+			} else if !enumerated && hopJoinProven(hopResults) && hopComposeAllowed(req.Query) && len(leftoverNonEntityQueryTokens(req.Query, hopResults)) > 0 {
+				out.Explain["hybrid_skipped_uncovered_hop_ground"] = true
 			}
 			if mode == "enumerate" || enumerated {
 				if items := itemsFromCommaAnswer(out.Answer); len(items) > 0 {
@@ -726,7 +728,16 @@ func shouldGroundHybridToHops(query string, hops []HopResult, pkt EvidencePacket
 	if enumerated || !hopComposeAllowed(query) || !hopJoinProven(hops) {
 		return false
 	}
-	return !skipUnrelatedHopSlots(query, hops, pkt)
+	if skipUnrelatedHopSlots(query, hops, pkt) {
+		return false
+	}
+	// Proven hops that never mention leftover distinctive query tokens are
+	// slogan dumps (visa/travel identity, occupation lists). Do not replace
+	// a covering hybrid answer with those slots.
+	if len(leftoverNonEntityQueryTokens(query, hops)) > 0 {
+		return false
+	}
+	return true
 }
 
 func listItemCount(answer string, items []RecallItem) int {
