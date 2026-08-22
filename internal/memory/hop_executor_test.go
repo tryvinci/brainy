@@ -109,6 +109,31 @@ func TestIntersectHopValuesByRareSharedTokenFromContents(t *testing.T) {
 	}
 }
 
+func TestHopComposeUsableKeepsTitleCasedBasketballJoin(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "fetch_predicate", Entity: "Tim", Predicate: PredicatePossession, Source: "typed_store",
+			Values: []string{"map of middle-earth", "dvd and game collection", "basketball signed by favorite player"}},
+		{Kind: "fetch_predicate", Entity: "John", Predicate: PredicatePossession, Source: "typed_store",
+			Values: []string{"lord of the rings dvd collection", "basketball trophy", "hiking gear"}},
+	}
+	ans := composeFromHopValues(hops)
+	if !strings.Contains(strings.ToLower(ans), "basketball") {
+		t.Fatalf("expected basketball join, got %q", ans)
+	}
+	if !hopComposeUsable(ans, hops) {
+		t.Fatalf("title-cased possession join must stay usable, dump=%v ans=%q", typedAnswerIsHopDump(ans), ans)
+	}
+	activity := []HopResult{
+		{Kind: "follow_relation", Entity: "Andrew", Predicate: PredicateActivity, Source: "typed_store",
+			Values: []string{"bike ride with girlfriend", "trying sushi"}},
+		{Kind: "follow_relation", Entity: "Buddy", Predicate: PredicateActivity, Source: "search_fallback",
+			Values: []string{"bike ride with girlfriend"}},
+	}
+	if hopComposeUsable("Way, Road Trip, McGee's Bar, Playing Cyberpunk 2077, Notebook, First, Simple Dishes, Tried Cyberpunk 2077", activity) {
+		t.Fatal("activity dumps must not become usable hop compose")
+	}
+}
+
 func TestComposeFromHopValuesDoesNotRareJoinActivityDumps(t *testing.T) {
 	ans := composeFromHopValues([]HopResult{
 		{Kind: "follow_relation", Entity: "Andrew", Predicate: PredicateActivity, Source: "typed_store",

@@ -434,7 +434,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				}
 			}
 			if strings.TrimSpace(out.Answer) == "" {
-				if ans := whereAnswerFromHops(hopResults); ans != "" {
+				if ans := whereAnswerFromHops(req.Query, hopResults); ans != "" && !typedAnswerIsHopDump(ans) {
 					out.Answer = ans
 					out.AnswerStatus = AnswerSupported
 					out.Explain["where_answer"] = true
@@ -653,8 +653,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			canComposeHops := hopComposeAllowed(req.Query) && hopJoinProven(hopResults) &&
 				!skipUnrelatedHopSlots(req.Query, hopResults, pkt) &&
 				(len(leftover) == 0 || hopsKeepTypedJoin(hopResults))
-			if canComposeHops {
-				if composed := composeFromHopValues(hopResults); composed != "" && !typedAnswerIsHopDump(composed) {
+			typedKeep := strings.TrimSpace(out.Answer)
+			keepTyped := typedKeep != "" && !strings.EqualFold(typedKeep, "not in memory") && hopComposeUsable(typedKeep, hopResults)
+			if keepTyped {
+				out.Abstained = false
+				out.AnswerStatus = AnswerSupported
+			} else if canComposeHops {
+				if composed := composeFromHopValues(hopResults); hopComposeUsable(composed, hopResults) {
 					out.Answer = composed
 					out.Abstained = false
 					out.AnswerStatus = AnswerSupported
@@ -2358,7 +2363,7 @@ func (s *Service) filterItemsByNegatedModifier(ctx context.Context, req RecallRe
 	return out
 }
 
-func whereAnswerFromHops(hops []HopResult) string {
+func whereAnswerFromHops(query string, hops []HopResult) string {
 	seen := map[string]struct{}{}
 	places := make([]string, 0, 2)
 	add := func(p string) {
@@ -2373,18 +2378,24 @@ func whereAnswerFromHops(hops []HopResult) string {
 		seen[key] = struct{}{}
 		places = append(places, titleCaseWords(p))
 	}
+	locToks := locativeLeftoverTokens(query, hops)
 	for _, h := range hops {
 		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
 			continue
 		}
 		for _, c := range h.Contents {
+			if len(locToks) > 0 && !contentCoversAnyQueryToken(c, locToks) {
+				continue
+			}
 			for _, p := range placesFromContent(c) {
 				add(p)
 			}
 		}
 		if h.Value != "" {
-			for _, p := range placesFromContent(h.Value) {
-				add(p)
+			if len(locToks) == 0 || contentCoversAnyQueryToken(h.Value, locToks) {
+				for _, p := range placesFromContent(h.Value) {
+					add(p)
+				}
 			}
 		}
 	}

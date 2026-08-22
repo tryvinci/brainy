@@ -551,6 +551,26 @@ func TestTypedAnswerIsHopDump(t *testing.T) {
 	}
 }
 
+func TestWhereAnswerFromHopsUsesLocativeCover(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "follow_relation", Entity: "Jolene", Predicate: PredicateActivity, Source: "typed_store",
+			Contents: []string{
+				"Jolene and her partner attended a yoga retreat in South America.",
+				"Jolene attended a meditation retreat in Phuket with her partner, starting on 9 September 2023.",
+				"Jolene and her partner found a cool diving spot in Bali.",
+			}},
+	}
+	q := "Where did Jolene and her partner find a cool diving spot?"
+	ans := whereAnswerFromHops(q, hops)
+	low := strings.ToLower(ans)
+	if !strings.Contains(low, "bali") {
+		t.Fatalf("locative leftover should keep the diving-spot place, got %q", ans)
+	}
+	if strings.Contains(low, "phuket") || strings.Contains(low, "south") {
+		t.Fatalf("unrelated retreats must not fill a locative where-answer, got %q", ans)
+	}
+}
+
 func TestPrioritizeHybridMemoryLinesKeepsHyphenatedEvents(t *testing.T) {
 	lines := make([]string, 0, 20)
 	for i := 0; i < 15; i++ {

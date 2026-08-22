@@ -1016,6 +1016,19 @@ func typedAnswerIsHopDump(s string) bool {
 	return looksTitleCaseSlogan(s)
 }
 
+// hopComposeUsable keeps typed skill/possession/preference joins even when
+// title-casing makes a 1–2 item answer look like a slogan dump.
+func hopComposeUsable(composed string, hops []HopResult) bool {
+	composed = strings.TrimSpace(composed)
+	if composed == "" || strings.EqualFold(composed, "not in memory") {
+		return false
+	}
+	if !typedAnswerIsHopDump(composed) {
+		return true
+	}
+	return hopsKeepTypedJoin(hops)
+}
+
 func hopsAreIdentityOnly(hops []HopResult) bool {
 	typed, identity := 0, 0
 	for _, h := range hops {
@@ -1031,6 +1044,19 @@ func hopsAreIdentityOnly(hops []HopResult) bool {
 		}
 	}
 	return typed > 0 && identity == typed
+}
+
+func locativeLeftoverTokens(query string, hops []HopResult) []string {
+	out := make([]string, 0, 4)
+	for _, tok := range leftoverNonEntityQueryTokens(query, hops) {
+		switch tok {
+		case "where", "visit", "visited", "trip", "city", "country",
+			"place", "spot", "dive", "diving", "travel", "travels",
+			"town", "beach", "live", "lived", "located", "location":
+			out = append(out, tok)
+		}
+	}
+	return out
 }
 
 func leftoverNonEntityQueryTokens(query string, hops []HopResult) []string {
