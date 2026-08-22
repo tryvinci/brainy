@@ -2,6 +2,7 @@
 """Mem0 Platform API adapter for parity fixture comparison."""
 from __future__ import annotations
 
+import io
 import json
 import os
 import time
@@ -53,7 +54,7 @@ class Mem0Adapter:
         self.api_key = api_key or os.environ.get("MEM0_API_KEY", "")
         self.base_url = base_url.rstrip("/")
         self.search_path = "/v3/memories/search/"
-        self.add_path = "/v3/memories/"
+        self.add_path = "/v3/memories/add/"
 
     def available(self) -> bool:
         return bool(self.api_key)
@@ -65,11 +66,20 @@ class Mem0Adapter:
         }
         data = None if payload is None else json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8")
-            if not body:
-                return {}
-            return json.loads(body)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                body = resp.read().decode("utf-8")
+                if not body:
+                    return {}
+                return json.loads(body)
+        except urllib.error.HTTPError as exc:
+            detail = ""
+            try:
+                detail = exc.read().decode("utf-8", errors="replace")[:800]
+            except Exception:
+                detail = ""
+            reason = f"{exc.reason}: {detail}" if detail else str(exc.reason)
+            raise urllib.error.HTTPError(exc.url, exc.code, reason, exc.hdrs, io.BytesIO(b"")) from None
 
     def _request_with_fallback(
         self,
@@ -119,7 +129,7 @@ class Mem0Adapter:
             payload["metadata"] = metadata
         path, response = self._request_with_fallback(
             "POST",
-            "/v3/memories/",
+            "/v3/memories/add/",
             "/v1/memories/",
             payload,
             timeout=120,

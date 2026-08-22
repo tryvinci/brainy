@@ -11,7 +11,7 @@ Source: [Memory Evaluation](https://docs.mem0.ai/core-concepts/memory-evaluation
 | Knob | Published / their runner | Our harness before this audit |
 | --- | --- | --- |
 | Search API | `POST /v3/memories/search/` | `POST /v2/memories/search/` |
-| Add API | `POST /v3/memories/` + poll `/v1/event/{id}/` | `POST /v1/memories/` |
+| Add API | `POST /v3/memories/add/` + poll `/v1/event/{id}/` | `POST /v1/memories/` |
 | Default `top_k` | **200** | **10** in the adapter; smoke defaulted **30** unless `--eval-lane industry-search` or `--top-k` |
 | Ingest chunk | **1 turn** (`CHUNK_SIZE = 1`) | **8 turns** (shared Brainy batch) |
 | Session time | unix `timestamp` on add from LoCoMo `session_*_date_time` | metadata dropped (`_ = metadata`) |
@@ -43,7 +43,7 @@ Run both systems through `evals/public/locomo/run_smoke.py` / `run_s0.py`:
 Adapter changes that implement this recipe (harness only, no product `/recall` behavior):
 
 - Search v3 with v2 fallback on HTTP 404
-- Add v3 + event wait, with v1 fallback
+- Add v3 `POST /v3/memories/add/` + event wait, with v1 fallback (do **not** POST `/v3/memories/` — that is the list endpoint)
 - Pass LoCoMo `observed_at` as unix `timestamp`
 - Mem0 ingest chunk = 1
 - Mem0 default top_k = 200

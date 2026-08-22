@@ -70,7 +70,7 @@ class Mem0AdapterHTTPTests(unittest.TestCase):
         def fake_urlopen(req, timeout=60):
             payload = json.loads(req.data.decode("utf-8")) if req.data else None
             calls.append((req.get_method(), req.full_url, payload))
-            if req.full_url.endswith("/v3/memories/") and req.get_method() == "POST":
+            if req.full_url.endswith("/v3/memories/add/") and req.get_method() == "POST":
                 self.assertEqual(payload["timestamp"], 1_700_000_000)
                 return _FakeResp({"event_id": "evt-1"})
             if req.full_url.endswith("/v1/event/evt-1/") and req.get_method() == "GET":
@@ -85,7 +85,27 @@ class Mem0AdapterHTTPTests(unittest.TestCase):
                 timestamp=1_700_000_000,
             )
         self.assertEqual(out["status"], "SUCCEEDED")
-        self.assertEqual(calls[0][1].endswith("/v3/memories/"), True)
+        self.assertTrue(calls[0][1].endswith("/v3/memories/add/"))
+
+    def test_add_falls_back_to_v1_on_404(self) -> None:
+        calls: list[str] = []
+
+        def fake_urlopen(req, timeout=60):
+            calls.append(req.full_url)
+            if req.full_url.endswith("/v3/memories/add/"):
+                raise urllib.error.HTTPError(
+                    req.full_url, 404, "gone", hdrs=None, fp=io.BytesIO(b"")
+                )
+            self.assertTrue(req.full_url.endswith("/v1/memories/"))
+            return _FakeResp({"results": [{"memory": "ok"}]})
+
+        adapter = Mem0Adapter(api_key="tok")
+        with mock.patch("urllib.request.urlopen", fake_urlopen):
+            out = adapter.add_messages("u1", [{"role": "user", "content": "hi"}], wait_event=False)
+        self.assertEqual(adapter.add_path, "/v1/memories/")
+        self.assertIn("/v3/memories/add/", calls[0])
+        self.assertIn("/v1/memories/", calls[1])
+        self.assertIn("results", out)
 
 
 if __name__ == "__main__":
