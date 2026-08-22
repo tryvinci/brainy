@@ -1929,3 +1929,82 @@ Enumerate-mode hybrid is the mechanism for the SH/temporal lift: list questions 
 
 **One step:** P2-narrow on this frozen store — unlock when-event dates so hybrid can keep weekday-relative phrasing; lock typed counts, dual-entity enumerated lists, and short typed lists that hybrid only expands. Remasure skip-ingest product 180 (`locomo-s0-diag-mh-135-p2`). Keep where/polar locked. Fair Mem0 180 continues in parallel. P3 follows the ledger (SH PROOF 37 is still the mass). n=1540 only after a stratified **delta** that is not just 19→37. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+---
+
+## 2026-08-22 — P2-narrow (length-lock 56/180, then extras/hop-ground 61/180)
+
+### Landed
+
+P2-narrow on the same frozen `diag-mh-135` + conv-30 store (dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`, stratified 180 seed 1, `--fail-closed --skip-ingest`, `BRAINY_RECALL_LLM=1`). Go **default for hybrid stays off**. `#133` / `#131` stay unmerged. `main` is not fast-forwarded. Branch `pr/s0-current-sha-baseline-1e9e` (PR #136).
+
+1. Length-lock (`681028e`): unlock when-event dates; lock typed `count_answer`; lock dual-entity joins even in `mode=answer`; lock enumerated lists unless hybrid shortens them. Pin: [locomo-s0-diag-mh-135-p2-20260822.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p2-20260822.md) — **56/180**.
+2. Extras coverage + skip hop-ground (`fac229f`, `fb41ece`): prefer comma-split typed answers (not long evidence `Items` + token overlap); lock multi-item extras / short-list expansion; **do not** `groundToHopValues` enumerated hybrid lists. Pin: [locomo-s0-diag-mh-135-p2b-20260822.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p2b-20260822.md) — **61/180**.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Not re-run; merge gate stands. |
+| Marketing vertical | **17/17** | Not re-run; merge gate stands. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P1 | **37/180 (0.206)** | MH **10/33 (dip)** · OD **1/11** · SH **19/98** · temporal **7/38**. SHA `3d42b17`. |
+| LoCoMo S0 product hybrid **on** P2 length-lock | **56/180 (0.311)** | MH **11/33** · OD **1/11** · SH **23/98** · temporal **21/38**. SHA `681028e`. Ledger: **PROOF 41 / RETRIEVAL 39 / READER 33 / WRITE 10 / HARNESS 1**. |
+| LoCoMo S0 product hybrid **on** P2b | **61/180 (0.339)** | MH **16/33** · OD **1/11** · SH **25/98** · temporal **19/38 (dip vs P2 21/38)**. SHA `fb41ece`. Ledger: **PROOF 42 / RETRIEVAL 38 / READER 28 / WRITE 10 / HARNESS 1**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 61/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. MH 12→16 on this tenant **closes the P1 dip**. Temporal 21→19 vs length-lock is a **dip**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`--system mem0 --top-k 200`, chunk 1, v3 add `/v3/memories/add/` + event wait) is still running (long per-conversation ingest). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **37** P1 → **56** P2 → **61** P2b | **no same-n pin yet** | Product 19→61 vs itself. Still trails this-VM industry **62/180** by 1. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin yet** | Same-pin lane vs Mem0 once the fair 180 lands. |
+| S0 MH product (this tenant) | reader-off **12/33** → P1 **10/33** → P2 **11/33** → P2b **16/33** | no 33-item freeze | **Dip closed.** Product MH now leads this-VM industry MH **10/33**. Not a Mem0 same-pin. |
+| Search p50 | P2 product 137 ms local (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (dip closed 12→16).** P1 hybrid overwrote typed lists with hop-slot dumps. P2 length-lock was not enough: extras vs typed was 0 when hybrid returned a subset, then `groundToHopValues` re-expanded `clarinet, violin` into pottery/beach. Skipping hop-ground on enumerated hybrid answers recovered instruments, snacks, and the Tim+John typed join (judge-accepted; extra Harry Potter values remain in the typed string). Two further MH gains (Maria fundraiser events; Tim most-visited country). Do not treat 16/33 as n=1540 MH.
+
+**Open-domain.** Stuck at **1/11**. Industry **3/11**. Still a trail axis vs published Mem0 OD on the 1×30 freeze. Do not restore OD by stuffing episodes.
+
+**Single-hop.** **5→19→23→25/98**. Industry **27/98**. Net +2 vs P2 (gained snake names / Tokyo location / Dave car restoration / Nate movies; lost Nike-Gatorade deals and Boston visit). SH **PROOF_MISS 36** is still the largest cell.
+
+**Temporal (dip 21→19 vs P2).** P2 length-lock was the real calendar-unlock move (7→21). P2b lost mentorship (10 July vs weekend of 15–16 July) and an art-show day. Industry **22/38**. Name the dip. Do not add LoCoMo-named date rules to chase the two items.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (not re-run)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.**
+
+#### 3. Marketing vertical — lead (not re-run)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured.
+
+### Why
+
+The P2b MH lift is **not** new compiler coverage. Hybrid already produced the short list; hop-slot grounding was throwing it away. Temporal 2→21 was the date unlock + hybrid relative phrasing (P2). P2b did not improve temporal and dipped 21→19. PROOF stays ~42 and WRITE stays 10 — do not merge #133. Reader-off 19/180 remains the labeled no-LLM product pin; 61/180 is staging-hybrid only.
+
+### Next
+
+**One step:** P3 on this frozen store, allocated by the P2b ledger — SH **PROOF_MISS 36** is the mass. Keep where/polar locked unless a later explicit step. Fair Mem0 180 continues in parallel (do not call it handicapped until org/project IDs are tried if the 180 is weak). n=1540 only after a stratified **delta** that is not just 19→37 or 19→61 **and** S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+

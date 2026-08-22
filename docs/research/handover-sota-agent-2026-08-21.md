@@ -36,7 +36,7 @@ Path docs (do not invent a new program):
 - [locomo-dual-path-freeze.md](./locomo-dual-path-freeze.md) — product `/recall` vs industry search+harness.
 - [sota-representation-path.md](./sota-representation-path.md) — compile facts; episodes are provenance.
 
-**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off and **37/180** hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant (hybrid-on **10/33 dip**). Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR.
+**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **16/33** P2b hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR.
 
 ---
 
@@ -48,7 +48,7 @@ Path docs (do not invent a new program):
 | --- | --- |
 | `dev` **now** | `453a929` — #135 merge (MH slot-aligned dest-subject). Staging. |
 | `main` | `6d05e1b` — #134 packet/proof. Production. **Do not FF** unless the owner asks. |
-| PR **#136** `pr/s0-current-sha-baseline-1e9e` | Open draft. Mem0 v3 harness, S0 19/180 reader-off, P1 hybrid-on 37/180, P2-narrow in progress. |
+| PR **#136** `pr/s0-current-sha-baseline-1e9e` | Open draft. Mem0 v3 harness, S0 19/180 reader-off, P1 37/180, P2 56/180, P2b 61/180. |
 | PR **#135** | Merged. MH list/join proof. |
 | PR **#134** | Merged. MH packet/proof + earlier handover. |
 | PR **#133** | OPEN draft. Compiler S1–S5. **Do not merge.** |
@@ -83,6 +83,8 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | S0 industry search+harness | **62/180** | Integrity VM **and** this-VM `diag-mh-135`. Do not average with product. |
 | S0 product `POST /recall` this VM | **19/180 (0.106)** | Tenant `diag-mh-135` + conv-30, hybrid **off**, SHA `453a929`. MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. Ledger: **PROOF 59 / READER 52 / RETRIEVAL 39 / WRITE 10**. Does **not** replace 32/180. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-20260822.md) |
 | S0 product hybrid **on** this VM | **37/180 (0.206)** | Same store, SHA `3d42b17`, `BRAINY_RECALL_LLM=1`. MH **10/33 (dip)** · OD **1/11** · SH **19/98** · temporal **7/38**. Ledger: **PROOF 44 / READER 49 / RETRIEVAL 39 / WRITE 10 / HARNESS 1**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-llm-20260822.md) |
+| S0 product P2 length-lock | **56/180 (0.311)** | SHA `681028e`. MH **11/33** · OD **1/11** · SH **23/98** · temporal **21/38**. Ledger: **PROOF 41 / RETRIEVAL 39 / READER 33 / WRITE 10**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p2-20260822.md) |
+| S0 product P2b extras + skip hop-ground | **61/180 (0.339)** | SHA `fb41ece`. MH **16/33** · OD **1/11** · SH **25/98** · temporal **19/38 (dip vs P2 21/38)**. Ledger: **PROOF 42 / RETRIEVAL 38 / READER 28 / WRITE 10**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p2b-20260822.md) |
 | S0 MH product (post-#134) | **2/33** | Was **1/33**. Attributed win: turtles. Second hit (soda/candy) is a crowded-list judge accept. [pin](../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
 | S0 MH product diagnostic ingest | **7/33** | WRITE+PROOF mixed on `diag-mh-135`. Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
 | S0 MH product diagnostic skip-ingest | **12/33** | PROOF-only on frozen `diag-mh-135`. Kinship dest `9d8dbeb` was **10/33**; slot-aligned recovery `2e84435` is **12/33** (`conv-44-q26` work, `conv-26-q60` clarinet/violin). Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md) |
@@ -96,12 +98,12 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 
 **Invalidated:** Aug-19 S0 17/180 / 52/180 (no pgvector, silent extract degrade). Never cite those as quality.
 
-**Bottleneck on this VM is split:** product S0 WRITE_MISS is **10/180** (integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **37/180** hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **10/33 dip** hybrid-on vs integrity **2/33**. SH 5→19 and temporal 2→7 are the P1 move; SH PROOF and temporal READER remain the mass.
+**Bottleneck on this VM is split:** product S0 WRITE_MISS is **10/180** (integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **61/180** P2b hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **16/33** P2b (P1 dip closed) vs integrity **2/33**. SH 5→25 and temporal 2→19 (21 on P2 length-lock) are the hybrid moves; SH PROOF 36 is still the mass.
 
 ### Competitor stand (honest)
 
 - **1×30 freeze:** Brainy 21/30 vs Mem0 Platform 11/30 is a prior **lead on a handicapped Mem0 protocol**. It is not full LoCoMo and not permission to write “we beat Mem0.”
-- **S0 / n=1540:** no same-n Mem0 pin yet. Do not trail/lead 32/180, 19/180, or 11.4% vs 11/30 or vs published 92.5%.
+- **S0 / n=1540:** no same-n Mem0 pin yet. Do not trail/lead 32/180, 19/180, 61/180, or 11.4% vs 11/30 or vs published 92.5%.
 - **Ops / marketing:** Brainy lead (Mem0 pins stale). Must not regress. Not the next cycle.
 - **Graphiti / Zep / SuperMemory:** no same-pin. Published headlines are context.
 - **Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
@@ -118,12 +120,13 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 | P1 reader | `BRAINY_RECALL_LLM=1` including enumerate | **Done.** Product **37/180**. SH 5→19, temporal 2→7. MH **12→10 dip**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-llm-20260822.md) |
 | P4 Mem0 180 | Fair Platform same-pin (v3, top_k 200, chunk 1) | **In flight.** Do not compare to the 11/30 freeze. |
 | S2 / S3 residue | Structured answer + hop proof | **Merged on #135.** Diagnostic skip-ingest **12/33**. Integrity **2/33**. Do not keep MH-only as the 80% path. |
-| P2 | Unlock dates; lock counts / dual-entity lists / short typed lists | **Justified by P1 SH/temporal move.** Keep where/polar locked. |
+| P2 | Unlock dates; lock counts / dual-entity lists; skip hop-ground on enumerated hybrid | **Done.** Length-lock **56/180**; extras+skip-ground **61/180**. MH **16/33**. Temporal **19/38** (dip vs P2 21/38). Keep where/polar locked. |
+| P3 | Ledger-allocated SH PROOF (packet compose, not #133) | **Next.** SH PROOF_MISS 36 is the mass. |
 | S1 compiler | Provider-extract / named-subject mass | **No** until the ledger says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
-| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19/180. |
+| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19→61. Full n=1540 only at S6. |
 
-**Suggested first remasure:** P2 skip-ingest product 180 with hybrid still on (`--run-prefix locomo-s0-diag-mh-135-p2`). Compare to 37/180: MH should not stay at 10/33 if count/list locks work; temporal should move if date unlock works. Fair Mem0 180 remains in flight. Do not start n=1540 yet.
+**Suggested first remasure:** P3 per the P2b ledger (SH PROOF_MISS 36). Fair Mem0 180 remains in flight. Do not start n=1540 yet. Do not merge #133.
 
 **Shipped this increment (generic linguistic, fixtures not dataset IDs):** hop `Name and Name` / `Name and Name both` / `with Name`; hop the person after `does`/`has` on count questions; kinship `'s mother` / `her partner` chains family → slot; join compose intersects and does not dump the union; possession/skill lists without occupation/hobby crowding; how-many counts the typed set; Has/Did polar Yes from typed hops only; `practices … at` place extract; unwind/`do to` activity lists; visit/travel superlative; who-answers from other person mentions; `besides` exclusion (stemmed); childhood items as possession; **when-event hops prove a date from observed_at (do not dump event names)**; **given-to hops the giver only and keeps recipient-mentioned values**; **after-clause keeps matching evidence**; community/journey activity lists; family-injury who; organization beneficiaries from affiliation; **where+kinship answers a place from `in`/`at`/`near`, hopping the source person as well as the unnamed partner**; **`with colleagues/friends` is a group filter, not a CapName join**; **`for` clauses keep matching evidence**; **`get with having` hops health, not possession dumps**; **how-many children counts child-cued family members, not partners**; **dual-entity list queries intersect instead of unioning**; **kinship hobby lists filter to the dest person**; **how-many Ferraris counts the head noun, not every possession**; **who-told and polar teach from typed hops**; **journey-change lists stay identity, not occupation**; **pets' names are possession**; **named `in the X community` filters to X (affiliation hops too)**; **named `during X journey` filters identity to the period**; **list-head modifiers** (`outdoor activities`, `sports collectible`, `unhealthy snacks`) soft-filter evidence; **when list-head and group-companion cues are both present, prefer intersect, else list-head, else companion**; **community dual-entity lists join by organized/started/group token-subset and partner mention (fallback slots allowed)**; **unnamed kin-role dests rewrite to `{Name}'s {role}` and merge dest-subject attitude slots**; **who-supports keeps group nouns** (`friends and team`) from typed hops, not only CapNames; **practice location lists extract `in`/`at`/`near` places**, split comma/and lists, skip leading `her`/`his`, stop relative clauses / lone gerunds, and **never dump activities as locations**; **atom refill skipped when hops already listed**; **enumerate answers rank by query evidence then cap at 8** (enumerate mode shares that refine path); **dest-subject slot recovery** prepends practice locatives, unwind/calm/`to *stress` activities, play/practice objects, trick-mentioned skills, and besides+work stressors; compositional places require a definite `the {practice} {noun}`; `unwind` is not an `un-` negation.
 
