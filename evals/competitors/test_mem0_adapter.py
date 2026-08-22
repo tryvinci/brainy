@@ -87,6 +87,31 @@ class Mem0AdapterHTTPTests(unittest.TestCase):
         self.assertEqual(out["status"], "SUCCEEDED")
         self.assertTrue(calls[0][1].endswith("/v3/memories/add/"))
 
+    def test_event_wait_uses_configured_timeout(self) -> None:
+        calls: list[str] = []
+        clock = {"t": 0.0}
+
+        def fake_time() -> float:
+            return clock["t"]
+
+        def fake_urlopen(req, timeout=60):
+            calls.append(req.full_url)
+            if req.full_url.endswith("/v3/memories/add/"):
+                return _FakeResp({"event_id": "evt-slow"})
+            if req.full_url.endswith("/v1/event/evt-slow/"):
+                clock["t"] += 10.0
+                return _FakeResp({"status": "PENDING"})
+            raise AssertionError(req.full_url)
+
+        adapter = Mem0Adapter(api_key="tok", event_timeout_s=5.0)
+        with mock.patch("urllib.request.urlopen", fake_urlopen), mock.patch(
+            "competitors.mem0_adapter.time.time", fake_time
+        ), mock.patch("competitors.mem0_adapter.time.sleep", lambda *_: None):
+            with self.assertRaises(TimeoutError) as ctx:
+                adapter.add_messages("u1", [{"role": "user", "content": "hi"}])
+        self.assertIn("5s", str(ctx.exception))
+        self.assertGreaterEqual(len(calls), 2)
+
     def test_add_falls_back_to_v1_on_404(self) -> None:
         calls: list[str] = []
 

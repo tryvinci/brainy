@@ -48,6 +48,7 @@ Adapter changes that implement this recipe (harness only, no product `/recall` b
 - Mem0 ingest chunk = 1
 - Mem0 default top_k = 200
 - Index wait `min_indexed=200`
+- Event wait timeout follows `--async-timeout` (no longer hardcoded 300s). A hung event does a late GET and continues if memories indexed; it does not re-POST.
 
 ## Still not claimed
 

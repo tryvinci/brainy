@@ -22,7 +22,7 @@ class Mem0Backend:
     name = "mem0"
 
     def __init__(self, *, async_timeout_s: float = 180.0) -> None:
-        self._client = Mem0Adapter()
+        self._client = Mem0Adapter(event_timeout_s=max(300.0, float(async_timeout_s)))
         if not self._client.available():
             raise RuntimeError("MEM0_API_KEY required for Mem0Backend")
         self.async_timeout_s = async_timeout_s
@@ -53,7 +53,33 @@ class Mem0Backend:
             return []
         meta = metadata or {}
         timestamp = observed_at_to_epoch(meta.get("observed_at") or meta.get("timestamp"))
-        self._client.add_messages(uid, cleaned, timestamp=timestamp)
+        before = 0
+        try:
+            before = len(self._client.list_memories(uid))
+        except Exception:
+            before = 0
+        try:
+            self._client.add_messages(uid, cleaned, timestamp=timestamp)
+        except TimeoutError:
+            # Do not re-POST (that would duplicate). Continue if the hung
+            # event still indexed; otherwise re-raise so the run is honest.
+            after = 0
+            try:
+                after = len(self._client.list_memories(uid))
+            except Exception:
+                after = 0
+            if after <= before:
+                self._client.wait_until_ready(
+                    uid,
+                    min_count=max(1, before + 1),
+                    timeout_s=min(60.0, self.async_timeout_s),
+                )
+                try:
+                    after = len(self._client.list_memories(uid))
+                except Exception:
+                    after = 0
+                if after <= before:
+                    raise
         if wait is False:
             return []
         self._client.wait_until_ready(uid, min_count=1, timeout_s=min(60.0, self.async_timeout_s))

@@ -50,11 +50,18 @@ def observed_at_to_epoch(value: str | int | float | None) -> int | None:
 class Mem0Adapter:
     name = "mem0"
 
-    def __init__(self, api_key: str | None = None, base_url: str = "https://api.mem0.ai") -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        base_url: str = "https://api.mem0.ai",
+        *,
+        event_timeout_s: float = 300.0,
+    ) -> None:
         self.api_key = api_key or os.environ.get("MEM0_API_KEY", "")
         self.base_url = base_url.rstrip("/")
         self.search_path = "/v3/memories/search/"
         self.add_path = "/v3/memories/add/"
+        self.event_timeout_s = float(event_timeout_s)
 
     def available(self) -> bool:
         return bool(self.api_key)
@@ -97,7 +104,8 @@ class Mem0Adapter:
                 raise
             return fallback, self._request(method, fallback, payload, timeout=timeout)
 
-    def _wait_for_event(self, event_id: str, *, timeout_s: float = 300.0) -> dict:
+    def _wait_for_event(self, event_id: str, *, timeout_s: float | None = None) -> dict:
+        timeout_s = self.event_timeout_s if timeout_s is None else float(timeout_s)
         deadline = time.time() + timeout_s
         last: dict | list = {}
         while time.time() < deadline:
@@ -139,7 +147,14 @@ class Mem0Adapter:
             return response if isinstance(response, dict) else {"results": response}
         event_id = str(response.get("event_id") or "").strip()
         if event_id:
-            return self._wait_for_event(event_id)
+            try:
+                return self._wait_for_event(event_id)
+            except TimeoutError:
+                # One extra poll: the event may have landed after the wait window.
+                last = self._request("GET", f"/v1/event/{event_id}/", timeout=30)
+                if isinstance(last, dict) and str(last.get("status") or "").upper() == "SUCCEEDED":
+                    return last
+                raise
         return response
 
     def list_memories(self, user_id: str) -> list[dict]:
