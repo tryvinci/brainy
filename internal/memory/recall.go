@@ -601,11 +601,12 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		extras := uncoveredHybridItemCount(typedItems, hybrid.Answer)
 		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
 		lockedOrdinal := out.Explain["ordinal_name"] == true
-		if typedAnswerIsHopDump(typedAnswer) || (skipSlots && looksWhereQuery(req.Query)) {
+		if typedAnswerIsHopDump(typedAnswer) || hopDumpsUnproven(hopResults) || (skipSlots && looksWhereQuery(req.Query)) {
 			// Dual-entity SH questions often plan as MH and lock a slogan
-			// dump or a leftover-unrelated short slot (Rocks) over hybrid.
-			// Only unlock mh_list on where-questions so typed community/skill
-			// joins stay locked when slots skip.
+			// dump, an unproven search_fallback fragment, or a leftover-
+			// unrelated short slot (Rocks) over hybrid. Only unlock mh_list
+			// on where-questions when slots skip so typed community/skill
+			// joins stay locked.
 			lockedWhere = false
 			lockedMHList = false
 		}
@@ -3510,6 +3511,29 @@ func ordinalNameFromPacket(query string, pkt EvidencePacket) string {
 	return found[ord-1].name
 }
 
+func looksPromptNotAnswer(s string) bool {
+	t := strings.ToLower(strings.TrimSpace(s))
+	if t == "" {
+		return false
+	}
+	if strings.HasSuffix(t, "?") {
+		return true
+	}
+	return strings.HasPrefix(t, "any tips") || strings.HasPrefix(t, "any advice")
+}
+
+func looksImageCaptionLine(s string) bool {
+	t := strings.TrimSpace(s)
+	if t == "" {
+		return false
+	}
+	lower := strings.ToLower(t)
+	if strings.Contains(lower, "[a photo") || strings.Contains(lower, "[photo of") {
+		return true
+	}
+	return strings.HasPrefix(t, "[") && strings.Contains(t, "] [")
+}
+
 func looksChatTurnLine(s string) bool {
 	t := strings.TrimSpace(s)
 	if t == "" || strings.HasSuffix(t, "?") {
@@ -3558,7 +3582,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	best := ""
 	bestScore := 0
 	for _, line := range packetContentLines(pkt) {
-		if looksChatTurnLine(line) || looksTitleCaseSlogan(line) {
+		if looksChatTurnLine(line) || looksTitleCaseSlogan(line) || looksImageCaptionLine(line) || looksPromptNotAnswer(line) {
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, rare) {

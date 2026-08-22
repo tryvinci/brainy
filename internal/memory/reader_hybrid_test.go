@@ -540,8 +540,17 @@ func TestTypedAnswerIsHopDump(t *testing.T) {
 	if typedAnswerIsHopDump("Oliver, Luna, Bailey") {
 		t.Fatal("short name list")
 	}
+	if typedAnswerIsHopDump("yoga, deborah's running group") {
+		t.Fatal("short dual-entity activity join")
+	}
 	if typedAnswerIsHopDump("jersey") {
 		t.Fatal("single typed value")
+	}
+	if !typedAnswerIsHopDump("what I do, member of a rock band, modification, Your") {
+		t.Fatal("short fragment identity dump")
+	}
+	if !typedAnswerIsHopDump("Any tips on studying or time management") {
+		t.Fatal("question-echo hop value")
 	}
 	if !typedAnswerIsHopDump("Way, Road Trip, McGee's Bar, Playing Cyberpunk 2077, Notebook, First, Simple Dishes, Tried Cyberpunk 2077") {
 		t.Fatal("title-case where dump")
@@ -1328,5 +1337,61 @@ func TestRecallHybridUnlocksMHListWhenSkipSlots(t *testing.T) {
 	}
 	if out.Explain["hybrid_skipped_lock"] == "mh_list" {
 		t.Fatalf("mh_list must unlock when hop slots skip leftover tokens: explain=%v", out.Explain)
+	}
+}
+
+func TestRecallHybridUnlocksMHListOnFragmentDump(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"hard work and dedication","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	facts := []struct {
+		key, sub, pred, val, content string
+	}{
+		{"r-do", "Riley", PredicateIdentity, "what I do", "Riley: what I do"},
+		{"r-band", "Riley", PredicateIdentity, "member of a rock band", "Riley is a member of a rock band"},
+		{"c-mod", "Casey", PredicateIdentity, "modification", "Casey: modification"},
+		{"c-you", "Casey", PredicateIdentity, "Your", "Casey: Your"},
+		{"goals", "Riley", "", "", "Riley believes that hard work and dedication are essential for achieving goals."},
+	}
+	for _, f := range facts {
+		rec := MemoryRecord{
+			MemoryID: "mem_" + f.key, TenantID: "t-hyb-goals", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+		}
+		if f.pred != "" {
+			rec.Metadata = map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": f.sub}
+			rec.Explain = map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": f.sub}
+			store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: rec.MemoryID})
+		}
+		store.records[f.key] = rec
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-goals", SubjectID: "u1",
+		Query: "What do Riley and Casey use to reach their goals?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "hard work") {
+		t.Fatalf("fragment identity dump must not mh_list-lock hybrid goals: %q explain=%v", out.Answer, out.Explain)
+	}
+	if out.Explain["hybrid_skipped_lock"] == "mh_list" {
+		t.Fatalf("mh_list must unlock fragment dumps: explain=%v", out.Explain)
 	}
 }

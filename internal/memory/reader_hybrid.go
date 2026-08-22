@@ -991,6 +991,9 @@ func typedAnswerIsHopDump(s string) bool {
 	if s == "" || strings.EqualFold(s, "not in memory") {
 		return false
 	}
+	if looksPromptNotAnswer(s) {
+		return true
+	}
 	parts := make([]string, 0, 8)
 	for _, part := range strings.Split(s, ",") {
 		part = strings.TrimSpace(part)
@@ -1010,6 +1013,11 @@ func typedAnswerIsHopDump(s string) bool {
 		if looksTitleCaseSlogan(p) {
 			slogans++
 		}
+	}
+	if n >= 4 && long == 0 {
+		// Four-plus short fragments ("what I do, member of a rock band,
+		// modification, Your") are identity dumps, not typed joins.
+		return true
 	}
 	if n <= 6 && long == 0 && slogans == 0 {
 		return false

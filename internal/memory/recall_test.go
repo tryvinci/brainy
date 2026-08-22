@@ -3348,6 +3348,45 @@ func TestLeftoverCoveringSpecificAnswerSkipsChatTurn(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringSpecificAnswerSkipsImageCaption(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "[basketball game] [a photo of a basketball game being played in a gym]"},
+			{Content: "Riley supports the Wolves basketball team."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("Which basketball team does Riley support?", hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "wolves") {
+		t.Fatalf("expected team fact over OCR caption, got %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "photo") {
+		t.Fatalf("image caption leaked: %q", got)
+	}
+}
+
+func TestLeftoverCoveringSpecificAnswerSkipsQuestionPrompt(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Casey", Value: "Casey", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Any tips on studying or time management"},
+			{Content: "Riley and Casey discussed breaking tasks into smaller pieces and setting goals as a studying strategy."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What did Riley and Casey discuss as a helpful strategy for studying and time management?", hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "smaller pieces") {
+		t.Fatalf("expected strategy fact over question prompt, got %q", got)
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(got)), "any tips") {
+		t.Fatalf("question prompt leaked: %q", got)
+	}
+}
+
 func TestRecallOrdinalNameBeatsIdentityDump(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
