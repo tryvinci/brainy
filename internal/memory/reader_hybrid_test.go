@@ -366,6 +366,9 @@ func TestFormatHybridMemoryLinesSkipsSlotsMissingQueryTokens(t *testing.T) {
 	if !strings.Contains(joined, "Shadow") {
 		t.Fatalf("covering puppy memory must remain, got %q", joined)
 	}
+	if strings.Contains(joined, "inspiration") {
+		t.Fatalf("identity slogan leaked into covering-only prompt, got %q", joined)
+	}
 }
 
 func TestSkipUnrelatedIdentityDumpLiveShape(t *testing.T) {

@@ -116,12 +116,21 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string {
 	lines := make([]string, 0, len(pkt.Items)+len(pkt.Contents)+8)
 	seen := map[string]struct{}{}
+	var hops []HopResult
+	if raw, ok := pkt.Coverage["hop_results"]; ok {
+		hops, _ = raw.([]HopResult)
+	}
+	skipSlots := skipUnrelatedHopSlots(query, hops, pkt)
+	coverToks := leftoverNonEntityQueryTokens(query, hops)
 	add := func(content, memoryID string) {
 		content = strings.TrimSpace(content)
 		if content == "" {
 			return
 		}
 		if strings.HasSuffix(content, "?") && !strings.ContainsAny(content, "0123456789") {
+			return
+		}
+		if skipSlots && len(coverToks) > 0 && !contentCoversAnyQueryToken(content, coverToks) {
 			return
 		}
 		key := strings.ToLower(content)
@@ -584,4 +593,32 @@ func hopsAreIdentityOnly(hops []HopResult) bool {
 		}
 	}
 	return typed > 0 && identity == typed
+}
+
+func leftoverNonEntityQueryTokens(query string, hops []HopResult) []string {
+	ents := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		ents[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	slotBlob := strings.Join(hopSlotValues(hops), " ")
+	out := make([]string, 0, 4)
+	for _, tok := range distinctiveQueryTokens(tokenize(query)) {
+		if _, ok := ents[tok]; ok {
+			continue
+		}
+		if contentCoversQueryToken(slotBlob, tok) {
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func contentCoversAnyQueryToken(content string, toks []string) bool {
+	for _, tok := range toks {
+		if contentCoversQueryToken(content, tok) {
+			return true
+		}
+	}
+	return false
 }
