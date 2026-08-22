@@ -568,11 +568,18 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
 		lockedCount := looksCountQuery(req.Query) && out.Explain["count_answer"] == true
 		typedAnswer := strings.TrimSpace(out.Answer)
-		typedItems := typedListItems(typedAnswer, out.Items)
+		typedItems := itemsFromCommaAnswer(typedAnswer)
+		if len(typedItems) == 0 {
+			typedItems = typedListItems(typedAnswer, out.Items)
+		}
 		typedN := len(typedItems)
+		hybridN := len(itemsFromCommaAnswer(hybrid.Answer))
 		extras := uncoveredHybridItemCount(typedItems, hybrid.Answer)
 		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
-		lockedList := enumerated && hybrid.OK && typedN > 0 && extras > 0
+		// Keep typed multi-item lists when hybrid adds uncovered values as
+		// another multi-item list, or expands a short typed list. A long
+		// dump may still be replaced by a 1–2 item hybrid answer.
+		lockedList := lockHybridListExtras(enumerated, typedN, hybridN, extras)
 		if hybrid.Attempted {
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
@@ -669,14 +676,8 @@ func itemCoveredByTyped(value string, typed []RecallItem) bool {
 		if tv == "" {
 			continue
 		}
-		if strings.Contains(tv, v) || strings.Contains(v, tv) {
+		if tv == v || strings.Contains(tv, v) || strings.Contains(v, tv) {
 			return true
-		}
-		for _, tok := range strings.Fields(v) {
-			tok = strings.Trim(tok, ".,;:!?")
-			if len(tok) >= 4 && strings.Contains(tv, tok) {
-				return true
-			}
 		}
 	}
 	return false
@@ -690,6 +691,16 @@ func uncoveredHybridItemCount(typed []RecallItem, hybrid string) int {
 		}
 	}
 	return n
+}
+
+// lockHybridListExtras keeps a typed list when hybrid injects uncovered
+// values as another multi-item list, or expands a short typed list. A long
+// dump may still be replaced by a 1–2 item hybrid answer.
+func lockHybridListExtras(enumerated bool, typedN, hybridN, extras int) bool {
+	if !enumerated || typedN <= 0 || extras <= 0 {
+		return false
+	}
+	return (typedN >= 3 && hybridN >= 3) || hybridN > typedN
 }
 
 func listItemCount(answer string, items []RecallItem) int {

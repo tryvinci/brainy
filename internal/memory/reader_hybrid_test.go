@@ -607,6 +607,32 @@ func TestUncoveredHybridItemCount(t *testing.T) {
 	}
 }
 
+func TestLockHybridListExtras(t *testing.T) {
+	cases := []struct {
+		name                    string
+		enumerated              bool
+		typedN, hybridN, extras int
+		want                    bool
+	}{
+		{name: "equal-length dump", enumerated: true, typedN: 6, hybridN: 6, extras: 4, want: true},
+		{name: "shortened dump stays locked", enumerated: true, typedN: 8, hybridN: 6, extras: 6, want: true},
+		{name: "short list expansion", enumerated: true, typedN: 2, hybridN: 4, extras: 2, want: true},
+		{name: "1-item dump replacement", enumerated: true, typedN: 1, hybridN: 1, extras: 1, want: false},
+		{name: "long dump to short hybrid", enumerated: true, typedN: 8, hybridN: 1, extras: 1, want: false},
+		{name: "empty typed fills", enumerated: true, typedN: 0, hybridN: 3, extras: 3, want: false},
+		{name: "no extras", enumerated: true, typedN: 6, hybridN: 4, extras: 0, want: false},
+		{name: "not enumerated", enumerated: false, typedN: 6, hybridN: 6, extras: 4, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := lockHybridListExtras(tc.enumerated, tc.typedN, tc.hybridN, tc.extras)
+			if got != tc.want {
+				t.Fatalf("got %v want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestListItemCount(t *testing.T) {
 	if listItemCount("clarinet, violin", nil) != 2 {
 		t.Fatal("comma split")
