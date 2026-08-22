@@ -540,6 +540,62 @@ func TestRecallHybridDoesNotOverwriteMHListAnswer(t *testing.T) {
 	}
 }
 
+func TestRecallHybridEnumerateSkipsHopGrounding(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"clarinet, violin","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"clar", PredicateSkill, "clarinet", "Riley plays the clarinet."},
+		{"viol", PredicateSkill, "violin", "Riley plays the violin."},
+		{"pot", PredicateActivity, "pottery", "Riley also does pottery on weekends."},
+		{"beach", PredicateActivity, "beach", "Riley likes the beach."},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-hyb-ground", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-ground", SubjectID: "u1",
+		Query: "What instruments does Riley play?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "clarinet") || !strings.Contains(got, "violin") {
+		t.Fatalf("hybrid instruments lost: %q explain=%v", out.Answer, out.Explain)
+	}
+	if strings.Contains(got, "pottery") || strings.Contains(got, "beach") {
+		t.Fatalf("hop grounding re-expanded list: %q explain=%v", out.Answer, out.Explain)
+	}
+	if out.Explain["hybrid_grounded_to_hops"] == true {
+		t.Fatalf("enumerated hybrid should not ground to hops: explain=%v", out.Explain)
+	}
+}
+
 func TestRecallHybridDoesNotExpandShortTypedList(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

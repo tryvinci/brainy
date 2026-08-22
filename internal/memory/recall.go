@@ -602,7 +602,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
-			if hopComposeAllowed(req.Query) {
+			// Enumerated answers already have a typed list; hop-slot
+			// grounding re-expands them into unrelated dumps.
+			if hopComposeAllowed(req.Query) && !enumerated {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
 				out.Answer = grounded
 				if composed := composeFromHopValues(hopResults); composed != "" && grounded == composed && grounded != strings.TrimSpace(hybrid.Answer) {
