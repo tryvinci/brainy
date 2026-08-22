@@ -230,7 +230,8 @@ func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string)
 	coverToks := leftoverNonEntityQueryTokens(query, hops)
 	head := make([]string, 0, 8)
 	cover := make([]string, 0, len(lines))
-	rest := make([]string, 0, len(lines))
+	specific := make([]string, 0, len(lines))
+	thin := make([]string, 0, len(lines))
 	for _, line := range lines {
 		trim := strings.TrimSpace(line)
 		if trim == "Structured:" || trim == "Hop chain:" || strings.HasPrefix(trim, "- hop ") {
@@ -241,19 +242,45 @@ func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string)
 			cover = append(cover, line)
 			continue
 		}
-		rest = append(rest, line)
+		if looksThinPacketLine(line) {
+			thin = append(thin, line)
+			continue
+		}
+		specific = append(specific, line)
 	}
 	out := make([]string, 0, hybridMemoryLineLimit)
-	out = append(out, head...)
-	out = append(out, cover...)
-	if len(out) >= hybridMemoryLineLimit {
-		return out[:hybridMemoryLineLimit]
+	appendCap := func(src []string) {
+		for _, line := range src {
+			if len(out) >= hybridMemoryLineLimit {
+				return
+			}
+			out = append(out, line)
+		}
 	}
-	need := hybridMemoryLineLimit - len(out)
-	if need > len(rest) {
-		need = len(rest)
+	appendCap(head)
+	appendCap(cover)
+	appendCap(specific)
+	appendCap(thin)
+	return out
+}
+
+func hybridLineBody(line string) string {
+	trim := strings.TrimSpace(line)
+	if strings.HasPrefix(trim, "- [") {
+		if i := strings.Index(trim, "] "); i >= 0 {
+			return strings.TrimSpace(trim[i+2:])
+		}
 	}
-	return append(out, rest[:need]...)
+	return strings.TrimPrefix(trim, "- ")
+}
+
+func looksThinPacketLine(line string) bool {
+	body := hybridLineBody(line)
+	lower := strings.ToLower(body)
+	if strings.Contains(lower, "participates in ") || strings.Contains(lower, "unwinds via ") {
+		return true
+	}
+	return len(strings.Fields(body)) <= 4
 }
 
 func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan QueryPlan, pkt EvidencePacket) hybridReaderResult {
