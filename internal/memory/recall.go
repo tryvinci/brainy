@@ -568,10 +568,15 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
 		lockedCount := looksCountQuery(req.Query) && out.Explain["count_answer"] == true
 		typedAnswer := strings.TrimSpace(out.Answer)
-		typedN := listItemCount(typedAnswer, out.Items)
-		hybridN := len(itemsFromCommaAnswer(hybrid.Answer))
-		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && enumerated && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
-		lockedList := enumerated && hybrid.OK && typedN > 0 && hybridN >= typedN
+		typedItems := typedListItems(typedAnswer, out.Items)
+		typedN := len(typedItems)
+		extras := uncoveredHybridItemCount(typedItems, hybrid.Answer)
+		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
+		lockedList := enumerated && hybrid.OK && typedN > 0 && extras > 0
+		if hybrid.Attempted {
+			out.Explain["hybrid_pre_item_count"] = typedN
+			out.Explain["hybrid_extra_item_count"] = extras
+		}
 		if hybrid.OK && (lockedWhere || lockedPolar || lockedCount || lockedMHList || lockedList) {
 			lock := "where"
 			if lockedList {
@@ -641,6 +646,52 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 }
 
 // listItemCount prefers structured items, then comma-split answer text.
+func typedListItems(answer string, items []RecallItem) []RecallItem {
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		if strings.TrimSpace(it.Value) != "" {
+			out = append(out, it)
+		}
+	}
+	if len(out) > 0 {
+		return out
+	}
+	return itemsFromCommaAnswer(answer)
+}
+
+func itemCoveredByTyped(value string, typed []RecallItem) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return true
+	}
+	for _, t := range typed {
+		tv := strings.ToLower(strings.TrimSpace(t.Value))
+		if tv == "" {
+			continue
+		}
+		if strings.Contains(tv, v) || strings.Contains(v, tv) {
+			return true
+		}
+		for _, tok := range strings.Fields(v) {
+			tok = strings.Trim(tok, ".,;:!?")
+			if len(tok) >= 4 && strings.Contains(tv, tok) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func uncoveredHybridItemCount(typed []RecallItem, hybrid string) int {
+	n := 0
+	for _, h := range itemsFromCommaAnswer(hybrid) {
+		if !itemCoveredByTyped(h.Value, typed) {
+			n++
+		}
+	}
+	return n
+}
+
 func listItemCount(answer string, items []RecallItem) int {
 	n := 0
 	for _, it := range items {

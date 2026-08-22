@@ -594,6 +594,19 @@ func TestRecallHybridDoesNotExpandShortTypedList(t *testing.T) {
 	}
 }
 
+func TestUncoveredHybridItemCount(t *testing.T) {
+	typed := []RecallItem{{Value: "clarinet"}, {Value: "violin"}, {Value: "quiet weekend with kids"}}
+	if uncoveredHybridItemCount(typed, "clarinet, violin, pottery, beach") < 2 {
+		t.Fatal("pottery/beach should count as extras")
+	}
+	if uncoveredHybridItemCount(typed, "clarinet, violin") != 0 {
+		t.Fatal("subset should have no extras")
+	}
+	if uncoveredHybridItemCount(nil, "pottery") != 1 {
+		t.Fatal("empty typed cannot cover hybrid")
+	}
+}
+
 func TestListItemCount(t *testing.T) {
 	if listItemCount("clarinet, violin", nil) != 2 {
 		t.Fatal("comma split")
