@@ -643,7 +643,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
 		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList {
-			if hopComposeAllowed(req.Query) && hopJoinProven(hopResults) {
+			leftover := leftoverNonEntityQueryTokens(req.Query, hopResults)
+			canComposeHops := hopComposeAllowed(req.Query) && hopJoinProven(hopResults) &&
+				!skipUnrelatedHopSlots(req.Query, hopResults, pkt) &&
+				(len(leftover) == 0 || hopsKeepTypedJoin(hopResults))
+			if canComposeHops {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
 					out.Abstained = false

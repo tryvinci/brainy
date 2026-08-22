@@ -131,7 +131,12 @@ func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string 
 			return
 		}
 		if skipSlots && len(coverToks) > 0 && !contentCoversAnyQueryToken(content, coverToks) {
-			return
+			// Identity dumps: keep only leftover-covering memories.
+			// Activity/event dumps: drop crowded comma lists, keep specific
+			// facts whose gold is a synonym of the leftover token (UK / country).
+			if hopsAreIdentityOnly(hops) || looksCrowdedHopDump(content) {
+				return
+			}
 		}
 		key := strings.ToLower(content)
 		if _, ok := seen[key]; ok {
@@ -545,7 +550,7 @@ func packetEvidenceBlob(pkt EvidencePacket) string {
 	return b.String()
 }
 
-// skipUnrelatedHopSlots drops identity-slot dumps from the hybrid prompt when
+// skipUnrelatedHopSlots drops hop-slot dumps from the hybrid prompt when
 // distinctive query tokens are in packet memories but not in those slots.
 // Skill/possession/preference joins and dual-entity hops keep Structured.
 func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) bool {
@@ -555,7 +560,7 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 	if strings.TrimSpace(query) == "" || hopFetchEntityCount(hops) >= 2 || len(hopQueryEntities(query)) >= 2 {
 		return false
 	}
-	if !hopsAreIdentityOnly(hops) {
+	if hopsKeepTypedJoin(hops) {
 		return false
 	}
 	slotBlob := strings.Join(hopSlotValues(hops), " ")
@@ -576,6 +581,32 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 		}
 	}
 	return false
+}
+
+func hopsKeepTypedJoin(hops []HopResult) bool {
+	for _, h := range hops {
+		if !hopResultTypedExact(h) {
+			continue
+		}
+		switch strings.ToLower(strings.TrimSpace(h.Predicate)) {
+		case PredicateSkill, PredicatePossession, PredicatePreference:
+			return true
+		}
+	}
+	return false
+}
+
+func looksCrowdedHopDump(content string) bool {
+	if looksTitleCaseSlogan(content) {
+		return true
+	}
+	n := 0
+	for _, part := range strings.Split(content, ",") {
+		if strings.TrimSpace(part) != "" {
+			n++
+		}
+	}
+	return n >= 3
 }
 
 func hopsAreIdentityOnly(hops []HopResult) bool {

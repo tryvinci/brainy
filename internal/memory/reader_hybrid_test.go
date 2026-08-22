@@ -371,6 +371,37 @@ func TestFormatHybridMemoryLinesSkipsSlotsMissingQueryTokens(t *testing.T) {
 	}
 }
 
+func TestFormatHybridMemoryLinesSkipsActivityDumpForCountryQuery(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Tim has experiences in the United Kingdom.", MemoryID: "m-uk"},
+			{Content: "Tim is researching visa requirements for the countries he wants to visit.", MemoryID: "m-visa"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "resolve_entity", Entity: "Tim", Value: "Tim", Source: "typed_store"},
+				{HopIndex: 1, Kind: "follow_relation", Entity: "Tim", EntityID: "e-tim", Predicate: PredicateActivity, Source: "typed_store",
+					Value: "visa requirements", Values: []string{"visa requirements", "explore nature", "traveling"}},
+			},
+		},
+	}
+	q := "which country has Tim visited most frequently in his travels?"
+	hops, _ := pkt.Coverage["hop_results"].([]HopResult)
+	if hopsKeepTypedJoin(hops) {
+		t.Fatal("activity dumps must not count as typed skill/possession/preference joins")
+	}
+	if !skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatalf("skip=false leftover=%v slots=%v", leftoverNonEntityQueryTokens(q, hops), hopSlotValues(hops))
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery(q, pkt), "\n")
+	if strings.Contains(strings.ToLower(joined), "visa requirements") && strings.Contains(joined, "Structured:") {
+		t.Fatalf("activity dump must not lead hybrid prompt, got %q", joined)
+	}
+	if !strings.Contains(joined, "United Kingdom") {
+		t.Fatalf("covering country memory must remain, got %q", joined)
+	}
+}
+
 func TestSkipUnrelatedIdentityDumpLiveShape(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "maria", Source: "search_fallback", Value: "Maria"},
