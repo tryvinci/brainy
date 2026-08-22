@@ -344,6 +344,93 @@ func TestFormatHybridMemoryLinesSkipsUnprovenHopDumps(t *testing.T) {
 	}
 }
 
+func TestFormatHybridMemoryLinesSkipsSlotsMissingQueryTokens(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Maria has a dog named Shadow.", MemoryID: "m-shadow"},
+			{Content: "Maria got a puppy named Coco on 28 July 2023.", MemoryID: "m-coco"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "resolve_entity", Entity: "Maria", Value: "Maria", Source: "search_fallback"},
+				{HopIndex: 1, Kind: "follow_relation", Entity: "Maria", Source: "typed_store",
+					Value: "inspiration, family, team", Values: []string{"inspiration", "family", "team"},
+					Contents: []string{"Maria is a inspiration"}},
+			},
+		},
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery("What is the name of Maria's second puppy?", pkt), "\n")
+	if strings.Contains(joined, "Structured:") || strings.Contains(joined, "inspiration") {
+		t.Fatalf("unrelated identity slots must not lead hybrid prompt, got %q", joined)
+	}
+	if !strings.Contains(joined, "Shadow") {
+		t.Fatalf("covering puppy memory must remain, got %q", joined)
+	}
+}
+
+func TestFormatHybridMemoryLinesKeepsDualEntityJoinSlots(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Caroline plays the clarinet.", MemoryID: "m1"},
+			{Content: "Melanie plays the violin.", MemoryID: "m2"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "fetch_predicate", Entity: "Caroline", Predicate: PredicateSkill, Source: "typed_store", Value: "clarinet", Values: []string{"clarinet"}},
+				{HopIndex: 1, Kind: "fetch_predicate", Entity: "Melanie", Predicate: PredicateSkill, Source: "typed_store", Value: "violin", Values: []string{"violin"}},
+			},
+		},
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery("What instruments do both Caroline and Melanie play?", pkt), "\n")
+	if !strings.Contains(joined, "Structured:") || !strings.Contains(joined, "clarinet") {
+		t.Fatalf("dual-entity join slots must stay, got %q", joined)
+	}
+}
+
+func TestIsHybridGarbageAnswer(t *testing.T) {
+	if !isHybridGarbageAnswer(strings.Repeat("!", 80)) {
+		t.Fatal("repeated punctuation")
+	}
+	if !isHybridGarbageAnswer("none") {
+		t.Fatal("none")
+	}
+	if isHybridGarbageAnswer("Shadow") {
+		t.Fatal("name")
+	}
+	if isHybridGarbageAnswer("Luna, Oliver, Bailey") {
+		t.Fatal("list")
+	}
+	if isHybridGarbageAnswer("20 May 2023") {
+		t.Fatal("date")
+	}
+}
+
+func TestHybridReaderRejectsPunctuationFreeform(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": strings.Repeat("!", 200),
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	svc := NewService(newMemoryStoreStub()).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	plan := QueryPlan{NeedsEnumeration: true}
+	pkt := EvidencePacket{
+		Items:    []PacketItem{{MemoryID: "m1", Content: "Jolene has a pet snake named Seraphim."}},
+		Contents: []string{"Jolene has a pet snake named Seraphim."},
+	}
+	res := svc.synthesizeHybridAnswer(context.Background(), "What are the names of Jolene's snakes?", plan, pkt)
+	if res.OK || res.Answer != "" {
+		t.Fatalf("garbage freeform must not be accepted, got %#v", res)
+	}
+}
+
 func TestHybridReaderStripsThinkAndExtractsJSON(t *testing.T) {
 	raw := "<think>plan</think>\n{\"answer\":\"pottery\",\"supporting_memory_ids\":[],\"unresolved_targets\":[],\"abstain\":false}"
 	got := stripThinkTags(raw)

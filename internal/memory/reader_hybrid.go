@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // PacketItem is one structured evidence unit for hybrid reading and typed packets.
@@ -109,6 +110,10 @@ func shouldAttemptHybrid(query string, plan QueryPlan, pkt EvidencePacket) (bool
 }
 
 func formatHybridMemoryLines(pkt EvidencePacket) []string {
+	return formatHybridMemoryLinesForQuery("", pkt)
+}
+
+func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string {
 	lines := make([]string, 0, len(pkt.Items)+len(pkt.Contents)+8)
 	seen := map[string]struct{}{}
 	add := func(content, memoryID string) {
@@ -132,7 +137,8 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 	}
 	if raw, ok := pkt.Coverage["hop_results"]; ok {
 		if hops, ok := raw.([]HopResult); ok && len(hops) > 0 {
-			if vals := hopSlotValues(hops); len(vals) > 0 {
+			skipSlots := skipUnrelatedHopSlots(query, hops, pkt)
+			if vals := hopSlotValues(hops); len(vals) > 0 && !skipSlots {
 				lines = append(lines, "Structured:")
 				for _, h := range hops {
 					if h.Kind == "resolve_entity" || h.Source == "unresolved" {
@@ -149,7 +155,7 @@ func formatHybridMemoryLines(pkt EvidencePacket) []string {
 					lines = append(lines, "- "+slot+" = "+val)
 				}
 			}
-			if !hopDumpsUnproven(hops) {
+			if !hopDumpsUnproven(hops) && !skipSlots {
 				lines = append(lines, "Hop chain:")
 				for _, h := range hops {
 					dep := ""
@@ -211,7 +217,7 @@ func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan
 		return hybridReaderResult{Reason: reason}
 	}
 
-	lines := formatHybridMemoryLines(pkt)
+	lines := formatHybridMemoryLinesForQuery(query, pkt)
 	if len(lines) == 0 {
 		return hybridReaderResult{Attempted: false, Reason: "no_memory_lines"}
 	}
@@ -227,6 +233,7 @@ func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan
 	// fields for observability but treat answer text as primary (soft grounding).
 	system := `Answer the question using only the memories below.
 Prefer Structured slot values (places, names, lists) over anaphoric phrases like "home country".
+If Structured slots do not mention the question's distinctive terms, ignore those slots and answer from the memory lines.
 Prefer a concrete short answer (dates, names, places, lists).
 If memories place an event on a weekday or weekend relative to a calendar date, keep that relative phrasing. Do not substitute a different calendar day.
 When several memories support different parts of the answer, combine every distinct supported item — do not stop at the first memory.
@@ -483,6 +490,78 @@ func isHybridGarbageAnswer(ans string) bool {
 	switch lower {
 	case "", "none", "n/a", "na", "null", "undefined", "not mentioned", "not in memory", "i don't know", "i do not know":
 		return true
+	}
+	letters, total := 0, 0
+	counts := map[rune]int{}
+	for _, r := range ans {
+		if unicode.IsSpace(r) {
+			continue
+		}
+		total++
+		counts[r]++
+		if unicode.IsLetter(r) {
+			letters++
+		}
+	}
+	if total == 0 || letters == 0 {
+		return true
+	}
+	if letters*5 < total {
+		return true
+	}
+	maxc := 0
+	for _, c := range counts {
+		if c > maxc {
+			maxc = c
+		}
+	}
+	return total >= 8 && maxc*2 >= total
+}
+
+func packetEvidenceBlob(pkt EvidencePacket) string {
+	var b strings.Builder
+	for _, c := range pkt.Contents {
+		b.WriteString(c)
+		b.WriteByte(' ')
+	}
+	writeItems := func(items []PacketItem) {
+		for _, it := range items {
+			b.WriteString(it.Content)
+			b.WriteByte(' ')
+		}
+	}
+	writeItems(pkt.Items)
+	writeItems(pkt.ProofChain)
+	writeItems(pkt.ContextEvidence)
+	return b.String()
+}
+
+// skipUnrelatedHopSlots drops typed identity dumps from the hybrid prompt when
+// distinctive query tokens are in packet memories but not in the hop slots.
+// Dual-entity joins keep Structured slots (typed list lock depends on them).
+func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) bool {
+	if hopDumpsUnproven(hops) {
+		return false
+	}
+	if strings.TrimSpace(query) == "" || hopFetchEntityCount(hops) >= 2 {
+		return false
+	}
+	slotBlob := strings.Join(hopSlotValues(hops), " ")
+	leftover := make([]string, 0, 4)
+	for _, tok := range distinctiveQueryTokens(tokenize(query)) {
+		if contentCoversQueryToken(slotBlob, tok) {
+			continue
+		}
+		leftover = append(leftover, tok)
+	}
+	if len(leftover) == 0 {
+		return false
+	}
+	memBlob := packetEvidenceBlob(pkt)
+	for _, tok := range leftover {
+		if contentCoversQueryToken(memBlob, tok) {
+			return true
+		}
 	}
 	return false
 }
