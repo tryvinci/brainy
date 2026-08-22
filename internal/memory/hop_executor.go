@@ -1694,9 +1694,9 @@ func rareSharedFromGroups(order []string, groups map[string][]string) []string {
 		if len(h.ents) < len(order) {
 			continue
 		}
-		better := h.df < bestDF ||
-			(h.df == bestDF && h.minWords < bestWords) ||
-			(h.df == bestDF && h.minWords == bestWords && len(tok) > bestLen)
+		better := h.minWords < bestWords ||
+			(h.minWords == bestWords && h.df < bestDF) ||
+			(h.minWords == bestWords && h.df == bestDF && len(tok) > bestLen)
 		if better {
 			best, bestDF, bestWords, bestLen = tok, h.df, h.minWords, len(tok)
 		}
@@ -1769,6 +1769,7 @@ func snippetCoveredByValues(snip string, vals []string) bool {
 		return false
 	}
 	low := strings.ToLower(snip)
+	snipToks := slotValueTokens(snip)
 	for _, v := range vals {
 		v = strings.ToLower(strings.TrimSpace(v))
 		if v == "" || utf8Len(v) < 4 {
@@ -1777,7 +1778,8 @@ func snippetCoveredByValues(snip string, vals []string) bool {
 		if strings.Contains(low, v) || strings.Contains(v, low) {
 			return true
 		}
-		if coveredSlotValue(v, snip) != "" {
+		vt := slotValueTokens(v)
+		if len(vt) >= 2 && slotTokensSubset(vt, snipToks) {
 			return true
 		}
 	}

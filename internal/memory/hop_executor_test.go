@@ -109,6 +109,33 @@ func TestIntersectHopValuesByRareSharedTokenFromContents(t *testing.T) {
 	}
 }
 
+func TestIntersectHopValuesByRareSharedTokenIgnoresParaphrasedValues(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "fetch_predicate", Entity: "Tim", Predicate: PredicatePossession, Source: "typed_store",
+			Values:   []string{"dvd and game collection", "basketball signed by favorite player"},
+			Contents: []string{"Tim owns a prized basketball signed by his favorite player, kept in a case."}},
+		{Kind: "fetch_predicate", Entity: "John", Predicate: PredicatePossession, Source: "typed_store",
+			Values:   []string{"lord of the rings dvd collection", "basketball trophy", "photo of basketball court at sunset"},
+			Contents: []string{"John took a photo of a basketball court at sunset during a morning workout."}},
+	}
+	got := intersectHopValuesByRareSharedToken(hops)
+	blob := strings.ToLower(strings.Join(got, " | "))
+	if !strings.Contains(blob, "basketball") {
+		t.Fatalf("expected basketball join, got %#v", got)
+	}
+	if strings.Contains(blob, "sunset") || strings.Contains(blob, "workout") || strings.Contains(blob, "photo") {
+		t.Fatalf("paraphrased court photo must not rare-share, got %#v", got)
+	}
+	ans := composeFromHopValues(hops)
+	low := strings.ToLower(ans)
+	if !strings.Contains(low, "basketball") {
+		t.Fatalf("compose should join basketball, got %q", ans)
+	}
+	if strings.Contains(low, "sunset") || strings.Contains(low, "workout") {
+		t.Fatalf("compose leaked court-photo paraphrase, got %q", ans)
+	}
+}
+
 func TestHopComposeUsableKeepsTitleCasedBasketballJoin(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "fetch_predicate", Entity: "Tim", Predicate: PredicatePossession, Source: "typed_store",
