@@ -462,6 +462,82 @@ func TestFormatHybridMemoryLinesKeepsDualEntityJoinSlots(t *testing.T) {
 	}
 }
 
+func TestFormatHybridMemoryLinesSkipsDualEntityActivityDump(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Andrew and Buddy enjoy walking together.", MemoryID: "m-walk"},
+			{Content: "Andrew is curious about trying sushi at a new restaurant.", MemoryID: "m-sushi"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "resolve_entity", Entity: "Andrew", Value: "Andrew", Source: "search_fallback"},
+				{HopIndex: 1, Kind: "resolve_entity", Entity: "Buddy", Value: "Buddy", Source: "typed_store"},
+				{HopIndex: 2, Kind: "follow_relation", Entity: "Andrew", Predicate: PredicateActivity, Source: "typed_store",
+					Value: "sushi", Values: []string{"creating safe and fun space for scout", "sushi", "a new sushi restaurant in town"}},
+				{HopIndex: 3, Kind: "follow_relation", Entity: "Buddy", Predicate: PredicateActivity, Source: "search_fallback",
+					Value: "sushi", Values: []string{"discover new places to eat around town", "sushi"}},
+			},
+		},
+	}
+	q := "What activity do Andrew and Buddy enjoy doing together?"
+	hops, _ := pkt.Coverage["hop_results"].([]HopResult)
+	if hopsKeepTypedJoin(hops) {
+		t.Fatal("activity dumps must not count as typed skill joins")
+	}
+	if !skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatalf("dual-entity activity dump must skip, leftover=%v slots=%v fetchN=%d ents=%v",
+			leftoverNonEntityQueryTokens(q, hops), hopSlotValues(hops), hopFetchEntityCount(hops), hopQueryEntities(q))
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery(q, pkt), "\n")
+	if strings.Contains(joined, "Structured:") {
+		t.Fatalf("activity dump must not lead hybrid prompt, got %q", joined)
+	}
+	if !strings.Contains(joined, "walking") {
+		t.Fatalf("covering walking memory must remain, got %q", joined)
+	}
+}
+
+func TestTypedAnswerIsHopDump(t *testing.T) {
+	if typedAnswerIsHopDump("clarinet, violin") {
+		t.Fatal("short skill list")
+	}
+	if typedAnswerIsHopDump("Oliver, Luna, Bailey") {
+		t.Fatal("short name list")
+	}
+	if typedAnswerIsHopDump("jersey") {
+		t.Fatal("single typed value")
+	}
+	if !typedAnswerIsHopDump("Way, Road Trip, McGee's Bar, Playing Cyberpunk 2077, Notebook, First, Simple Dishes, Tried Cyberpunk 2077") {
+		t.Fatal("title-case where dump")
+	}
+	if !typedAnswerIsHopDump("sushi, sushi before, curious about trying sushi, a new sushi restaurant in town in mid-October 2023") {
+		t.Fatal("dual-entity sushi dump")
+	}
+}
+
+func TestPrioritizeHybridMemoryLinesPrefersCovering(t *testing.T) {
+	lines := make([]string, 0, 40)
+	for i := 0; i < 40; i++ {
+		lines = append(lines, "- filler slogan about cars and tours "+strings.Repeat("x", i%3))
+	}
+	lines = append(lines, "- Evan took his family on a road trip to Jasper National Park.")
+	hops := []HopResult{
+		{Kind: "follow_relation", Entity: "Evan", Predicate: PredicateActivity, Source: "typed_store",
+			Value: "car spin", Values: []string{"car spin", "city tour", "setback"}},
+	}
+	got := prioritizeHybridMemoryLines("Where did Evan take his family for a road trip to Jasper?", hops, lines)
+	if len(got) > hybridMemoryLineLimit {
+		t.Fatalf("cap %d got %d", hybridMemoryLineLimit, len(got))
+	}
+	joined := strings.Join(got, "\n")
+	if !strings.Contains(joined, "Jasper") {
+		t.Fatalf("covering place must survive cap, got %q", joined)
+	}
+	if idx := strings.Index(joined, "Jasper"); idx < 0 || (strings.Contains(joined, "filler slogan") && idx > strings.Index(joined, "filler slogan")) {
+		t.Fatalf("covering line should rank before filler, got %q", joined)
+	}
+}
+
 func TestIsHybridGarbageAnswer(t *testing.T) {
 	if !isHybridGarbageAnswer(strings.Repeat("!", 80)) {
 		t.Fatal("repeated punctuation")
@@ -477,6 +553,9 @@ func TestIsHybridGarbageAnswer(t *testing.T) {
 	}
 	if isHybridGarbageAnswer("20 May 2023") {
 		t.Fatal("date")
+	}
+	if !isHybridGarbageAnswer(`We need to answer: "What habits does Jolene practice?" Search memories: - [mem_1] yoga`) {
+		t.Fatal("leaked hybrid prompt")
 	}
 }
 

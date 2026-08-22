@@ -216,7 +216,44 @@ func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string 
 	if pkt.TemporalAnswer != "" {
 		add(pkt.TemporalAnswer, "")
 	}
-	return lines
+	return prioritizeHybridMemoryLines(query, hops, lines)
+}
+
+// hybridMemoryLineLimit caps the hybrid prompt so activity dumps cannot
+// crowd leftover-covering facts or leak chain-of-thought as the answer.
+const hybridMemoryLineLimit = 28
+
+func prioritizeHybridMemoryLines(query string, hops []HopResult, lines []string) []string {
+	if len(lines) == 0 {
+		return lines
+	}
+	coverToks := leftoverNonEntityQueryTokens(query, hops)
+	head := make([]string, 0, 8)
+	cover := make([]string, 0, len(lines))
+	rest := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trim := strings.TrimSpace(line)
+		if trim == "Structured:" || trim == "Hop chain:" || strings.HasPrefix(trim, "- hop ") {
+			head = append(head, line)
+			continue
+		}
+		if len(coverToks) > 0 && contentCoversAnyQueryToken(line, coverToks) {
+			cover = append(cover, line)
+			continue
+		}
+		rest = append(rest, line)
+	}
+	out := make([]string, 0, hybridMemoryLineLimit)
+	out = append(out, head...)
+	out = append(out, cover...)
+	if len(out) >= hybridMemoryLineLimit {
+		return out[:hybridMemoryLineLimit]
+	}
+	need := hybridMemoryLineLimit - len(out)
+	if need > len(rest) {
+		need = len(rest)
+	}
+	return append(out, rest[:need]...)
 }
 
 func (s *Service) synthesizeHybridAnswer(ctx context.Context, query string, plan QueryPlan, pkt EvidencePacket) hybridReaderResult {
@@ -505,6 +542,15 @@ func isHybridGarbageAnswer(ans string) bool {
 	case "", "none", "n/a", "na", "null", "undefined", "not mentioned", "not in memory", "i don't know", "i do not know":
 		return true
 	}
+	if strings.Contains(lower, "we need to answer") ||
+		strings.Contains(lower, "search memories:") ||
+		strings.Contains(lower, "look for mentions") ||
+		strings.Count(lower, "[mem_") >= 3 {
+		return true
+	}
+	if utf8Len(ans) > 1200 {
+		return true
+	}
 	letters, total := 0, 0
 	counts := map[rune]int{}
 	for _, r := range ans {
@@ -552,12 +598,13 @@ func packetEvidenceBlob(pkt EvidencePacket) string {
 
 // skipUnrelatedHopSlots drops hop-slot dumps from the hybrid prompt when
 // distinctive query tokens are in packet memories but not in those slots.
-// Skill/possession/preference joins and dual-entity hops keep Structured.
+// Skill/possession/preference joins keep Structured. Dual-entity activity
+// dumps do not — two names in the query is not a typed join.
 func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) bool {
 	if hopDumpsUnproven(hops) {
 		return false
 	}
-	if strings.TrimSpace(query) == "" || hopFetchEntityCount(hops) >= 2 || len(hopQueryEntities(query)) >= 2 {
+	if strings.TrimSpace(query) == "" {
 		return false
 	}
 	if hopsKeepTypedJoin(hops) {
@@ -607,6 +654,45 @@ func looksCrowdedHopDump(content string) bool {
 		}
 	}
 	return n >= 3
+}
+
+// typedAnswerIsHopDump is true for slogan/activity dumps, false for short
+// typed joins (clarinet, violin / Oliver, Luna, Bailey).
+func typedAnswerIsHopDump(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" || strings.EqualFold(s, "not in memory") {
+		return false
+	}
+	parts := make([]string, 0, 8)
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		if part != "" {
+			parts = append(parts, part)
+		}
+	}
+	n := len(parts)
+	if n <= 2 {
+		return looksTitleCaseSlogan(s)
+	}
+	long, slogans := 0, 0
+	for _, p := range parts {
+		if utf8Len(p) > 32 {
+			long++
+		}
+		if looksTitleCaseSlogan(p) {
+			slogans++
+		}
+	}
+	if n <= 6 && long == 0 && slogans == 0 {
+		return false
+	}
+	if n >= 8 || slogans >= 2 || long >= 2 {
+		return true
+	}
+	if utf8Len(s) > 90 && n >= 4 {
+		return true
+	}
+	return looksTitleCaseSlogan(s)
 }
 
 func hopsAreIdentityOnly(hops []HopResult) bool {

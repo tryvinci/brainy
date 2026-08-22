@@ -592,6 +592,12 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		hybridN := len(itemsFromCommaAnswer(hybrid.Answer))
 		extras := uncoveredHybridItemCount(typedItems, hybrid.Answer)
 		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
+		if typedAnswerIsHopDump(typedAnswer) {
+			// Dual-entity SH questions often plan as MH and lock a slogan
+			// dump (sushi, title-case places) over a covering hybrid answer.
+			lockedWhere = false
+			lockedMHList = false
+		}
 		// Keep typed multi-item lists when hybrid adds uncovered values as
 		// another multi-item list, or expands a short typed list. A long
 		// dump may still be replaced by a 1–2 item hybrid answer.
