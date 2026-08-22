@@ -536,14 +536,17 @@ func packetEvidenceBlob(pkt EvidencePacket) string {
 	return b.String()
 }
 
-// skipUnrelatedHopSlots drops typed identity dumps from the hybrid prompt when
-// distinctive query tokens are in packet memories but not in the hop slots.
-// Dual-entity joins keep Structured slots (typed list lock depends on them).
+// skipUnrelatedHopSlots drops identity-slot dumps from the hybrid prompt when
+// distinctive query tokens are in packet memories but not in those slots.
+// Skill/possession/preference joins and dual-entity hops keep Structured.
 func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) bool {
 	if hopDumpsUnproven(hops) {
 		return false
 	}
-	if strings.TrimSpace(query) == "" || hopFetchEntityCount(hops) >= 2 {
+	if strings.TrimSpace(query) == "" || hopFetchEntityCount(hops) >= 2 || len(hopQueryEntities(query)) >= 2 {
+		return false
+	}
+	if !hopsAreIdentityOnly(hops) {
 		return false
 	}
 	slotBlob := strings.Join(hopSlotValues(hops), " ")
@@ -564,4 +567,21 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 		}
 	}
 	return false
+}
+
+func hopsAreIdentityOnly(hops []HopResult) bool {
+	typed, identity := 0, 0
+	for _, h := range hops {
+		switch h.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			if h.Source == "unresolved" || h.Source == "search_fallback" {
+				continue
+			}
+			typed++
+			if strings.EqualFold(strings.TrimSpace(h.Predicate), PredicateIdentity) {
+				identity++
+			}
+		}
+	}
+	return typed > 0 && identity == typed
 }

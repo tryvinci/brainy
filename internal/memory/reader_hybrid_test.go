@@ -353,7 +353,7 @@ func TestFormatHybridMemoryLinesSkipsSlotsMissingQueryTokens(t *testing.T) {
 		Coverage: map[string]any{
 			"hop_results": []HopResult{
 				{HopIndex: 0, Kind: "resolve_entity", Entity: "Maria", Value: "Maria", Source: "search_fallback"},
-				{HopIndex: 1, Kind: "follow_relation", Entity: "Maria", Source: "typed_store",
+				{HopIndex: 1, Kind: "follow_relation", Entity: "Maria", Predicate: PredicateIdentity, Source: "typed_store",
 					Value: "inspiration, family, team", Values: []string{"inspiration", "family", "team"},
 					Contents: []string{"Maria is a inspiration"}},
 			},
@@ -365,6 +365,47 @@ func TestFormatHybridMemoryLinesSkipsSlotsMissingQueryTokens(t *testing.T) {
 	}
 	if !strings.Contains(joined, "Shadow") {
 		t.Fatalf("covering puppy memory must remain, got %q", joined)
+	}
+}
+
+func TestSkipUnrelatedIdentityDumpLiveShape(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "maria", Source: "search_fallback", Value: "Maria"},
+		{Kind: "follow_relation", Entity: "Maria", Predicate: PredicateIdentity, Source: "typed_store",
+			Value: "inspiration, family, team", Values: []string{"inspiration", "walk or a song can totally switch up our", "family", "team"}},
+	}
+	pkt := EvidencePacket{
+		Contents:        []string{"Maria has a new puppy.", "Maria has a dog named Shadow."},
+		ContextEvidence: []PacketItem{{Content: "Maria has a dog named Shadow."}},
+		Coverage:        map[string]any{"hop_results": hops},
+	}
+	q := "What is the name of Maria's second puppy?"
+	if !skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatalf("skip=false toks=%v slots=%v fetchN=%d", distinctiveQueryTokens(tokenize(q)), hopSlotValues(hops), hopFetchEntityCount(hops))
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery(q, pkt), "\n")
+	if strings.Contains(joined, "Structured:") || strings.Contains(joined, "inspiration") {
+		t.Fatalf("identity dump must not lead, got %q", joined)
+	}
+}
+
+func TestFormatHybridMemoryLinesKeepsSkillSlotsForInstrumentQuery(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "You play any instruments", MemoryID: "m0"},
+			{Content: "Melanie plays the clarinet.", MemoryID: "m1"},
+			{Content: "Melanie plays the violin.", MemoryID: "m2"},
+		},
+		Coverage: map[string]any{
+			"hop_results": []HopResult{
+				{HopIndex: 0, Kind: "fetch_predicate", Entity: "Melanie", Predicate: PredicateSkill, Source: "typed_store",
+					Value: "clarinet, violin", Values: []string{"clarinet", "violin"}},
+			},
+		},
+	}
+	joined := strings.Join(formatHybridMemoryLinesForQuery("What instruments does Melanie play?", pkt), "\n")
+	if !strings.Contains(joined, "Structured:") || !strings.Contains(joined, "clarinet") {
+		t.Fatalf("skill slots must stay for instrument questions, got %q", joined)
 	}
 }
 

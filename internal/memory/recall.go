@@ -559,6 +559,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if hybrid.Reason != "" {
 			out.Explain["hybrid_reader_reason"] = hybrid.Reason
 		}
+		if raw, ok := pkt.Coverage["hop_results"]; ok {
+			if hops, ok := raw.([]HopResult); ok && skipUnrelatedHopSlots(req.Query, hops, pkt) {
+				out.Explain["hybrid_skipped_unrelated_slots"] = true
+			}
+		}
 		if hybrid.RawSnippet != "" {
 			out.Explain["hybrid_reader_raw_prefix"] = hybrid.RawSnippet
 		}
