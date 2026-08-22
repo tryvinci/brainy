@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -13,6 +14,9 @@ import (
 // representationBlobBudget is the oracle/fact dump cap. 80k left only ~15%
 // headroom at observed LoCoMo volume; LME-scale subjects overflow.
 const representationBlobBudget = 400000
+
+// maxEnumerateAnswerItems bounds list answers. Counts keep the full typed set.
+const maxEnumerateAnswerItems = 8
 
 // RecallRequest is the product synthesis surface (master-plan W4 / program §14).
 type RecallRequest struct {
@@ -129,7 +133,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	// Typed hop executor: bind packet from hop joins when hops exist.
 	if (plan.NeedsMultiHop || plan.NeedsEnumeration) && len(plan.Hops) > 0 {
 		var byKey map[string]HopResult
-		hopResults, byKey = s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+		hopResults, byKey = s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK, req.Query)
 		bindPacketFromHopResults(&pkt, hopResults, byKey)
 		out.Explain["hop_results"] = hopResults
 		out.Explain["hop_join_proven"] = hopJoinProven(hopResults)
@@ -163,7 +167,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 						merged := mergeSearchResults(search.Results, second.Results, topK)
 						search.Results = merged
 						out.Memories = merged
-						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK)
+						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK, req.Query)
 						pkt = BuildEvidencePacket(plan, merged, out.Explain)
 						bindPacketFromHopResults(&pkt, hopResults2, byKey2)
 						hopResults = hopResults2
@@ -335,6 +339,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	case "enumerate":
 		enumerated = true
 		items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
+		items = s.refineEnumeratedItems(ctx, req, items, hopResults)
 		out.Items = items
 		out.ContextBlock = formatEnumerateContext(items)
 		out.Explain["item_count"] = len(items)
@@ -342,6 +347,16 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if len(items) == 0 {
 			out.AnswerStatus = AnswerNotFound
 			out.Abstained = true
+		} else if looksSuperlativeQuery(req.Query) {
+			if v := superlativeAnswer(items); v != "" {
+				out.Answer = v
+			}
+		} else {
+			vals := make([]string, 0, len(items))
+			for _, it := range items {
+				vals = append(vals, it.Value)
+			}
+			out.Answer = strings.Join(vals, ", ")
 		}
 		out.Coverage = map[string]any{
 			"targets":   len(plan.CoverageTargets),
@@ -350,28 +365,92 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	case "answer":
 		out.ContextBlock = assembleContextFromPacket(pkt, budget)
-		if plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) {
+		if (plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || looksLocationListQuery(req.Query) || transferRecipient(req.Query) != "") && !looksConsequenceQuery(req.Query) && !looksWhereQuery(req.Query) {
 			enumerated = true
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
+			items = s.refineEnumeratedItems(ctx, req, items, hopResults)
 			out.Items = items
 			if len(items) > 0 {
-				vals := make([]string, 0, len(items))
-				for _, it := range items {
-					vals = append(vals, it.Value)
+				if looksSuperlativeQuery(req.Query) {
+					if v := superlativeAnswer(items); v != "" {
+						out.Answer = v
+					}
+				} else {
+					vals := make([]string, 0, len(items))
+					for _, it := range items {
+						vals = append(vals, it.Value)
+					}
+					out.Answer = strings.Join(vals, ", ")
 				}
-				out.Answer = strings.Join(vals, ", ")
 				out.AnswerStatus = AnswerSupported
 				if plan.NeedsMultiHop && !packetOK {
 					out.AnswerStatus = AnswerPartiallySupported
 				}
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" && pkt.TemporalAnswer != "" && (plan.NeedsTemporal || temporalApplied) {
+		if looksCountQuery(req.Query) {
+			if !enumerated {
+				enumerated = true
+				out.Items = s.enumerateFromSearch(ctx, req, search.Results, hopResults)
+			}
+			out.Items = s.filterChildCountItems(ctx, req, out.Items, hopResults)
+			if n := countAnswer(req.Query, out.Items); n != "" {
+				out.Answer = n
+				out.AnswerStatus = AnswerSupported
+				out.Explain["count_answer"] = true
+			}
+		}
+		if looksWhenEventQuery(req.Query) {
+			if ans := s.dateAnswerFromHops(ctx, req, hopResults); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["date_answer"] = true
+			}
+		}
+		if looksWhereQuery(req.Query) {
+			if looksLocationListQuery(req.Query) {
+				loc := s.locationItemsFromEvidence(ctx, req, hopResults, nil)
+				if len(loc) > 0 {
+					vals := make([]string, 0, len(loc))
+					for _, it := range loc {
+						vals = append(vals, it.Value)
+					}
+					out.Items = loc
+					out.Answer = strings.Join(vals, ", ")
+					out.AnswerStatus = AnswerSupported
+					out.Explain["where_answer"] = true
+					enumerated = true
+				}
+			}
+			if strings.TrimSpace(out.Answer) == "" {
+				if ans := whereAnswerFromHops(hopResults); ans != "" {
+					out.Answer = ans
+					out.AnswerStatus = AnswerSupported
+					out.Explain["where_answer"] = true
+				}
+			}
+		}
+		if strings.TrimSpace(out.Answer) == "" && pkt.TemporalAnswer != "" && (plan.NeedsTemporal || temporalApplied) && !looksWhenEventQuery(req.Query) {
 			out.Answer = pkt.TemporalAnswer
 			out.AnswerStatus = AnswerSupported
 			out.Coverage = map[string]any{"targets": 1, "satisfied": true, "source": "temporal_resolver"}
 		}
-		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop {
+		if strings.TrimSpace(out.Answer) == "" && looksPolarQuery(req.Query) {
+			if ans := polarAnswerFromHops(req.Query, hopResults); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["polar_answer"] = true
+			}
+		}
+		if strings.TrimSpace(out.Answer) == "" && looksWhoQuery(req.Query) {
+			if ans := whoAnswerFromHops(req.Query, hopResults); ans != "" {
+				out.Answer = ans
+				out.AnswerStatus = AnswerSupported
+				out.Explain["who_answer"] = true
+			}
+		}
+		blockSlotDump := looksLocationListQuery(req.Query) || looksPolarQuery(req.Query)
+		if strings.TrimSpace(out.Answer) == "" && plan.NeedsMultiHop && hopComposeAllowed(req.Query) && !blockSlotDump {
 			if composed := composeMultiHopAnswer(pkt); composed != "" {
 				out.Answer = composed
 				if packetOK {
@@ -382,14 +461,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "multihop_bridge_chain"
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" {
+		if strings.TrimSpace(out.Answer) == "" && !blockSlotDump {
 			if ans := pickStructuredAnswer(req.Query, search.Results); ans != "" {
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
 				out.Explain["structured_answer"] = true
 			}
 		}
-		if strings.TrimSpace(out.Answer) == "" {
+		if strings.TrimSpace(out.Answer) == "" && !blockSlotDump {
 			if ans := pickEpisodeFallback(req.Query, search.Results); ans != "" {
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
@@ -476,7 +555,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["hybrid_unresolved_targets"] = hybrid.UnresolvedTargets
 			}
 		}
-		if hybrid.OK {
+		lockedDate := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
+		lockedWhere := looksWhereQuery(req.Query) && out.Explain["where_answer"] == true
+		lockedList := enumerated && strings.TrimSpace(out.Answer) != "" && strings.TrimSpace(out.Answer) != "not in memory"
+		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedList && !lockedPolar {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			if hopComposeAllowed(req.Query) {
 				grounded := groundToHopValues(hybrid.Answer, hopResults)
@@ -491,7 +574,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain {
+		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedList && !lockedPolar {
 			if hopComposeAllowed(req.Query) {
 				if composed := composeFromHopValues(hopResults); composed != "" {
 					out.Answer = composed
@@ -690,7 +773,19 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	}
 	seen := map[string]RecallItem{}
 	order := make([]string, 0)
-	entity := hopEntityName(nameLikeTokens(contentBearingTokens(tokens)))
+	entity := ""
+	if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+		entity = ents[0]
+	} else {
+		entity = hopEntityName(nameLikeTokens(contentBearingTokens(tokens)))
+	}
+	for _, h := range hops {
+		for _, d := range h.DependsOn {
+			if d == "e_rel" && strings.TrimSpace(h.Entity) != "" {
+				entity = h.Entity
+			}
+		}
+	}
 
 	add := func(value, predicate, memoryID, observed string) {
 		v := strings.TrimSpace(value)
@@ -723,32 +818,77 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		order = append(order, key)
 	}
 
-	for _, h := range hops {
-		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
-			continue
-		}
-		if !hopUsefulForList(h.Predicate, pred) {
-			continue
-		}
-		slotPred := firstNonEmpty(h.Predicate, pred)
-		if len(h.Values) > 0 {
-			for i, v := range h.Values {
-				id := ""
-				if i < len(h.MemoryIDs) {
-					id = h.MemoryIDs[i]
-				} else if len(h.MemoryIDs) > 0 {
-					id = h.MemoryIDs[0]
-				}
-				add(v, slotPred, id, "")
+	join := len(hopQueryEntities(req.Query)) >= 2
+	if join {
+		shared := hopSharedSlotValues(hops)
+		if looksCommunityQuery(req.Query) {
+			have := map[string]struct{}{}
+			for _, v := range shared {
+				have[strings.ToLower(v)] = struct{}{}
 			}
-			continue
+			addShared := func(v string) {
+				key := strings.ToLower(strings.TrimSpace(v))
+				if key == "" {
+					return
+				}
+				if _, ok := have[key]; ok {
+					return
+				}
+				have[key] = struct{}{}
+				shared = append(shared, v)
+			}
+			for _, v := range intersectHopValuesByContainment(hops) {
+				addShared(v)
+			}
+			for _, v := range hopValuesMentioningPartner(hops) {
+				addShared(v)
+			}
 		}
-		if v := strings.TrimSpace(h.Value); v != "" && utf8.RuneCountInString(v) <= 80 {
-			add(v, slotPred, firstID(h.MemoryIDs), "")
+		if len(shared) == 0 {
+			shared = hopSharedContentValues(hops)
+		}
+		slotPred := pred
+		for _, h := range hops {
+			if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+				continue
+			}
+			if hopUsefulForList(h.Predicate, pred) && strings.TrimSpace(h.Predicate) != "" {
+				slotPred = firstNonEmpty(h.Predicate, pred)
+				break
+			}
+		}
+		for _, v := range shared {
+			add(v, slotPred, hopMemoryIDForValue(hops, v), "")
+		}
+	} else {
+		for _, h := range hops {
+			if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+				continue
+			}
+			if !hopUsefulForList(h.Predicate, pred) {
+				continue
+			}
+			slotPred := firstNonEmpty(h.Predicate, pred)
+			if len(h.Values) > 0 {
+				for i, v := range h.Values {
+					id := ""
+					if i < len(h.MemoryIDs) {
+						id = h.MemoryIDs[i]
+					} else if len(h.MemoryIDs) > 0 {
+						id = h.MemoryIDs[0]
+					}
+					add(v, slotPred, id, "")
+				}
+				continue
+			}
+			if v := strings.TrimSpace(h.Value); v != "" && utf8.RuneCountInString(v) <= 80 {
+				add(v, slotPred, firstID(h.MemoryIDs), "")
+			}
 		}
 	}
 
 	// Prefer indexed atoms when hops missed or to fill additional values.
+	// Multi-entity joins must not refill the union from the first entity's atoms.
 	preds := make([]string, 0, 2)
 	if pred != "" {
 		preds = append(preds, pred)
@@ -757,9 +897,18 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			preds = append(preds, PredicatePreference)
 		case PredicateOccupation:
 			preds = append(preds, PredicateIdentity)
+		case PredicatePossession:
+			preds = append(preds, PredicateIdentity)
+		case PredicateSkill:
+			preds = append(preds, PredicateActivity)
+		}
+		if looksCommunityQuery(req.Query) && pred == PredicateActivity {
+			preds = append(preds, PredicateAffiliation)
 		}
 	}
-	if len(preds) > 0 {
+	// Hops already listed typed values. Refilling the atom index dumps every
+	// activity/preference onto list answers that already had a slot.
+	if !join && len(preds) > 0 && len(order) == 0 {
 		if indexer, ok := s.store.(AtomIndexer); ok {
 			ids := make([]string, 0, 40)
 			seenID := map[string]struct{}{}
@@ -810,7 +959,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		}
 	}
 
-	if len(order) == 0 {
+	if !join && len(order) == 0 {
 		for _, r := range results {
 			if searchResultIsEpisode(r) {
 				continue
@@ -845,7 +994,203 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	for _, key := range order {
 		items = append(items, seen[key])
 	}
+	if looksLocationListQuery(req.Query) {
+		return s.locationItemsFromEvidence(ctx, req, hops, items)
+	}
 	return items
+}
+
+func looksLocationListQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if strings.Contains(q, "location") {
+		return true
+	}
+	if !strings.Contains(q, "practice") {
+		return false
+	}
+	return strings.Contains(q, " at") || strings.HasPrefix(q, "where ")
+}
+
+// practiceObjectTokens is the noun after practice/practices until at/in/near.
+func practiceObjectTokens(query string) []string {
+	lower := strings.ToLower(query)
+	cue := ""
+	idx := -1
+	for _, c := range []string{" practices ", " practice ", " practicing ", " practised ", " practiced "} {
+		i := strings.Index(lower, c)
+		if i < 0 {
+			continue
+		}
+		if idx < 0 || i < idx {
+			idx = i
+			cue = c
+		}
+	}
+	if idx < 0 {
+		return nil
+	}
+	rest := query[idx+len(cue):]
+	restLower := strings.ToLower(rest)
+	cut := len(rest)
+	for _, stop := range []string{" at", " in", " near", " on", "?"} {
+		if k := strings.Index(restLower, stop); k >= 0 && k < cut {
+			cut = k
+		}
+	}
+	toks := contentBearingTokens(tokenize(rest[:cut]))
+	if len(toks) == 0 {
+		return nil
+	}
+	return toks
+}
+
+func compositionalPracticePlace(content string, focus []string) string {
+	if strings.TrimSpace(content) == "" || len(focus) == 0 {
+		return ""
+	}
+	fields := strings.Fields(content)
+	for _, obj := range focus {
+		obj = strings.ToLower(strings.TrimSpace(obj))
+		if obj == "" {
+			continue
+		}
+		for i, raw := range fields {
+			w := strings.ToLower(strings.Trim(raw, ".,;:!?\"'"))
+			if w != obj || i+1 >= len(fields) {
+				continue
+			}
+			nextRaw := fields[i+1]
+			next := strings.ToLower(strings.Trim(nextRaw, ".,;:!?\"'"))
+			if next == "" || next == obj || isQueryStopword(next) || next == "practice" || next == "practices" || next == "practicing" || next == "practised" || next == "practiced" {
+				continue
+			}
+			if utf8.RuneCountInString(next) < 3 {
+				continue
+			}
+			if strings.HasSuffix(next, "ing") {
+				continue
+			}
+			if looksHopPerson(strings.Trim(nextRaw, ".,;:!?\"'")) {
+				continue
+			}
+			if i == 0 || !strings.EqualFold(strings.Trim(fields[i-1], ".,;:!?\"'"), "the") {
+				continue
+			}
+			return "the " + obj + " " + next
+		}
+	}
+	return ""
+}
+
+func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallRequest, hops []HopResult, items []RecallItem) []RecallItem {
+	seen := map[string]RecallItem{}
+	order := make([]string, 0)
+	focus := practiceObjectTokens(req.Query)
+	add := func(p, id string) {
+		p = strings.TrimSpace(p)
+		if p == "" || anaphoricSlotValue(p) || !validEnumeratedValue(p) {
+			return
+		}
+		if placeEqualsAny(p, focus) {
+			return
+		}
+		key := strings.ToLower(p)
+		if existing, ok := seen[key]; ok {
+			existing.Evidence = appendUnique(existing.Evidence, id)
+			seen[key] = existing
+			return
+		}
+		ev := []string{}
+		if id != "" {
+			ev = []string{id}
+		}
+		seen[key] = RecallItem{
+			Value:     titleCaseWords(p),
+			Predicate: PredicateActivity,
+			Evidence:  ev,
+		}
+		order = append(order, key)
+	}
+	addFrom := func(blob, id string, requireFocus bool) {
+		if strings.TrimSpace(blob) == "" {
+			return
+		}
+		if requireFocus && len(focus) > 0 && !itemHitsExclusion(blob, focus) {
+			return
+		}
+		for _, p := range placesFromContent(blob) {
+			add(p, id)
+		}
+		if p := compositionalPracticePlace(blob, focus); p != "" {
+			add(p, id)
+		}
+	}
+	scan := func(requireFocus bool) {
+		for _, h := range hops {
+			if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+				continue
+			}
+			if h.Source == "search_fallback" && !requireFocus {
+				continue
+			}
+			if h.Predicate != "" && h.Predicate != PredicateActivity && h.Predicate != PredicateEvent && h.Predicate != PredicateResidence {
+				continue
+			}
+			for i, c := range h.Contents {
+				id := ""
+				if i < len(h.MemoryIDs) {
+					id = h.MemoryIDs[i]
+				} else if len(h.MemoryIDs) > 0 {
+					id = h.MemoryIDs[0]
+				}
+				addFrom(c, id, requireFocus)
+			}
+		}
+		for _, it := range items {
+			blob := s.itemEvidenceBlob(ctx, req, it, hops)
+			id := ""
+			if len(it.Evidence) > 0 {
+				id = it.Evidence[0]
+			}
+			addFrom(blob, id, requireFocus)
+		}
+	}
+	scan(len(focus) > 0)
+	if len(order) == 0 && len(focus) > 0 {
+		scan(false)
+	}
+	out := make([]RecallItem, 0, len(order))
+	for _, key := range order {
+		out = append(out, seen[key])
+	}
+	return out
+}
+
+func hopMemoryIDForValue(hops []HopResult, value string) string {
+	want := strings.ToLower(strings.TrimSpace(value))
+	if want == "" {
+		return ""
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for i, v := range h.Values {
+			if strings.ToLower(strings.TrimSpace(v)) != want {
+				continue
+			}
+			if i < len(h.MemoryIDs) && h.MemoryIDs[i] != "" {
+				return h.MemoryIDs[i]
+			}
+			if len(h.MemoryIDs) > 0 {
+				return h.MemoryIDs[0]
+			}
+		}
+		if strings.ToLower(strings.TrimSpace(h.Value)) == want && len(h.MemoryIDs) > 0 {
+			return h.MemoryIDs[0]
+		}
+	}
+	return ""
 }
 
 func hopUsefulForList(hopPred, listPred string) bool {
@@ -860,9 +1205,1416 @@ func hopUsefulForList(hopPred, listPred string) bool {
 	case PredicatePreference:
 		return hopPred == PredicateFamilyMember || hopPred == PredicateActivity
 	case PredicateActivity:
-		return hopPred == PredicateEvent || hopPred == PredicatePreference
+		return hopPred == PredicateEvent || hopPred == PredicatePreference || hopPred == PredicateSkill || hopPred == PredicateAffiliation
+	case PredicatePossession:
+		return hopPred == PredicateIdentity
+	case PredicateSkill:
+		return hopPred == PredicateActivity
+	case PredicateHealth:
+		return hopPred == PredicateEvent
+	case PredicateAffiliation:
+		return hopPred == PredicateEvent || hopPred == PredicateFamilyMember
+	case PredicateEvent:
+		return hopPred == PredicatePlan || hopPred == PredicateActivity
+	case PredicatePlan:
+		return hopPred == PredicateEvent
 	}
 	return false
+}
+
+func countHeadNoun(query string) string {
+	lower := strings.ToLower(query)
+	key := "how many "
+	i := strings.Index(lower, key)
+	if i < 0 {
+		key = "how much "
+		i = strings.Index(lower, key)
+	}
+	if i < 0 {
+		return ""
+	}
+	rest := strings.TrimSpace(query[i+len(key):])
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.Trim(strings.ToLower(fields[0]), "?,.!'\"")
+}
+
+func countAnswer(query string, items []RecallItem) string {
+	if len(items) == 0 {
+		return ""
+	}
+	head := countHeadNoun(query)
+	if head == "times" || head == "time" {
+		seen := map[string]struct{}{}
+		n := 0
+		for _, it := range items {
+			if len(it.Evidence) == 0 {
+				n++
+				continue
+			}
+			for _, id := range it.Evidence {
+				if id == "" {
+					continue
+				}
+				if _, ok := seen[id]; ok {
+					continue
+				}
+				seen[id] = struct{}{}
+				n++
+			}
+		}
+		if n == 0 {
+			return strconv.Itoa(len(items))
+		}
+		return strconv.Itoa(n)
+	}
+	switch head {
+	case "", "children", "kids", "people":
+		return strconv.Itoa(len(items))
+	}
+	stem := strings.TrimSuffix(head, "es")
+	stem = strings.TrimSuffix(stem, "s")
+	if len(stem) < 3 {
+		stem = head
+	}
+	n := 0
+	for _, it := range items {
+		v := strings.ToLower(it.Value)
+		if strings.Contains(v, head) || strings.Contains(v, stem) {
+			n++
+		}
+	}
+	if n == 0 {
+		return strconv.Itoa(len(items))
+	}
+	return strconv.Itoa(n)
+}
+
+func polarClaimTokens(query string) []string {
+	skip := map[string]struct{}{
+		"tried": {}, "try": {}, "teach": {}, "taught": {}, "learned": {}, "learn": {},
+		"himself": {}, "herself": {}, "myself": {}, "play": {}, "playing": {},
+		"how": {}, "kind": {},
+	}
+	ents := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		ents[strings.ToLower(e)] = struct{}{}
+	}
+	out := make([]string, 0, 4)
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		if _, ok := skip[t]; ok {
+			continue
+		}
+		if _, ok := ents[t]; ok {
+			continue
+		}
+		if len(t) < 4 {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+func polarAnswerFromHops(query string, hops []HopResult) string {
+	if len(hopQueryEntities(query)) == 0 {
+		return ""
+	}
+	claim := polarClaimTokens(query)
+	if len(claim) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for _, v := range h.Values {
+			b.WriteString(" ")
+			b.WriteString(strings.ToLower(v))
+		}
+		if h.Value != "" {
+			b.WriteString(" ")
+			b.WriteString(strings.ToLower(h.Value))
+		}
+		for _, c := range h.Contents {
+			b.WriteString(" ")
+			b.WriteString(strings.ToLower(c))
+		}
+	}
+	blob := b.String()
+	if strings.TrimSpace(blob) == "" {
+		return ""
+	}
+	for _, t := range claim {
+		if strings.Contains(blob, t) {
+			return "Yes"
+		}
+	}
+	return ""
+}
+
+func filterBesides(query string, items []RecallItem) []RecallItem {
+	excl := besidesExclusionTokens(query)
+	if len(excl) == 0 || len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		if itemHitsExclusion(it.Value, excl) {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
+func besidesExclusionTokens(query string) []string {
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, " besides ")
+	if i < 0 {
+		i = strings.Index(lower, " besides")
+	}
+	if i < 0 {
+		return nil
+	}
+	rest := query
+	if i+len(" besides ") <= len(query) && strings.HasPrefix(lower[i:], " besides ") {
+		rest = query[i+len(" besides "):]
+	} else if i+len(" besides") <= len(query) {
+		rest = strings.TrimSpace(query[i+len(" besides"):])
+	}
+	return contentBearingTokens(tokenize(rest))
+}
+
+func itemHitsExclusion(value string, excl []string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return false
+	}
+	vtoks := tokenize(value)
+	vstems := map[string]struct{}{exclusionStem(v): {}}
+	for _, vt := range vtoks {
+		vstems[exclusionStem(vt)] = struct{}{}
+		vstems[vt] = struct{}{}
+	}
+	for _, t := range excl {
+		if len(t) < 4 {
+			continue
+		}
+		if strings.Contains(v, t) || strings.HasPrefix(v, t) {
+			return true
+		}
+		if _, ok := vstems[exclusionStem(t)]; ok && exclusionStem(t) != "" {
+			return true
+		}
+		for _, vt := range vtoks {
+			if tokensMatch(t, vt) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func exclusionStem(t string) string {
+	t = strings.ToLower(strings.TrimSpace(t))
+	for _, suf := range []string{"ingly", "ing", "edly", "ed", "es"} {
+		if strings.HasSuffix(t, suf) && len(t)-len(suf) >= 3 {
+			t = t[:len(t)-len(suf)]
+			break
+		}
+	}
+	if strings.HasSuffix(t, "e") && len(t) > 3 {
+		t = t[:len(t)-1]
+	}
+	if strings.HasSuffix(t, "s") && len(t) >= 4 {
+		t = t[:len(t)-1]
+	}
+	return t
+}
+
+func capEnumerateItems(items []RecallItem) []RecallItem {
+	if len(items) <= maxEnumerateAnswerItems {
+		return items
+	}
+	return items[:maxEnumerateAnswerItems]
+}
+
+func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	items = filterBesides(req.Query, items)
+	items = s.filterHopEvidence(ctx, req, items, hops)
+	if !looksCountQuery(req.Query) {
+		items = s.rankItemsByQuery(ctx, req, items, hops)
+		items = capEnumerateItems(items)
+	}
+	return items
+}
+
+func (s *Service) rankItemsByQuery(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	if len(items) < 2 {
+		return items
+	}
+	type scored struct {
+		it    RecallItem
+		score int
+		idx   int
+	}
+	rows := make([]scored, 0, len(items))
+	for i, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		rows = append(rows, scored{it: it, score: itemQueryScore(req.Query, it.Value, blob), idx: i})
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].score != rows[j].score {
+			return rows[i].score > rows[j].score
+		}
+		return rows[i].idx < rows[j].idx
+	})
+	if len(negatedModifierTokens(req.Query)) > 0 {
+		out := make([]RecallItem, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, r.it)
+		}
+		return out
+	}
+	any := false
+	for _, r := range rows {
+		if r.score > 0 {
+			any = true
+			break
+		}
+	}
+	out := make([]RecallItem, 0, len(rows))
+	for _, r := range rows {
+		if any && r.score == 0 {
+			continue
+		}
+		out = append(out, r.it)
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
+}
+
+func itemQueryScore(query, value, blob string) int {
+	toks := contentBearingTokens(tokenize(query))
+	skip := map[string]struct{}{
+		"enjoy": {}, "enjoys": {}, "enjoyed": {},
+		"like": {}, "likes": {}, "liked": {},
+		"love": {}, "loves": {}, "loved": {},
+		"prefer": {}, "prefers": {}, "preferred": {},
+		"hobby": {}, "hobbies": {},
+		"activity": {}, "activities": {},
+		"item": {}, "items": {},
+		"instrument": {}, "instruments": {},
+	}
+	if looksInstrumentQuery(query) {
+		skip["play"] = struct{}{}
+		skip["plays"] = struct{}{}
+		skip["playing"] = struct{}{}
+		skip["practice"] = struct{}{}
+		skip["practices"] = struct{}{}
+		skip["practicing"] = struct{}{}
+	}
+	for _, e := range hopQueryEntities(query) {
+		el := strings.ToLower(e)
+		skip[el] = struct{}{}
+		skip[el+"'s"] = struct{}{}
+		skip[el+"’s"] = struct{}{}
+	}
+	hay := strings.ToLower(strings.TrimSpace(value + " " + blob))
+	if hay == "" {
+		return 0
+	}
+	n := 0
+	seen := map[string]struct{}{}
+	for _, t := range toks {
+		t = strings.ToLower(t)
+		if len(t) < 4 {
+			continue
+		}
+		if _, ok := skip[t]; ok {
+			continue
+		}
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		if itemHitsExclusion(hay, []string{t}) {
+			n++
+		}
+	}
+	if strings.Contains(strings.ToLower(query), "names") && itemHitsExclusion(hay, []string{"named"}) {
+		n += 2
+	}
+	if len(childhoodClauseTokens(query)) > 0 && (valueHasChildCue(value, blob) || itemHitsExclusion(hay, []string{"child", "childhood"})) {
+		n += 2
+	}
+	if looksUnwindQuery(query) && unwindEvidenceHit(hay) {
+		n += 2
+	}
+	if looksInstrumentQuery(query) && itemHitsExclusion(hay, []string{"play", "plays", "playing", "practice", "practices", "practicing"}) {
+		n += 2
+	}
+	if looksTrickQuery(query) && itemHitsExclusion(hay, []string{"trick", "tricks"}) {
+		n += 2
+	}
+	return n
+}
+
+func nameCueTokens(query string) []string {
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "names") && !strings.Contains(q, "name") {
+		return nil
+	}
+	if looksWhenEventQuery(query) || looksWhereQuery(query) {
+		return nil
+	}
+	return []string{"named"}
+}
+
+func childhoodClauseTokens(query string) []string {
+	q := strings.ToLower(query)
+	if strings.Contains(q, "childhood") || strings.Contains(q, " as a child") || strings.Contains(q, " as a kid") {
+		return []string{"child", "childhood"}
+	}
+	return nil
+}
+
+func superlativeAnswer(items []RecallItem) string {
+	if len(items) == 0 {
+		return ""
+	}
+	best := items[0]
+	bestN := len(items[0].Evidence)
+	if bestN == 0 {
+		bestN = 1
+	}
+	for _, it := range items[1:] {
+		n := len(it.Evidence)
+		if n == 0 {
+			n = 1
+		}
+		if n > bestN {
+			best = it
+			bestN = n
+		}
+	}
+	return best.Value
+}
+
+func whoAnswerFromHops(query string, hops []HopResult) string {
+	if queryHasToken(query, "organization", "organizations") ||
+		strings.Contains(strings.ToLower(query), "beneficiar") {
+		return composeFromHopValues(hops)
+	}
+	skip := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		skip[strings.ToLower(e)] = struct{}{}
+	}
+	if len(skip) == 0 {
+		return ""
+	}
+	seen := map[string]struct{}{}
+	names := make([]string, 0, 4)
+	addPerson := func(n string) {
+		n = strings.TrimSpace(n)
+		if n == "" {
+			return
+		}
+		if i := strings.IndexAny(n, " ,."); i > 0 {
+			n = strings.TrimSpace(n[:i])
+		}
+		if !looksHopPerson(n) {
+			return
+		}
+		key := strings.ToLower(n)
+		if _, ok := skip[key]; ok {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		names = append(names, n)
+	}
+	addPhrase := func(n string) {
+		n = strings.TrimSpace(n)
+		if n == "" || !looksSupporterGroup(n) {
+			return
+		}
+		key := strings.ToLower(n)
+		if _, ok := skip[key]; ok {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		names = append(names, titleCaseWords(n))
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for _, v := range h.Values {
+			addPerson(v)
+			addPhrase(v)
+		}
+		addPerson(h.Value)
+		addPhrase(h.Value)
+		for _, c := range h.Contents {
+			for _, w := range strings.Fields(c) {
+				addPerson(strings.Trim(w, "?,.!'\"()"))
+			}
+		}
+	}
+	if len(names) == 0 {
+		return composeFromHopValues(hops)
+	}
+	return strings.Join(names, ", ")
+}
+
+func looksSupporterGroup(v string) bool {
+	lower := strings.ToLower(v)
+	for _, g := range []string{"friend", "team", "colleague", "coworker", "classmate"} {
+		if strings.Contains(lower, g) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hops []HopResult) string {
+	year := queryCalendarYear(req.Query)
+	focus := whenEventFocusTokens(req.Query)
+	type hit struct {
+		t     time.Time
+		score int
+	}
+	var hits []hit
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for i, id := range h.MemoryIDs {
+			content := ""
+			if i < len(h.Contents) {
+				content = h.Contents[i]
+			} else if len(h.Contents) > 0 {
+				content = h.Contents[0]
+			}
+			var rec MemoryRecord
+			if id != "" {
+				if got, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, id); err == nil {
+					rec = got
+					if content == "" {
+						content = rec.Content
+					}
+				}
+			}
+			blob := strings.ToLower(strings.TrimSpace(content + " " + h.Value))
+			for _, v := range h.Values {
+				blob += " " + strings.ToLower(v)
+			}
+			t := eventTimeFromRecord(rec, content)
+			if t == nil {
+				continue
+			}
+			if year != 0 && t.Year() != year {
+				continue
+			}
+			hits = append(hits, hit{t: t.UTC(), score: focusHitScore(blob, focus)})
+		}
+	}
+	if len(hits) == 0 {
+		return ""
+	}
+	best := hits[0].score
+	for _, h := range hits[1:] {
+		if h.score > best {
+			best = h.score
+		}
+	}
+	var pick *hit
+	for i := range hits {
+		h := hits[i]
+		if best > 0 && h.score < best {
+			continue
+		}
+		if pick == nil || h.t.Before(pick.t) {
+			pick = &hits[i]
+		}
+	}
+	if pick == nil {
+		return ""
+	}
+	return pick.t.Format("2 January 2006")
+}
+
+func eventTimeFromRecord(rec MemoryRecord, content string) *time.Time {
+	if rec.ObservedAt != nil && !rec.ObservedAt.IsZero() {
+		t := rec.ObservedAt.UTC()
+		return &t
+	}
+	return parseDateFromText(firstNonEmpty(content, rec.Content))
+}
+
+func parseDateFromText(s string) *time.Time {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	if t := parseFlexibleTime(s); t != nil && t.Year() > 1900 {
+		return t
+	}
+	fields := strings.Fields(s)
+	for n := 5; n >= 2; n-- {
+		for i := 0; i+n <= len(fields); i++ {
+			chunk := strings.Trim(strings.Join(fields[i:i+n], " "), "()[];,")
+			if t := parseFlexibleTime(chunk); t != nil && t.Year() > 1900 {
+				return t
+			}
+		}
+	}
+	return nil
+}
+
+func queryCalendarYear(query string) int {
+	for _, tok := range tokenize(query) {
+		if len(tok) != 4 {
+			continue
+		}
+		digits := true
+		for _, r := range tok {
+			if r < '0' || r > '9' {
+				digits = false
+				break
+			}
+		}
+		if !digits {
+			continue
+		}
+		y, err := strconv.Atoi(tok)
+		if err == nil && y >= 1900 && y <= 2100 {
+			return y
+		}
+	}
+	return 0
+}
+
+func whenEventFocusTokens(query string) []string {
+	skip := map[string]struct{}{
+		"get": {}, "got": {}, "gone": {}, "go": {}, "going": {},
+	}
+	for _, e := range hopQueryEntities(query) {
+		skip[strings.ToLower(e)] = struct{}{}
+	}
+	if y := queryCalendarYear(query); y != 0 {
+		skip[strconv.Itoa(y)] = struct{}{}
+	}
+	out := make([]string, 0)
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		t = strings.ToLower(t)
+		if _, ok := skip[t]; ok {
+			continue
+		}
+		if looksLikeDateToken(t) {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+func focusHitScore(blob string, focus []string) int {
+	n := 0
+	for _, t := range focus {
+		if len(t) < 4 {
+			continue
+		}
+		if strings.Contains(blob, t) {
+			n++
+			continue
+		}
+		stem := exclusionStem(t)
+		hit := stem != "" && strings.Contains(blob, stem)
+		if !hit {
+			for _, w := range tokenize(blob) {
+				if tokensMatch(t, w) || (stem != "" && stem == exclusionStem(w)) {
+					hit = true
+					break
+				}
+			}
+		}
+		if hit {
+			n++
+		}
+	}
+	return n
+}
+
+func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	if recip := transferRecipient(req.Query); recip != "" {
+		items = s.filterItemsByMention(ctx, req, items, hops, strings.ToLower(recip))
+		for i := range items {
+			items[i].Value = trimRecipientSuffix(items[i].Value, recip)
+		}
+	}
+	if toks := afterClauseTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
+	head := listHeadModifierTokens(req.Query)
+	group := groupCompanionTokens(req.Query)
+	if len(head) > 0 && len(group) > 0 {
+		items = s.filterItemsByTokenGroupsPreferIntersect(ctx, req, items, hops, head, group)
+	} else {
+		if len(group) > 0 {
+			items = s.filterItemsByTokens(ctx, req, items, hops, group)
+		}
+		if len(head) > 0 {
+			pos := make([]string, 0, len(head))
+			for _, t := range head {
+				if unNegationPositive(t) == "" {
+					pos = append(pos, t)
+				}
+			}
+			if len(pos) > 0 {
+				items = s.filterItemsByTokens(ctx, req, items, hops, pos)
+			}
+		}
+	}
+	if toks := forClauseTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
+	if toks := inCommunityTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
+	if toks := duringClauseTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
+	if toks := negatedModifierTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByNegatedModifier(ctx, req, items, hops, toks)
+	}
+	if toks := practiceObjectTokens(req.Query); len(toks) > 0 {
+		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
+	}
+	if len(childhoodClauseTokens(req.Query)) > 0 {
+		kept := make([]RecallItem, 0, len(items))
+		for _, it := range items {
+			blob := s.itemEvidenceBlob(ctx, req, it, hops)
+			if valueHasChildCue(it.Value, blob) || itemHitsExclusion(it.Value+" "+blob, []string{"child", "childhood"}) {
+				kept = append(kept, it)
+			}
+		}
+		if len(kept) > 0 {
+			items = kept
+		}
+	}
+	return items
+}
+
+func afterClauseTokens(query string) []string {
+	if looksWhenEventQuery(query) {
+		return nil
+	}
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, " after ")
+	if i < 0 {
+		return nil
+	}
+	rest := strings.TrimSpace(query[i+len(" after "):])
+	toks := contentBearingTokens(tokenize(rest))
+	if len(toks) == 0 {
+		return nil
+	}
+	return toks
+}
+
+func groupCompanionTokens(query string) []string {
+	if personAfterCue(query, "with") != "" {
+		return nil
+	}
+	group := map[string]struct{}{
+		"colleagues": {}, "colleague": {},
+		"coworkers": {}, "coworker": {},
+		"teammates": {}, "teammate": {},
+		"classmates": {}, "classmate": {},
+		"friends": {}, "friend": {},
+	}
+	fields := strings.Fields(query)
+	for i, raw := range fields {
+		if !strings.EqualFold(strings.Trim(raw, "?,.!\""), "with") || i+1 >= len(fields) {
+			continue
+		}
+		j := i + 1
+		next := strings.ToLower(strings.Trim(fields[j], "?,.!\"'"))
+		switch next {
+		case "his", "her", "their", "the":
+			if j+1 >= len(fields) {
+				continue
+			}
+			j++
+			next = strings.ToLower(strings.Trim(fields[j], "?,.!\"'"))
+		}
+		if _, ok := group[next]; ok {
+			return []string{next}
+		}
+	}
+	return nil
+}
+
+func forClauseTokens(query string) []string {
+	if looksWhenEventQuery(query) || looksWhereQuery(query) || transferRecipient(query) != "" {
+		return nil
+	}
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, " for ")
+	if i < 0 {
+		return nil
+	}
+	rest := strings.TrimSpace(query[i+len(" for "):])
+	toks := contentBearingTokens(tokenize(rest))
+	if len(toks) == 0 {
+		return nil
+	}
+	return toks
+}
+
+// inCommunityTokens pulls a named group from "in the X community".
+// Unnamed "in the community" yields nothing so existing community lists stay intact.
+func inCommunityTokens(query string) []string {
+	lower := strings.ToLower(strings.TrimSpace(query))
+	lower = strings.TrimRight(lower, "?,.!")
+	if !strings.HasSuffix(lower, " community") {
+		return nil
+	}
+	i := strings.LastIndex(lower, " community")
+	if i < 0 {
+		return nil
+	}
+	prefix := lower[:i]
+	j := strings.LastIndex(prefix, " in ")
+	if j < 0 {
+		return nil
+	}
+	mid := strings.TrimSpace(prefix[j+len(" in "):])
+	toks := contentBearingTokens(tokenize(mid))
+	if len(toks) == 0 {
+		return nil
+	}
+	return toks
+}
+
+func duringClauseTokens(query string) []string {
+	if looksWhenEventQuery(query) || looksWhereQuery(query) {
+		return nil
+	}
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, " during ")
+	if i < 0 {
+		return nil
+	}
+	rest := strings.TrimSpace(query[i+len(" during "):])
+	toks := contentBearingTokens(tokenize(rest))
+	out := make([]string, 0, len(toks))
+	for _, t := range toks {
+		switch strings.ToLower(t) {
+		case "journey", "journeys", "time", "period", "life", "year", "years":
+			continue
+		}
+		out = append(out, t)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// listHeadModifierTokens pulls the adjective/noun immediately before a list
+// head (outdoor activities, sports collectible). Soft-filter only: if no item
+// hits, the original list is kept. "similar" is a join cue, not evidence.
+func listHeadModifierTokens(query string) []string {
+	heads := map[string]struct{}{
+		"activities": {}, "activity": {},
+		"collectible": {}, "collectibles": {},
+		"snacks": {}, "snack": {},
+	}
+	skip := map[string]struct{}{
+		"kind": {}, "type": {}, "some": {}, "any": {},
+		"which": {}, "what": {}, "similar": {},
+		// Domain/join cue, not an evidence adjective like "outdoor".
+		"community": {},
+	}
+	fields := strings.Fields(query)
+	for i, raw := range fields {
+		w := strings.ToLower(strings.Trim(raw, "?,.!\"'"))
+		if _, ok := heads[w]; !ok || i == 0 {
+			continue
+		}
+		prevRaw := strings.Trim(fields[i-1], "?,.!\"'")
+		prev := strings.ToLower(prevRaw)
+		if isQueryStopword(prev) {
+			continue
+		}
+		if _, ok := skip[prev]; ok {
+			continue
+		}
+		if looksHopPerson(prevRaw) {
+			continue
+		}
+		if len(prev) < 4 {
+			continue
+		}
+		return []string{prev}
+	}
+	return nil
+}
+
+// negatedModifierTokens returns un- adjectives in the query (unhealthy →
+// drop items whose evidence has the positive form only). Not a food list.
+func negatedModifierTokens(query string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 1)
+	add := func(t string) {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if unNegationPositive(t) == "" {
+			return
+		}
+		if _, ok := seen[t]; ok {
+			return
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	for _, t := range listHeadModifierTokens(query) {
+		add(t)
+	}
+	for _, t := range contentBearingTokens(tokenize(query)) {
+		add(t)
+	}
+	return out
+}
+
+func unNegationPositive(tok string) string {
+	tok = strings.ToLower(strings.TrimSpace(tok))
+	if !strings.HasPrefix(tok, "un") || len(tok) < 6 {
+		return ""
+	}
+	switch tok {
+	case "unless", "until", "under", "unique", "university", "understand",
+		"unknown", "union", "united", "unusual", "uniform", "universe",
+		"uncle", "uncover", "unfold", "undo", "unit", "units",
+		"unwind", "unwinds", "unwinding", "unwound":
+		return ""
+	}
+	rest := tok[2:]
+	if len(rest) < 4 {
+		return ""
+	}
+	for _, r := range rest {
+		if r < 'a' || r > 'z' {
+			return ""
+		}
+	}
+	return rest
+}
+
+func itemContradictsNegation(blob, unTok string) bool {
+	pos := unNegationPositive(unTok)
+	if pos == "" {
+		return false
+	}
+	hasUn := itemHitsExclusion(blob, []string{unTok})
+	hasPos := itemHitsExclusion(blob, polarityPositiveForms(pos))
+	return hasPos && !hasUn
+}
+
+func polarityPositiveForms(pos string) []string {
+	pos = strings.ToLower(strings.TrimSpace(pos))
+	if pos == "" {
+		return nil
+	}
+	out := []string{pos}
+	if strings.HasSuffix(pos, "y") && len(pos) > 4 {
+		stem := pos[:len(pos)-1] + "i"
+		out = append(out, stem+"er", stem+"est")
+	} else {
+		out = append(out, pos+"er", pos+"est")
+	}
+	return out
+}
+
+func (s *Service) filterItemsByNegatedModifier(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult, toks []string) []RecallItem {
+	if len(toks) == 0 || len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		blob := it.Value + " " + s.itemEvidenceBlob(ctx, req, it, hops)
+		drop := false
+		for _, t := range toks {
+			if itemContradictsNegation(blob, t) {
+				drop = true
+				break
+			}
+		}
+		if !drop {
+			out = append(out, it)
+		}
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
+}
+
+func whereAnswerFromHops(hops []HopResult) string {
+	seen := map[string]struct{}{}
+	places := make([]string, 0, 2)
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" || anaphoricSlotValue(p) {
+			return
+		}
+		key := strings.ToLower(p)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		places = append(places, titleCaseWords(p))
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for _, c := range h.Contents {
+			for _, p := range placesFromContent(c) {
+				add(p)
+			}
+		}
+		if h.Value != "" {
+			for _, p := range placesFromContent(h.Value) {
+				add(p)
+			}
+		}
+	}
+	if len(places) == 0 {
+		return ""
+	}
+	return strings.Join(places, ", ")
+}
+
+func placeFromContent(content string) string {
+	places := placesFromContent(content)
+	if len(places) == 0 {
+		return ""
+	}
+	return places[len(places)-1]
+}
+
+func placesFromContent(content string) []string {
+	content = strings.TrimSpace(stripTrailingStamp(content))
+	content = strings.ReplaceAll(content, "`", "'")
+	if content == "" {
+		return nil
+	}
+	lower := strings.ToLower(content)
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 4)
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" || anaphoricSlotValue(p) {
+			return
+		}
+		key := strings.ToLower(p)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, p)
+	}
+	for _, prep := range []string{" in ", " at ", " near ", " around ", " on "} {
+		start := 0
+		for {
+			i := strings.Index(lower[start:], prep)
+			if i < 0 {
+				break
+			}
+			i += start
+			rest := content[i+len(prep):]
+			if placePrepRestIsDate(rest) {
+				start = i + len(prep)
+				continue
+			}
+			for _, part := range splitPlaceList(rest) {
+				if cand := cleanPlaceCandidate(part); cand != "" {
+					add(cand)
+				}
+			}
+			start = i + len(prep)
+		}
+	}
+	return out
+}
+
+func splitPlaceList(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	if j := strings.IndexAny(s, ".([;!?"); j >= 0 {
+		s = strings.TrimSpace(s[:j])
+	}
+	raw := strings.Split(s, ",")
+	parts := make([]string, 0, len(raw))
+	for _, p := range raw {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		low := strings.ToLower(p)
+		if strings.HasPrefix(low, "and ") {
+			p = strings.TrimSpace(p[4:])
+		}
+		if i := strings.Index(strings.ToLower(p), " and "); i > 0 {
+			parts = append(parts, strings.TrimSpace(p[:i]), strings.TrimSpace(p[i+5:]))
+			continue
+		}
+		parts = append(parts, p)
+	}
+	return parts
+}
+
+func cleanPlaceCandidate(s string) string {
+	s = strings.TrimSpace(strings.ReplaceAll(s, "`", "'"))
+	if s == "" {
+		return ""
+	}
+	if j := strings.IndexAny(s, ".([;!?"); j >= 0 {
+		s = strings.TrimSpace(s[:j])
+	}
+	fields := strings.Fields(s)
+	skipLead := map[string]struct{}{
+		"his": {}, "her": {}, "their": {}, "its": {}, "my": {}, "our": {},
+		"the": {}, "a": {}, "an": {}, "this": {}, "that": {}, "these": {}, "those": {},
+	}
+	for len(fields) > 0 {
+		w := strings.ToLower(strings.Trim(fields[0], ",'\"'"))
+		if _, ok := skipLead[w]; ok {
+			fields = fields[1:]
+			continue
+		}
+		break
+	}
+	if len(fields) == 0 {
+		return ""
+	}
+	first := strings.ToLower(strings.Trim(fields[0], ",'\"'"))
+	switch first {
+	case "order", "common", "fact", "addition":
+		return ""
+	}
+	if looksPlaceDateToken(first) {
+		return ""
+	}
+	stopAt := map[string]struct{}{
+		"last": {}, "during": {}, "when": {}, "after": {}, "before": {},
+		"because": {}, "with": {}, "while": {}, "where": {}, "and": {},
+		"which": {}, "that": {}, "who": {}, "whose": {}, "whom": {},
+		"in": {}, "at": {}, "on": {}, "near": {}, "around": {},
+	}
+	keep := make([]string, 0, 4)
+	for i, f := range fields {
+		w := strings.ToLower(strings.Trim(f, ",'\"'"))
+		if _, ok := stopAt[w]; ok && i > 0 {
+			break
+		}
+		if i > 0 && looksHopPerson(titleCaseWords(strings.Trim(f, ",'\"'"))) && i+1 < len(fields) && looksPlaceClauseVerb(fields[i+1]) {
+			break
+		}
+		keep = append(keep, strings.Trim(f, ",'\"'"))
+		if len(keep) >= 4 {
+			break
+		}
+	}
+	if len(keep) == 0 {
+		return ""
+	}
+	if strings.EqualFold(keep[0], "the") && len(keep) == 1 {
+		return ""
+	}
+	if len(keep) == 1 && strings.HasSuffix(strings.ToLower(keep[0]), "ing") {
+		return ""
+	}
+	out := strings.Join(keep, " ")
+	if anaphoricSlotValue(out) {
+		return ""
+	}
+	return out
+}
+
+func placePrepRestIsDate(s string) bool {
+	fields := strings.Fields(strings.TrimSpace(s))
+	if len(fields) == 0 {
+		return false
+	}
+	return looksPlaceDateToken(fields[0])
+}
+
+func looksPlaceDateToken(w string) bool {
+	w = strings.ToLower(strings.Trim(w, ",.'\"'"))
+	if w == "" {
+		return false
+	}
+	r := []rune(w)
+	if r[0] >= '0' && r[0] <= '9' {
+		return true
+	}
+	switch w {
+	case "january", "february", "march", "april", "may", "june", "july",
+		"august", "september", "october", "november", "december",
+		"jan", "feb", "mar", "apr", "jun", "jul", "aug", "sep", "sept",
+		"oct", "nov", "dec",
+		"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday":
+		return true
+	}
+	return false
+}
+
+func looksPlaceClauseVerb(w string) bool {
+	switch strings.ToLower(strings.Trim(w, ",.'\"'")) {
+	case "met", "meets", "meet", "went", "goes", "go", "did", "does", "do",
+		"was", "were", "is", "are", "attended", "attends", "visited", "visits",
+		"saw", "sees", "told", "said", "practices", "practice", "tried":
+		return true
+	}
+	return false
+}
+
+func placeEqualsAny(place string, toks []string) bool {
+	p := strings.ToLower(strings.TrimSpace(place))
+	if p == "" {
+		return false
+	}
+	for _, t := range toks {
+		if p == strings.ToLower(strings.TrimSpace(t)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) filterChildCountItems(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	head := countHeadNoun(req.Query)
+	switch head {
+	case "children", "kids", "child":
+	default:
+		return items
+	}
+	if len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		if valueHasChildCue(it.Value, blob) {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+func valueHasChildCue(value, blob string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	b := strings.ToLower(blob)
+	if v == "" || b == "" {
+		return false
+	}
+	childCues := []string{"son", "daughter", "child", "kid", "children", "kids"}
+	partnerCues := []string{"partner", "spouse", "wife", "husband"}
+	for _, c := range childCues {
+		if v == c || strings.HasPrefix(v, c+" ") {
+			return true
+		}
+	}
+	vidx := strings.Index(b, v)
+	if vidx < 0 {
+		return queryHasToken(b, childCues...) && !queryHasToken(b, partnerCues...)
+	}
+	childDist := minCueDist(b, vidx, childCues)
+	partnerDist := minCueDist(b, vidx, partnerCues)
+	if childDist < 0 {
+		return false
+	}
+	if partnerDist < 0 {
+		return true
+	}
+	return childDist <= partnerDist
+}
+
+func minCueDist(blob string, at int, cues []string) int {
+	best := -1
+	for _, c := range cues {
+		if c == "" {
+			continue
+		}
+		searchFrom := 0
+		for {
+			i := strings.Index(blob[searchFrom:], c)
+			if i < 0 {
+				break
+			}
+			i += searchFrom
+			end := i + len(c)
+			ok := (i == 0 || !isTokenChar(blob[i-1])) && (end >= len(blob) || !isTokenChar(blob[end]))
+			if ok {
+				d := i - at
+				if d < 0 {
+					d = -d
+				}
+				if best < 0 || d < best {
+					best = d
+				}
+			}
+			searchFrom = i + 1
+			if searchFrom >= len(blob) {
+				break
+			}
+		}
+	}
+	return best
+}
+
+func isTokenChar(b byte) bool {
+	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+}
+
+func trimRecipientSuffix(v, recip string) string {
+	v = strings.TrimSpace(v)
+	if recip == "" {
+		return v
+	}
+	suf := " to " + recip
+	if len(v) > len(suf) && strings.EqualFold(v[len(v)-len(suf):], suf) {
+		return strings.TrimSpace(v[:len(v)-len(suf)])
+	}
+	return v
+}
+
+func (s *Service) itemEvidenceBlob(ctx context.Context, req RecallRequest, it RecallItem, hops []HopResult) string {
+	var b strings.Builder
+	b.WriteString(it.Value)
+	seen := map[string]struct{}{}
+	for _, id := range it.Evidence {
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		for _, h := range hops {
+			for i, hid := range h.MemoryIDs {
+				if hid != id {
+					continue
+				}
+				if i < len(h.Contents) {
+					b.WriteByte(' ')
+					b.WriteString(h.Contents[i])
+				}
+			}
+		}
+		if rec, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, id); err == nil {
+			b.WriteByte(' ')
+			b.WriteString(rec.Content)
+		}
+	}
+	return strings.ToLower(b.String())
+}
+
+func (s *Service) filterItemsByMention(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult, mention string) []RecallItem {
+	if mention == "" || len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		if strings.Contains(s.itemEvidenceBlob(ctx, req, it, hops), mention) {
+			out = append(out, it)
+		}
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
+}
+
+func (s *Service) filterItemsByTokens(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult, toks []string) []RecallItem {
+	if len(toks) == 0 || len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		if itemHitsExclusion(it.Value, toks) || itemHitsExclusion(blob, toks) {
+			out = append(out, it)
+		}
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
+}
+
+// filterItemsByTokenGroupsPreferIntersect keeps items that hit both cue
+// groups when any exist; otherwise list-head hits; otherwise companion
+// hits; otherwise the original list. Sequential companion-then-head
+// filtering would keep a colleague indoor singleton and drop outdoor
+// evidence that never said "colleagues".
+func (s *Service) filterItemsByTokenGroupsPreferIntersect(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult, head, group []string) []RecallItem {
+	if len(items) == 0 {
+		return items
+	}
+	posHead := make([]string, 0, len(head))
+	for _, t := range head {
+		if unNegationPositive(t) == "" {
+			posHead = append(posHead, t)
+		}
+	}
+	if len(posHead) == 0 {
+		return s.filterItemsByTokens(ctx, req, items, hops, group)
+	}
+	if len(group) == 0 {
+		return s.filterItemsByTokens(ctx, req, items, hops, posHead)
+	}
+	var both, headHits, groupHits []RecallItem
+	for _, it := range items {
+		blob := it.Value + " " + s.itemEvidenceBlob(ctx, req, it, hops)
+		headHit := itemHitsExclusion(it.Value, posHead) || itemHitsExclusion(blob, posHead)
+		groupHit := itemHitsExclusion(it.Value, group) || itemHitsExclusion(blob, group)
+		switch {
+		case headHit && groupHit:
+			both = append(both, it)
+		case headHit:
+			headHits = append(headHits, it)
+		case groupHit:
+			groupHits = append(groupHits, it)
+		}
+	}
+	if len(both) > 0 {
+		return both
+	}
+	if len(headHits) > 0 {
+		return headHits
+	}
+	if len(groupHits) > 0 {
+		return groupHits
+	}
+	return items
 }
 
 func memoryMentionsEntity(rec MemoryRecord, entity string) bool {
@@ -1002,9 +2754,12 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 	stripped := visibleTextBlockRE.ReplaceAllString(content, " ")
 	lower := strings.ToLower(stripped)
 	for _, sep := range []string{
-		" participates in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
+		" participates in ", " participated in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
+		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
+		" tried ", " injured ", " practices ", " practiced ",
+		" supports ", " told ", " visited ", " given ", " gave ", " suggested ",
 	} {
 		if i := strings.Index(lower, sep); i >= 0 {
 			if sep == " is " && (titleLikeCopula(content) || !identityCopulaSubject(stripped[:i])) {
@@ -1015,9 +2770,14 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 			if j := strings.IndexAny(v, ".(["); j > 0 {
 				v = strings.TrimSpace(v[:j])
 			}
-			if sep == " has done " {
+			if sep == " has done " || sep == " practices " || sep == " practiced " {
 				if _, place, ok := strings.Cut(v, " at "); ok {
 					v = strings.TrimSpace(place)
+				}
+			}
+			if sep == " told " || sep == " given " {
+				if head, _, ok := strings.Cut(v, " about "); ok {
+					v = strings.TrimSpace(head)
 				}
 			}
 			if strings.TrimSpace(v) == "" {
@@ -1032,9 +2792,12 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 func hasSlotTemplate(v string) bool {
 	low := strings.ToLower(v)
 	for _, sep := range []string{
-		" participates in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
+		" participates in ", " participated in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
+		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
+		" tried ", " injured ", " practices ", " practiced ",
+		" supports ", " told ", " visited ", " given ", " gave ", " suggested ",
 	} {
 		if strings.Contains(low, sep) {
 			return true

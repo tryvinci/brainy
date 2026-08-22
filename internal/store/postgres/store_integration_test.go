@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
+	"net"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -189,7 +190,13 @@ func fmtUint(value uint32) string {
 }
 
 func randomPort(offset uint32) uint32 {
-	return 45000 + uint32(time.Now().UTC().UnixNano()%5000) + offset
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 45000 + uint32(time.Now().UTC().UnixNano()%5000) + offset
+	}
+	port := uint32(ln.Addr().(*net.TCPAddr).Port)
+	_ = ln.Close()
+	return port
 }
 
 func TestApplyMigrationsSupportsFreshAndUpgradeFlows(t *testing.T) {
@@ -636,6 +643,91 @@ func TestLeaseFencingRejectsOldOwnerAfterReclaim(t *testing.T) {
 	// A further claim of the completed job must yield nothing.
 	if _, ok, err := store.ClaimNextExtractionJob(ctx); err != nil || ok {
 		t.Fatalf("expected no job after new-owner completion, ok=%v err=%v", ok, err)
+	}
+}
+
+func TestHeartbeatHoldsLeasePastExpiry(t *testing.T) {
+	t.Setenv("LANG", "C")
+	t.Setenv("LC_ALL", "C")
+	ctx := context.Background()
+	root := t.TempDir()
+	port := randomPort(610)
+	postgres := embeddedpostgres.NewDatabase(
+		embeddedpostgres.DefaultConfig().
+			Port(port).
+			Username("brainy").
+			Password("brainy").
+			Database("brainy").
+			Version(embeddedpostgres.V17).
+			RuntimePath(filepath.Join(root, "runtime")).
+			DataPath(filepath.Join(root, "data")).
+			BinariesPath(filepath.Join(root, "binaries")),
+	)
+	if err := postgres.Start(); err != nil {
+		t.Fatalf("embedded postgres unavailable: %v", err)
+	}
+	defer func() {
+		_ = postgres.Stop()
+	}()
+
+	baseStore, err := New(ctx, dsn(port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baseStore.Close()
+	if err := baseStore.ApplyMigrations(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	store := &Store{pool: baseStore.pool, jobLease: 25 * time.Millisecond}
+	req := memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "I prefer concise answers."}},
+	}
+	if _, err := store.EnqueueIngestJob(ctx, "ing_hb", "job_hb", "", req); err != nil {
+		t.Fatal(err)
+	}
+
+	first, ok, err := store.ClaimNextExtractionJob(ctx)
+	if err != nil || !ok {
+		t.Fatalf("claim: ok=%v err=%v", ok, err)
+	}
+	if err := store.HeartbeatExtractionJob(ctx, first.JobID, first.LeaseOwner); err != nil {
+		t.Fatalf("initial heartbeat: %v", err)
+	}
+
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(8 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				return
+			case <-ticker.C:
+				if err := store.HeartbeatExtractionJob(ctx, first.JobID, first.LeaseOwner); err != nil {
+					return
+				}
+			}
+		}
+	}()
+	time.Sleep(80 * time.Millisecond)
+	second, ok, err := store.ClaimNextExtractionJob(ctx)
+	close(stop)
+	<-done
+	if err != nil {
+		t.Fatalf("second claim: %v", err)
+	}
+	if ok {
+		t.Fatalf("heartbeat should prevent reclaim, got job %s owner=%s", second.JobID, second.LeaseOwner)
+	}
+
+	if err := store.CompleteExtractionJobFenced(ctx, first.JobID, first.IngestID, first.LeaseOwner); err != nil {
+		t.Fatalf("owner complete after heartbeat hold: %v", err)
 	}
 }
 

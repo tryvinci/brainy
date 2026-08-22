@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"brainy/internal/embedding"
@@ -53,6 +55,11 @@ func (p *Processor) WithEmbedder(embedder embedding.Embedder) *Processor {
 	return p
 }
 
+// extractionLeaseRenewInterval is how often a live owner extends its job
+// lease. Must stay well below the store's 30s lease so provider extract
+// (often 30–120s) is not reclaimed mid-call. Tests shorten this.
+var extractionLeaseRenewInterval = 10 * time.Second
+
 func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	job, ok, err := p.store.ClaimNextExtractionJob(ctx)
 	if err != nil || !ok {
@@ -60,14 +67,13 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	}
 
 	memory.NormalizeIngestRequest(&job.Request)
-	// Extract may exceed the initial lease (provider calls up to 45s vs a 30s
-	// default lease). Renew the lease for the current owner so a live worker is
-	// not reclaimed mid-extraction.
+	// Provider extract/embed often exceeds the 30s job lease. Heartbeat for
+	// the whole ProcessNext so a live owner is not reclaimed mid-call.
+	hbCtx, hbCancel := context.WithCancel(context.Background())
+	defer hbCancel()
 	if fencer, ok := p.store.(memory.LeaseFencer); ok {
 		_ = fencer.HeartbeatExtractionJob(ctx, job.JobID, job.LeaseOwner)
-		defer func() {
-			_ = fencer.HeartbeatExtractionJob(ctx, job.JobID, job.LeaseOwner)
-		}()
+		go renewExtractionLease(hbCtx, fencer, job)
 	}
 	extracted, err := p.extractor.Extract(ctx, job.Request)
 	if err != nil {
@@ -123,6 +129,27 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+func renewExtractionLease(ctx context.Context, fencer memory.LeaseFencer, job memory.ExtractionJob) {
+	ticker := time.NewTicker(extractionLeaseRenewInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Independent of the extract ctx so a slow provider call cannot
+			// cancel the SQL that keeps the lease alive. Stop only when the
+			// owner is gone (reclaimed / completed / failed).
+			hbCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			err := fencer.HeartbeatExtractionJob(hbCtx, job.JobID, job.LeaseOwner)
+			cancel()
+			if errors.Is(err, memory.ErrLeaseLost) {
+				return
+			}
+		}
+	}
+}
+
 // completeJob uses the owner-fenced completion when the store supports it, so a
 // reclaimed job cannot be committed by its old worker.
 func (p *Processor) completeJob(ctx context.Context, job memory.ExtractionJob) error {
@@ -141,8 +168,9 @@ func (p *Processor) failJob(ctx context.Context, job memory.ExtractionJob, reaso
 	return p.store.FailExtractionJob(ctx, job.JobID, job.IngestID, reason)
 }
 
-// ProcessAvailable runs up to concurrency parallel ProcessNext calls.
-// Used for LME-scale queue drain; concurrency<=1 keeps prior serial behavior.
+// ProcessAvailable drains claimable jobs with up to concurrency workers.
+// Each worker keeps calling ProcessNext until the queue is idle so a single
+// slow extract cannot park the other slots. concurrency<=1 stays serial.
 func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int, error) {
 	if concurrency <= 1 {
 		ok, err := p.ProcessNext(ctx)
@@ -151,28 +179,61 @@ func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int,
 		}
 		return 0, err
 	}
-	type result struct {
-		ok  bool
-		err error
-	}
-	ch := make(chan result, concurrency)
-	for i := 0; i < concurrency; i++ {
-		go func() {
+
+	var (
+		wg        sync.WaitGroup
+		mu        sync.Mutex
+		processed int
+		firstErr  error
+	)
+	worker := func() {
+		defer wg.Done()
+		idleTries := 0
+		for {
+			if ctx.Err() != nil {
+				return
+			}
 			ok, err := p.ProcessNext(ctx)
-			ch <- result{ok: ok, err: err}
-		}()
+			if err != nil {
+				mu.Lock()
+				if ok {
+					processed++
+				}
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+				if !ok {
+					return
+				}
+				// Job already failed/requeued inside ProcessNext. Keep this
+				// slot on the queue so one provider flake cannot shrink the pool.
+				idleTries = 0
+				continue
+			}
+			if ok {
+				mu.Lock()
+				processed++
+				mu.Unlock()
+				idleTries = 0
+				continue
+			}
+			idleTries++
+			if idleTries >= 5 {
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(50 * time.Millisecond):
+			}
+		}
 	}
-	processed := 0
-	var firstErr error
+	wg.Add(concurrency)
 	for i := 0; i < concurrency; i++ {
-		r := <-ch
-		if r.ok {
-			processed++
-		}
-		if r.err != nil && firstErr == nil {
-			firstErr = r.err
-		}
+		go worker()
 	}
+	wg.Wait()
 	return processed, firstErr
 }
 

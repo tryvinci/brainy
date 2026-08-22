@@ -84,10 +84,14 @@ func AnalyzeQueryIntents(query string) []string {
 		}
 		out = append(out, s)
 	}
-	if looksListQuery(tokens) {
+	if looksCountQuery(query) {
+		add(IntentAggregation)
+	} else if looksConsequenceQuery(query) {
+		add(IntentOutcome)
+	} else if looksListQuery(tokens) || looksUnwindQuery(query) || looksSuperlativeQuery(query) {
 		add(IntentEnumeration)
 	}
-	if looksMultiHopQuery(tokens) {
+	if looksPolarQuery(query) || looksMultiHopQuery(tokens) {
 		add(IntentMultiHop)
 	}
 	if strings.Contains(lower, "when") || strings.Contains(lower, "before") ||

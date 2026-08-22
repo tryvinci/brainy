@@ -81,6 +81,8 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | S0 product `POST /recall` | **32/180** | Long-lived integrity VM. Ledger: **PROOF 112 / RETRIEVAL 22 / READER 11 / WRITE 3**. |
 | S0 industry search+harness | **62/180** | Same tenant. Different path. Do not average with 32/180. |
 | S0 MH product (post-#134) | **2/33** | Was **1/33**. Attributed win: turtles. Second hit (soda/candy) is a crowded-list judge accept. [pin](../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
+| S0 MH product diagnostic ingest | **7/33** | WRITE+PROOF mixed on `diag-mh-135`. Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
+| S0 MH product diagnostic skip-ingest | **12/33** | PROOF-only on frozen `diag-mh-135`. Kinship dest `9d8dbeb` was **10/33**; slot-aligned recovery `2e84435` is **12/33** (`conv-44-q26` work, `conv-26-q60` clarinet/violin). Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md) |
 | 3×90 | product **21/90**, industry **33/90** | `--conversations 3 --questions 90` |
 | 1×30 freeze (conv-26) | **21/30** | MH 10/10, OD **0/4**, temporal 11/16. **Do not overwrite.** Diagnostic only. Rest of conv-26 in the full run was **12/122**. |
 | Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old product SHA `1b5ab3e`. Full n=1540 only at S6. |
@@ -91,7 +93,7 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 
 **Invalidated:** Aug-19 S0 17/180 / 52/180 (no pgvector, silent extract degrade). Never cite those as quality.
 
-**Bottleneck is PROOF, not compiler WRITE and not embedder.** S0 WRITE_MISS is **3/180**. Coverage 161/180 vs QA 32/180. MH coverage 32/33 vs QA 2/33.
+**Bottleneck is PROOF, not compiler WRITE and not embedder.** S0 WRITE_MISS is **3/180**. Coverage 161/180 vs QA 32/180. MH coverage 32/33 vs integrity QA **2/33** (diagnostic skip-ingest **12/33** on `diag-mh-135`).
 
 ### Competitor stand (honest)
 
@@ -109,16 +111,16 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 
 | Increment | Plan name | Do now? |
 | --- | --- | --- |
-| S2 / S3 residue | Structured answer + hop proof | **Yes.** Remaining MH list/join proof (shared facts that are not a two-name `both` cue). Enumerate lists still crowd. |
+| S2 / S3 residue | Structured answer + hop proof | **In flight on #135.** List/join + enumerate refine + outdoor∩group + community-join + kinship dest + slot-aligned dest-subject recovery shipped. Labeled diagnostic ingest **7/33** (WRITE+PROOF mixed). **Skip-ingest PROOF-only on the same tenant is 12/33** — latest [slot-recover artifact](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md). **Integrity skip-ingest pin remains 2/33.** Next attributed remasure is still `integrity-s0-1 --fail-closed --skip-ingest`. Residue: mother's-home WRITE, pottery without unwind cues, incomplete tricks, polar Yes, mountaineering WRITE, identity gold (q65). |
 | S1 compiler | Provider-extract / named-subject mass | **No** until a fail-closed remasure says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
 | S4 LME | multi-session + KU | After LoCoMo proof moves. LME-20 4/20 is not the lever. |
 | S5 industry | atoms-first answerer | After product proof moves; label the lane. |
 | S6 freeze | n=1540 + Mem0 same-pin | **Once**, after stratified deltas exist. |
 
-**Suggested first product change:** prove shared typed values for MH joins that are not `both X and Y` (e.g. “what do Nate and Joanna both like” without `both` as the only cue; list intersection that does not dump every preference). Keep it generic linguistic. Add fixtures, not dataset IDs.
+**Suggested first remasure:** MH-only 33 on `integrity-s0-1` with `--fail-closed --skip-ingest`. Attribute every new CORRECT. Do not invent a new 180 pin unless a full fail-closed S0 actually finishes. Do not treat unit-test date/transfer/list fixtures as a 2/33 replacement.
 
-**Suggested first remasure:** MH-only 33 on `integrity-s0-1` with `--fail-closed --skip-ingest`. Attribute every new CORRECT. Do not invent a new 180 pin unless a full fail-closed S0 actually finishes.
+**Shipped this increment (generic linguistic, fixtures not dataset IDs):** hop `Name and Name` / `Name and Name both` / `with Name`; hop the person after `does`/`has` on count questions; kinship `'s mother` / `her partner` chains family → slot; join compose intersects and does not dump the union; possession/skill lists without occupation/hobby crowding; how-many counts the typed set; Has/Did polar Yes from typed hops only; `practices … at` place extract; unwind/`do to` activity lists; visit/travel superlative; who-answers from other person mentions; `besides` exclusion (stemmed); childhood items as possession; **when-event hops prove a date from observed_at (do not dump event names)**; **given-to hops the giver only and keeps recipient-mentioned values**; **after-clause keeps matching evidence**; community/journey activity lists; family-injury who; organization beneficiaries from affiliation; **where+kinship answers a place from `in`/`at`/`near`, hopping the source person as well as the unnamed partner**; **`with colleagues/friends` is a group filter, not a CapName join**; **`for` clauses keep matching evidence**; **`get with having` hops health, not possession dumps**; **how-many children counts child-cued family members, not partners**; **dual-entity list queries intersect instead of unioning**; **kinship hobby lists filter to the dest person**; **how-many Ferraris counts the head noun, not every possession**; **who-told and polar teach from typed hops**; **journey-change lists stay identity, not occupation**; **pets' names are possession**; **named `in the X community` filters to X (affiliation hops too)**; **named `during X journey` filters identity to the period**; **list-head modifiers** (`outdoor activities`, `sports collectible`, `unhealthy snacks`) soft-filter evidence; **when list-head and group-companion cues are both present, prefer intersect, else list-head, else companion**; **community dual-entity lists join by organized/started/group token-subset and partner mention (fallback slots allowed)**; **unnamed kin-role dests rewrite to `{Name}'s {role}` and merge dest-subject attitude slots**; **who-supports keeps group nouns** (`friends and team`) from typed hops, not only CapNames; **practice location lists extract `in`/`at`/`near` places**, split comma/and lists, skip leading `her`/`his`, stop relative clauses / lone gerunds, and **never dump activities as locations**; **atom refill skipped when hops already listed**; **enumerate answers rank by query evidence then cap at 8** (enumerate mode shares that refine path); **dest-subject slot recovery** prepends practice locatives, unwind/calm/`to *stress` activities, play/practice objects, trick-mentioned skills, and besides+work stressors; compositional places require a definite `the {practice} {noun}`; `unwind` is not an `un-` negation.
 
 ---
 
@@ -242,6 +244,7 @@ Provider gotchas already burned:
 - Direct `api.openai.com` + `OPENAI_API_KEY` worked for the A/B
 - urllib needs a `User-Agent` or Cloudflare 1010
 - Full S0 180 on a cloud VM **stalled twice** on 120s embed timeouts. MH-only 33 succeeded without oracle probes.
+- Extraction **job lease is 30s**; provider extract timeout is 120s. Without a live heartbeat, another worker reclaims `in_progress` mid-call (`ErrLeaseLost`, duplicate extract, fence blocks complete). The worker now heartbeats every 10s for the whole `ProcessNext`. Same-subject jobs still serialize; raise worker concurrency only to overlap **different** subjects. `ProcessAvailable` keeps each slot claiming until the queue is idle so one slow extract cannot park the other slots. Optional remasure env: `BRAINY_PROVIDER_TIMEOUT=300s`.
 
 Auth: if `BRAINY_API_KEYS` / `BRAINY_REQUIRE_API_KEY` are set, unauthenticated calls are 401. Local no-auth: unset those, `BRAINY_ENV=local`.
 
@@ -269,7 +272,7 @@ Auth: if `BRAINY_API_KEYS` / `BRAINY_REQUIRE_API_KEY` are set, unauthenticated c
 ## 7. Docs the next agent should trust (in order)
 
 1. **This file**
-2. [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) — **2026-08-20** then **2026-08-19/20 integrity**
+2. [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) — **2026-08-21 slot-aligned dest-subject**, then kinship dest / community-join / packet-proof
 3. [sota-execution-plan.md](./sota-execution-plan.md) — gates, not the S1-first guess
 4. [locomo-full-70-80-path.md](./locomo-full-70-80-path.md)
 5. [codebase-graph.md](./codebase-graph.md) — topology (dated 2026-08-04; planes are mid-migration)

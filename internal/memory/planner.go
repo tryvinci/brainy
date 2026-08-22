@@ -82,7 +82,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration) && hopComposeAllowed(query) {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query)) && hopPlanAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -114,6 +114,9 @@ func buildTypedHops(query string) []HopStep {
 	}
 	if len(entities) > 1 {
 		bridge = entities[1]
+	}
+	if role := possessiveKinshipRole(query); role != "" && entity != "" && bridge == "" {
+		return buildKinshipHops(query, entity, role, preds)
 	}
 	if len(preds) == 0 {
 		probeParts := make([]string, 0, 2)
@@ -197,6 +200,7 @@ func buildTypedHops(query string) []HopStep {
 func hopQueryEntities(query string) []string {
 	seen := map[string]struct{}{}
 	out := make([]string, 0, 2)
+	recipient := strings.ToLower(transferRecipient(query))
 	add := func(n string) bool {
 		n = strings.TrimSpace(n)
 		n = strings.TrimSuffix(n, "'s")
@@ -206,6 +210,9 @@ func hopQueryEntities(query string) []string {
 			return false
 		}
 		key := strings.ToLower(n)
+		if recipient != "" && key == recipient {
+			return false
+		}
 		if _, stop := hopEntityStop[key]; stop {
 			return false
 		}
@@ -216,13 +223,28 @@ func hopQueryEntities(query string) []string {
 		out = append(out, key)
 		return true
 	}
-	caps := capitalizedMentionTokens(query)
-	join := strings.Contains(strings.ToLower(query), "both")
+	// Coordinated people ("Tim and John") are the join, not the first topic noun.
+	for _, n := range coordinatedPersonMentions(query) {
+		add(n)
+	}
+	if n := personAfterCue(query, "with"); n != "" {
+		add(n)
+	}
+	join := hopJoinCue(query) || len(out) >= 2
 	limit := 1
 	if join {
 		limit = 2
 	}
-	for _, n := range caps {
+	if n := personAfterAuxiliary(query); n != "" {
+		add(n)
+	}
+	if len(out) >= limit {
+		return out[:limit]
+	}
+	for _, n := range capitalizedMentionTokens(query) {
+		if skipHowManyHead(query, n) {
+			continue
+		}
 		add(n)
 		if len(out) >= limit {
 			return out
@@ -237,6 +259,176 @@ func hopQueryEntities(query string) []string {
 		}
 	}
 	return out
+}
+
+func hopJoinCue(query string) bool {
+	lower := strings.ToLower(query)
+	if strings.Contains(lower, "both") || strings.Contains(lower, "together") ||
+		strings.Contains(lower, " in common") {
+		return true
+	}
+	if len(coordinatedPersonMentions(query)) >= 2 {
+		return true
+	}
+	return personAfterCue(query, "with") != ""
+}
+
+func coordinatedPersonMentions(query string) []string {
+	fields := strings.Fields(query)
+	out := make([]string, 0, 2)
+	for i := 0; i < len(fields)-2; i++ {
+		a := strings.Trim(fields[i], "?,.!\"'")
+		conj := strings.ToLower(strings.Trim(fields[i+1], "?,.!\"'"))
+		b := strings.Trim(fields[i+2], "?,.!\"'")
+		if conj != "and" && conj != "or" {
+			continue
+		}
+		if !looksHopPerson(a) || !looksHopPerson(b) {
+			continue
+		}
+		out = append(out, a, b)
+		return out
+	}
+	return out
+}
+
+func personAfterCue(query, cue string) string {
+	cue = strings.ToLower(strings.TrimSpace(cue))
+	if cue == "" {
+		return ""
+	}
+	fields := strings.Fields(query)
+	for i, raw := range fields {
+		if !strings.EqualFold(strings.Trim(raw, "?,.!\""), cue) || i+1 >= len(fields) {
+			continue
+		}
+		next := strings.Trim(fields[i+1], "?,.!\"'")
+		if looksHopPerson(next) {
+			return next
+		}
+	}
+	return ""
+}
+
+func personAfterAuxiliary(query string) string {
+	fields := strings.Fields(query)
+	for i := 0; i < len(fields)-1; i++ {
+		w := strings.ToLower(strings.Trim(fields[i], "?,.!\""))
+		switch w {
+		case "does", "did", "do", "has", "have":
+		default:
+			continue
+		}
+		next := strings.Trim(fields[i+1], "?,.!\"'")
+		if looksHopPerson(next) {
+			return next
+		}
+	}
+	return ""
+}
+
+func skipHowManyHead(query, name string) bool {
+	lower := strings.ToLower(query)
+	i := strings.Index(lower, "how many ")
+	if i < 0 {
+		return false
+	}
+	rest := strings.TrimSpace(query[i+len("how many "):])
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return false
+	}
+	head := strings.Trim(fields[0], "?,.!'\"")
+	return strings.EqualFold(head, name)
+}
+
+func looksHopPerson(w string) bool {
+	w = strings.TrimSpace(w)
+	w = strings.TrimSuffix(w, "'s")
+	w = strings.TrimSuffix(w, "’s")
+	w = strings.Trim(w, "'\"?,.")
+	if w == "" {
+		return false
+	}
+	r := []rune(w)
+	if len(r) < 3 || !unicode.IsUpper(r[0]) {
+		return false
+	}
+	switch strings.ToLower(w) {
+	case "what", "which", "who", "where", "when", "why", "how":
+		return false
+	}
+	_, stop := hopEntityStop[strings.ToLower(w)]
+	return !stop
+}
+
+var kinshipRoles = []string{
+	"mother", "father", "mom", "dad", "parent", "parents",
+	"partner", "spouse", "wife", "husband",
+	"brother", "sister", "sibling", "family",
+}
+
+func possessiveKinshipRole(query string) string {
+	lower := strings.ToLower(query)
+	for _, role := range kinshipRoles {
+		if strings.Contains(lower, "'s "+role) || strings.Contains(lower, "’s "+role) ||
+			strings.Contains(lower, " her "+role) || strings.Contains(lower, " his "+role) ||
+			strings.Contains(lower, " their "+role) {
+			return role
+		}
+	}
+	return ""
+}
+
+func buildKinshipHops(query, entity, role string, preds []string) []HopStep {
+	hops := []HopStep{
+		{Kind: "resolve_entity", Entity: entity, Probe: entity, Output: "e1"},
+		{
+			Kind:      "follow_relation",
+			Entity:    entity,
+			Predicate: PredicateFamilyMember,
+			Probe:     hopProbe(contentBearingTokens(tokenize(query)), entity, role),
+			Output:    "e_rel",
+			DependsOn: []string{"e1"},
+		},
+	}
+	fetchPred := ""
+	for _, p := range preds {
+		if p != PredicateFamilyMember && p != PredicateRelationshipStatus {
+			fetchPred = p
+			break
+		}
+	}
+	if fetchPred == "" && looksPlaceOrPersonSlot(query) {
+		fetchPred = PredicateEvent
+	}
+	fetch := HopStep{
+		Kind:      "fetch_predicate",
+		Predicate: fetchPred,
+		Probe:     hopProbe(contentBearingTokens(tokenize(query)), role, fetchPred),
+		Output:    "ans",
+		DependsOn: []string{"e_rel"},
+	}
+	if fetchPred != "" && relationFollowPredicate(fetchPred) {
+		fetch.Kind = "follow_relation"
+	} else if looksPlaceOrPersonSlot(query) {
+		fetch.Kind = "answer_slot"
+	}
+	hops = append(hops, fetch)
+	// "X and her partner found … in Place" is often stored on X, not only
+	// the unnamed kin dest. Keep the dest fetch; add a source-person fetch.
+	if looksWhereQuery(query) && entity != "" && fetchPred != "" {
+		src := HopStep{
+			Kind:      fetch.Kind,
+			Entity:    entity,
+			Predicate: fetchPred,
+			Probe:     hopProbe(contentBearingTokens(tokenize(query)), entity, fetchPred),
+			Output:    "ans_src",
+			DependsOn: []string{"e1"},
+		}
+		hops = append(hops, src)
+	}
+	return hops
 }
 
 func capitalizedMentionTokens(query string) []string {
@@ -325,6 +517,16 @@ var hopEntityStop = map[string]struct{}{
 	"research": {}, "researched": {}, "researching": {},
 	"animal": {}, "animals": {}, "both": {},
 	"they": {}, "them": {}, "their": {}, "theirs": {},
+	"partner": {}, "mother": {}, "father": {}, "family": {},
+	"collectible": {}, "collectibles": {},
+	"dogs": {}, "dog": {}, "pets": {}, "pet": {}, "names": {}, "name": {},
+	"instruments": {}, "instrument": {}, "items": {}, "item": {},
+	"locations": {}, "location": {}, "tricks": {}, "trick": {},
+	"events": {}, "event": {}, "stressor": {}, "stressors": {},
+	"organizations": {}, "organization": {}, "colleagues": {},
+	"colleague": {}, "coworkers": {}, "coworker": {},
+	"teammates": {}, "teammate": {}, "classmates": {}, "classmate": {},
+	"travels": {}, "travel": {},
 }
 
 func relationFollowPredicate(pred string) bool {
@@ -348,12 +550,109 @@ func looksPlaceOrPersonSlot(query string) bool {
 	return false
 }
 
+func hopPlanAllowed(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if strings.HasPrefix(q, "how long") || strings.HasPrefix(q, "how old") {
+		return false
+	}
+	return true
+}
+
 func hopComposeAllowed(query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	if strings.HasPrefix(q, "when ") || strings.HasPrefix(q, "how long") || strings.HasPrefix(q, "how old") {
 		return false
 	}
+	if looksLocationListQuery(query) {
+		return false
+	}
+	if looksPolarQuery(query) {
+		return false
+	}
 	return true
+}
+
+func looksWhenEventQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	return strings.HasPrefix(q, "when ")
+}
+
+func looksWhereQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	return strings.HasPrefix(q, "where ")
+}
+
+func looksConsequenceQuery(query string) bool {
+	if !queryHasToken(query, "having") {
+		return false
+	}
+	if queryHasToken(query, "get", "got", "gets") {
+		return true
+	}
+	return strings.Contains(strings.ToLower(query), "from having")
+}
+
+func transferRecipient(query string) string {
+	if looksWhoQuery(query) {
+		return ""
+	}
+	lower := strings.ToLower(query)
+	if !queryHasToken(query, "given", "gave", "give") && !strings.Contains(lower, "suggest") {
+		return ""
+	}
+	return personAfterCue(query, "to")
+}
+
+func looksCountQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "how many") || strings.Contains(q, "how much")
+}
+
+func looksPolarQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if looksCountQuery(q) {
+		return false
+	}
+	for _, p := range []string{"has ", "have ", "had ", "did ", "does ", "do ", "is ", "was ", "were ", "can "} {
+		if strings.HasPrefix(q, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func looksUnwindQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "do to") || strings.Contains(q, "unwind") || strings.Contains(q, "relax")
+}
+
+func looksInstrumentQuery(query string) bool {
+	return queryHasToken(query, "instrument", "instruments")
+}
+
+func looksTrickQuery(query string) bool {
+	return queryHasToken(query, "trick", "tricks")
+}
+
+func looksBesidesQuery(query string) bool {
+	return strings.Contains(strings.ToLower(query), "besides")
+}
+
+func looksCommunityQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "community") || strings.Contains(q, "participat")
+}
+
+func looksWhoQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	return strings.HasPrefix(q, "who ") || strings.Contains(q, " who ")
+}
+
+func looksSuperlativeQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "most frequently") || strings.Contains(q, "most often") ||
+		strings.Contains(q, "the biggest") || strings.Contains(q, "biggest") ||
+		strings.Contains(q, "most common")
 }
 
 func firstNonEmpty(vals ...string) string {
@@ -450,8 +749,12 @@ func planCoverageTargets(query string, plan QueryPlan) []string {
 
 func preferredModeHint(plan QueryPlan) string {
 	switch {
+	case plan.PrimaryIntent == IntentAggregation:
+		return "answer"
 	case plan.NeedsEnumeration:
 		return "enumerate"
+	case len(plan.Hops) > 0:
+		return "answer"
 	case plan.NeedsTemporal && plan.PrimaryIntent == IntentCurrentState:
 		return "answer"
 	case plan.NeedsMultiHop:

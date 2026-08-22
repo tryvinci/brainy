@@ -30,11 +30,11 @@ Live start + pins: [handover-sota-agent-2026-08-21.md](./handover-sota-agent-202
 | **Marketing vertical** | **17/17** vs Mem0 **4/17** empirical |
 | **LOCOMO 1×30** | **21/30** (MH **10/10**, OD **0/4**, temporal **11/16**) vs Mem0 **11/30** — measurement, not qualification. Do not overwrite. |
 | **LOCOMO S0 n=180** | product `/recall` **32/180** · industry **62/180** · ledger PROOF 112 / RETRIEVAL 22 / READER 11 / WRITE **3** |
-| **LOCOMO S0 MH** | product **2/33** after packet-proof (was 1/33). Coverage 32/33. |
+| **LOCOMO S0 MH** | product **2/33** after packet-proof (was 1/33). Coverage 32/33. Diagnostic fresh ingest on #135: **7/33** (WRITE+PROOF mixed; does not replace 2/33). |
 | **LOCOMO full n=1540** | **175/1540 (11.4%)** product `/recall` — **dip** vs July search+harness **49.8%**; not vs Mem0 **92.5%** on the same path. [why](../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) |
 | **LongMemEval-20** | **4/20** product `/recall` (lift vs 0/20 integrity; not vs published 94.4%). LME-500 not run |
 | **BEAM 100K** | **8/20** search+harness (non-reg; 1M/10M not run) |
-| **Next** | Remaining MH list/join **proof** (not compiler fishing, not embedder). Do not merge #133. Do not re-queue R0–R10. [handover](./handover-sota-agent-2026-08-21.md) · [cycle-closeout](./competitive/cycle-closeout.md) |
+| **Next** | Integrity skip-ingest MH-33 still required for attribution. Diagnostic 7/33 is not the pin. Do not merge #133. Do not re-queue R0–R10. [handover](./handover-sota-agent-2026-08-21.md) · [cycle-closeout](./competitive/cycle-closeout.md) |
 
 Details: [competitive verdict](./external-reviews/2026-08-11-competitive-architecture-verdict.md) · [assessment pack](./external-agent-assessment-pack.md) · [program-execution-status.md](./program-execution-status.md)
 

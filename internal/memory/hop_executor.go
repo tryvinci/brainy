@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"regexp"
 	"strings"
 )
 
@@ -30,6 +31,7 @@ func (s *Service) executeTypedHops(
 	includeHistorical bool,
 	plan QueryPlan,
 	topK int,
+	query string,
 ) ([]HopResult, map[string]HopResult) {
 	out := make([]HopResult, 0, len(plan.Hops))
 	byKey := map[string]HopResult{}
@@ -46,18 +48,14 @@ func (s *Service) executeTypedHops(
 			DependsOn: append([]string(nil), hop.DependsOn...),
 			Source:    "unresolved",
 		}
-		// Wire DependsOn: canonical ID is the join key; display name stays for answers.
+		// Wire DependsOn: dest slot (or rewritten kin dest) is the next entity.
+		// Source EntityID is kept only when dest is the same person.
 		for _, dep := range hop.DependsOn {
 			prev, ok := byKey[dep]
 			if !ok {
 				continue
 			}
-			if res.EntityID == "" && strings.TrimSpace(prev.EntityID) != "" {
-				res.EntityID = prev.EntityID
-			}
-			if strings.TrimSpace(prev.Value) != "" {
-				res.Entity = prev.Value
-			}
+			applyHopDependency(&res, prev)
 		}
 
 		switch hop.Kind {
@@ -70,7 +68,14 @@ func (s *Service) executeTypedHops(
 		default:
 			s.searchFallbackHop(ctx, tenantID, subjectID, vertical, includeHistorical, hop, &res, topK)
 		}
+		s.enrichKinDestSubjectSlots(ctx, tenantID, subjectID, &res)
 		out = append(out, res)
+		if res.OutputKey != "" {
+			byKey[res.OutputKey] = res
+		}
+	}
+	s.recoverSlotAlignedHops(ctx, tenantID, subjectID, query, out)
+	for _, res := range out {
 		if res.OutputKey != "" {
 			byKey[res.OutputKey] = res
 		}
@@ -216,43 +221,46 @@ func (s *Service) fetchPredicateHop(
 	}
 
 	// Current-state typed read — entity-scoped keys only for typed_exact.
+	// Historical / when-event hops need the full atom set, not the latest row.
 	if pred != "" {
-		if cs, ok := s.store.(CurrentStateStore); ok {
-			keys := make([]string, 0, 2)
-			if res.EntityID != "" {
-				keys = append(keys, statePredicateKey(res.EntityID, pred))
-			}
-			if entity != "" {
-				keys = append(keys, statePredicateKey(entity, pred))
-			}
-			for _, key := range keys {
-				memID, val, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, key)
-				if err != nil || !found {
-					continue
+		if !includeHistorical {
+			if cs, ok := s.store.(CurrentStateStore); ok {
+				keys := make([]string, 0, 2)
+				if res.EntityID != "" {
+					keys = append(keys, statePredicateKey(res.EntityID, pred))
 				}
-				if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID); err == nil {
-					if !recordMatchesHopEntity(rec, entity, res.EntityID) && entity != "" {
+				if entity != "" {
+					keys = append(keys, statePredicateKey(entity, pred))
+				}
+				for _, key := range keys {
+					memID, val, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, key)
+					if err != nil || !found {
 						continue
 					}
-					res.Contents = append(res.Contents, rec.Content)
-					if val == "" {
-						val = rec.Content
-					}
-				}
-				res.MemoryIDs = []string{memID}
-				res.Value = firstNonEmpty(val, "")
-				res.Source = "typed_store"
-				res.ProofKind = "typed_exact"
-				return
-			}
-			// Unscoped predicate miss may enrich context, never typed_exact.
-			if entity != "" {
-				if memID, _, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, pred); err == nil && found {
 					if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID); err == nil {
+						if !recordMatchesHopEntity(rec, entity, res.EntityID) && entity != "" {
+							continue
+						}
 						res.Contents = append(res.Contents, rec.Content)
+						if val == "" {
+							val = rec.Content
+						}
 					}
-					res.MemoryIDs = append(res.MemoryIDs, memID)
-					res.ProofKind = "context"
+					res.MemoryIDs = []string{memID}
+					res.Value = firstNonEmpty(val, "")
+					res.Source = "typed_store"
+					res.ProofKind = "typed_exact"
+					return
+				}
+				// Unscoped predicate miss may enrich context, never typed_exact.
+				if entity != "" {
+					if memID, _, _, found, err := cs.GetCurrentState(ctx, tenantID, subjectID, pred); err == nil && found {
+						if rec, err := s.store.GetMemory(ctx, tenantID, subjectID, memID); err == nil {
+							res.Contents = append(res.Contents, rec.Content)
+						}
+						res.MemoryIDs = append(res.MemoryIDs, memID)
+						res.ProofKind = "context"
+					}
 				}
 			}
 		}
@@ -261,6 +269,7 @@ func (s *Service) fetchPredicateHop(
 			if err == nil && len(ids) > 0 {
 				filtered := make([]string, 0, len(ids))
 				filteredContents := make([]string, 0, len(ids))
+				filteredNorms := make([]string, 0, len(ids))
 				if entity != "" || res.EntityID != "" {
 					for _, id := range ids {
 						rec, err := s.store.GetMemory(ctx, tenantID, subjectID, id)
@@ -270,6 +279,7 @@ func (s *Service) fetchPredicateHop(
 						if recordMatchesHopEntity(rec, entity, res.EntityID) {
 							filtered = append(filtered, id)
 							filteredContents = append(filteredContents, rec.Content)
+							filteredNorms = append(filteredNorms, recordValueNorm(rec))
 						}
 					}
 				} else {
@@ -291,10 +301,14 @@ func (s *Service) fetchPredicateHop(
 					res.MemoryIDs = filtered
 					if len(res.Contents) > 0 {
 						seenVal := map[string]struct{}{}
-						for _, c := range res.Contents {
+						for i, c := range res.Contents {
 							v, ok := slotValueFromMemoryContent(c)
-							if !ok {
-								v = strings.TrimSpace(c)
+							if !ok || looksTitleCaseSlogan(titleCaseWords(v)) {
+								if i < len(filteredNorms) && strings.TrimSpace(filteredNorms[i]) != "" {
+									v = filteredNorms[i]
+								} else if !ok {
+									v = strings.TrimSpace(c)
+								}
 							}
 							if v == "" || anaphoricSlotValue(v) {
 								continue
@@ -439,6 +453,759 @@ func hopResultTypedExact(r HopResult) bool {
 	return r.Source == "typed_store" || r.ProofKind == "typed_exact"
 }
 
+func applyHopDependency(res *HopResult, prev HopResult) {
+	if res == nil {
+		return
+	}
+	if dest := strings.TrimSpace(kinDestMention(prev)); dest != "" {
+		res.Entity = dest
+		if strings.EqualFold(dest, strings.TrimSpace(prev.Entity)) {
+			if res.EntityID == "" && strings.TrimSpace(prev.EntityID) != "" {
+				res.EntityID = prev.EntityID
+			}
+			return
+		}
+		// Dest is not the source person (named kin or "Name's mother").
+		res.EntityID = ""
+		return
+	}
+	if res.EntityID == "" && strings.TrimSpace(prev.EntityID) != "" {
+		res.EntityID = prev.EntityID
+	}
+}
+
+func kinRoleToken(value string) string {
+	v := strings.ToLower(strings.TrimSpace(value))
+	v = strings.Trim(v, ".,!?\"'")
+	v = strings.TrimPrefix(v, "the ")
+	if v == "" {
+		return ""
+	}
+	fields := strings.Fields(v)
+	if len(fields) == 2 {
+		switch fields[0] {
+		case "her", "his", "their", "my", "our":
+			v = fields[1]
+		}
+	}
+	for _, role := range kinshipRoles {
+		if v == role {
+			return role
+		}
+	}
+	return ""
+}
+
+func kinRoleLookupForms(role string) []string {
+	switch role {
+	case "mom", "mother":
+		return []string{"mother", "mom"}
+	case "dad", "father":
+		return []string{"father", "dad"}
+	case "grandma", "grandmother":
+		return []string{"grandmother", "grandma"}
+	case "grandpa", "grandfather":
+		return []string{"grandfather", "grandpa"}
+	default:
+		return []string{role}
+	}
+}
+
+func kinDestMention(prev HopResult) string {
+	raw := strings.TrimSpace(prev.Value)
+	role := kinRoleToken(raw)
+	if role == "" {
+		return raw
+	}
+	forms := kinRoleLookupForms(role)
+	for _, form := range forms {
+		for _, c := range prev.Contents {
+			if m := possessiveKinMention(c, form); m != "" {
+				return m
+			}
+		}
+	}
+	src := strings.TrimSpace(prev.Entity)
+	if src != "" && kinRoleToken(src) == "" {
+		return src + "'s " + forms[0]
+	}
+	return raw
+}
+
+func possessiveKinMention(content, role string) string {
+	role = strings.ToLower(strings.TrimSpace(role))
+	if role == "" || strings.TrimSpace(content) == "" {
+		return ""
+	}
+	fields := strings.Fields(content)
+	for i, f := range fields {
+		name := trimPossessiveToken(strings.Trim(f, ".,;:!?\"'"))
+		if name == "" || i+1 >= len(fields) {
+			continue
+		}
+		next := strings.Trim(fields[i+1], ".,;:!?\"'")
+		if !strings.EqualFold(next, role) {
+			continue
+		}
+		return name + "'s " + role
+	}
+	return ""
+}
+
+func trimPossessiveToken(raw string) string {
+	r := []rune(raw)
+	if len(r) < 3 {
+		return ""
+	}
+	if r[len(r)-1] != 's' {
+		return ""
+	}
+	prev := r[len(r)-2]
+	if prev != '\'' && prev != '’' {
+		return ""
+	}
+	return strings.TrimSpace(string(r[:len(r)-2]))
+}
+
+func kinDestSubjectLooks(subj, role string) bool {
+	lower := strings.ToLower(strings.TrimSpace(subj))
+	role = strings.ToLower(strings.TrimSpace(role))
+	if lower == "" || role == "" {
+		return false
+	}
+	return strings.HasSuffix(lower, "'s "+role) || strings.HasSuffix(lower, "’s "+role)
+}
+
+func looksKinDestMention(mention string) bool {
+	mention = strings.TrimSpace(mention)
+	if mention == "" {
+		return false
+	}
+	for _, role := range kinshipRoles {
+		for _, form := range kinRoleLookupForms(role) {
+			if kinDestSubjectLooks(mention, form) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func skipKinDestEnrichPred(pred string) bool {
+	switch strings.ToLower(strings.TrimSpace(pred)) {
+	case PredicateFamilyMember, PredicateHealth, PredicateRelationshipStatus:
+		return true
+	}
+	return false
+}
+
+func attitudeObjectSlot(content string) (string, bool) {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return "", false
+	}
+	lower := strings.ToLower(content)
+	for _, cue := range []string{
+		" as one of her hobbies", " as one of his hobbies", " as one of their hobbies",
+		" as a hobby", " as her hobby", " as his hobby",
+	} {
+		i := strings.Index(lower, cue)
+		if i <= 0 {
+			continue
+		}
+		head := strings.TrimSpace(content[:i])
+		v := afterLastCue(" "+head+" ", []string{" had ", " has "})
+		v = strings.Trim(v, ".,;:!?")
+		if v != "" && utf8Len(v) >= 3 && utf8Len(v) <= 40 && !anaphoricSlotValue(v) {
+			return v, true
+		}
+	}
+	padded := " " + lower + " "
+	orig := " " + content + " "
+	for _, sep := range []string{
+		" passionate about ",
+		" interested in ",
+		" had a big passion for ",
+		" had a passion for ",
+		" a passion for ",
+	} {
+		i := strings.Index(padded, sep)
+		if i < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(orig[i+len(sep):])
+		rest = strings.Trim(rest, ".,;:!?\"'")
+		cut := len(rest)
+		restLower := strings.ToLower(rest)
+		for _, stop := range []string{",", ";", " and ", " often", " when ", " by ", " that "} {
+			if k := strings.Index(restLower, stop); k >= 0 && k < cut {
+				cut = k
+			}
+		}
+		v := strings.TrimSpace(rest[:cut])
+		v = strings.Trim(v, ".,;:!?\"'")
+		if v != "" && utf8Len(v) >= 3 && utf8Len(v) <= 40 && !anaphoricSlotValue(v) {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+func afterLastCue(s string, cues []string) string {
+	low := strings.ToLower(s)
+	best := -1
+	cueLen := 0
+	for _, c := range cues {
+		if c == "" {
+			continue
+		}
+		i := strings.LastIndex(low, c)
+		if i >= 0 && i >= best {
+			best = i
+			cueLen = len(c)
+		}
+	}
+	if best < 0 {
+		return ""
+	}
+	return strings.TrimSpace(s[best+cueLen:])
+}
+
+func (s *Service) enrichKinDestSubjectSlots(ctx context.Context, tenantID, subjectID string, res *HopResult) {
+	if s == nil || s.store == nil || res == nil {
+		return
+	}
+	if res.Kind == "resolve_entity" || skipKinDestEnrichPred(res.Predicate) {
+		return
+	}
+	dest := strings.TrimSpace(res.Entity)
+	if !looksKinDestMention(dest) {
+		return
+	}
+	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
+	if err != nil || len(listed) == 0 {
+		return
+	}
+	have := map[string]struct{}{}
+	for _, v := range res.Values {
+		if k := strings.ToLower(strings.TrimSpace(v)); k != "" {
+			have[k] = struct{}{}
+		}
+	}
+	added := make([]string, 0, 8)
+	add := func(v, memID, content string) {
+		v = strings.TrimSpace(v)
+		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) || looksTitleCaseSlogan(titleCaseWords(v)) {
+			return
+		}
+		if utf8Len(v) > 80 {
+			return
+		}
+		if strings.EqualFold(v, dest) {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := have[key]; ok {
+			return
+		}
+		have[key] = struct{}{}
+		added = append(added, v)
+		if memID != "" {
+			res.MemoryIDs = append(res.MemoryIDs, memID)
+		}
+		if content != "" {
+			res.Contents = append(res.Contents, content)
+		}
+	}
+	for _, rec := range listed {
+		if !strings.EqualFold(entitySubjectOf(rec), dest) {
+			continue
+		}
+		pred := ""
+		if rec.Metadata != nil {
+			if p, ok := rec.Metadata["predicate"].(string); ok {
+				pred = p
+			}
+		}
+		if pred == "" && rec.Explain != nil {
+			if p, ok := rec.Explain["predicate"].(string); ok {
+				pred = p
+			}
+		}
+		if skipKinDestEnrichPred(pred) {
+			continue
+		}
+		att, ok := attitudeObjectSlot(rec.Content)
+		if !ok {
+			continue
+		}
+		add(att, rec.MemoryID, rec.Content)
+	}
+	if len(added) == 0 {
+		return
+	}
+	res.Values = append(added, res.Values...)
+	if len(res.Values) > 0 {
+		res.Value = strings.Join(res.Values, ", ")
+	}
+	if res.Source == "" || res.Source == "unresolved" || res.Source == "search_fallback" {
+		res.Source = "typed_store"
+		res.ProofKind = "typed_exact"
+	}
+}
+
+type recoveredSlot struct {
+	value   string
+	content string
+	memID   string
+}
+
+func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectID, query string, hops []HopResult) {
+	if s == nil || s.store == nil || len(hops) == 0 || strings.TrimSpace(query) == "" {
+		return
+	}
+	needLoc := looksLocationListQuery(query) && len(practiceObjectTokens(query)) > 0
+	needUnwind := looksUnwindQuery(query)
+	needPlay := looksInstrumentQuery(query)
+	needTrick := looksTrickQuery(query)
+	needBesides := looksBesidesQuery(query) && itemHitsExclusion(query, []string{"stress", "stressor", "stressors"})
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needBesides {
+		return
+	}
+	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
+	if err != nil || len(listed) == 0 {
+		return
+	}
+	person := ""
+	if ents := hopQueryEntities(query); len(ents) > 0 {
+		person = ents[0]
+	}
+	if needLoc {
+		prependHopSlots(hops, PredicateActivity, recoverPracticeLocationSlots(query, person, hops, listed))
+	}
+	if needUnwind {
+		prependHopSlots(hops, PredicateActivity, recoverUnwindSlots(person, listed))
+	}
+	if needPlay {
+		prependHopSlots(hops, PredicateSkill, recoverPlayObjectSlots(person, listed))
+	}
+	if needTrick {
+		prependHopSlots(hops, PredicateSkill, recoverTrickSlots(person, listed))
+	}
+	if needBesides {
+		prependHopSlots(hops, PredicateActivity, recoverBesidesStressorSlots(person, listed))
+	}
+}
+
+func prependHopSlots(hops []HopResult, pred string, slots []recoveredSlot) {
+	if len(hops) == 0 || len(slots) == 0 {
+		return
+	}
+	idx := hopIndexForPredicate(hops, pred)
+	if idx < 0 {
+		return
+	}
+	h := &hops[idx]
+	haveVal := map[string]struct{}{}
+	for _, v := range h.Values {
+		if k := strings.ToLower(strings.TrimSpace(v)); k != "" {
+			haveVal[k] = struct{}{}
+		}
+	}
+	haveContent := map[string]struct{}{}
+	for _, c := range h.Contents {
+		if k := strings.ToLower(strings.TrimSpace(c)); k != "" {
+			haveContent[k] = struct{}{}
+		}
+	}
+	var vals, contents, ids []string
+	for _, sl := range slots {
+		val := strings.TrimSpace(sl.value)
+		if val != "" {
+			if anaphoricSlotValue(val) || looksTitleCaseSlogan(val) || looksTitleCaseSlogan(titleCaseWords(val)) || utf8Len(val) > 80 {
+				val = ""
+			} else {
+				key := strings.ToLower(val)
+				if _, ok := haveVal[key]; ok {
+					val = ""
+				} else {
+					haveVal[key] = struct{}{}
+				}
+			}
+		}
+		content := strings.TrimSpace(sl.content)
+		if content != "" {
+			ck := strings.ToLower(content)
+			if _, ok := haveContent[ck]; ok {
+				content = ""
+			} else {
+				haveContent[ck] = struct{}{}
+			}
+		}
+		if val == "" && content == "" {
+			continue
+		}
+		vals = append(vals, val)
+		contents = append(contents, content)
+		ids = append(ids, sl.memID)
+	}
+	if len(vals) == 0 {
+		return
+	}
+	h.Values = append(vals, h.Values...)
+	h.Contents = append(contents, h.Contents...)
+	h.MemoryIDs = append(ids, h.MemoryIDs...)
+	nonempty := make([]string, 0, len(h.Values))
+	for _, v := range h.Values {
+		if strings.TrimSpace(v) != "" {
+			nonempty = append(nonempty, v)
+		}
+	}
+	if len(nonempty) > 0 {
+		h.Value = strings.Join(nonempty, ", ")
+	}
+	if h.Source == "search_fallback" || h.Source == "unresolved" || h.Source == "" {
+		h.Source = "typed_store"
+		h.ProofKind = "typed_exact"
+	}
+}
+
+func hopIndexForPredicate(hops []HopResult, pred string) int {
+	if pred != "" {
+		for i, h := range hops {
+			if h.Kind == "resolve_entity" {
+				continue
+			}
+			if h.Predicate == pred {
+				return i
+			}
+		}
+	}
+	for i, h := range hops {
+		if h.Kind != "resolve_entity" && h.Source != "unresolved" {
+			return i
+		}
+	}
+	for i, h := range hops {
+		if h.Kind != "resolve_entity" {
+			return i
+		}
+	}
+	return -1
+}
+
+func recordMatchesQueryPerson(rec MemoryRecord, person string, hops []HopResult) bool {
+	subj := entitySubjectOf(rec)
+	if person != "" && strings.EqualFold(subj, person) {
+		return true
+	}
+	if person != "" && looksKinDestMention(subj) {
+		low := strings.ToLower(subj)
+		p := strings.ToLower(person)
+		if strings.HasPrefix(low, p+"'s ") || strings.HasPrefix(low, p+"’s ") {
+			return true
+		}
+	}
+	for _, h := range hops {
+		dest := strings.TrimSpace(h.Entity)
+		if dest != "" && strings.EqualFold(subj, dest) {
+			return true
+		}
+	}
+	return false
+}
+
+func recoverPracticeLocationSlots(query, person string, hops []HopResult, listed []MemoryRecord) []recoveredSlot {
+	focus := practiceObjectTokens(query)
+	if len(focus) == 0 {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !recordMatchesQueryPerson(rec, person, hops) {
+			continue
+		}
+		if !itemHitsExclusion(content, focus) {
+			continue
+		}
+		if len(placesFromContent(content)) == 0 && compositionalPracticePlace(content, focus) == "" {
+			continue
+		}
+		key := strings.ToLower(content)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, recoveredSlot{content: content, memID: rec.MemoryID})
+	}
+	return out
+}
+
+func recoverUnwindSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if key == "\n\n" {
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !strings.EqualFold(entitySubjectOf(rec), person) {
+			continue
+		}
+		if !unwindEvidenceHit(content) {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		for _, v := range unwindActivitySlots(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
+func recoverPlayObjectSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !strings.EqualFold(entitySubjectOf(rec), person) {
+			continue
+		}
+		slots := playPracticeObjectSlots(content)
+		if len(slots) == 0 {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		for _, v := range slots {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
+func recoverTrickSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" {
+			continue
+		}
+		if !queryHasToken(content, "trick", "tricks") {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		for _, v := range trickObjectSlots(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+		if vn := recordValueNorm(rec); vn != "" && queryHasToken(content, "trick", "tricks") {
+			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
+func recoverBesidesStressorSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !strings.EqualFold(entitySubjectOf(rec), person) {
+			continue
+		}
+		lower := strings.ToLower(content)
+		if !strings.Contains(lower, "stress") && !itemHitsExclusion(content, []string{"stress", "stressed"}) {
+			continue
+		}
+		if itemHitsExclusion(content, []string{"hike", "hiking"}) {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		if strings.Contains(lower, "work") {
+			add(recoveredSlot{value: "work", content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
+var (
+	playObjectRE     = regexp.MustCompile(`(?i)\bplays(?:\s+the)?\s+([a-z][a-z-]+)\b`)
+	playingRE        = regexp.MustCompile(`(?i)\bplaying(?:\s+the)?\s+([a-z][a-z-]+)\b`)
+	practiceRE       = regexp.MustCompile(`(?i)\b([a-z][a-z-]+)\s+practice\b`)
+	unwindToRE       = regexp.MustCompile(`(?i)\b([a-z][a-z-]+)\s+to\s+(?:[a-z-]*stress|unwind|relax|calm)\b`)
+	unwindToStressRE = regexp.MustCompile(`(?i)\bto\s+[a-z-]*stress\b`)
+	makingRE         = regexp.MustCompile(`(?i)\b(?:making|practicing|practising)\s+([a-z][a-z-]+)\b`)
+	tricksLikeRE     = regexp.MustCompile(`(?i)tricks(?:\s+\w+){0,3}\s+(?:like|such as)\s+(.+)`)
+)
+
+func unwindEvidenceTokens() []string {
+	return []string{"unwind", "unwinds", "relax", "relaxes", "calming", "calm"}
+}
+
+func unwindEvidenceHit(s string) bool {
+	if itemHitsExclusion(s, unwindEvidenceTokens()) {
+		return true
+	}
+	return unwindToStressRE.MatchString(s)
+}
+
+func playPracticeObjectSlots(content string) []string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil
+	}
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(strings.ToLower(v))
+		if v == "" || isQueryStopword(v) || v == "daily" || v == "practice" || v == "practicing" {
+			return
+		}
+		if utf8Len(v) < 3 || utf8Len(v) > 40 {
+			return
+		}
+		if _, ok := seen[v]; ok {
+			return
+		}
+		seen[v] = struct{}{}
+		out = append(out, v)
+	}
+	for _, re := range []*regexp.Regexp{playObjectRE, playingRE, practiceRE} {
+		for _, m := range re.FindAllStringSubmatch(content, -1) {
+			if len(m) >= 2 {
+				add(m[1])
+			}
+		}
+	}
+	return out
+}
+
+func unwindActivitySlots(content string) []string {
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return nil
+	}
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" || anaphoricSlotValue(v) || utf8Len(v) < 3 || utf8Len(v) > 40 {
+			return
+		}
+		key := strings.ToLower(v)
+		if isQueryStopword(key) {
+			return
+		}
+		switch key {
+		case "way", "ways", "great", "good", "best", "thing", "things", "lot", "lots", "farther", "further":
+			return
+		}
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	low := strings.ToLower(content)
+	if strings.Contains(low, "unwinds via") || strings.Contains(low, "enjoys practicing") || strings.Contains(low, "enjoys practising") {
+		if v, ok := slotValueFromMemoryContent(content); ok {
+			add(v)
+		}
+	}
+	if v, ok := attitudeObjectSlot(content); ok {
+		add(v)
+	}
+	for _, m := range unwindToRE.FindAllStringSubmatch(content, -1) {
+		if len(m) >= 2 {
+			add(m[1])
+		}
+	}
+	for _, m := range makingRE.FindAllStringSubmatch(content, -1) {
+		if len(m) >= 2 {
+			add(m[1])
+		}
+	}
+	return out
+}
+
+func trickObjectSlots(content string) []string {
+	content = strings.TrimSpace(content)
+	if content == "" || !queryHasToken(content, "trick", "tricks") {
+		return nil
+	}
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(strings.Trim(v, " .,"))
+		if v == "" || utf8Len(v) < 3 || utf8Len(v) > 40 || anaphoricSlotValue(v) {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	if m := tricksLikeRE.FindStringSubmatch(content); len(m) == 2 {
+		rest := m[1]
+		if j := strings.IndexAny(rest, ".!?"); j >= 0 {
+			rest = rest[:j]
+		}
+		rest = strings.ReplaceAll(rest, " and ", ",")
+		for _, part := range strings.Split(rest, ",") {
+			add(part)
+		}
+	}
+	return out
+}
+
 func recordMatchesHopEntity(rec MemoryRecord, mention, entityID string) bool {
 	if entityID != "" {
 		if got := entityIDOf(rec); got != "" {
@@ -450,6 +1217,19 @@ func recordMatchesHopEntity(rec MemoryRecord, mention, entityID string) bool {
 	}
 	if mention == "" {
 		return entityID == ""
+	}
+	// Bare kin role ("mother" / "her mom") matches dest-subject records,
+	// not every source memory that merely mentions the role.
+	if role := kinRoleToken(mention); role != "" {
+		for _, form := range kinRoleLookupForms(role) {
+			if kinDestSubjectLooks(entitySubjectOf(rec), form) {
+				return true
+			}
+			if possessiveKinMention(rec.Content, form) != "" {
+				return true
+			}
+		}
+		return false
 	}
 	return containsEntityMention(rec.Content, mention)
 }
@@ -468,6 +1248,22 @@ func containsEntityMention(content, mention string) bool {
 	return strings.Contains(padded, needle)
 }
 
+func recordValueNorm(rec MemoryRecord) string {
+	if rec.Metadata != nil {
+		if v, ok := rec.Metadata["value_norm"].(string); ok {
+			if s := strings.TrimSpace(v); s != "" {
+				return s
+			}
+		}
+	}
+	if rec.Explain != nil {
+		if v, ok := rec.Explain["value_norm"].(string); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
 func anaphoricSlotValue(s string) bool {
 	lower := strings.ToLower(strings.TrimSpace(s))
 	if lower == "" {
@@ -483,6 +1279,10 @@ func anaphoricSlotValue(s string) bool {
 
 // hopSlotValues returns typed destinations from answer hops (not resolve).
 func hopSlotValues(results []HopResult) []string {
+	return hopSlotValuesFiltered(results, false)
+}
+
+func hopSlotValuesFiltered(results []HopResult, includeFallback bool) []string {
 	out := make([]string, 0, 8)
 	seen := map[string]struct{}{}
 	add := func(v, entity string) {
@@ -506,7 +1306,10 @@ func hopSlotValues(results []HopResult) []string {
 	for _, r := range results {
 		switch r.Kind {
 		case "follow_relation", "fetch_predicate", "answer_slot":
-			if r.Source == "unresolved" || r.Source == "search_fallback" {
+			if r.Source == "unresolved" {
+				continue
+			}
+			if !includeFallback && r.Source == "search_fallback" {
 				continue
 			}
 			if len(r.Values) > 0 {
@@ -522,7 +1325,11 @@ func hopSlotValues(results []HopResult) []string {
 }
 
 func hopSharedSlotValues(results []HopResult) []string {
-	groups := map[string][]HopResult{}
+	return intersectHopValueGroups(results, hopSlotValues)
+}
+
+func hopFetchEntityCount(results []HopResult) int {
+	seen := map[string]struct{}{}
 	for _, r := range results {
 		switch r.Kind {
 		case "follow_relation", "fetch_predicate", "answer_slot":
@@ -530,19 +1337,36 @@ func hopSharedSlotValues(results []HopResult) []string {
 			if ent == "" {
 				continue
 			}
+			seen[ent] = struct{}{}
+		}
+	}
+	return len(seen)
+}
+
+func intersectHopValueGroups(results []HopResult, valuesOf func([]HopResult) []string) []string {
+	groups := map[string][]HopResult{}
+	order := make([]string, 0, 2)
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			ent := strings.ToLower(strings.TrimSpace(r.Entity))
+			if ent == "" {
+				continue
+			}
+			if _, ok := groups[ent]; !ok {
+				order = append(order, ent)
+			}
 			groups[ent] = append(groups[ent], r)
 		}
 	}
-	if len(groups) < 2 {
+	if len(order) < 2 {
 		return nil
 	}
 	var inter []string
-	first := true
-	for _, hops := range groups {
-		vals := hopSlotValues(hops)
-		if first {
+	for i, ent := range order {
+		vals := valuesOf(groups[ent])
+		if i == 0 {
 			inter = append([]string(nil), vals...)
-			first = false
 			continue
 		}
 		allow := map[string]struct{}{}
@@ -560,11 +1384,218 @@ func hopSharedSlotValues(results []HopResult) []string {
 	return inter
 }
 
-func composeFromHopValues(results []HopResult) string {
-	vals := hopSharedSlotValues(results)
-	if len(vals) == 0 {
-		vals = hopSlotValues(results)
+func hopEntitySlotGroups(results []HopResult) ([]string, map[string][]string) {
+	hopGroups := map[string][]HopResult{}
+	order := make([]string, 0, 2)
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			ent := strings.ToLower(strings.TrimSpace(r.Entity))
+			if ent == "" {
+				continue
+			}
+			if _, ok := hopGroups[ent]; !ok {
+				order = append(order, ent)
+			}
+			hopGroups[ent] = append(hopGroups[ent], r)
+		}
 	}
+	groups := make(map[string][]string, len(order))
+	for _, ent := range order {
+		groups[ent] = hopSlotValuesFiltered(hopGroups[ent], true)
+	}
+	return order, groups
+}
+
+func slotValueTokens(v string) []string {
+	out := make([]string, 0, 4)
+	for _, t := range contentBearingTokens(tokenize(v)) {
+		if len(t) < 4 {
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
+}
+
+func slotTokensSubset(small, big []string) bool {
+	if len(small) == 0 {
+		return false
+	}
+	for _, s := range small {
+		ok := false
+		for _, b := range big {
+			if tokensMatch(s, b) {
+				ok = true
+				break
+			}
+		}
+		if !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func coveredSlotValue(a, b string) string {
+	a = strings.TrimSpace(a)
+	b = strings.TrimSpace(b)
+	if a == "" || b == "" {
+		return ""
+	}
+	if strings.EqualFold(a, b) {
+		return a
+	}
+	at, bt := slotValueTokens(a), slotValueTokens(b)
+	aSubset := slotTokensSubset(at, bt)
+	bSubset := slotTokensSubset(bt, at)
+	switch {
+	case aSubset && bSubset:
+		if utf8Len(a) <= utf8Len(b) {
+			return a
+		}
+		return b
+	case aSubset:
+		if !joinModifierValue(b) {
+			return ""
+		}
+		return a
+	case bSubset:
+		if !joinModifierValue(a) {
+			return ""
+		}
+		return b
+	}
+	return ""
+}
+
+func joinModifierValue(s string) bool {
+	for _, tok := range tokenize(s) {
+		switch strings.ToLower(strings.Trim(tok, "'s")) {
+		case "organized", "started", "group":
+			return true
+		}
+	}
+	return false
+}
+
+// intersectHopValuesByContainment keeps the shorter slot when one entity's
+// value is a token subset of the other's (yoga ∩ organized yoga). Exact
+// equality is already handled by intersectHopValueGroups.
+func intersectHopValuesByContainment(results []HopResult) []string {
+	order, groups := hopEntitySlotGroups(results)
+	if len(order) < 2 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	first := groups[order[0]]
+	for _, ent := range order[1:] {
+		next := groups[ent]
+		kept := make([]string, 0)
+		for _, va := range first {
+			for _, vb := range next {
+				if cov := coveredSlotValue(va, vb); cov != "" {
+					kept = append(kept, cov)
+				}
+			}
+		}
+		first = kept
+	}
+	for _, v := range first {
+		add(v)
+	}
+	return out
+}
+
+// hopValuesMentioningPartner keeps a hop value that names another join
+// entity (Casey joined Riley's running group).
+func hopValuesMentioningPartner(results []HopResult) []string {
+	order, groups := hopEntitySlotGroups(results)
+	if len(order) < 2 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0)
+	for _, ent := range order {
+		for _, other := range order {
+			if other == ent {
+				continue
+			}
+			for _, v := range groups[ent] {
+				blob := strings.ToLower(v)
+				if !strings.Contains(blob, other) {
+					continue
+				}
+				key := strings.ToLower(strings.TrimSpace(v))
+				if key == "" {
+					continue
+				}
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				out = append(out, v)
+			}
+		}
+	}
+	return out
+}
+
+func hopContentSlotValues(results []HopResult) []string {
+	echo := map[string]struct{}{}
+	for _, h := range results {
+		if v := strings.ToLower(strings.TrimSpace(h.Entity)); v != "" {
+			echo[v] = struct{}{}
+		}
+	}
+	seen := map[string]struct{}{}
+	vals := make([]string, 0, 4)
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" || anaphoricSlotValue(v) || looksTitleCaseSlogan(v) || utf8Len(v) > 80 {
+			return
+		}
+		if _, ok := echo[strings.ToLower(v)]; ok {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		vals = append(vals, v)
+	}
+	for _, h := range results {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
+			continue
+		}
+		for _, c := range h.Contents {
+			if extracted, ok := slotValueFromMemoryContent(c); ok {
+				add(extracted)
+			}
+		}
+	}
+	return vals
+}
+
+func hopSharedContentValues(results []HopResult) []string {
+	return intersectHopValueGroups(results, hopContentSlotValues)
+}
+
+func joinTitledHopValues(vals []string) string {
 	if len(vals) == 0 {
 		return ""
 	}
@@ -573,6 +1604,21 @@ func composeFromHopValues(results []HopResult) string {
 		titled = append(titled, titleCaseWords(v))
 	}
 	return strings.Join(titled, ", ")
+}
+
+func composeFromHopValues(results []HopResult) string {
+	if hopFetchEntityCount(results) >= 2 {
+		vals := hopSharedSlotValues(results)
+		if len(vals) == 0 {
+			vals = hopSharedContentValues(results)
+		}
+		return joinTitledHopValues(vals)
+	}
+	vals := hopSlotValues(results)
+	if len(vals) > 6 {
+		vals = vals[:6]
+	}
+	return joinTitledHopValues(vals)
 }
 
 func groundToHopValues(answer string, results []HopResult) string {

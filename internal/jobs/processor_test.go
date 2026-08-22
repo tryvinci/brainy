@@ -2,14 +2,18 @@ package jobs
 
 import (
 	"context"
+	"fmt"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"brainy/internal/memory"
 	"brainy/internal/observability"
-	"strings"
 )
 
 type storeStub struct {
+	mu         sync.Mutex
 	records    map[string]memory.MemoryRecord
 	jobs       map[string]memory.ExtractionJob
 	failedJobs map[string]string
@@ -32,11 +36,15 @@ func (s *storeStub) UpsertEmbedding(_ context.Context, memoryID, _, _ string, va
 	}
 	copied := make([]float32, len(values))
 	copy(copied, values)
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.embeddings[memoryID] = copied
 	return nil
 }
 
 func (s *storeStub) UpsertMemory(_ context.Context, record memory.MemoryRecord) (memory.StoreUpsertResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.records[record.DedupeKey] = record
 	return memory.StoreUpsertResult{Record: record, State: "created"}, nil
 }
@@ -47,6 +55,8 @@ func (s *storeStub) ListActiveMemories(ctx context.Context, tenantID, subjectID 
 
 func (s *storeStub) ListMemories(_ context.Context, tenantID, subjectID string, includeSuperseded bool) ([]memory.MemoryRecord, error) {
 	_ = includeSuperseded
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	var out []memory.MemoryRecord
 	for _, record := range s.records {
 		if record.TenantID == tenantID && record.SubjectID == subjectID && record.Status == memory.StatusActive {
@@ -79,11 +89,15 @@ func (s *storeStub) CorrectMemory(_ context.Context, _, _, _, _, _ string) (memo
 }
 
 func (s *storeStub) EnqueueIngestJob(_ context.Context, ingestID, jobID, _ string, req memory.IngestRequest) (memory.EnqueueResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.jobs[jobID] = memory.ExtractionJob{JobID: jobID, IngestID: ingestID, Request: req}
 	return memory.EnqueueResult{IngestID: ingestID, JobID: jobID, Accepted: true}, nil
 }
 
 func (s *storeStub) ClaimNextExtractionJob(_ context.Context) (memory.ExtractionJob, bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for jobID, job := range s.jobs {
 		delete(s.jobs, jobID)
 		return job, true, nil
@@ -94,17 +108,23 @@ func (s *storeStub) ClaimNextExtractionJob(_ context.Context) (memory.Extraction
 func (s *storeStub) CompleteExtractionJob(_ context.Context, _, _ string) error { return nil }
 
 func (s *storeStub) FailExtractionJob(_ context.Context, jobID, _, reason string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.failedJobs[jobID] = reason
 	return nil
 }
 
 func (s *storeStub) UpsertMemoryRelation(_ context.Context, rel memory.MemoryRelation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.relations = append(s.relations, rel)
 	return nil
 }
 
 func (s *storeStub) ListRelationsFrom(_ context.Context, tenantID, subjectID, srcEntity, relation string, limit int) ([]memory.MemoryRelation, error) {
 	srcEntity = strings.ToLower(strings.TrimSpace(srcEntity))
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := make([]memory.MemoryRelation, 0)
 	for _, rel := range s.relations {
 		if rel.TenantID != tenantID || rel.SubjectID != subjectID {
@@ -237,6 +257,7 @@ func (f failingExtractor) Extract(_ context.Context, _ memory.IngestRequest) ([]
 // fenced completion path and propagates ErrLeaseLost.
 type fencedStoreStub struct {
 	storeStub
+	mu             sync.Mutex
 	heartbeats     int
 	completeFenced bool
 	failFenced     bool
@@ -244,8 +265,16 @@ type fencedStoreStub struct {
 }
 
 func (s *fencedStoreStub) HeartbeatExtractionJob(_ context.Context, _, _ string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.heartbeats++
 	return nil
+}
+
+func (s *fencedStoreStub) heartbeatCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.heartbeats
 }
 
 func (s *fencedStoreStub) CompleteExtractionJobFenced(_ context.Context, _, _, _ string) error {
@@ -282,8 +311,54 @@ func TestProcessorUsesFencedLeasePath(t *testing.T) {
 	if !store.completeFenced {
 		t.Fatal("expected fenced completion to be used")
 	}
-	if store.heartbeats == 0 {
+	if store.heartbeatCount() == 0 {
 		t.Fatal("expected lease heartbeat during processing")
+	}
+}
+
+type delayedExtractor struct {
+	delay time.Duration
+}
+
+func (d delayedExtractor) Extract(ctx context.Context, _ memory.IngestRequest) ([]memory.ExtractedMemory, error) {
+	timer := time.NewTimer(d.delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-timer.C:
+		return nil, nil
+	}
+}
+
+func TestProcessorRenewsLeaseDuringSlowExtract(t *testing.T) {
+	orig := extractionLeaseRenewInterval
+	extractionLeaseRenewInterval = 25 * time.Millisecond
+	t.Cleanup(func() { extractionLeaseRenewInterval = orig })
+
+	store := &fencedStoreStub{}
+	store.records = map[string]memory.MemoryRecord{}
+	store.jobs = map[string]memory.ExtractionJob{}
+	store.failedJobs = map[string]string{}
+	store.embeddings = map[string][]float32{}
+
+	processor := NewProcessorWithExtractor(store, observability.NewMetrics(), delayedExtractor{delay: 140 * time.Millisecond})
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_slow", "job_slow", "", memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "u1",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "I prefer concise answers."}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := processor.ProcessNext(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	got := store.heartbeatCount()
+	if got < 3 {
+		t.Fatalf("expected initial heartbeat plus ticker renewals during slow extract, got %d", got)
 	}
 }
 
@@ -311,5 +386,34 @@ func TestProcessorPropagatesLeaseLostOnFailure(t *testing.T) {
 	}
 	if !store.failFenced {
 		t.Fatal("expected fenced failure to be used")
+	}
+}
+
+func TestProcessAvailableDrainsQueueWithConcurrency(t *testing.T) {
+	store := newStoreStub()
+	processor := NewProcessor(store, observability.NewMetrics())
+	for i := 0; i < 8; i++ {
+		_, err := store.EnqueueIngestJob(context.Background(), fmt.Sprintf("ing_%d", i), fmt.Sprintf("job_%d", i), "", memory.IngestRequest{
+			TenantID:   "t1",
+			SubjectID:  fmt.Sprintf("u%d", i),
+			SourceType: "conversation",
+			Messages:   []memory.Message{{Role: "user", Content: fmt.Sprintf("I prefer concise answers %d.", i)}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	n, err := processor.ProcessAvailable(context.Background(), 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n != 8 {
+		t.Fatalf("expected 8 processed jobs, got %d", n)
+	}
+	store.mu.Lock()
+	left := len(store.jobs)
+	store.mu.Unlock()
+	if left != 0 {
+		t.Fatalf("expected empty queue, got %d jobs", left)
 	}
 }

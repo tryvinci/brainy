@@ -161,6 +161,13 @@ func predicateHintsFromQuery(query string) []string {
 		out = append(out, p)
 	}
 	switch {
+	case looksConsequenceQuery(query):
+		add(PredicateHealth)
+		add(PredicatePreference)
+	case queryHasToken(query, "visit", "visited", "travel", "travels", "traveled"):
+		add(PredicateActivity)
+		add(PredicateEvent)
+		add(PredicateOrigin)
 	case strings.Contains(lower, "moved") || strings.Contains(lower, "country") ||
 		(strings.Contains(lower, "where") && strings.Contains(lower, "from")):
 		add(PredicateOrigin)
@@ -168,20 +175,55 @@ func predicateHintsFromQuery(query string) []string {
 	case strings.Contains(lower, "live") || strings.Contains(lower, "reside") || strings.Contains(lower, "city"):
 		add(PredicateResidence)
 		add(PredicateOrigin)
+	case looksWhereQuery(query):
+		add(PredicateActivity)
+		add(PredicateEvent)
+		add(PredicateResidence)
 	case strings.Contains(lower, "job") || strings.Contains(lower, "work") || strings.Contains(lower, "occupation") || strings.Contains(lower, "career") || strings.Contains(lower, "pursue") || strings.Contains(lower, "educat"):
 		add(PredicateOccupation)
 		add(PredicateIdentity)
 		add(PredicateEducation)
 		add(PredicatePlan)
-	case strings.Contains(lower, "married") || strings.Contains(lower, "relationship") || strings.Contains(lower, "partner") || strings.Contains(lower, "single"):
+	case strings.Contains(lower, "married") || strings.Contains(lower, "relationship") ||
+		(strings.Contains(lower, "partner") && !queryHasToken(query, "dogs", "dog", "pets", "pet")) ||
+		strings.Contains(lower, "single"):
 		add(PredicateRelationshipStatus)
+	case queryHasToken(query, "trick", "tricks", "instrument", "instruments") ||
+		queryHasToken(query, "teach", "taught"):
+		add(PredicateSkill)
+		add(PredicateActivity)
+	case queryHasToken(query, "pet", "pets", "dog", "dogs"):
+		add(PredicatePossession)
+	case queryHasToken(query, "meal", "meals", "food", "snack", "snacks") ||
+		queryHasToken(query, "given", "gave", "give") || strings.Contains(lower, "suggest"):
+		add(PredicatePreference)
+		add(PredicateActivity)
+	case strings.Contains(lower, "injur") || queryHasToken(query, "health"):
+		add(PredicateHealth)
+		add(PredicateEvent)
+	case (queryHasToken(query, "support", "supports", "supported") ||
+		queryHasToken(query, "tell", "told")) && looksPlaceOrPersonSlot(query):
+		add(PredicateFamilyMember)
+	case strings.Contains(lower, "organization") || strings.Contains(lower, "beneficiar"):
+		add(PredicateAffiliation)
+	case strings.Contains(lower, "community") || strings.Contains(lower, "participat"):
+		add(PredicateActivity)
+		add(PredicateAffiliation)
+		add(PredicateIdentity)
+	case strings.Contains(lower, "journey") || queryHasToken(query, "changes", "change"):
+		add(PredicateIdentity)
+		add(PredicateActivity)
 	case strings.Contains(lower, "name") || strings.Contains(lower, "who is") || strings.Contains(lower, "identity"):
 		add(PredicateIdentity)
-	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop") || strings.Contains(lower, "do to"):
+	case strings.Contains(lower, "activit") || strings.Contains(lower, "hobby") || strings.Contains(lower, "hobbies") || strings.Contains(lower, "camp") || strings.Contains(lower, "unwind") || strings.Contains(lower, "relax") || strings.Contains(lower, "workshop") || strings.Contains(lower, "do to") ||
+		queryHasToken(query, "tried", "try"):
 		add(PredicateActivity)
 		add(PredicateEvent)
 	case strings.Contains(lower, "book") || strings.Contains(lower, "read") || strings.Contains(lower, "library"):
 		add(PredicateMediaConsumed)
+	case queryHasToken(query, "item", "items") &&
+		(queryHasToken(query, "child", "childhood") || strings.Contains(lower, "as a child")):
+		add(PredicatePossession)
 	case strings.Contains(lower, "kid") || strings.Contains(lower, "child"):
 		add(PredicateFamilyMember)
 		add(PredicatePreference)
@@ -205,10 +247,10 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateEvent)
 		add(PredicateResidence)
 	case strings.Contains(lower, "own") || strings.Contains(lower, "possess") ||
-		(strings.Contains(lower, "how many") && (strings.Contains(lower, "have") || strings.Contains(lower, "has"))):
+		strings.Contains(lower, "bought") || strings.Contains(lower, "collectible") ||
+		(strings.Contains(lower, "items") && (strings.Contains(lower, "bought") || strings.Contains(lower, "made") || strings.Contains(lower, "have") || strings.Contains(lower, "has"))) ||
+		(strings.Contains(lower, "how many") && (strings.Contains(lower, "have") || strings.Contains(lower, "has") || strings.Contains(lower, "own"))):
 		add(PredicatePossession)
-	case strings.Contains(lower, "injur") || strings.Contains(lower, "health"):
-		add(PredicateHealth)
 	}
 	if len(out) == 0 && (strings.Contains(lower, "currently") || strings.Contains(lower, "right now") || strings.Contains(lower, "current")) {
 		// Conservative defaults for "currently" questions only.
@@ -218,4 +260,19 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateIdentity)
 	}
 	return out
+}
+
+func queryHasToken(query string, want ...string) bool {
+	set := map[string]struct{}{}
+	for _, w := range want {
+		set[strings.ToLower(w)] = struct{}{}
+	}
+	for _, t := range tokenize(query) {
+		t = strings.Trim(t, "'\"")
+		t = strings.TrimSuffix(t, "'s")
+		if _, ok := set[t]; ok {
+			return true
+		}
+	}
+	return false
 }

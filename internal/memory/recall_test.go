@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestRecallEnumerateDistinctValues(t *testing.T) {
@@ -764,5 +765,2535 @@ func TestRecallPreferenceHopUsesStructuredProof(t *testing.T) {
 	}
 	if cov.Coverage == nil || cov.Coverage["satisfied"] != true {
 		t.Fatalf("coverage should be satisfied when structured preference is in the packet, coverage=%v answer=%q", cov.Coverage, cov.Answer)
+	}
+}
+
+func TestRecallCoordinatedJoinWithoutBothCue(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["tim-jersey"] = MemoryRecord{
+		MemoryID: "mem_tj", TenantID: "t-mh-join", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim owns a jersey",
+		DedupeKey: "tj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "Tim"},
+	}
+	store.records["john-jersey"] = MemoryRecord{
+		MemoryID: "mem_jj", TenantID: "t-mh-join", SubjectID: "u1",
+		Kind: KindFact, Content: "John owns a jersey",
+		DedupeKey: "jj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "jersey", "subject": "John"},
+	}
+	store.records["john-ball"] = MemoryRecord{
+		MemoryID: "mem_jb", TenantID: "t-mh-join", SubjectID: "u1",
+		Kind: KindFact, Content: "John owns a signed baseball",
+		DedupeKey: "jb", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "signed baseball", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "signed baseball", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "jersey", memID: "mem_tj"},
+		stubAtom{pred: PredicatePossession, val: "jersey", memID: "mem_jj"},
+		stubAtom{pred: PredicatePossession, val: "signed baseball", memID: "mem_jb"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-mh-join", SubjectID: "u1",
+		Query: "What similar collectible do Tim and John own?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "jersey") {
+		t.Fatalf("expected shared jersey, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "baseball") {
+		t.Fatalf("private possession leaked into join: %q", out.Answer)
+	}
+}
+
+func TestRecallEntityListDoesNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["riley-dog"] = MemoryRecord{
+		MemoryID: "mem_rd", TenantID: "t-list", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's dog is named Max",
+		DedupeKey: "rd", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "max", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "max", "subject": "Riley"},
+	}
+	store.records["riley-job"] = MemoryRecord{
+		MemoryID: "mem_rj", TenantID: "t-list", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "max", memID: "mem_rd"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-list", SubjectID: "u1",
+		Query: "What are Riley's dogs' names?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "max") {
+		t.Fatalf("expected pet name, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded the names list: %q", out.Answer)
+	}
+}
+
+func TestRecallInstrumentListDoesNotDumpHobby(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["jordan-play"] = MemoryRecord{
+		MemoryID: "mem_jp", TenantID: "t-list2", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan plays piano",
+		DedupeKey: "jp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateSkill, "value_norm": "piano", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateSkill, "value_norm": "piano", "subject": "Jordan"},
+	}
+	store.records["jordan-hike"] = MemoryRecord{
+		MemoryID: "mem_jh", TenantID: "t-list2", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan enjoys hiking",
+		DedupeKey: "jh", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Jordan"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateSkill, val: "piano", memID: "mem_jp"},
+		stubAtom{pred: PredicatePreference, val: "hiking", memID: "mem_jh"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-list2", SubjectID: "u1",
+		Query: "What instruments does Jordan play?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "piano") {
+		t.Fatalf("expected instrument, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "hiking") {
+		t.Fatalf("hobby crowded the instrument list: %q", out.Answer)
+	}
+}
+
+func TestRecallPetTrickListDoesNotDumpHobby(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["james-trick"] = MemoryRecord{
+		MemoryID: "mem_jt", TenantID: "t-list3", SubjectID: "u1",
+		Kind: KindFact, Content: "James's dog knows sit",
+		DedupeKey: "jt", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateSkill, "value_norm": "sit", "subject": "James"},
+		Explain:  map[string]any{"predicate": PredicateSkill, "value_norm": "sit", "subject": "James"},
+	}
+	store.records["james-hike"] = MemoryRecord{
+		MemoryID: "mem_jh2", TenantID: "t-list3", SubjectID: "u1",
+		Kind: KindFact, Content: "James enjoys hiking",
+		DedupeKey: "jh2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "James"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "James"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateSkill, val: "sit", memID: "mem_jt"},
+		stubAtom{pred: PredicatePreference, val: "hiking", memID: "mem_jh2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-list3", SubjectID: "u1",
+		Query: "What kind of tricks do James's pets know?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "sit") {
+		t.Fatalf("expected trick, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "hiking") {
+		t.Fatalf("hobby crowded the trick list: %q", out.Answer)
+	}
+}
+
+func TestRecallCountPossessionsDoesNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["cal-car1"] = MemoryRecord{
+		MemoryID: "mem_c1", TenantID: "t-count", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin owns a red coupe",
+		DedupeKey: "c1", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "red coupe", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "red coupe", "subject": "Calvin"},
+	}
+	store.records["cal-car2"] = MemoryRecord{
+		MemoryID: "mem_c2", TenantID: "t-count", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin owns a black sedan",
+		DedupeKey: "c2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "black sedan", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "black sedan", "subject": "Calvin"},
+	}
+	store.records["cal-job"] = MemoryRecord{
+		MemoryID: "mem_cj", TenantID: "t-count", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin works as a nurse",
+		DedupeKey: "cj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Calvin"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "red coupe", memID: "mem_c1"},
+		stubAtom{pred: PredicatePossession, val: "black sedan", memID: "mem_c2"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_cj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-count", SubjectID: "u1",
+		Query: "How many cars does Calvin own?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Answer != "2" {
+		t.Fatalf("expected count 2, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded the count: %q", out.Answer)
+	}
+}
+
+func TestRecallCountTimesUsesEvidenceNotUniqueSlot(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-ank1"] = MemoryRecord{
+		MemoryID: "mem_ja1", TenantID: "t-times", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan injured his ankle",
+		DedupeKey: "ja1", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Jordan"},
+	}
+	store.records["j-ank2"] = MemoryRecord{
+		MemoryID: "mem_ja2", TenantID: "t-times", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan injured his ankle again",
+		DedupeKey: "ja2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Jordan"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateHealth, val: "ankle", memID: "mem_ja1"},
+		stubAtom{pred: PredicateHealth, val: "ankle", memID: "mem_ja2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-times", SubjectID: "u1",
+		Query: "How many times has Jordan injured his ankle?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Answer != "2" {
+		t.Fatalf("expected 2 incidents, answer=%q items=%#v", out.Answer, out.Items)
+	}
+}
+
+func TestRecallPolarYesFromTriedActivity(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-surf"] = MemoryRecord{
+		MemoryID: "mem_rs", TenantID: "t-polar", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley tried surfing",
+		DedupeKey: "rs", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "surfing", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "surfing", "subject": "Riley"},
+	}
+	store.records["r-job"] = MemoryRecord{
+		MemoryID: "mem_rj2", TenantID: "t-polar", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rj2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "surfing", memID: "mem_rs"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rj2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-polar", SubjectID: "u1",
+		Query: "Has Riley tried surfing?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("expected Yes, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallPolarDoesNotYesFromUnrelatedHobby(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-hike"] = MemoryRecord{
+		MemoryID: "mem_rh", TenantID: "t-polar2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley enjoys hiking",
+		DedupeKey: "rh", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "hiking", memID: "mem_rh"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-polar2", SubjectID: "u1",
+		Query: "Has Riley tried surfing?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("unrelated hobby must not prove polar yes: %q", out.Answer)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, bad := range []string{"hiking", "beach", "relaxing", "escaping"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("polar miss must not dump activities: %q", out.Answer)
+		}
+	}
+}
+
+func TestRecallPracticeLocationListDoesNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-yoga"] = MemoryRecord{
+		MemoryID: "mem_ry", TenantID: "t-loc", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley practices yoga at the lake",
+		DedupeKey: "ry", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "lake", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "lake", "subject": "Riley"},
+	}
+	store.records["r-job3"] = MemoryRecord{
+		MemoryID: "mem_rj3", TenantID: "t-loc", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rj3", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "lake", memID: "mem_ry"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rj3"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-loc", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "lake") {
+		t.Fatalf("expected practice location, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded the location list: %q", out.Answer)
+	}
+}
+
+func TestRecallPracticeLocationPossessiveList(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-yogap"] = MemoryRecord{
+		MemoryID: "mem_ryp", TenantID: "t-locp", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley practices yoga at her mother's old home, the park, and the beach",
+		DedupeKey: "ryp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+	}
+	store.records["r-jobp"] = MemoryRecord{
+		MemoryID: "mem_rjp", TenantID: "t-locp", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "yoga", memID: "mem_ryp"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjp"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-locp", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "mother") || !strings.Contains(got, "park") || !strings.Contains(got, "beach") {
+		t.Fatalf("expected possessive/list practice places, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded possessive location list: %q", out.Answer)
+	}
+}
+
+func TestRecallPracticeLocationIgnoresUnrelatedActivityDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-yoga-crowd"] = MemoryRecord{
+		MemoryID: "mem_ryc", TenantID: "t-locc", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley practices yoga at her mother's old home, the park, and the beach",
+		DedupeKey: "ryc", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: "yoga", memID: "mem_ryc"})
+	extras := []struct {
+		key, val, content string
+	}{
+		{"hike", "hiking", "Riley goes hiking at the canyon"},
+		{"ceram", "ceramics", "Riley enjoys ceramics"},
+		{"relx", "relaxing", "Riley enjoys relaxing"},
+		{"escp", "escaping", "Riley enjoys escaping"},
+		{"spnd", "spending", "Riley enjoys spending"},
+		{"swim", "swimming", "Riley enjoys swimming"},
+		{"cook", "cooking", "Riley enjoys cooking"},
+		{"run", "running", "Riley enjoys running"},
+		{"knit", "knitting", "Riley enjoys knitting"},
+		{"gard", "gardening", "Riley enjoys gardening"},
+	}
+	for _, ex := range extras {
+		id := "mem_" + ex.key
+		store.records[ex.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-locc", SubjectID: "u1",
+			Kind: KindFact, Content: ex.content,
+			DedupeKey: ex.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": ex.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": ex.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: ex.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-locc", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "mother") || !strings.Contains(got, "park") || !strings.Contains(got, "beach") {
+		t.Fatalf("expected yoga practice places, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	for _, bad := range []string{"canyon", "relaxing", "escaping", "spending", "ceramics", "hiking", "knitting"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("unrelated activity crowded practice places: %q", out.Answer)
+		}
+	}
+}
+
+func TestRecallPracticeLocationOnPrepAndNestedClause(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, val, content string
+	}{
+		{"beach", "yoga", "Riley does yoga on the beach."},
+		{"nested", "yoga", "Riley met Alex at yoga in the park."},
+		{"clause", "yoga", "Riley met Alex at the park Deborah met Jolene."},
+		{"near", "yoga", "The yoga retreat Riley attended was near her mother`s old cottage."},
+		{"hike", "hiking", "Riley goes hiking at the canyon"},
+		{"relx", "relaxing", "Riley enjoys relaxing"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-locon", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-locon", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "beach") || !strings.Contains(got, "park") || !strings.Contains(got, "cottage") {
+		t.Fatalf("expected on-prep / nested / near places, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	for _, bad := range []string{"yoga in the park", "deborah", "jolene", "canyon", "relaxing"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("nested practice object or person clause leaked: %q", out.Answer)
+		}
+	}
+}
+
+func TestRecallPracticeLocationRecoversDestSubjectLocatives(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"park", PredicateEvent, "yoga at park", "Riley met Alex at yoga in the park."},
+		{"beach", PredicateActivity, "yoga", "Riley does yoga on the beach."},
+		{"studio", PredicatePossession, "favorite yoga studio", "Riley recommends the yoga studio nearby."},
+		{"hike", PredicateActivity, "hiking", "Riley goes hiking at the canyon"},
+		{"job", PredicateOccupation, "nurse", "Riley works as a nurse"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-locrec", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-locrec", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "park") || !strings.Contains(got, "beach") || !strings.Contains(got, "studio") {
+		t.Fatalf("expected dest-subject practice places, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	for _, bad := range []string{"canyon", "nurse"} {
+		if strings.Contains(got, bad) {
+			t.Fatalf("unrelated dump crowded dest-subject places: %q", out.Answer)
+		}
+	}
+}
+
+func TestRecallUnwindRecoversDestressEvidence(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"camp", PredicateActivity, "camping", "Riley enjoys camping"},
+		{"run", PredicateActivity, "running", "Riley runs to destress"},
+		{"pot", PredicateActivity, "pottery", "Riley finds making pottery calming"},
+		{"job", PredicateOccupation, "nurse", "Riley works as a nurse"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-unw2", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-unw2", SubjectID: "u1",
+		Query: "What does Riley do to unwind?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "run") || !strings.Contains(got, "potter") {
+		t.Fatalf("expected destress unwind activities, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "camp") || strings.Contains(got, "nurse") {
+		t.Fatalf("unrelated dump crowded unwind list: %q", out.Answer)
+	}
+}
+
+func TestRecallInstrumentRecoversPracticeObject(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"clar", PredicateSkill, "plays clarinet", "Riley plays the clarinet."},
+		{"viol", PredicateActivity, "playing violin", "Riley does daily violin practice after work."},
+		{"hike", PredicateActivity, "hiking", "Riley enjoys hiking"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-instr2", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-instr2", SubjectID: "u1",
+		Query: "What instruments does Riley play?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "clarinet") || !strings.Contains(got, "violin") {
+		t.Fatalf("expected play/practice objects, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("hobby crowded recovered instrument list: %q", out.Answer)
+	}
+}
+
+func TestRecallPetTrickRecoversFromTrickContent(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, subj, content string
+	}{
+		{"cpp", PredicateSkill, "c++", "James", "James coded in c++"},
+		{"daisy", PredicateSkill, "sit, stay, paw, rollover", "Daisy", "James: They can do tricks like sit, stay, paw, and rollover"},
+		{"hike", PredicatePreference, "hiking", "James", "James enjoys hiking"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-trick2", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": f.subj},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": f.subj},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-trick2", SubjectID: "u1",
+		Query: "What kind of tricks do James's pets know?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "sit") {
+		t.Fatalf("expected trick content slots, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "c++") || strings.Contains(got, "hik") {
+		t.Fatalf("owner skills crowded trick list: %q", out.Answer)
+	}
+}
+
+func TestRecallBesidesRecoversWorkStressor(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"hike", PredicateActivity, "hiking", "Andrew enjoys hiking"},
+		{"stress", PredicateHealth, "stress due to work", "Andrew is experiencing stress due to his work"},
+		{"sushi", PredicateActivity, "sushi before", "Andrew had sushi before"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-bes2", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Andrew"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Andrew"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-bes2", SubjectID: "u1",
+		Query: "What is the biggest stressor in Andrew's life besides not being able to hike frequently?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "work") {
+		t.Fatalf("expected work stressor, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "hik") || strings.Contains(got, "sushi") {
+		t.Fatalf("besides dump leaked: %q", out.Answer)
+	}
+}
+
+func TestPlacesFromContentLiveParkSentence(t *testing.T) {
+	got := placesFromContent("Deborah met Jolene at yoga in the park.")
+	joined := strings.ToLower(strings.Join(got, " | "))
+	if strings.Contains(joined, "deborah") || strings.Contains(joined, "jolene") {
+		t.Fatalf("person leaked from live sentence: %v", got)
+	}
+	lower := placesFromContent("park deborah met jolene at yoga in the park")
+	ljoin := strings.ToLower(strings.Join(lower, " | "))
+	if !strings.Contains(ljoin, "park") {
+		t.Fatalf("expected park from lowercased blob, got %v", lower)
+	}
+	if strings.Contains(ljoin, "deborah") || strings.Contains(ljoin, "jolene") {
+		t.Fatalf("lowercased person clause leaked: %v", lower)
+	}
+}
+
+func TestPlacesFromContentOnPrepNestedPersonAndDate(t *testing.T) {
+	onBeach := placesFromContent("Riley does yoga on the beach in Bali")
+	joined := strings.ToLower(strings.Join(onBeach, " | "))
+	if !strings.Contains(joined, "beach") {
+		t.Fatalf("expected beach from on-prep, got %v", onBeach)
+	}
+	if strings.Contains(joined, "yoga") {
+		t.Fatalf("practice object leaked as place: %v", onBeach)
+	}
+	nested := placesFromContent("Riley met Alex at yoga in the park")
+	njoin := strings.ToLower(strings.Join(nested, " | "))
+	if strings.Contains(njoin, "yoga in") {
+		t.Fatalf("nested in must cut practice object phrase: %v", nested)
+	}
+	clause := placesFromContent("Riley met Alex at the park Deborah met Jolene")
+	cjoin := strings.ToLower(strings.Join(clause, " | "))
+	if !strings.Contains(cjoin, "park") {
+		t.Fatalf("expected park, got %v", clause)
+	}
+	if strings.Contains(cjoin, "deborah") || strings.Contains(cjoin, "jolene") {
+		t.Fatalf("person clause leaked into place: %v", clause)
+	}
+	dated := placesFromContent("Riley started on 8 September 2023")
+	for _, p := range dated {
+		if looksPlaceDateToken(strings.Fields(p)[0]) {
+			t.Fatalf("date tail must not be a place: %v", dated)
+		}
+	}
+	btick := placesFromContent("The retreat was near her mother`s old cottage")
+	bjoin := strings.ToLower(strings.Join(btick, " | "))
+	if !strings.Contains(bjoin, "cottage") {
+		t.Fatalf("expected backtick mother cottage, got %v", btick)
+	}
+}
+
+func TestPlacesFromContentStopsRelativeClauseAndGerund(t *testing.T) {
+	got := placesFromContent("Riley practices yoga at a cottage that blooms each spring")
+	joined := strings.ToLower(strings.Join(got, " | "))
+	if !strings.Contains(joined, "cottage") {
+		t.Fatalf("expected cottage, got %v", got)
+	}
+	if strings.Contains(joined, "bloom") {
+		t.Fatalf("relative clause leaked into place: %v", got)
+	}
+	gerund := placesFromContent("Riley unwinds at relaxing")
+	for _, p := range gerund {
+		if strings.EqualFold(strings.TrimSpace(p), "relaxing") {
+			t.Fatalf("lone gerund must not be a place: %v", gerund)
+		}
+	}
+}
+
+func TestRecallUnhealthyListDropsPositiveSlogans(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"soda", PredicatePreference, "soda", "Riley continues to enjoy soda and candy."},
+		{"candy", PredicatePreference, "candy", "Riley continues to enjoy soda and candy."},
+		{"bought", PredicatePreference, "unhealthy snacks", "Riley bought unhealthy snacks"},
+		{"hs", PredicateActivity, "healthy snacks", "Riley is starting a new campaign called Healthy Snacks"},
+		{"hsi", PredicateActivity, "healthier snack ideas", "Riley posted Healthier Snack Ideas"},
+		{"god", PredicateMediaConsumed, "the godfather", "Riley watched The Godfather"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-unh", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-unh", SubjectID: "u1",
+		Query: "What kind of unhealthy snacks does Riley enjoy eating?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "soda") || !strings.Contains(got, "candy") {
+		t.Fatalf("expected soda and candy, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	for _, it := range out.Items {
+		v := strings.ToLower(strings.TrimSpace(it.Value))
+		if v == "healthy snacks" || strings.Contains(v, "healthier") || strings.Contains(v, "godfather") {
+			t.Fatalf("positive slogan crowded un- list: %q items=%#v", out.Answer, out.Items)
+		}
+	}
+}
+
+func TestFilterBesides(t *testing.T) {
+	items := []RecallItem{{Value: "hiking"}, {Value: "deadlines at work"}}
+	q := "What is the biggest stressor in Andrew's life besides not being able to hike frequently?"
+	got := filterBesides(q, items)
+	if len(got) != 1 || !strings.Contains(strings.ToLower(got[0].Value), "deadline") {
+		t.Fatalf("besides filter=%#v", got)
+	}
+}
+
+func TestRecallUnwindActivityDoesNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-unw"] = MemoryRecord{
+		MemoryID: "mem_ru", TenantID: "t-unw", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley enjoys ceramics",
+		DedupeKey: "ru", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "Riley"},
+	}
+	store.records["r-job4"] = MemoryRecord{
+		MemoryID: "mem_rj4", TenantID: "t-unw", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rj4", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "ceramics", memID: "mem_ru"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rj4"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-unw", SubjectID: "u1",
+		Query: "What does Riley do to unwind?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "ceram") {
+		t.Fatalf("expected unwind activity, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded unwind list: %q", out.Answer)
+	}
+}
+
+func TestRecallSuperlativeVisitPicksMostEvidence(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["t-jp1"] = MemoryRecord{
+		MemoryID: "mem_jp1", TenantID: "t-vis", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim visited Japan",
+		DedupeKey: "jp1", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "japan", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "japan", "subject": "Tim"},
+	}
+	store.records["t-jp2"] = MemoryRecord{
+		MemoryID: "mem_jp2", TenantID: "t-vis", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim visited Japan again",
+		DedupeKey: "jp2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "japan", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "japan", "subject": "Tim"},
+	}
+	store.records["t-fr"] = MemoryRecord{
+		MemoryID: "mem_fr", TenantID: "t-vis", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim visited France",
+		DedupeKey: "fr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "france", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "france", "subject": "Tim"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "japan", memID: "mem_jp1"},
+		stubAtom{pred: PredicateActivity, val: "japan", memID: "mem_jp2"},
+		stubAtom{pred: PredicateActivity, val: "france", memID: "mem_fr"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-vis", SubjectID: "u1",
+		Query: "which country has Tim visited most frequently in his travels?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(strings.ToLower(out.Answer), "japan") {
+		t.Fatalf("expected most-visited country, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(strings.ToLower(out.Answer), "france") {
+		t.Fatalf("superlative dumped the union: %q", out.Answer)
+	}
+}
+
+func TestRecallBesidesDropsExcludedStressor(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["a-hike"] = MemoryRecord{
+		MemoryID: "mem_ah", TenantID: "t-bes", SubjectID: "u1",
+		Kind: KindFact, Content: "Andrew enjoys hiking",
+		DedupeKey: "ah", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Andrew"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Andrew"},
+	}
+	store.records["a-work"] = MemoryRecord{
+		MemoryID: "mem_aw", TenantID: "t-bes", SubjectID: "u1",
+		Kind: KindFact, Content: "Andrew enjoys deadlines at work",
+		DedupeKey: "aw", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "deadlines at work", "subject": "Andrew"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "deadlines at work", "subject": "Andrew"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_ah"},
+		stubAtom{pred: PredicateActivity, val: "deadlines at work", memID: "mem_aw"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-bes", SubjectID: "u1",
+		Query: "What is the biggest stressor in Andrew's life besides not being able to hike frequently?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "deadline") {
+		t.Fatalf("expected remaining stressor, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("besides clause did not drop excluded item: %q", out.Answer)
+	}
+}
+
+func TestRecallWhoSupportsFromTypedHop(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["c-sup"] = MemoryRecord{
+		MemoryID: "mem_cs", TenantID: "t-who", SubjectID: "u1",
+		Kind: KindFact, Content: "Dana supports Calvin in tough times",
+		DedupeKey: "cs", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Calvin"},
+	}
+	store.records["c-job"] = MemoryRecord{
+		MemoryID: "mem_cj2", TenantID: "t-who", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin works as a nurse",
+		DedupeKey: "cj2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Calvin"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "dana", memID: "mem_cs"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_cj2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-who", SubjectID: "u1",
+		Query: "Who supports Calvin in tough times?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "dana") {
+		t.Fatalf("expected supporter, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded who-answer: %q", out.Answer)
+	}
+}
+
+func TestRecallWhoSupportsGroupNotOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-supg"] = MemoryRecord{
+		MemoryID: "mem_rsg", TenantID: "t-whog", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's friends and team support her in tough times",
+		DedupeKey: "rsg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "friends and team", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "friends and team", "subject": "Riley"},
+	}
+	store.records["r-jobg"] = MemoryRecord{
+		MemoryID: "mem_rjg", TenantID: "t-whog", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "friends and team", memID: "mem_rsg"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjg"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-whog", SubjectID: "u1",
+		Query: "Who supports Riley in tough times?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "friend") || !strings.Contains(got, "team") {
+		t.Fatalf("expected supporter group, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded group who-answer: %q", out.Answer)
+	}
+}
+
+func TestRecallChildhoodItemsNotFamily(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-toy"] = MemoryRecord{
+		MemoryID: "mem_jt2", TenantID: "t-ch", SubjectID: "u1",
+		Kind: KindFact, Content: "John owned a toy train as a child",
+		DedupeKey: "jt2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "toy train", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "toy train", "subject": "John"},
+	}
+	store.records["j-sis"] = MemoryRecord{
+		MemoryID: "mem_js", TenantID: "t-ch", SubjectID: "u1",
+		Kind: KindFact, Content: "John's sister is Dana",
+		DedupeKey: "js", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "toy train", memID: "mem_jt2"},
+		stubAtom{pred: PredicateFamilyMember, val: "dana", memID: "mem_js"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-ch", SubjectID: "u1",
+		Query: "What items does John mention having as a child?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "train") {
+		t.Fatalf("expected childhood item, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "dana") {
+		t.Fatalf("family crowded childhood items: %q", out.Answer)
+	}
+}
+
+func TestRecallWhenInjuryDateNotEventDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	d2023 := time.Date(2023, 5, 7, 12, 0, 0, 0, time.UTC)
+	d2022 := time.Date(2022, 1, 15, 12, 0, 0, 0, time.UTC)
+	store.records["j-ank"] = MemoryRecord{
+		MemoryID: "mem_ja3", TenantID: "t-when", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan injured his ankle",
+		DedupeKey: "ja3", Status: StatusActive, UpdatedAt: now, ObservedAt: &d2023,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Jordan"},
+	}
+	store.records["j-wrist"] = MemoryRecord{
+		MemoryID: "mem_jw", TenantID: "t-when", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan injured his wrist",
+		DedupeKey: "jw", Status: StatusActive, UpdatedAt: now, ObservedAt: &d2022,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "wrist", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "wrist", "subject": "Jordan"},
+	}
+	store.records["j-job"] = MemoryRecord{
+		MemoryID: "mem_jj", TenantID: "t-when", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan works as a nurse",
+		DedupeKey: "jj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Jordan"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateHealth, val: "ankle", memID: "mem_ja3"},
+		stubAtom{pred: PredicateHealth, val: "wrist", memID: "mem_jw"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_jj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-when", SubjectID: "u1",
+		Query: "When did Jordan get an ankle injury in 2023?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "7 may 2023") && !strings.Contains(got, "may 7") {
+		t.Fatalf("expected dated injury, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") || strings.Contains(got, "wrist") {
+		t.Fatalf("when-query dumped unrelated slots: %q", out.Answer)
+	}
+}
+
+func TestRecallTransferKeepsRecipientNotJoin(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["e-sug"] = MemoryRecord{
+		MemoryID: "mem_es", TenantID: "t-xfer", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan suggested quinoa bowls to Sam",
+		DedupeKey: "es", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "quinoa bowls", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "quinoa bowls", "subject": "Evan"},
+	}
+	store.records["e-soda"] = MemoryRecord{
+		MemoryID: "mem_eso", TenantID: "t-xfer", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan enjoys soda",
+		DedupeKey: "eso", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "soda", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "soda", "subject": "Evan"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "quinoa bowls", memID: "mem_es"},
+		stubAtom{pred: PredicatePreference, val: "soda", memID: "mem_eso"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-xfer", SubjectID: "u1",
+		Query: "What kind of healthy food suggestions has Evan given to Sam?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "quinoa") {
+		t.Fatalf("expected transferred suggestion, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "soda") {
+		t.Fatalf("giver's unrelated preference crowded transfer: %q", out.Answer)
+	}
+}
+
+func TestRecallAfterClauseKeepsMatchingMeals(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["s-meal"] = MemoryRecord{
+		MemoryID: "mem_sm", TenantID: "t-after", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam started eating quinoa bowls after a health scare",
+		DedupeKey: "sm", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "quinoa bowls", "subject": "Sam"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "quinoa bowls", "subject": "Sam"},
+	}
+	store.records["s-candy"] = MemoryRecord{
+		MemoryID: "mem_sc", TenantID: "t-after", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam enjoys candy",
+		DedupeKey: "sc", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "candy", "subject": "Sam"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "candy", "subject": "Sam"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "quinoa bowls", memID: "mem_sm"},
+		stubAtom{pred: PredicatePreference, val: "candy", memID: "mem_sc"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-after", SubjectID: "u1",
+		Query: "What kind of healthy meals did Sam start eating after getting a health scare?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "quinoa") {
+		t.Fatalf("expected after-clause meal, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "candy") {
+		t.Fatalf("unrelated meal crowded after-clause: %q", out.Answer)
+	}
+}
+
+func TestRecallCommunityListDoesNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-com"] = MemoryRecord{
+		MemoryID: "mem_rc", TenantID: "t-com", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley participates in the community garden",
+		DedupeKey: "rc", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "community garden", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "community garden", "subject": "Riley"},
+	}
+	store.records["r-job3"] = MemoryRecord{
+		MemoryID: "mem_rj3", TenantID: "t-com", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rj3", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "community garden", memID: "mem_rc"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rj3"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-com", SubjectID: "u1",
+		Query: "In what ways is Riley participating in the community?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "garden") {
+		t.Fatalf("expected community activity, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded community list: %q", out.Answer)
+	}
+}
+
+func TestRecallNamedCommunityFiltersUnrelatedActivities(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-civ"] = MemoryRecord{
+		MemoryID: "mem_rciv", TenantID: "t-ncom", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley participates in the civic festival",
+		DedupeKey: "rciv", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "civic festival", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "civic festival", "subject": "Riley"},
+	}
+	store.records["r-coal"] = MemoryRecord{
+		MemoryID: "mem_rcoal", TenantID: "t-ncom", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley joined the civic coalition",
+		DedupeKey: "rcoal", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateAffiliation, "value_norm": "civic coalition", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateAffiliation, "value_norm": "civic coalition", "subject": "Riley"},
+	}
+	store.records["r-hike-n"] = MemoryRecord{
+		MemoryID: "mem_rhn", TenantID: "t-ncom", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley enjoys hiking",
+		DedupeKey: "rhn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Riley"},
+	}
+	store.records["r-job-n"] = MemoryRecord{
+		MemoryID: "mem_rjn", TenantID: "t-ncom", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "civic festival", memID: "mem_rciv"},
+		stubAtom{pred: PredicateAffiliation, val: "civic coalition", memID: "mem_rcoal"},
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_rhn"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjn"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-ncom", SubjectID: "u1",
+		Query: "In what ways is Riley participating in the civic community?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "civic") {
+		t.Fatalf("expected named-community value, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("unrelated activity crowded named community: %q", out.Answer)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded named community: %q", out.Answer)
+	}
+}
+
+func TestRecallWhoInjuredInFamily(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["e-fam"] = MemoryRecord{
+		MemoryID: "mem_ef", TenantID: "t-famh", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey is Evan's sister",
+		DedupeKey: "ef", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "casey", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "casey", "subject": "Evan"},
+	}
+	store.records["c-inj"] = MemoryRecord{
+		MemoryID: "mem_ci", TenantID: "t-famh", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey injured her wrist",
+		DedupeKey: "ci", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "wrist", "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "wrist", "subject": "Casey"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "casey", memID: "mem_ef"},
+		stubAtom{pred: PredicateHealth, val: "wrist", memID: "mem_ci"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-famh", SubjectID: "u1",
+		Query: "Who was injured in Evan's family?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "casey") {
+		t.Fatalf("expected injured family member, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "wrist") && !strings.Contains(got, "casey") {
+		t.Fatalf("health slot dumped instead of who: %q", out.Answer)
+	}
+}
+
+func TestRecallOrgBeneficiariesFromAffiliation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-aff"] = MemoryRecord{
+		MemoryID: "mem_jaff", TenantID: "t-org", SubjectID: "u1",
+		Kind: KindFact, Content: "John's charity tournaments benefit Lakeside Shelter",
+		DedupeKey: "jaff", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateAffiliation, "value_norm": "Lakeside Shelter", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateAffiliation, "value_norm": "Lakeside Shelter", "subject": "John"},
+	}
+	store.records["j-job4"] = MemoryRecord{
+		MemoryID: "mem_jj4", TenantID: "t-org", SubjectID: "u1",
+		Kind: KindFact, Content: "John works as a nurse",
+		DedupeKey: "jj4", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateAffiliation, val: "Lakeside Shelter", memID: "mem_jaff"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_jj4"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-org", SubjectID: "u1",
+		Query: "Who or which organizations have been the beneficiaries of John's charity tournaments?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "lakeside") {
+		t.Fatalf("expected beneficiary org, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded beneficiary answer: %q", out.Answer)
+	}
+}
+
+func TestRecallWhereKinshipPlaceNotActivityDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-div"] = MemoryRecord{
+		MemoryID: "mem_jd", TenantID: "t-where", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene and her partner found a cool diving spot in Bali",
+		DedupeKey: "jd", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "diving", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "diving", "subject": "Jolene"},
+	}
+	store.records["j-par"] = MemoryRecord{
+		MemoryID: "mem_jp", TenantID: "t-where", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene's partner is Alex",
+		DedupeKey: "jp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "alex", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "alex", "subject": "Jolene"},
+	}
+	store.records["j-jobw"] = MemoryRecord{
+		MemoryID: "mem_jjw", TenantID: "t-where", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene works as a nurse",
+		DedupeKey: "jjw", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Jolene"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "diving", memID: "mem_jd"},
+		stubAtom{pred: PredicateFamilyMember, val: "alex", memID: "mem_jp"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_jjw"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-where", SubjectID: "u1",
+		Query: "Where did Jolene and her partner find a cool diving spot?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "bali") {
+		t.Fatalf("expected place from kinship hop, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded where-answer: %q", out.Answer)
+	}
+}
+
+func TestRecallGroupCompanionActivities(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-hik"] = MemoryRecord{
+		MemoryID: "mem_jh", TenantID: "t-grp", SubjectID: "u1",
+		Kind: KindFact, Content: "John went hiking with his colleagues",
+		DedupeKey: "jh", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+	}
+	store.records["j-cer"] = MemoryRecord{
+		MemoryID: "mem_jc", TenantID: "t-grp", SubjectID: "u1",
+		Kind: KindFact, Content: "John enjoys ceramics",
+		DedupeKey: "jc", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "John"},
+	}
+	store.records["j-jobg"] = MemoryRecord{
+		MemoryID: "mem_jjg", TenantID: "t-grp", SubjectID: "u1",
+		Kind: KindFact, Content: "John works as a nurse",
+		DedupeKey: "jjg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_jh"},
+		stubAtom{pred: PredicateActivity, val: "ceramics", memID: "mem_jc"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_jjg"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-grp", SubjectID: "u1",
+		Query: "What outdoor activities has John done with his colleagues?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "hik") {
+		t.Fatalf("expected colleague activity, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "ceram") {
+		t.Fatalf("solo hobby crowded colleague list: %q", out.Answer)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded colleague list: %q", out.Answer)
+	}
+}
+
+func TestRecallOutdoorModifierFiltersIndoorGroupActivities(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-out"] = MemoryRecord{
+		MemoryID: "mem_jo", TenantID: "t-out", SubjectID: "u1",
+		Kind: KindFact, Content: "John went outdoor hiking with his colleagues",
+		DedupeKey: "jo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+	}
+	store.records["j-pot"] = MemoryRecord{
+		MemoryID: "mem_jp2", TenantID: "t-out", SubjectID: "u1",
+		Kind: KindFact, Content: "John did pottery with his colleagues",
+		DedupeKey: "jp2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_jo"},
+		stubAtom{pred: PredicateActivity, val: "pottery", memID: "mem_jp2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-out", SubjectID: "u1",
+		Query: "What outdoor activities has John done with his colleagues?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "hik") {
+		t.Fatalf("expected outdoor colleague activity, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "potter") {
+		t.Fatalf("indoor colleague activity crowded outdoor list: %q", out.Answer)
+	}
+}
+
+func TestRecallOutdoorModifierFiltersIndoorInEnumerateMode(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-out2"] = MemoryRecord{
+		MemoryID: "mem_jo2", TenantID: "t-oute", SubjectID: "u1",
+		Kind: KindFact, Content: "John went outdoor hiking with his colleagues",
+		DedupeKey: "jo2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+	}
+	store.records["j-pot2"] = MemoryRecord{
+		MemoryID: "mem_jp3", TenantID: "t-oute", SubjectID: "u1",
+		Kind: KindFact, Content: "John did pottery with his colleagues",
+		DedupeKey: "jp3", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "John"},
+	}
+	store.records["j-mov"] = MemoryRecord{
+		MemoryID: "mem_jm", TenantID: "t-oute", SubjectID: "u1",
+		Kind: KindFact, Content: "John has movie nights at home",
+		DedupeKey: "jm", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "movie nights at home", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "movie nights at home", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_jo2"},
+		stubAtom{pred: PredicateActivity, val: "pottery", memID: "mem_jp3"},
+		stubAtom{pred: PredicateActivity, val: "movie nights at home", memID: "mem_jm"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-oute", SubjectID: "u1",
+		Query: "What outdoor activities has John done with his colleagues?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "hik") {
+		t.Fatalf("expected outdoor colleague activity in enumerate, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "potter") || strings.Contains(got, "movie") {
+		t.Fatalf("enumerate mode dumped indoor crowding: %q", out.Answer)
+	}
+	if len(out.Items) > maxEnumerateAnswerItems {
+		t.Fatalf("enumerate list exceeded cap: n=%d", len(out.Items))
+	}
+}
+
+func TestRecallOutdoorPrefersHeadOverCompanionOnly(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-hike"] = MemoryRecord{
+		MemoryID: "mem_jhike", TenantID: "t-prefint", SubjectID: "u1",
+		Kind: KindFact, Content: "John enjoys being outdoors - going for hikes",
+		DedupeKey: "jhike", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "John"},
+	}
+	store.records["j-conv"] = MemoryRecord{
+		MemoryID: "mem_jconv", TenantID: "t-prefint", SubjectID: "u1",
+		Kind: KindFact, Content: "John attended a convention with his colleagues",
+		DedupeKey: "jconv", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "convention attendance", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "convention attendance", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_jhike"},
+		stubAtom{pred: PredicateActivity, val: "convention attendance", memID: "mem_jconv"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-prefint", SubjectID: "u1",
+		Query: "What outdoor activities has John done with his colleagues?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "hik") && !strings.Contains(got, "outdoor") {
+		t.Fatalf("expected outdoor activity over colleague indoor, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "convention") {
+		t.Fatalf("colleague indoor crowded outdoor list: %q items=%#v", out.Answer, out.Items)
+	}
+}
+
+func TestRecallEnumerateModeCapsActivityDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	vals := []string{
+		"hiking", "ceramics", "swimming", "knitting", "gardening",
+		"cooking", "running", "cycling", "painting", "dancing",
+		"climbing", "rowing",
+	}
+	for _, val := range vals {
+		key := val
+		id := "mem_" + val
+		store.records[key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-cap", SubjectID: "u1",
+			Kind: KindFact, Content: "Riley enjoys " + val,
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-cap", SubjectID: "u1",
+		Query: "What activities does Riley enjoy?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Items) > maxEnumerateAnswerItems {
+		t.Fatalf("enumerate dump was not capped: n=%d items=%#v", len(out.Items), out.Items)
+	}
+}
+
+func TestRecallEventsPlanningForClause(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-bake"] = MemoryRecord{
+		MemoryID: "mem_mb", TenantID: "t-ev", SubjectID: "u1",
+		Kind: KindFact, Content: "Maria is planning a bake sale for the homeless shelter fundraiser",
+		DedupeKey: "mb", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateEvent, "value_norm": "bake sale", "subject": "Maria"},
+		Explain:  map[string]any{"predicate": PredicateEvent, "value_norm": "bake sale", "subject": "Maria"},
+	}
+	store.records["m-job"] = MemoryRecord{
+		MemoryID: "mem_mj", TenantID: "t-ev", SubjectID: "u1",
+		Kind: KindFact, Content: "Maria works as a nurse",
+		DedupeKey: "mj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Maria"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Maria"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateEvent, val: "bake sale", memID: "mem_mb"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_mj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-ev", SubjectID: "u1",
+		Query: "What events is Maria planning for the homeless shelter fundraiser?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "bake") {
+		t.Fatalf("expected planned event, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded event list: %q", out.Answer)
+	}
+}
+
+func TestRecallConsequenceHavingNotPossessionDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["a-all"] = MemoryRecord{
+		MemoryID: "mem_aa", TenantID: "t-con", SubjectID: "u1",
+		Kind: KindFact, Content: "Audrey got allergies from having so many dogs",
+		DedupeKey: "aa", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "allergies", "subject": "Audrey"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "allergies", "subject": "Audrey"},
+	}
+	store.records["a-dog"] = MemoryRecord{
+		MemoryID: "mem_ad", TenantID: "t-con", SubjectID: "u1",
+		Kind: KindFact, Content: "Audrey's dog is named Scout",
+		DedupeKey: "ad", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "scout", "subject": "Audrey"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "scout", "subject": "Audrey"},
+	}
+	store.records["a-job"] = MemoryRecord{
+		MemoryID: "mem_aj", TenantID: "t-con", SubjectID: "u1",
+		Kind: KindFact, Content: "Audrey works as a nurse",
+		DedupeKey: "aj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Audrey"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Audrey"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateHealth, val: "allergies", memID: "mem_aa"},
+		stubAtom{pred: PredicatePossession, val: "scout", memID: "mem_ad"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_aj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-con", SubjectID: "u1",
+		Query: "What did Audrey get with having so many dogs?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "allerg") {
+		t.Fatalf("expected health consequence, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "scout") {
+		t.Fatalf("possession crowded consequence: %q", out.Answer)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded consequence: %q", out.Answer)
+	}
+}
+
+func TestRecallHowManyChildrenSkipsPartner(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-son"] = MemoryRecord{
+		MemoryID: "mem_rs", TenantID: "t-kids", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam is Riley's son",
+		DedupeKey: "rs", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "sam", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "sam", "subject": "Riley"},
+	}
+	store.records["r-dau"] = MemoryRecord{
+		MemoryID: "mem_rd", TenantID: "t-kids", SubjectID: "u1",
+		Kind: KindFact, Content: "Dana is Riley's daughter",
+		DedupeKey: "rd", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Riley"},
+	}
+	store.records["r-par"] = MemoryRecord{
+		MemoryID: "mem_rp", TenantID: "t-kids", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex is Riley's partner",
+		DedupeKey: "rp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "alex", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "alex", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "sam", memID: "mem_rs"},
+		stubAtom{pred: PredicateFamilyMember, val: "dana", memID: "mem_rd"},
+		stubAtom{pred: PredicateFamilyMember, val: "alex", memID: "mem_rp"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-kids", SubjectID: "u1",
+		Query: "How many children does Riley have?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.Answer) != "2" {
+		t.Fatalf("expected child count 2, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallKinshipHobbiesUseDestNotSource(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["a-mom"] = MemoryRecord{
+		MemoryID: "mem_am", TenantID: "t-kinh", SubjectID: "u1",
+		Kind: KindFact, Content: "Dana is Alex's mother",
+		DedupeKey: "am", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Alex"},
+	}
+	store.records["d-pot"] = MemoryRecord{
+		MemoryID: "mem_dp", TenantID: "t-kinh", SubjectID: "u1",
+		Kind: KindFact, Content: "Dana enjoys pottery",
+		DedupeKey: "dp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "Dana"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "pottery", "subject": "Dana"},
+	}
+	store.records["a-hik"] = MemoryRecord{
+		MemoryID: "mem_ah2", TenantID: "t-kinh", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex enjoys hiking",
+		DedupeKey: "ah2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Alex"},
+	}
+	store.records["a-jobk"] = MemoryRecord{
+		MemoryID: "mem_ajk", TenantID: "t-kinh", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex works as a nurse",
+		DedupeKey: "ajk", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Alex"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "dana", memID: "mem_am"},
+		stubAtom{pred: PredicateActivity, val: "pottery", memID: "mem_dp"},
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_ah2"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_ajk"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-kinh", SubjectID: "u1",
+		Query: "What were Alex's mother's hobbies?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "potter") {
+		t.Fatalf("expected dest hobbies, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("source hobbies crowded kinship list: %q", out.Answer)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded kinship hobbies: %q", out.Answer)
+	}
+}
+
+func TestRecallKinshipRoleDestHobbiesEnumerate(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["a-momr"] = MemoryRecord{
+		MemoryID: "mem_amr", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother is her mom.",
+		DedupeKey: "amr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "mother", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "mother", "subject": "Alex"},
+	}
+	store.records["m-read"] = MemoryRecord{
+		MemoryID: "mem_mr", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother had reading as one of her hobbies.",
+		DedupeKey: "mr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"subject": "Alex's mother"},
+		Explain:  map[string]any{"subject": "Alex's mother"},
+	}
+	store.records["m-trav"] = MemoryRecord{
+		MemoryID: "mem_mt", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother was passionate about travel.",
+		DedupeKey: "mt", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"subject": "Alex's mother"},
+		Explain:  map[string]any{"subject": "Alex's mother"},
+	}
+	store.records["m-art"] = MemoryRecord{
+		MemoryID: "mem_ma", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother was interested in art.",
+		DedupeKey: "ma", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"subject": "Alex's mother"},
+		Explain:  map[string]any{"subject": "Alex's mother"},
+	}
+	store.records["m-cook"] = MemoryRecord{
+		MemoryID: "mem_mc", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex's mother had a big passion for cooking.",
+		DedupeKey: "mc", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "cooking", "subject": "Alex's mother"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "cooking", "subject": "Alex's mother"},
+	}
+	store.records["a-vis"] = MemoryRecord{
+		MemoryID: "mem_av", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex visited mother's old house last year.",
+		DedupeKey: "av", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "visiting mother's old house", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "visiting mother's old house", "subject": "Alex"},
+	}
+	store.records["a-hikr"] = MemoryRecord{
+		MemoryID: "mem_ahr", TenantID: "t-kinrole", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex enjoys hiking",
+		DedupeKey: "ahr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Alex"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "mother", memID: "mem_amr"},
+		stubAtom{pred: PredicateActivity, val: "cooking", memID: "mem_mc"},
+		stubAtom{pred: PredicateActivity, val: "visiting mother's old house", memID: "mem_av"},
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_ahr"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-kinrole", SubjectID: "u1",
+		Query: "What were Alex's mother's hobbies?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	for _, want := range []string{"read", "travel", "art", "cook"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("expected dest hobby %q, answer=%q items=%#v hops=%v", want, out.Answer, out.Items, out.Explain["hop_results"])
+		}
+	}
+	if strings.Contains(got, "house") || strings.Contains(got, "visit") {
+		t.Fatalf("source visit crowded dest hobbies: %q", out.Answer)
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("source hobbies crowded dest list: %q", out.Answer)
+	}
+}
+
+func TestRecallDualCommunityIntersectsNotUnion(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-gard"] = MemoryRecord{
+		MemoryID: "mem_rg", TenantID: "t-dual", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley participates in the community garden",
+		DedupeKey: "rg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "community garden", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "community garden", "subject": "Riley"},
+	}
+	store.records["c-gard"] = MemoryRecord{
+		MemoryID: "mem_cg", TenantID: "t-dual", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey participates in the community garden",
+		DedupeKey: "cg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "community garden", "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "community garden", "subject": "Casey"},
+	}
+	store.records["r-cer"] = MemoryRecord{
+		MemoryID: "mem_rce", TenantID: "t-dual", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley participates in ceramics",
+		DedupeKey: "rce", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "community garden", memID: "mem_rg"},
+		stubAtom{pred: PredicateActivity, val: "community garden", memID: "mem_cg"},
+		stubAtom{pred: PredicateActivity, val: "ceramics", memID: "mem_rce"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-dual", SubjectID: "u1",
+		Query: "Which community activities have Riley and Casey participated in?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "garden") {
+		t.Fatalf("expected shared activity, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "ceram") {
+		t.Fatalf("private activity leaked into dual join: %q", out.Answer)
+	}
+}
+
+func TestRecallDualCommunityPhraseOverlapAndPartner(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-yoga"] = MemoryRecord{
+		MemoryID: "mem_ryo", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley started yoga",
+		DedupeKey: "ryo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "yoga", "subject": "Riley"},
+	}
+	store.records["c-yoga"] = MemoryRecord{
+		MemoryID: "mem_cyo", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey organized yoga",
+		DedupeKey: "cyo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "organized yoga", "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "organized yoga", "subject": "Casey"},
+	}
+	store.records["c-run"] = MemoryRecord{
+		MemoryID: "mem_crun", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey joined Riley's running group",
+		DedupeKey: "crun", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "riley's running group", "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "riley's running group", "subject": "Casey"},
+	}
+	store.records["r-unw"] = MemoryRecord{
+		MemoryID: "mem_runw", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley unwinds via relaxing",
+		DedupeKey: "runw", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "relaxing", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "relaxing", "subject": "Riley"},
+	}
+	store.records["c-cer"] = MemoryRecord{
+		MemoryID: "mem_cce", TenantID: "t-dual2", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey participates in ceramics",
+		DedupeKey: "cce", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "ceramics", "subject": "Casey"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "yoga", memID: "mem_ryo"},
+		stubAtom{pred: PredicateActivity, val: "organized yoga", memID: "mem_cyo"},
+		stubAtom{pred: PredicateActivity, val: "riley's running group", memID: "mem_crun"},
+		stubAtom{pred: PredicateActivity, val: "relaxing", memID: "mem_runw"},
+		stubAtom{pred: PredicateActivity, val: "ceramics", memID: "mem_cce"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-dual2", SubjectID: "u1",
+		Query: "Which community activities have Riley and Casey participated in?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "yoga") {
+		t.Fatalf("expected yoga containment join, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if !strings.Contains(got, "run") {
+		t.Fatalf("expected partner running group, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "relax") {
+		t.Fatalf("unwind slogan leaked into dual community: %q", out.Answer)
+	}
+	if strings.Contains(got, "ceram") {
+		t.Fatalf("private activity leaked into dual community: %q", out.Answer)
+	}
+}
+
+func TestRecallCountSpecificPossessionHead(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["c-f1"] = MemoryRecord{
+		MemoryID: "mem_cf1", TenantID: "t-fer", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin owns a Ferrari 458",
+		DedupeKey: "cf1", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "ferrari 458", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "ferrari 458", "subject": "Calvin"},
+	}
+	store.records["c-f2"] = MemoryRecord{
+		MemoryID: "mem_cf2", TenantID: "t-fer", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin owns a Ferrari California",
+		DedupeKey: "cf2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "ferrari california", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "ferrari california", "subject": "Calvin"},
+	}
+	store.records["c-house"] = MemoryRecord{
+		MemoryID: "mem_ch", TenantID: "t-fer", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin owns a cottage",
+		DedupeKey: "ch", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "cottage", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "cottage", "subject": "Calvin"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "ferrari 458", memID: "mem_cf1"},
+		stubAtom{pred: PredicatePossession, val: "ferrari california", memID: "mem_cf2"},
+		stubAtom{pred: PredicatePossession, val: "cottage", memID: "mem_ch"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-fer", SubjectID: "u1",
+		Query: "How many Ferraris does Calvin own?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.Answer) != "2" {
+		t.Fatalf("expected Ferrari count 2, answer=%q items=%#v", out.Answer, out.Items)
+	}
+}
+
+func TestRecallItemsForClauseKeepsMatchingPossessions(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["a-toy"] = MemoryRecord{
+		MemoryID: "mem_at", TenantID: "t-ifor", SubjectID: "u1",
+		Kind: KindFact, Content: "Audrey bought a puzzle toy for her dogs",
+		DedupeKey: "at", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "puzzle toy", "subject": "Audrey"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "puzzle toy", "subject": "Audrey"},
+	}
+	store.records["a-couch"] = MemoryRecord{
+		MemoryID: "mem_ac", TenantID: "t-ifor", SubjectID: "u1",
+		Kind: KindFact, Content: "Audrey owns a couch",
+		DedupeKey: "ac", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "couch", "subject": "Audrey"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "couch", "subject": "Audrey"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "puzzle toy", memID: "mem_at"},
+		stubAtom{pred: PredicatePossession, val: "couch", memID: "mem_ac"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-ifor", SubjectID: "u1",
+		Query: "What items has Audrey bought or made for her dogs?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "puzzle") {
+		t.Fatalf("expected dog item, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "couch") {
+		t.Fatalf("unrelated possession crowded for-clause list: %q", out.Answer)
+	}
+}
+
+func TestRecallWhoToldAboutFromTypedHop(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["e-told"] = MemoryRecord{
+		MemoryID: "mem_et", TenantID: "t-told", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan told Dana about his marriage",
+		DedupeKey: "et", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Evan"},
+	}
+	store.records["e-job"] = MemoryRecord{
+		MemoryID: "mem_ej", TenantID: "t-told", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan works as a nurse",
+		DedupeKey: "ej", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Evan"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "dana", memID: "mem_et"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_ej"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-told", SubjectID: "u1",
+		Query: "Who did Evan tell about his marriage?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "dana") {
+		t.Fatalf("expected told-to person, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded who-told: %q", out.Answer)
+	}
+}
+
+func TestRecallPolarYesFromTaughtSkill(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-con"] = MemoryRecord{
+		MemoryID: "mem_rcn", TenantID: "t-teach", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley taught herself how to play the console",
+		DedupeKey: "rcn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateSkill, "value_norm": "console", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateSkill, "value_norm": "console", "subject": "Riley"},
+	}
+	store.records["r-hike2"] = MemoryRecord{
+		MemoryID: "mem_rh2", TenantID: "t-teach", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley enjoys hiking",
+		DedupeKey: "rh2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateSkill, val: "console", memID: "mem_rcn"},
+		stubAtom{pred: PredicatePreference, val: "hiking", memID: "mem_rh2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-teach", SubjectID: "u1",
+		Query: "Did Riley teach herself how to play the console?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("expected Yes from taught skill, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallJourneyChangesDoNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-chg"] = MemoryRecord{
+		MemoryID: "mem_rchg", TenantID: "t-jny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley faced voice changes during her journey",
+		DedupeKey: "rchg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "voice changes", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "voice changes", "subject": "Riley"},
+	}
+	store.records["r-hikej"] = MemoryRecord{
+		MemoryID: "mem_rhj", TenantID: "t-jny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley enjoys hiking",
+		DedupeKey: "rhj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Riley"},
+	}
+	store.records["r-jobj"] = MemoryRecord{
+		MemoryID: "mem_rjj", TenantID: "t-jny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateIdentity, val: "voice changes", memID: "mem_rchg"},
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_rhj"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-jny", SubjectID: "u1",
+		Query: "What are some changes Riley has faced during her journey?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "voice") {
+		t.Fatalf("expected journey change, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("activity crowded journey changes: %q", out.Answer)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded journey changes: %q", out.Answer)
+	}
+}
+
+func TestRecallNamedJourneyFiltersUnrelatedIdentity(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-rec"] = MemoryRecord{
+		MemoryID: "mem_rrec", TenantID: "t-njny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley faced voice changes during her recovery",
+		DedupeKey: "rrec", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "voice changes", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "voice changes", "subject": "Riley"},
+	}
+	store.records["r-oh"] = MemoryRecord{
+		MemoryID: "mem_roh", TenantID: "t-njny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley is from Ohio",
+		DedupeKey: "roh", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "from Ohio", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "from Ohio", "subject": "Riley"},
+	}
+	store.records["r-hike-j2"] = MemoryRecord{
+		MemoryID: "mem_rhj2", TenantID: "t-njny", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley enjoys hiking",
+		DedupeKey: "rhj2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateIdentity, val: "voice changes", memID: "mem_rrec"},
+		stubAtom{pred: PredicateIdentity, val: "from Ohio", memID: "mem_roh"},
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_rhj2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-njny", SubjectID: "u1",
+		Query: "What are some changes Riley has faced during her recovery journey?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "voice") {
+		t.Fatalf("expected named-journey change, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "ohio") {
+		t.Fatalf("unrelated identity crowded named journey: %q", out.Answer)
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("activity crowded named journey: %q", out.Answer)
+	}
+}
+
+func TestRecallPetNamesListDoesNotDumpOccupation(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-pet"] = MemoryRecord{
+		MemoryID: "mem_rpn", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's pet is named Whiskers",
+		DedupeKey: "rpn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "whiskers", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "whiskers", "subject": "Riley"},
+	}
+	store.records["r-jobp"] = MemoryRecord{
+		MemoryID: "mem_rjp", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley works as a nurse",
+		DedupeKey: "rjp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "whiskers", memID: "mem_rpn"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_rjp"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-pets", SubjectID: "u1",
+		Query: "What are Riley's pets' names?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "whiskers") {
+		t.Fatalf("expected pet name, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded pet names: %q", out.Answer)
+	}
+}
+
+func TestRecallPetNamesDoesNotDumpOtherPossessions(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-pet2"] = MemoryRecord{
+		MemoryID: "mem_rpn2", TenantID: "t-pets2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's pet is named Whiskers",
+		DedupeKey: "rpn2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "whiskers", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "whiskers", "subject": "Riley"},
+	}
+	store.records["r-car"] = MemoryRecord{
+		MemoryID: "mem_rcar", TenantID: "t-pets2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns a sedan",
+		DedupeKey: "rcar", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "sedan", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "sedan", "subject": "Riley"},
+	}
+	store.records["r-gui"] = MemoryRecord{
+		MemoryID: "mem_rgui", TenantID: "t-pets2", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns a guitar",
+		DedupeKey: "rgui", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "guitar", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "guitar", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "whiskers", memID: "mem_rpn2"},
+		stubAtom{pred: PredicatePossession, val: "sedan", memID: "mem_rcar"},
+		stubAtom{pred: PredicatePossession, val: "guitar", memID: "mem_rgui"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-pets2", SubjectID: "u1",
+		Query: "What are Riley's pets' names?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "whiskers") {
+		t.Fatalf("expected pet name, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "sedan") || strings.Contains(got, "guitar") {
+		t.Fatalf("other possessions crowded pet names: %q", out.Answer)
+	}
+}
+
+func TestRecallPetNamesKeepsMultipleNamedPets(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["p1"] = MemoryRecord{
+		MemoryID: "mem_p1", TenantID: "t-pets3", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's pet is named Luna",
+		DedupeKey: "p1", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "luna", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "luna", "subject": "Riley"},
+	}
+	store.records["p2"] = MemoryRecord{
+		MemoryID: "mem_p2", TenantID: "t-pets3", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's dog is named Oliver",
+		DedupeKey: "p2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "oliver", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "oliver", "subject": "Riley"},
+	}
+	store.records["p3"] = MemoryRecord{
+		MemoryID: "mem_p3", TenantID: "t-pets3", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns a sedan",
+		DedupeKey: "p3", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "sedan", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "sedan", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "luna", memID: "mem_p1"},
+		stubAtom{pred: PredicatePossession, val: "oliver", memID: "mem_p2"},
+		stubAtom{pred: PredicatePossession, val: "sedan", memID: "mem_p3"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-pets3", SubjectID: "u1",
+		Query: "What are Riley's pets' names?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "luna") || !strings.Contains(got, "oliver") {
+		t.Fatalf("expected both named pets, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "sedan") {
+		t.Fatalf("sedan crowded named pets: %q", out.Answer)
+	}
+}
+
+func TestRecallChildhoodItemsPreferChildEvidence(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["c-doll"] = MemoryRecord{
+		MemoryID: "mem_cd", TenantID: "t-child", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley had a wooden puzzle as a child",
+		DedupeKey: "cd", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "wooden puzzle", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "wooden puzzle", "subject": "Riley"},
+	}
+	store.records["c-desk"] = MemoryRecord{
+		MemoryID: "mem_ck", TenantID: "t-child", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns an office desk",
+		DedupeKey: "ck", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "office desk", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "office desk", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "wooden puzzle", memID: "mem_cd"},
+		stubAtom{pred: PredicatePossession, val: "office desk", memID: "mem_ck"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-child", SubjectID: "u1",
+		Query: "What items did Riley have as a child?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "puzzle") {
+		t.Fatalf("expected childhood item, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "desk") {
+		t.Fatalf("adult possession crowded childhood items: %q", out.Answer)
 	}
 }

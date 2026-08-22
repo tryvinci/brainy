@@ -1136,10 +1136,17 @@ func nameLikeTokens(tokens []string) []string {
 // keep this narrow so recency/preference ranking is not disturbed.
 func looksListQuery(tokens []string) bool {
 	for _, token := range tokens {
+		token = strings.Trim(token, "'\"")
+		token = strings.TrimSuffix(token, "'s")
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "books", "book",
-			"places", "place", "stress", "camping", "camped",
-			"kids", "children", "likes", "identity", "research", "researched":
+			"places", "place", "stress", "stressor", "stressors", "camping", "camped",
+			"kids", "children", "likes", "identity", "research", "researched",
+			"names", "instruments", "instrument", "items", "locations",
+			"pets", "dogs", "tricks", "events", "event", "meals", "meal",
+			"suggestions", "suggestion", "food", "snacks", "snack",
+			"community", "changes", "change",
+			"journey", "participating", "participate":
 			return true
 		}
 	}
@@ -1147,15 +1154,43 @@ func looksListQuery(tokens []string) bool {
 }
 
 func predicateFromListQuery(tokens []string) string {
+	normed := make([]string, 0, len(tokens))
 	for _, token := range tokens {
+		token = strings.Trim(token, "'\"")
+		token = strings.TrimSuffix(token, "'s")
+		normed = append(normed, token)
+	}
+	// Slot nouns (names/tricks/instruments) outrank possessor nouns
+	// (pets/dogs) so "pets' tricks" stays a skill list.
+	for _, token := range normed {
+		switch token {
+		case "names":
+			return PredicatePossession
+		case "instruments", "instrument", "tricks", "trick":
+			return PredicateSkill
+		case "locations", "location":
+			return PredicateActivity
+		case "events", "event":
+			return PredicateEvent
+		case "meals", "meal", "suggestions", "suggestion", "food", "snacks", "snack":
+			return PredicatePreference
+		case "community", "participating", "participate":
+			return PredicateActivity
+		case "changes", "change", "journey":
+			return PredicateIdentity
+		}
+	}
+	for _, token := range normed {
 		switch token {
 		case "activities", "activity", "hobbies", "hobby", "stress",
-			"camped", "camping", "places", "place":
+			"stressor", "stressors", "camped", "camping", "places", "place":
 			return PredicateActivity
 		case "books", "book", "read", "reading":
 			return PredicateMediaConsumed
 		case "kids", "children", "likes":
 			return PredicateFamilyMember
+		case "pets", "dogs", "items":
+			return PredicatePossession
 		case "identity":
 			return PredicateIdentity
 		case "research", "researched", "researching":
