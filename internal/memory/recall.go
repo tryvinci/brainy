@@ -2076,6 +2076,9 @@ func datedContentConflictsQuery(query, content string) bool {
 }
 
 func datedHybridContentConflictsQuery(query, content string) bool {
+	if looksWhereQuery(query) {
+		return false
+	}
 	qd := querySpecificCalendarDate(query)
 	if qd == nil {
 		return false

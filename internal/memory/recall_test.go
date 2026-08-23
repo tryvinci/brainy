@@ -3414,10 +3414,10 @@ func TestDatedContentConflictsQuerySkipsFarRelativeTail(t *testing.T) {
 func TestDatedHybridContentConflictsQueryIsTighterThanLeftover(t *testing.T) {
 	q := "Where was James at on July 12, 2022?"
 	if datedHybridContentConflictsQuery(q, "James will depart for Toronto on July 11, 2022 in the evening.") {
-		t.Fatal("adjacent-day location must stay in hybrid packet")
+		t.Fatal("where-queries must not date-filter hybrid packets")
 	}
-	if !datedHybridContentConflictsQuery(q, "James went surfing on 6 July 2022.") {
-		t.Fatal("same-month far event must drop from hybrid packet")
+	if datedHybridContentConflictsQuery(q, "James went surfing on 6 July 2022.") {
+		t.Fatal("where-queries must not date-filter same-month hybrid lines")
 	}
 	gym := "What exciting news did Maria share on 16 June, 2023?"
 	gymLine := "I got some great news to share - I joined a gym last week (9 June 2023; the week before 16 June 2023)"
