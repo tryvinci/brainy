@@ -2706,3 +2706,78 @@ P10 leftover covering still starved locative packet facts when hop dumps mention
 
 **One step:** restore Toronto short hybrid and signed-basketball collectible without giving back Jasper / tournament games / Sapiens / retreat / studying / Shadow / festival / CS:GO / chili / walking / UK / gym / community yoga+running. Then remaining SH **PROOF 20**. MH **17→13** vs P5 is a named dip. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→97 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+---
+
+## 2026-08-23 — P12 keep short where NPs and typed item joins (101/180)
+
+**Landed:** product SHA `d292a09` on `pr/s0-current-sha-baseline-1e9e` (draft PR #136). Staging `dev` remains `453a929`. **Not** merged to `main`. Skip-ingest pin [locomo-s0-diag-mh-135-p12-20260823.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p12-20260823.md) (`locomo-s0-diag-mh-135-p12-product-recall-s1-c7b010`).
+
+Product change: where leftover covering returns the locative place NP; leftover covering does not beat a short hybrid place name that the covering already contains; short typed item joins (comma or `and`, including title-case possession) stay locked and are not leftover thin misses; leftover covering treats query-verb `support` as a weak token so emotional-support chat cannot stand in for a team fact.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; re-run on this SHA before merge. |
+| Marketing vertical | **17/17** | Merge gate; re-run on this SHA before merge. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P11 | **97/180 (0.539)** | MH **13/33 dip** · OD **3/11 dip** · SH **58/98** · temporal **23/38**. SHA `bc6dc92`. |
+| LoCoMo S0 product hybrid **on** P12 | **101/180 (0.561)** | MH **15/33** · OD **4/11** · SH **58/98** · temporal **24/38**. SHA `d292a09`. Ledger: **RETRIEVAL 29 / PROOF 26 / READER 18 / WRITE 4 / HARNESS 2**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 101/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. MH **17→15** vs P5 remains a dip. Item flips vs P11: **+4 / −0 = net +4**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 101 vs 11, or 101 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **97** P11 → **101** P12 | **no same-n pin** (fair 180 429) | Product 19→101 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P5 **17/33** → P11 **13/33 dip** → P12 **15/33** | no 33-item freeze | Restored vs P11; still a dip vs P5 17. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P12 product ~110–180 ms local (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (15/33).** Chili / walking / UK / community yoga+running **held**. Named recoveries vs P11: signed basketball (`conv-43-q25`), Sam snacks (`conv-49-q15`). Still missing: Phuket diving (`conv-48-q77` → not in memory) — write split, do not re-enable two-name skip exemption. Do not treat 15/33 as n=1540 MH.
+
+**Open-domain.** **3→4/11** restored (James girlfriend April 2022). Industry **3/11**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **Held 58/98**. Industry **27/98**. Jasper / tournament games / Jolene video games + Susie / Sapiens / retreat / Shadow / festival / CS:GO / gym / studying **held**. Remaining mass is SH **PROOF 20**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment.
+
+**Temporal.** **23→24/38**. Named recovery: Toronto July 12 (`conv-47-q32`, hybrid `Toronto`). Caroline biking last-weekend, James adopted Ned, ice-cream weekend **held**. Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (re-run before merge)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Re-confirm on `d292a09` before merge.
+
+#### 3. Marketing vertical — lead (re-run before merge)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+P11 leftover covering replaced a short hybrid place (`Toronto`) with a longer depart-for packet line the judge rejected, and treated title-case possession joins plus short snack joins as slogan dumps / thin misses so hybrid could overwrite them with nearby chat. P12 returns the locative place NP from where covering, keeps short typed item joins locked, and weakens leftover `support` so emotional-support chat cannot stand in for a team fact. WRITE 5→4; do not merge #133.
+
+### Next
+
+**One step:** remaining SH **PROOF 20** (nearby-wrong hybrid, incomplete dual-entity compose) without giving back Toronto / signed basketball / snacks / Jasper / tournament games / Sapiens / retreat / studying / Shadow / festival / CS:GO / chili / walking / UK / gym / community yoga+running. Thanksgiving feast still movies. Boston garage still incomplete. MH **17→15** vs P5 is still a named dip (Phuket write split). Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→101 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
