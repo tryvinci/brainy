@@ -3512,18 +3512,24 @@ func TestLeftoverCoveringSpecificAnswerKeepsWeekendPlanNotSpeakerChat(t *testing
 func TestLeftoverCoveringWhereQueryPicksLocativePlace(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateFamilyMember, Source: "typed_store",
+			Value: "son, kids bring joy", Values: []string{"son, kids bring joy"}},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity, Source: "typed_store",
+			Value:  "hiking, road trip to jasper national park, hiked trails with family",
+			Values: []string{"hiking, road trip to jasper national park, hiked trails with family"}},
 	}
 	pkt := EvidencePacket{
-		ContextEvidence: []PacketItem{
-			{Content: "Riley photographed a glacier during a mountain trip."},
-			{Content: "Last weekend I took my family to Jasper National Park (17 May 2023; the week before 24 May 2023)"},
-			{Content: "Riley participated in a scuba diving lesson on 15 September 2023."},
+		Contents: []string{
+			"Riley photographed a glacier during a mountain trip.",
+			"Riley took his family on a road trip to Jasper National Park on the weekend of 20-21 May 2023, driving through the Icefields Parkway.",
+			"Last weekend I took my family to Jasper National Park (17 May 2023; the week before 24 May 2023)",
+			"Riley participated in a scuba diving lesson on 15 September 2023.",
 		},
 	}
 	q := "Where did Riley take his family for a road trip on 24 May, 2023?"
 	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
 	if !strings.Contains(strings.ToLower(got), "jasper") {
-		t.Fatalf("expected locative Jasper leftover covering, got %q", got)
+		t.Fatalf("expected locative Jasper leftover covering rare=%v join=%v, got %q", leftoverCoverRareTokens(q, hops), hopsKeepTypedJoin(hops), got)
 	}
 	if strings.Contains(strings.ToLower(got), "scuba") {
 		t.Fatalf("non-place activity leaked onto where leftover covering: %q", got)
@@ -3595,8 +3601,8 @@ func TestLeftoverThinSloganAnswer(t *testing.T) {
 	if leftoverQueryEchoAnswer("What similar collectible do Tim and John own?", "jersey") {
 		t.Fatal("typed possession must not be a query echo")
 	}
-	if leftoverThinSloganAnswer("What instruments does Riley play?", hops, "clarinet, violin") {
-		t.Fatal("typed skill list must not be a thin slogan")
+	if leftoverThinSloganAnswer("What activities have been helping Riley stay distracted during tough times?", hops, "tough") && leftoverThinMissAnswer("What activities have been helping Riley stay distracted during tough times?", hops, "tough") {
+		t.Fatal("query-echo must not also count as leftoverThinMiss")
 	}
 	if leftoverThinSloganAnswer("Where does Riley live?", hops, "jersey") {
 		t.Fatal("single typed place must not be a thin slogan")

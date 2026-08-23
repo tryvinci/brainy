@@ -775,6 +775,9 @@ func lockHybridListExtras(enumerated bool, typedN, hybridN, extras int, typedDum
 		return false
 	}
 	if extras > 0 {
+		if typedDump && typedN <= 2 {
+			return false
+		}
 		return (typedN >= 3 && hybridN >= 3) || hybridN > typedN
 	}
 	// Hybrid dropped items from a real typed list (not a slogan dump).
@@ -3732,9 +3735,29 @@ func leftoverSkipLine(line string, leftoverRare []string) bool {
 	if looksSpeakerPrefixedStatement(line) {
 		i := strings.Index(line, ": ")
 		body := strings.TrimSpace(line[i+2:])
+		if looksInterrogativeLine(body) {
+			return true
+		}
 		return len(leftoverRare) == 0 || !contentCoversAnyQueryToken(body, leftoverRare)
 	}
-	return looksChatTurnLine(line)
+	return looksChatTurnLine(line) || looksInterrogativeLine(line)
+}
+
+func looksInterrogativeLine(s string) bool {
+	body := strings.TrimSpace(hybridLineBody(s))
+	if body == "" {
+		return false
+	}
+	if strings.Contains(body, "?") {
+		return true
+	}
+	lower := strings.ToLower(body)
+	for _, p := range []string{"how ", "what ", "why ", "when ", "where ", "did ", "do ", "does ", "have you ", "can ", "could "} {
+		if strings.HasPrefix(lower, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt EvidencePacket) string {
@@ -3743,6 +3766,11 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	whereQ := looksWhereQuery(query)
 	rare := leftoverCoverRareTokens(query, hops)
+	if whereQ && len(rare) == 0 {
+		// Hop dumps often mention leftover locative tokens (road/trip/family)
+		// and would otherwise starve where leftover covering.
+		rare = leftoverCoverRareTokens(query, nil)
+	}
 	if len(rare) == 0 {
 		return ""
 	}
@@ -3859,15 +3887,25 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 	if strings.EqualFold(answer, "not in memory") {
 		return true
 	}
+	coverHits, ansHits := 0, 0
+	extra := false
 	for _, tok := range leftoverCoverRareTokens(query, hops) {
 		if utf8Len(tok) < 8 {
 			continue
 		}
-		if contentCoversQueryToken(covering, tok) && !contentCoversQueryToken(answer, tok) {
-			return true
+		c := contentCoversQueryToken(covering, tok)
+		a := contentCoversQueryToken(answer, tok)
+		if c {
+			coverHits++
+		}
+		if a {
+			ansHits++
+		}
+		if c && !a {
+			extra = true
 		}
 	}
-	return false
+	return extra && coverHits > ansHits
 }
 
 func leftoverQueryEchoAnswer(query, answer string) bool {
@@ -3895,6 +3933,9 @@ func leftoverQueryEchoAnswer(query, answer string) bool {
 
 func leftoverThinMissAnswer(query string, hops []HopResult, answer string) bool {
 	answer = strings.TrimSpace(answer)
+	if leftoverQueryEchoAnswer(query, answer) {
+		return false
+	}
 	if answer == "" || strings.EqualFold(answer, "not in memory") {
 		return false
 	}

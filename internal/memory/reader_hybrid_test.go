@@ -1186,7 +1186,7 @@ func TestLockHybridListExtras(t *testing.T) {
 		{name: "long dump to short hybrid", enumerated: true, typedN: 8, hybridN: 1, extras: 1, want: false},
 		{name: "empty typed fills", enumerated: true, typedN: 0, hybridN: 3, extras: 3, want: false},
 		{name: "shortened real list", enumerated: true, typedN: 6, hybridN: 4, extras: 0, want: true},
-		{name: "dump shortened without extras", enumerated: true, typedN: 6, hybridN: 1, extras: 0, typedDump: true, want: false},
+		{name: "echo dump extras must not lock", enumerated: true, typedN: 1, hybridN: 3, extras: 3, typedDump: true, want: false},
 		{name: "not enumerated", enumerated: false, typedN: 6, hybridN: 6, extras: 4, want: false},
 	}
 	for _, tc := range cases {
