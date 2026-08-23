@@ -3399,6 +3399,10 @@ func TestDatedContentConflictsQuerySkipsFarRelativeTail(t *testing.T) {
 	if datedContentConflictsQuery(csgo, "John organized a charity gaming tournament for the game CS:GO on 7 May 2022.") {
 		t.Fatal("adjacent-day event must stay eligible")
 	}
+	gym := "What exciting news did Maria share on 16 June, 2023?"
+	if datedContentConflictsQuery(gym, "I got some great news to share - I joined a gym last week (9 June 2023; the week before 16 June 2023)") {
+		t.Fatal("last-week event relative to the query session day must stay eligible")
+	}
 	if querySpecificCalendarDate("Which basketball team does Riley support?") != nil {
 		t.Fatal("dateless query must not date-filter")
 	}
@@ -3446,6 +3450,22 @@ func TestLeftoverCoveringSpecificAnswerKeepsSpeakerPrefixedDatedCover(t *testing
 	}
 	if strings.Contains(lower, "stephenson") {
 		t.Fatalf("far-dated crowd leaked: %q", got)
+	}
+}
+
+func TestLeftoverCoveringSpecificAnswerKeepsLastWeekSessionNews(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Maria", Value: "Maria", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Maria: Hey John, great news - I'm now friends with one of my fellow volunteers"},
+			{Content: "I got some great news to share - I joined a gym last week (9 June 2023; the week before 16 June 2023)"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What exciting news did Maria share on 16 June, 2023?", hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "gym") {
+		t.Fatalf("expected last-week gym news over volunteer chat, got %q", got)
 	}
 }
 

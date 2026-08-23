@@ -2005,9 +2005,9 @@ func parseDateFromText(s string) *time.Time {
 	return nil
 }
 
-// queryDateMatchWindow keeps same-day and adjacent-day facts (session vs
-// event, "the day before") while dropping weeks-away crowding.
-const queryDateMatchWindow = 48 * time.Hour
+// queryDateMatchWindow keeps last-week / last-weekend relative facts
+// (session date vs event date) while dropping weeks-away crowding.
+const queryDateMatchWindow = 10 * 24 * time.Hour
 
 func queryHasCalendarDay(query string) bool {
 	hasMonth, hasDay := false, false
@@ -2051,9 +2051,10 @@ func isCalendarCoverToken(tok string) bool {
 }
 
 // datedContentConflictsQuery is true when the query names a calendar day and
-// the line's primary event date is more than two days away. Relative-session
+// the line's primary event date is more than ten days away. Relative-session
 // tails ("the week before 4 February") must not make a January fact match a
-// February question. Month-or-year-only queries do not filter.
+// February question. Last-week event dates relative to the session day stay
+// eligible. Month-or-year-only queries do not filter.
 func datedContentConflictsQuery(query, content string) bool {
 	qd := querySpecificCalendarDate(query)
 	if qd == nil {
@@ -3620,9 +3621,13 @@ func looksChatTurnLine(s string) bool {
 func looksCodedEventToken(s string) bool {
 	for _, w := range strings.Fields(s) {
 		w = strings.Trim(w, ".,;()[]\"'")
-		if strings.Contains(w, ":") && utf8Len(w) >= 4 {
-			return true
+		if !strings.Contains(w, ":") || utf8Len(w) < 4 {
+			continue
 		}
+		if strings.HasSuffix(w, ":") {
+			continue // speaker prefix, not CS:GO-style tokens
+		}
+		return true
 	}
 	return false
 }
