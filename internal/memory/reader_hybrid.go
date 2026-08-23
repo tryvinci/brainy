@@ -946,9 +946,29 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 	if hopsKeepTypedJoin(hops) {
 		return false
 	}
-	slotBlob := strings.Join(hopSlotValues(hops), " ")
+	slotBlob := hopSlotValueBlob(hops)
+	ents := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		e = strings.ToLower(strings.TrimSpace(e))
+		if e == "" {
+			continue
+		}
+		ents[e] = struct{}{}
+		ents[e+"'s"] = struct{}{}
+		ents[e+"’s"] = struct{}{}
+	}
 	leftover := make([]string, 0, 4)
 	for _, tok := range distinctiveQueryTokens(tokenize(query)) {
+		if leftoverCoverWeakToken(tok) {
+			continue
+		}
+		if _, ok := ents[tok]; ok {
+			continue
+		}
+		base := strings.TrimSuffix(strings.TrimSuffix(tok, "'s"), "’s")
+		if _, ok := ents[base]; ok {
+			continue
+		}
 		if contentCoversQueryToken(slotBlob, tok) {
 			continue
 		}

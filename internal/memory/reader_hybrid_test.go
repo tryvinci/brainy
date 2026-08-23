@@ -630,6 +630,7 @@ func TestFormatHybridMemoryLinesKeepsPlaceHopContentWhenSkipping(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
 			{Content: "Jolene participates in diving.", MemoryID: "m-div"},
+			{Content: "Jolene and her partner had a conversation about loved ones' influence.", MemoryID: "m-part"},
 		},
 		Coverage: map[string]any{
 			"hop_results": []HopResult{
@@ -706,6 +707,79 @@ func TestHopsKeepTypedJoinKinshipActivity(t *testing.T) {
 	pkt := EvidencePacket{Contents: []string{"Deborah's mother had reading as one of her hobbies."}}
 	if skipUnrelatedHopSlots("What were Deborah's mother's hobbies?", hops, pkt) {
 		t.Fatal("kinship activity join must not skip")
+	}
+}
+
+func TestSkipUnrelatedHopSlotsIgnoresPlanNoun(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Casey", Value: "Casey", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: "plan", Source: "typed_store",
+			Value:  "visit casey's garage, travel to boston",
+			Values: []string{"visit casey's garage", "travel to boston"}},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{
+			"Riley plans to visit Boston in July 2023.",
+			"Riley has an upcoming trip to Boston after finishing the tour.",
+		},
+		Coverage: map[string]any{"hop_results": hops},
+	}
+	q := "What plans do Riley and Casey have for when Riley visits Boston?"
+	if skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatalf("plan-noun leftover must not skip garage hop slots, leftover=%v slots=%v",
+			leftoverNonEntityQueryTokens(q, hops), hopSlotValues(hops))
+	}
+}
+
+func TestRecallHybridKeepsTypedChildhoodPossessions(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"Maria: I can picture you all laughing and having a blast making your own pizzas","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	facts := []struct {
+		key, val, content string
+	}{
+		{"doll", "little doll", "John had a little doll in his childhood that always made him feel better."},
+		{"cam", "film camera", "John had a film camera when he was a kid."},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-hyb-child", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "John"},
+			Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "John"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicatePossession, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-child", SubjectID: "u1",
+		Query: "What items des John mention having as a child?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if strings.Contains(got, "pizza") || strings.Contains(got, "blast") {
+		t.Fatalf("hybrid pizza chat replaced childhood possessions: %q explain=%v", out.Answer, out.Explain)
+	}
+	if !strings.Contains(got, "doll") || !strings.Contains(got, "camera") {
+		t.Fatalf("expected childhood possessions, answer=%q items=%#v", out.Answer, out.Items)
 	}
 }
 

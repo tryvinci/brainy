@@ -623,6 +623,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		// another multi-item list, or expands a short typed list. A long
 		// dump may still be replaced by a 1–2 item hybrid answer.
 		lockedList := lockHybridListExtras(enumerated, typedN, hybridN, extras, typedAnswerIsHopDump(typedAnswer) || echoSlogan)
+		if leftoverCoveringKeepTypedAnswer(req.Query, hopResults, typedAnswer) {
+			lockedList = true
+		}
 		if hybrid.Attempted {
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
@@ -718,7 +721,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				// which starve locative leftover covering with activity lists.
 				typedJoin := leftoverCoveringKeepTypedAnswer(req.Query, hopResults, cur)
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
-					leftoverThinMissAnswer(req.Query, hopResults, cur))
+					leftoverThinMissAnswer(req.Query, hopResults, cur) || leftoverHedgedAbsenceAnswer(cur))
 				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
 					useCovering = true
 				}
@@ -3702,11 +3705,40 @@ func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	return filterLeftoverCoverTokens(distinctiveQueryTokens(tokenize(query)), minLen)
 }
 
+func leftoverCoverAddTokens(toks []string, extra ...string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(toks)+len(extra))
+	for _, tok := range toks {
+		key := strings.ToLower(strings.TrimSpace(tok))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, tok)
+	}
+	for _, tok := range extra {
+		key := strings.ToLower(strings.TrimSpace(tok))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, tok)
+	}
+	return out
+}
+
 func leftoverCoverWeakToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "mention", "mentioned", "during", "together", "frequently",
 		"which", "where", "what", "when", "their", "they", "them",
-		"have", "been", "does", "did", "doing", "cool", "find",
+		"have", "has", "had", "having", "been", "does", "did", "doing",
+		"cool", "find", "plan", "plans", "item", "items",
 		"activity", "activities", "support", "supports", "supporting":
 		return true
 	}
@@ -3714,15 +3746,20 @@ func leftoverCoverWeakToken(tok string) bool {
 }
 
 func leftoverCoverStrongTokens(toks []string) []string {
+	out := leftoverCoverNonWeakTokens(toks)
+	if len(out) == 0 {
+		return toks
+	}
+	return out
+}
+
+func leftoverCoverNonWeakTokens(toks []string) []string {
 	out := make([]string, 0, len(toks))
 	for _, tok := range toks {
 		if leftoverCoverWeakToken(tok) {
 			continue
 		}
 		out = append(out, tok)
-	}
-	if len(out) == 0 {
-		return toks
 	}
 	return out
 }
@@ -3813,12 +3850,16 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if len(rare) == 0 {
 		return ""
 	}
+	if len(childhoodClauseTokens(query)) > 0 {
+		rare = leftoverCoverAddTokens(rare, "kid", "childhood")
+	}
 	var locativeMust []string
 	if whereQ {
 		locativeMust = locativeLeftoverTokens(query, nil)
 	}
-	speakerCover := leftoverNonEntityRareTokens(query, hops)
+	speakerCover := leftoverCoverNonWeakTokens(leftoverNonEntityRareTokens(query, hops))
 	lines := packetContentLines(pkt)
+	lines = append(lines, leftoverCoveringHopLines(hops)...)
 	df := make(map[string]int, len(rare))
 	for _, line := range lines {
 		for _, tok := range rare {
@@ -3929,6 +3970,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if joined := leftoverCoveringJoinSchemaActivities(query, strong, scored, best); joined != "" {
 		return joined
 	}
+	if joined := leftoverCoveringJoinPastPossessions(query, strong, scored, best); joined != "" {
+		return joined
+	}
 	return best
 }
 
@@ -4009,6 +4053,114 @@ func leftoverCoveringJoinSchemaActivities(query string, strong []string, scored 
 		return ""
 	}
 	return strings.Join(parts, "; ")
+}
+
+func leftoverCoveringPastPossessionLine(line string) bool {
+	body := " " + strings.ToLower(hybridLineBody(line)) + " "
+	if !strings.Contains(body, " had a ") && !strings.Contains(body, " had an ") {
+		return false
+	}
+	for _, cue := range []string{" kid", " child", " childhood", " growing up"} {
+		if strings.Contains(body, cue) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringJoinPastPossessions(query string, strong []string, scored []leftoverCoverScored, best string) string {
+	if leftoverCoveringShouldJoin(query) || looksWhereQuery(query) {
+		return ""
+	}
+	if !leftoverCoveringPastPossessionLine(best) {
+		return ""
+	}
+	parts := []string{best}
+	seen := map[string]struct{}{strings.ToLower(strings.TrimSpace(best)): {}}
+	for _, row := range scored {
+		if row.score < 2 || !leftoverCoveringPastPossessionLine(row.line) {
+			continue
+		}
+		if !contentCoversAnyQueryToken(row.line, strong) {
+			continue
+		}
+		line := stripConflictingDateTail(query, row.line)
+		key := strings.ToLower(strings.TrimSpace(line))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		parts = append(parts, line)
+		if len(parts) >= 4 {
+			break
+		}
+	}
+	if len(parts) < 2 {
+		return ""
+	}
+	return strings.Join(parts, "; ")
+}
+
+func leftoverCoveringHopLines(hops []HopResult) []string {
+	out := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" || looksCrowdedHopDump(v) || looksChatTurnLine(v) || looksPromptNotAnswer(v) {
+			return
+		}
+		if utf8Len(v) > 96 {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, h := range hops {
+		switch h.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			if h.Source == "unresolved" {
+				continue
+			}
+			if len(h.Values) > 0 {
+				for _, v := range h.Values {
+					add(v)
+				}
+				continue
+			}
+			add(h.Value)
+		}
+	}
+	return out
+}
+
+func leftoverHedgedAbsenceAnswer(answer string) bool {
+	lower := strings.ToLower(strings.TrimSpace(answer))
+	if lower == "" || strings.EqualFold(lower, "not in memory") {
+		return false
+	}
+	for _, cue := range []string{
+		"no specific",
+		"not specified",
+		"not recorded",
+		"not mentioned",
+		"are not recorded",
+		"is not specified",
+		"none recorded",
+		"not in the available memories",
+		"not in the memories",
+	} {
+		if strings.Contains(lower, cue) {
+			return true
+		}
+	}
+	return false
 }
 
 func locativePlaceFromLine(line string) string {

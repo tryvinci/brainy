@@ -3897,6 +3897,70 @@ func TestLeftoverThinSloganAnswer(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringJoinsChildhoodPossessions(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "John", Value: "John", Source: "search_fallback"},
+		{Kind: "fetch_predicate", Entity: "John", Predicate: PredicatePossession, Source: "typed_store",
+			Value:  "little doll, film camera (as a kid)",
+			Values: []string{"little doll", "film camera (as a kid)"}},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{
+			"Maria: I can picture you all laughing and having a blast making your own pizzas - a great way to bond",
+			"John had a film camera when he was a kid.",
+			"John had a little doll in his childhood that always made him feel better.",
+			"John has children.",
+		},
+	}
+	q := "What items des John mention having as a child?"
+	pizza := "Maria: I can picture you all laughing and having a blast making your own pizzas - a great way to bond"
+	if !leftoverSkipLine(pizza, leftoverCoverNonWeakTokens(leftoverNonEntityRareTokens(q, hops))) {
+		t.Fatal("having-a-blast chat must not survive leftover covering skip")
+	}
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if strings.Contains(lower, "pizza") || strings.Contains(lower, "blast") {
+		t.Fatalf("childhood leftover covering must not pick pizza chat, got %q", got)
+	}
+	if !strings.Contains(lower, "doll") || !strings.Contains(lower, "camera") {
+		t.Fatalf("expected joined childhood possessions, got %q", got)
+	}
+}
+
+func TestLeftoverHedgedAbsenceYieldsToHopSlot(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Casey", Value: "Casey", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: "plan", Source: "typed_store",
+			Value:  "visit casey's garage, travel to boston",
+			Values: []string{"visit casey's garage", "travel to boston"}},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{
+			"Riley has an upcoming trip to Boston after finishing the tour.",
+			"Casey owns a car maintenance shop that recently had its grand opening.",
+		},
+	}
+	q := "What plans do Riley and Casey have for when Riley visits Boston?"
+	hedge := "Riley has an upcoming trip to Boston after finishing the tour. No specific plans involving Casey for that Boston visit are recorded in the memories."
+	if !leftoverHedgedAbsenceAnswer(hedge) {
+		t.Fatal("hybrid hedge must count as leftover absence")
+	}
+	if leftoverHedgedAbsenceAnswer("She went horseback riding with her dad.") {
+		t.Fatal("real hybrid answers must not count as hedged absence")
+	}
+	if leftoverHedgedAbsenceAnswer("She felt it was a blessing (grateful for the support).") {
+		t.Fatal("feeling hybrid must not count as hedged absence")
+	}
+	if leftoverHedgedAbsenceAnswer("When she was 10 years old.") {
+		t.Fatal("age hybrid must not count as hedged absence")
+	}
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "garage") {
+		t.Fatalf("expected garage hop slot leftover covering, got %q", got)
+	}
+}
+
 func TestRecallOrdinalNameBeatsIdentityDump(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

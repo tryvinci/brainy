@@ -1299,6 +1299,20 @@ func hopSlotValues(results []HopResult) []string {
 	return hopSlotValuesFiltered(results, false)
 }
 
+func hopSlotValueBlob(results []HopResult) string {
+	parts := make([]string, 0, 8)
+	for _, r := range results {
+		switch r.Kind {
+		case "follow_relation", "fetch_predicate", "answer_slot":
+			if strings.TrimSpace(r.Value) != "" {
+				parts = append(parts, r.Value)
+			}
+			parts = append(parts, r.Values...)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
 func hopSlotValuesFiltered(results []HopResult, includeFallback bool) []string {
 	out := make([]string, 0, 8)
 	seen := map[string]struct{}{}
