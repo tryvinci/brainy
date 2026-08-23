@@ -3693,6 +3693,30 @@ func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	return filterLeftoverCoverTokens(distinctiveQueryTokens(tokenize(query)), minLen)
 }
 
+func leftoverCoverWeakToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "mention", "mentioned", "during", "together", "frequently",
+		"which", "where", "what", "when", "their", "they", "them",
+		"have", "been", "does", "did", "cool", "find":
+		return true
+	}
+	return false
+}
+
+func leftoverCoverStrongTokens(toks []string) []string {
+	out := make([]string, 0, len(toks))
+	for _, tok := range toks {
+		if leftoverCoverWeakToken(tok) {
+			continue
+		}
+		out = append(out, tok)
+	}
+	if len(out) == 0 {
+		return toks
+	}
+	return out
+}
+
 func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 	if looksWhereQuery(query) {
 		return leftoverCoverRareTokens(query, nil)
@@ -3818,6 +3842,10 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if len(locativeMust) > 0 && !contentCoversAnyQueryToken(line, locativeMust) {
 			continue
 		}
+		strong := leftoverCoverStrongTokens(rare)
+		if !contentCoversAnyQueryToken(line, strong) {
+			continue
+		}
 		score := 1
 		if looksCodedEventToken(line) {
 			score += 3
@@ -3826,7 +3854,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			score += 2
 		}
 		hits := 0
-		for _, tok := range rare {
+		for _, tok := range strong {
 			if !contentCoversQueryToken(line, tok) {
 				continue
 			}
@@ -3836,9 +3864,6 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score += 2
 			case 2:
 				score += 1
-			}
-			if utf8Len(tok) >= 8 {
-				score += 2
 			}
 		}
 		score += hits
@@ -3910,7 +3935,7 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 	if looksWhereQuery(query) {
 		minHit = 6
 	}
-	for _, tok := range leftoverCoveringRareForQuery(query, hops) {
+	for _, tok := range leftoverCoverStrongTokens(leftoverCoveringRareForQuery(query, hops)) {
 		if utf8Len(tok) < minHit {
 			continue
 		}

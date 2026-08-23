@@ -3438,13 +3438,14 @@ func TestLeftoverCoveringSpecificAnswerSkipsFarDatedCrowd(t *testing.T) {
 			{Content: `Jolene read "Neal Stephenson" (21 January 2023; the week before 4 February 2023) (28 January 2023)`},
 			{Content: `I'm really into this book called "Sapiens" - it's a fascinating look at human history and how technology has affected us`},
 			{Content: "Jolene read the book \"Avalanche\" by Neal Stephenson on 21 January 2023."},
+			{Content: "Deborah mentioned the Eisenhower Matrix as a tool for organizing and prioritizing tasks."},
 		},
 	}
 	got := leftoverCoveringSpecificAnswer("What is Jolene's favorite book which she mentioned on 4 February, 2023?", hops, pkt)
 	if !strings.Contains(strings.ToLower(got), "sapiens") {
 		t.Fatalf("expected Sapiens over far-dated Stephenson crowd, got %q", got)
 	}
-	if strings.Contains(strings.ToLower(got), "stephenson") || strings.Contains(strings.ToLower(got), "avalanche") {
+	if strings.Contains(strings.ToLower(got), "stephenson") || strings.Contains(strings.ToLower(got), "avalanche") || strings.Contains(strings.ToLower(got), "eisenhower") {
 		t.Fatalf("far-dated book crowd leaked: %q", got)
 	}
 }
@@ -3478,12 +3479,17 @@ func TestLeftoverCoveringSpecificAnswerKeepsLastWeekSessionNews(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
 			{Content: "Maria: Hey John, great news - I'm now friends with one of my fellow volunteers"},
+			{Content: "Anything has done exciting at Horizon"},
 			{Content: "I got some great news to share - I joined a gym last week (9 June 2023; the week before 16 June 2023)"},
 		},
 	}
 	got := leftoverCoveringSpecificAnswer("What exciting news did Maria share on 16 June, 2023?", hops, pkt)
-	if !strings.Contains(strings.ToLower(got), "gym") {
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "gym") {
 		t.Fatalf("expected last-week gym news over volunteer chat, got %q", got)
+	}
+	if strings.Contains(lower, "horizon") {
+		t.Fatalf("weak leftover token exciting must not pick Horizon over gym news: %q", got)
 	}
 }
 
@@ -3610,6 +3616,14 @@ func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	if leftoverCoveringBeatsAnswer(q, hops, covering, covering) {
 		t.Fatal("same covering must not beat itself")
 	}
+	if leftoverCoveringBeatsAnswer(
+		"What is Jolene's favorite book which she mentioned on 4 February, 2023?",
+		[]HopResult{{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene", Source: "search_fallback"}},
+		"Deborah mentioned the Eisenhower Matrix as a tool for organizing and prioritizing tasks.",
+		`I'm really into this book called "Sapiens" - it's a fascinating look at human history`,
+	) {
+		t.Fatal("mention-only covering must not beat a book answer")
+	}
 }
 
 func TestLeftoverCoveringWhereIgnoresHopSlotStarvation(t *testing.T) {
@@ -3629,6 +3643,27 @@ func TestLeftoverCoveringWhereIgnoresHopSlotStarvation(t *testing.T) {
 	}
 	if !hasTrip {
 		t.Fatalf("where leftover rare must keep locative tokens despite hop dumps, hops=%v covering=%v", leftoverCoverRareTokens(q, hops), got)
+	}
+}
+
+func TestLeftoverCoveringSkipsWeakAdverbCrowd(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Tim", Value: "Tim", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{
+			"John's family gets together frequently.",
+			"Tim visited a Harry Potter-themed place in London a few years ago.",
+			"Tim has visited the UK the most frequently in his travels.",
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("which country has Tim visited most frequently in his travels?", hops, pkt)
+	lower := strings.ToLower(got)
+	if strings.Contains(lower, "family gets together") {
+		t.Fatalf("frequently-only chat must not cover a country question: %q", got)
+	}
+	if !strings.Contains(lower, "uk") && !strings.Contains(lower, "london") {
+		t.Fatalf("expected UK/London leftover covering, got %q", got)
 	}
 }
 
