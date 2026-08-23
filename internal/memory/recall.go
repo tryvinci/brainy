@@ -601,7 +601,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		extras := uncoveredHybridItemCount(typedItems, hybrid.Answer)
 		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
 		lockedOrdinal := out.Explain["ordinal_name"] == true
-		if typedAnswerIsHopDump(typedAnswer) || hopDumpsUnproven(hopResults) || (skipSlots && looksWhereQuery(req.Query)) {
+		echoSlogan := leftoverQueryEchoAnswer(req.Query, typedAnswer)
+		if typedAnswerIsHopDump(typedAnswer) || hopDumpsUnproven(hopResults) || echoSlogan || (skipSlots && looksWhereQuery(req.Query)) {
 			// Dual-entity SH questions often plan as MH and lock a slogan
 			// dump, an unproven search_fallback fragment, or a leftover-
 			// unrelated short slot (Rocks) over hybrid. Only unlock mh_list
@@ -613,7 +614,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		// Keep typed multi-item lists when hybrid adds uncovered values as
 		// another multi-item list, or expands a short typed list. A long
 		// dump may still be replaced by a 1–2 item hybrid answer.
-		lockedList := lockHybridListExtras(enumerated, typedN, hybridN, extras, typedAnswerIsHopDump(typedAnswer))
+		lockedList := lockHybridListExtras(enumerated, typedN, hybridN, extras, typedAnswerIsHopDump(typedAnswer) || echoSlogan)
 		if hybrid.Attempted {
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
@@ -701,13 +702,22 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "hybrid_llm_packet"
 			}
 		}
-		if (out.Abstained || strings.EqualFold(strings.TrimSpace(out.Answer), "not in memory")) &&
-			out.Explain["ordinal_name"] != true {
+		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedCount && !lockedWhere {
 			if covering := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt); covering != "" {
-				out.Answer = covering
-				out.Abstained = false
-				out.AnswerStatus = AnswerSupported
-				out.Explain["reader_source"] = "leftover_packet_fact"
+				cur := strings.TrimSpace(out.Answer)
+				src, _ := out.Explain["reader_source"].(string)
+				useCovering := out.Abstained || strings.EqualFold(cur, "not in memory") ||
+					leftoverQueryEchoAnswer(req.Query, cur) ||
+					leftoverThinMissAnswer(req.Query, hopResults, cur)
+				if !useCovering && src == "hybrid_llm_packet" {
+					useCovering = leftoverCoveringBeatsAnswer(req.Query, hopResults, covering, cur)
+				}
+				if useCovering {
+					out.Answer = covering
+					out.Abstained = false
+					out.AnswerStatus = AnswerSupported
+					out.Explain["reader_source"] = "leftover_packet_fact"
+				}
 			}
 		}
 	}
@@ -3703,6 +3713,11 @@ func leftoverSkipLine(line string, leftoverRare []string) bool {
 	if looksTitleCaseSlogan(line) || looksImageCaptionLine(line) || looksPromptNotAnswer(line) {
 		return true
 	}
+	if i := strings.Index(line, ": "); i > 0 {
+		if looksTitleCaseSlogan(strings.TrimSpace(line[i+2:])) {
+			return true
+		}
+	}
 	if looksCrowdedHopDump(line) {
 		return true
 	}
@@ -3723,9 +3738,10 @@ func leftoverSkipLine(line string, leftoverRare []string) bool {
 }
 
 func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt EvidencePacket) string {
-	if looksWhereQuery(query) || looksPolarQuery(query) || hopsKeepTypedJoin(hops) {
+	if looksPolarQuery(query) || hopsKeepTypedJoin(hops) {
 		return ""
 	}
+	whereQ := looksWhereQuery(query)
 	rare := leftoverCoverRareTokens(query, hops)
 	if len(rare) == 0 {
 		return ""
@@ -3742,8 +3758,16 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	best := ""
 	bestScore := 0
+	type scoredLine struct {
+		line  string
+		score int
+	}
+	scored := make([]scoredLine, 0, 8)
 	for _, line := range lines {
 		if leftoverSkipLine(line, speakerCover) || datedContentConflictsQuery(query, line) {
+			continue
+		}
+		if whereQ && !looksLocativePlaceLine(line) {
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, rare) {
@@ -3753,7 +3777,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if looksCodedEventToken(line) {
 			score += 3
 		}
-		if looksSpecificPlaceOrNameLine(line) || looksHyphenatedEventLine(line) {
+		if looksLocativePlaceLine(line) || looksHyphenatedEventLine(line) {
 			score += 2
 		}
 		hits := 0
@@ -3770,6 +3794,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			}
 		}
 		score += hits
+		scored = append(scored, scoredLine{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
 			best = line
@@ -3778,7 +3803,113 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if bestScore < 2 {
 		return ""
 	}
+	if leftoverCoveringShouldJoin(query) {
+		parts := make([]string, 0, 4)
+		seen := map[string]struct{}{}
+		for _, row := range scored {
+			if row.score < 2 {
+				continue
+			}
+			if !contentCoversQueryToken(row.line, "played") && !contentCoversQueryToken(row.line, "tournament") {
+				continue
+			}
+			line := stripConflictingDateTail(query, row.line)
+			key := strings.ToLower(strings.TrimSpace(line))
+			if key == "" {
+				continue
+			}
+			if _, ok := seen[key]; ok {
+				continue
+			}
+			seen[key] = struct{}{}
+			parts = append(parts, line)
+			if len(parts) >= 4 {
+				break
+			}
+		}
+		if len(parts) >= 2 {
+			return strings.Join(parts, "; ")
+		}
+	}
 	return stripConflictingDateTail(query, best)
+}
+
+func leftoverCoveringShouldJoin(query string) bool {
+	hasGame, hasPlayed := false, false
+	for _, tok := range tokenize(query) {
+		switch strings.Trim(strings.ToLower(tok), "'\"") {
+		case "game", "games":
+			hasGame = true
+		case "play", "played":
+			hasPlayed = true
+		}
+	}
+	return hasGame && hasPlayed
+}
+
+func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answer string) bool {
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || answer == "" || strings.EqualFold(covering, answer) {
+		return false
+	}
+	if strings.EqualFold(answer, "not in memory") {
+		return true
+	}
+	for _, tok := range leftoverCoverRareTokens(query, hops) {
+		if utf8Len(tok) < 8 {
+			continue
+		}
+		if contentCoversQueryToken(covering, tok) && !contentCoversQueryToken(answer, tok) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverQueryEchoAnswer(query, answer string) bool {
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") || strings.Contains(answer, ",") {
+		return false
+	}
+	qtoks := map[string]struct{}{}
+	for _, tok := range tokenize(query) {
+		qtoks[strings.ToLower(tok)] = struct{}{}
+	}
+	n := 0
+	for _, tok := range tokenize(answer) {
+		tok = strings.ToLower(tok)
+		if tok == "" {
+			continue
+		}
+		n++
+		if _, ok := qtoks[tok]; !ok {
+			return false
+		}
+	}
+	return n > 0 && n <= 3
+}
+
+func leftoverThinMissAnswer(query string, hops []HopResult, answer string) bool {
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") {
+		return false
+	}
+	if strings.Contains(answer, ",") || consecutiveProperNouns(answer) > 0 {
+		return false
+	}
+	if !looksThinPacketLine(answer) {
+		return false
+	}
+	rare := leftoverCoverRareTokens(query, hops)
+	if len(rare) == 0 {
+		return false
+	}
+	return !contentCoversAnyQueryToken(answer, rare)
+}
+
+func leftoverThinSloganAnswer(query string, hops []HopResult, answer string) bool {
+	return leftoverQueryEchoAnswer(query, answer) || leftoverThinMissAnswer(query, hops, answer)
 }
 
 func stripConflictingDateTail(query, line string) string {

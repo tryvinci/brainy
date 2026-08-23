@@ -389,6 +389,28 @@ func consecutiveProperNouns(line string) int {
 	return best
 }
 
+func looksLocativePlaceLine(line string) bool {
+	if looksSpecificPlaceOrNameLine(line) {
+		return true
+	}
+	fields := strings.Fields(hybridLineBody(line))
+	for i, w := range fields {
+		switch strings.ToLower(strings.Trim(w, ".,;:")) {
+		case "to", "in", "at", "near", "from":
+		default:
+			continue
+		}
+		if i+1 >= len(fields) {
+			continue
+		}
+		n := strings.Trim(fields[i+1], ".,;:()[]\"'")
+		if n != "" && n[0] >= 'A' && n[0] <= 'Z' && len(n) > 1 {
+			return true
+		}
+	}
+	return false
+}
+
 func looksSpecificPlaceOrNameLine(line string) bool {
 	body := hybridLineBody(line)
 	if looksThinPacketLine(line) || looksCrowdedHopDump(body) {

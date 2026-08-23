@@ -3509,6 +3509,100 @@ func TestLeftoverCoveringSpecificAnswerKeepsWeekendPlanNotSpeakerChat(t *testing
 	}
 }
 
+func TestLeftoverCoveringWhereQueryPicksLocativePlace(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley photographed a glacier during a mountain trip."},
+			{Content: "Last weekend I took my family to Jasper National Park (17 May 2023; the week before 24 May 2023)"},
+			{Content: "Riley participated in a scuba diving lesson on 15 September 2023."},
+		},
+	}
+	q := "Where did Riley take his family for a road trip on 24 May, 2023?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "jasper") {
+		t.Fatalf("expected locative Jasper leftover covering, got %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "scuba") {
+		t.Fatalf("non-place activity leaked onto where leftover covering: %q", got)
+	}
+}
+
+func TestLeftoverCoveringWhereQuerySkipsNonPlace(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Casey", Value: "Casey", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley participated in a scuba diving lesson on 15 September 2023."},
+			{Content: "Riley attended a meditation retreat in Phuket with Casey, starting on 9 September 2023."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("Where did Riley and Casey find a cool diving spot?", hops, pkt)
+	if strings.Contains(strings.ToLower(got), "phuket") {
+		t.Fatalf("retreat place must not stand in for a diving-spot write miss: %q", got)
+	}
+}
+
+func TestLeftoverCoveringJoinsPlayedGames(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley played Fortnite during the gaming tournament on 30 October 2022."},
+			{Content: "Riley played Overwatch during the gaming tournament on 30 October 2022."},
+			{Content: "Riley played Apex Legends during the gaming tournament on 30 October 2022."},
+			{Content: "Riley says the speed of Apex Legends makes it fun."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What games were played at the gaming tournament organized by Riley on 31 October, 2022?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "fortnite") || !strings.Contains(lower, "overwatch") || !strings.Contains(lower, "apex") {
+		t.Fatalf("expected joined tournament games, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	covering := "Riley enjoys prepping the feast as part of his Thanksgiving tradition."
+	hybrid := "They usually watch a few movies together during Thanksgiving."
+	q := "What tradition does Riley mention they love during Thanksgiving?"
+	if !leftoverCoveringBeatsAnswer(q, hops, covering, hybrid) {
+		t.Fatal("covering that hits leftover tradition must beat a movies paraphrase")
+	}
+	if leftoverCoveringBeatsAnswer(q, hops, covering, covering) {
+		t.Fatal("same covering must not beat itself")
+	}
+}
+
+func TestLeftoverThinSloganAnswer(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Casey", Value: "Casey", Source: "search_fallback"},
+	}
+	if !leftoverThinMissAnswer("What plans do Riley and Casey have for when Riley visits Boston?", hops, "scheduled to end soon") {
+		t.Fatal("unrelated thin slogan must yield to leftover covering")
+	}
+	if !leftoverQueryEchoAnswer("What activities have been helping Riley stay distracted during tough times?", "tough") {
+		t.Fatal("leftover query-echo must count as an echo slogan")
+	}
+	if leftoverQueryEchoAnswer("What similar collectible do Tim and John own?", "jersey") {
+		t.Fatal("typed possession must not be a query echo")
+	}
+	if leftoverThinSloganAnswer("What instruments does Riley play?", hops, "clarinet, violin") {
+		t.Fatal("typed skill list must not be a thin slogan")
+	}
+	if leftoverThinSloganAnswer("Where does Riley live?", hops, "jersey") {
+		t.Fatal("single typed place must not be a thin slogan")
+	}
+}
+
 func TestRecallOrdinalNameBeatsIdentityDump(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
