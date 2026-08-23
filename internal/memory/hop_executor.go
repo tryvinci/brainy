@@ -1401,17 +1401,68 @@ func hopValueIsCoParticipantVisit(v string) bool {
 }
 
 func hopHasCoParticipantVisit(hops []HopResult) bool {
+	return firstCoParticipantVisitValue(hops) != ""
+}
+
+func firstCoParticipantVisitValue(hops []HopResult) string {
 	for _, h := range hops {
 		if hopValueIsCoParticipantVisit(h.Value) {
-			return true
+			return strings.TrimSpace(h.Value)
 		}
 		for _, v := range h.Values {
 			if hopValueIsCoParticipantVisit(v) {
-				return true
+				return strings.TrimSpace(v)
 			}
 		}
 	}
-	return false
+	return ""
+}
+
+func visitDestinationPlace(dest string) string {
+	lower := strings.ToLower(strings.TrimSpace(dest))
+	idx := strings.Index(lower, "'s ")
+	if idx < 0 {
+		idx = strings.Index(lower, "’s ")
+	}
+	if idx < 0 {
+		return ""
+	}
+	rest := strings.TrimSpace(lower[idx+3:])
+	fields := strings.Fields(rest)
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.Trim(fields[len(fields)-1], ".,;:!?")
+}
+
+func contentCoversVisitDestination(answer, dest string) bool {
+	ans := strings.ToLower(strings.TrimSpace(answer))
+	if ans == "" {
+		return false
+	}
+	if place := visitDestinationPlace(dest); place != "" && strings.Contains(ans, place) {
+		return true
+	}
+	d := strings.ToLower(strings.TrimSpace(dest))
+	return d != "" && strings.Contains(ans, d)
+}
+
+func looksVisitPlanQuery(query string) bool {
+	return queryHasToken(query, "plan", "plans", "planning", "visit", "visits", "visiting")
+}
+
+// preferCoParticipantVisitDestination keeps a visit/check-out stop when the
+// reader named a related activity but dropped the actual place.
+func preferCoParticipantVisitDestination(query string, hops []HopResult, answer string) string {
+	cur := strings.TrimSpace(answer)
+	if !looksVisitPlanQuery(query) {
+		return cur
+	}
+	dest := firstCoParticipantVisitValue(hops)
+	if dest == "" || contentCoversVisitDestination(cur, dest) {
+		return cur
+	}
+	return dest
 }
 
 func hopSharedSlotValues(results []HopResult) []string {

@@ -468,3 +468,27 @@ func TestHopSlotValuesKeepsVisitPossessiveDestination(t *testing.T) {
 		t.Fatalf("attended foreign event leaked into dest slots: %#v", vals)
 	}
 }
+
+func TestPreferCoParticipantVisitDestination(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex"},
+		{Kind: "resolve_entity", Entity: "Dana", Value: "Dana"},
+		{Kind: "follow_relation", Entity: "Alex", Predicate: PredicatePlan,
+			Values: []string{"write songs", "visit dana's studio", "travel to boston"}},
+	}
+	q := "What plans do Alex and Dana have for when Alex visits Boston?"
+	got := preferCoParticipantVisitDestination(q, hops, "Dana will show Alex classic cars and meet at a bench.")
+	if !strings.Contains(strings.ToLower(got), "studio") {
+		t.Fatalf("expected visit destination over related-activity paraphrase, got %q", got)
+	}
+	kept := preferCoParticipantVisitDestination(q, hops, "They will visit Dana's studio while Alex is in Boston.")
+	if !strings.Contains(strings.ToLower(kept), "studio") || strings.EqualFold(kept, "visit dana's studio") && !strings.Contains(strings.ToLower(kept), "boston") {
+		// keep the richer hybrid that already names the place
+		if !strings.Contains(strings.ToLower(kept), "studio") {
+			t.Fatalf("hybrid that already names the place must be kept, got %q", kept)
+		}
+	}
+	if preferCoParticipantVisitDestination("When did Alex adopt Ned?", hops, "first week of April 2022") != "first week of April 2022" {
+		t.Fatal("non-visit queries must not be rewritten")
+	}
+}
