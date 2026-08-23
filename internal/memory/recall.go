@@ -623,7 +623,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		// another multi-item list, or expands a short typed list. A long
 		// dump may still be replaced by a 1–2 item hybrid answer.
 		lockedList := lockHybridListExtras(enumerated, typedN, hybridN, extras, typedAnswerIsHopDump(typedAnswer) || echoSlogan)
-		if leftoverCoveringKeepTypedAnswer(req.Query, hopResults, typedAnswer) {
+		if leftoverCoveringKeepTypedAnswer(req.Query, hopResults, typedAnswer) && len(childhoodClauseTokens(req.Query)) > 0 {
 			lockedList = true
 		}
 		if hybrid.Attempted {
@@ -721,8 +721,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				// which starve locative leftover covering with activity lists.
 				typedJoin := leftoverCoveringKeepTypedAnswer(req.Query, hopResults, cur)
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
-					leftoverThinMissAnswer(req.Query, hopResults, cur) ||
-					(leftoverHedgedAbsenceAnswer(cur) && leftoverCoveringBeatsAnswer(req.Query, hopResults, covering, cur)))
+					leftoverThinMissAnswer(req.Query, hopResults, cur))
 				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
 					useCovering = true
 				}
@@ -3860,7 +3859,6 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	speakerCover := leftoverCoverNonWeakTokens(leftoverNonEntityRareTokens(query, hops))
 	lines := packetContentLines(pkt)
-	lines = append(lines, leftoverCoveringHopLines(hops)...)
 	df := make(map[string]int, len(rare))
 	for _, line := range lines {
 		for _, tok := range rare {
@@ -4103,65 +4101,6 @@ func leftoverCoveringJoinPastPossessions(query string, strong []string, scored [
 		return ""
 	}
 	return strings.Join(parts, "; ")
-}
-
-func leftoverCoveringHopLines(hops []HopResult) []string {
-	out := make([]string, 0, 8)
-	seen := map[string]struct{}{}
-	add := func(v string) {
-		v = strings.TrimSpace(v)
-		if v == "" || looksCrowdedHopDump(v) || looksChatTurnLine(v) || looksPromptNotAnswer(v) {
-			return
-		}
-		if utf8Len(v) > 96 {
-			return
-		}
-		key := strings.ToLower(v)
-		if _, ok := seen[key]; ok {
-			return
-		}
-		seen[key] = struct{}{}
-		out = append(out, v)
-	}
-	for _, h := range hops {
-		switch h.Kind {
-		case "follow_relation", "fetch_predicate", "answer_slot":
-			if h.Source == "unresolved" {
-				continue
-			}
-			if len(h.Values) > 0 {
-				for _, v := range h.Values {
-					add(v)
-				}
-				continue
-			}
-			add(h.Value)
-		}
-	}
-	return out
-}
-
-func leftoverHedgedAbsenceAnswer(answer string) bool {
-	lower := strings.ToLower(strings.TrimSpace(answer))
-	if lower == "" || strings.EqualFold(lower, "not in memory") {
-		return false
-	}
-	for _, cue := range []string{
-		"no specific",
-		"not specified",
-		"not recorded",
-		"not mentioned",
-		"are not recorded",
-		"is not specified",
-		"none recorded",
-		"not in the available memories",
-		"not in the memories",
-	} {
-		if strings.Contains(lower, cue) {
-			return true
-		}
-	}
-	return false
 }
 
 func locativePlaceFromLine(line string) string {

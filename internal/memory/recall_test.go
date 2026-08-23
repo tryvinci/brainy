@@ -3927,45 +3927,6 @@ func TestLeftoverCoveringJoinsChildhoodPossessions(t *testing.T) {
 	}
 }
 
-func TestLeftoverHedgedAbsenceYieldsToHopSlot(t *testing.T) {
-	hops := []HopResult{
-		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
-		{Kind: "resolve_entity", Entity: "Casey", Value: "Casey", Source: "search_fallback"},
-		{Kind: "follow_relation", Entity: "Riley", Predicate: "plan", Source: "typed_store",
-			Value:  "visit casey's garage, travel to boston",
-			Values: []string{"visit casey's garage", "travel to boston"}},
-	}
-	pkt := EvidencePacket{
-		Contents: []string{
-			"Riley has an upcoming trip to Boston after finishing the tour.",
-			"Casey owns a car maintenance shop that recently had its grand opening.",
-		},
-	}
-	q := "What plans do Riley and Casey have for when Riley visits Boston?"
-	hedge := "Riley has an upcoming trip to Boston after finishing the tour. No specific plans involving Casey for that Boston visit are recorded in the memories."
-	if !leftoverHedgedAbsenceAnswer(hedge) {
-		t.Fatal("hybrid hedge must count as leftover absence")
-	}
-	if leftoverHedgedAbsenceAnswer("She went horseback riding with her dad.") {
-		t.Fatal("real hybrid answers must not count as hedged absence")
-	}
-	if leftoverHedgedAbsenceAnswer("She felt it was a blessing (grateful for the support).") {
-		t.Fatal("feeling hybrid must not count as hedged absence")
-	}
-	if leftoverHedgedAbsenceAnswer("When she was 10 years old.") {
-		t.Fatal("age hybrid must not count as hedged absence")
-	}
-	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
-	if !strings.Contains(strings.ToLower(got), "garage") {
-		t.Fatalf("expected garage hop slot leftover covering, got %q", got)
-	}
-	goalsQ := "What do Calvin and Dave use to reach their goals?"
-	goalsHybrid := "Calvin uses hard work and dedication to reach his goals. Dave's method for reaching his goals is not specified in the available memories."
-	if leftoverCoveringBeatsAnswer(goalsQ, hops, got, goalsHybrid) {
-		t.Fatal("boston plan covering must not beat a goals hybrid")
-	}
-}
-
 func TestRecallOrdinalNameBeatsIdentityDump(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
