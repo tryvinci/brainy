@@ -603,7 +603,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedOrdinal := out.Explain["ordinal_name"] == true
 		echoSlogan := leftoverQueryEchoAnswer(req.Query, typedAnswer)
 		thinMiss := leftoverThinMissAnswer(req.Query, hopResults, typedAnswer)
-		if typedAnswerIsHopDump(typedAnswer) || hopDumpsUnproven(hopResults) || echoSlogan || thinMiss || (skipSlots && looksWhereQuery(req.Query)) {
+		unlockDump := typedAnswerIsHopDump(typedAnswer) || hopDumpsUnproven(hopResults) || echoSlogan || thinMiss || (skipSlots && looksWhereQuery(req.Query))
+		// Title-case 2-item possession/skill joins look like slogan dumps
+		// but are typed answers. Unlocking them lets hybrid replace a
+		// signed-collectible join with a nearby sports chat turn.
+		if leftoverCoveringKeepTypedAnswer(req.Query, hopResults, typedAnswer) {
+			unlockDump = false
+		}
+		if unlockDump {
 			// Dual-entity SH questions often plan as MH and lock a slogan
 			// dump, an unproven search_fallback fragment, a leftover-
 			// unrelated short slot (Rocks), or a thin leftover-miss
@@ -707,10 +714,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			if covering := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt); covering != "" {
 				cur := strings.TrimSpace(out.Answer)
 				src, _ := out.Explain["reader_source"].(string)
-				// Comma typed joins stay locked except where hop-dumps, which
-				// starve locative leftover covering with activity lists.
-				typedJoin := hopsKeepTypedJoin(hopResults) && lockedMHList && strings.Contains(cur, ",") &&
-					!looksWhereQuery(req.Query) && !typedAnswerIsHopDump(cur)
+				// Short typed item joins stay locked except where hop-dumps,
+				// which starve locative leftover covering with activity lists.
+				typedJoin := leftoverCoveringKeepTypedAnswer(req.Query, hopResults, cur)
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
 					leftoverThinMissAnswer(req.Query, hopResults, cur))
 				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
@@ -3907,7 +3913,41 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			return strings.Join(parts, "; ")
 		}
 	}
-	return stripConflictingDateTail(query, best)
+	best = stripConflictingDateTail(query, best)
+	if whereQ {
+		if place := locativePlaceFromLine(best); place != "" {
+			return place
+		}
+	}
+	return best
+}
+
+func locativePlaceFromLine(line string) string {
+	fields := strings.Fields(hybridLineBody(line))
+	for i, w := range fields {
+		switch strings.ToLower(strings.Trim(w, ".,;:")) {
+		case "to", "in", "at", "near", "from", "for":
+		default:
+			continue
+		}
+		if i+1 >= len(fields) {
+			continue
+		}
+		n := strings.Trim(fields[i+1], ".,;:()[]\"'")
+		if n == "" || n[0] < 'A' || n[0] > 'Z' || len(n) <= 1 {
+			continue
+		}
+		rest := strings.Join(fields[i+1:], " ")
+		if placePrepRestIsDate(rest) {
+			continue
+		}
+		cand := cleanPlaceCandidate(rest)
+		if cand == "" || consecutiveProperNouns(cand) < 1 {
+			continue
+		}
+		return cand
+	}
+	return ""
 }
 
 func leftoverCoveringShouldJoin(query string) bool {
@@ -3931,6 +3971,15 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 	}
 	if strings.EqualFold(answer, "not in memory") {
 		return true
+	}
+	if leftoverCoveringKeepShortLocative(query, covering, answer) {
+		return false
+	}
+	if looksWhereQuery(query) && leftoverCoveringIsShortLocative(covering) && typedAnswerIsHopDump(answer) {
+		return true
+	}
+	if leftoverCoveringKeepTypedAnswer(query, hops, answer) {
+		return false
 	}
 	if looksWhenEventQuery(query) && parseDateFromText(answer) != nil && parseDateFromText(covering) == nil {
 		return false
@@ -3976,9 +4025,86 @@ func leftoverQueryEchoAnswer(query, answer string) bool {
 	return n > 0 && n <= 3
 }
 
+func leftoverCoveringIsShortLocative(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" || typedAnswerIsHopDump(s) {
+		return false
+	}
+	if consecutiveProperNouns(s) < 1 {
+		return false
+	}
+	return utf8Len(s) <= 48
+}
+
+func leftoverCoveringKeepShortLocative(query, covering, answer string) bool {
+	if !looksWhereQuery(query) {
+		return false
+	}
+	answer = strings.TrimSpace(answer)
+	covering = strings.TrimSpace(covering)
+	if !leftoverCoveringIsShortLocative(answer) || covering == "" {
+		return false
+	}
+	if utf8Len(covering) <= utf8Len(answer) {
+		return false
+	}
+	al, cl := strings.ToLower(answer), strings.ToLower(covering)
+	if strings.Contains(cl, al) {
+		return true
+	}
+	for _, part := range strings.Split(answer, ",") {
+		part = strings.TrimSpace(part)
+		if leftoverCoveringIsShortLocative(part) && strings.Contains(cl, strings.ToLower(part)) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverShortItemJoin(answer string) bool {
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") || looksPromptNotAnswer(answer) {
+		return false
+	}
+	parts := make([]string, 0, 4)
+	if strings.Contains(answer, ",") {
+		for _, p := range strings.Split(answer, ",") {
+			p = strings.TrimSpace(p)
+			if p != "" {
+				parts = append(parts, p)
+			}
+		}
+	} else if i := strings.Index(strings.ToLower(answer), " and "); i > 0 {
+		left := strings.TrimSpace(answer[:i])
+		right := strings.TrimSpace(answer[i+5:])
+		if left != "" && right != "" && !strings.Contains(strings.ToLower(right), " and ") {
+			parts = []string{left, right}
+		}
+	}
+	if len(parts) < 2 || len(parts) > 6 || utf8Len(answer) > 96 {
+		return false
+	}
+	for _, p := range parts {
+		if len(strings.Fields(p)) > 6 {
+			return false
+		}
+	}
+	return true
+}
+
+func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {
+	if looksWhereQuery(query) || leftoverCoveringShouldJoin(query) {
+		return false
+	}
+	if !hopsKeepTypedJoin(hops) {
+		return false
+	}
+	return leftoverShortItemJoin(answer)
+}
+
 func leftoverThinMissAnswer(query string, hops []HopResult, answer string) bool {
 	answer = strings.TrimSpace(answer)
-	if leftoverQueryEchoAnswer(query, answer) {
+	if leftoverQueryEchoAnswer(query, answer) || leftoverShortItemJoin(answer) {
 		return false
 	}
 	if answer == "" || strings.EqualFold(answer, "not in memory") {

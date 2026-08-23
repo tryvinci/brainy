@@ -3634,6 +3634,81 @@ func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	if leftoverCoveringBeatsAnswer(qWalk, hopsWalk, selfCare, walks) {
 		t.Fatal("activity-schema leftover covering must not beat a walks hybrid")
 	}
+	qTor := "Where was James at on July 12, 2022?"
+	if leftoverCoveringBeatsAnswer(qTor, hops, "James will depart for Toronto", "Toronto") {
+		t.Fatal("depart-for leftover covering must not beat a short hybrid place")
+	}
+	if leftoverCoveringKeepShortLocative(qTor, "James will depart for Toronto", "Toronto, Canada") != true {
+		t.Fatal("short locative NP must be kept against a longer depart-for line")
+	}
+	qJas := "Where did Riley take his family for a road trip on 24 May, 2023?"
+	hopDump := "Riley photographed a glacier, hiking, road trip to jasper national park, hiked trails with family, scuba diving"
+	if !typedAnswerIsHopDump(hopDump) {
+		t.Fatalf("expected hop dump, got %q", hopDump)
+	}
+	if !leftoverCoveringBeatsAnswer(qJas, hops, "Jasper National Park", hopDump) {
+		t.Fatal("short locative covering must beat a where hop dump")
+	}
+}
+
+func TestLeftoverCoveringExtractsWherePlaceNP(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "James", Value: "James", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "James will depart for Toronto on July 11, 2022 in the evening."},
+			{Content: "James participates in bowling (16 March 2022; the day before 17 March 2022)"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("Where was James at on July 12, 2022?", hops, pkt)
+	if !strings.EqualFold(strings.TrimSpace(got), "Toronto") {
+		t.Fatalf("where leftover covering must return the place NP, got %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "depart") {
+		t.Fatalf("depart-for intent must not remain on a where answer: %q", got)
+	}
+}
+
+func TestLeftoverCoveringKeepsTypedItemJoins(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Tim", Value: "Tim", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "John", Value: "John", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Tim", Predicate: PredicatePossession, Source: "typed_store",
+			Value: "Basketball Signed By Favorite Player", Values: []string{"Basketball Signed By Favorite Player"}},
+		{Kind: "follow_relation", Entity: "John", Predicate: PredicatePossession, Source: "typed_store",
+			Value: "Basketball Trophy", Values: []string{"Basketball Trophy"}},
+	}
+	join := "Basketball Signed By Favorite Player, Basketball Trophy"
+	q := "What similar sports collectible do Tim and John own?"
+	if !leftoverShortItemJoin(join) {
+		t.Fatal("signed-collectible comma join must count as a short item join")
+	}
+	if leftoverThinMissAnswer(q, hops, join) {
+		t.Fatal("typed collectible join must not be a leftover thin miss")
+	}
+	if !leftoverCoveringKeepTypedAnswer(q, hops, join) {
+		t.Fatal("typed possession join must be kept against leftover covering")
+	}
+	chat := "John: Having someone to support and motivate you is so important, whether it's in sports or any other aspect of life"
+	if leftoverCoveringKeepTypedAnswer(q, hops, chat) {
+		t.Fatal("sports pep-talk must not count as a typed item join")
+	}
+	if leftoverCoveringBeatsAnswer(q, hops, chat, join) {
+		t.Fatal("leftover covering must not beat a typed possession join")
+	}
+	snackQ := "What kind of unhealthy snacks does Sam enjoy eating?"
+	snackHops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Sam", Value: "Sam", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Sam", Predicate: PredicatePreference, Source: "typed_store",
+			Value: "soda, candy", Values: []string{"soda", "candy"}},
+	}
+	if leftoverThinMissAnswer(snackQ, snackHops, "soda and candy") {
+		t.Fatal("short snack join must not be a leftover thin miss")
+	}
+	if leftoverCoveringBeatsAnswer(snackQ, snackHops, "Sam bought unhealthy snacks.", "soda and candy") {
+		t.Fatal("list-head leftover covering must not beat a snack join")
+	}
 }
 
 func TestLeftoverCoveringWhereIgnoresHopSlotStarvation(t *testing.T) {
