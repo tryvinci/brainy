@@ -712,7 +712,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				typedJoin := hopsKeepTypedJoin(hopResults) && lockedMHList && strings.Contains(cur, ",") &&
 					!looksWhereQuery(req.Query) && !typedAnswerIsHopDump(cur)
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
-					typedAnswerIsHopDump(cur) || leftoverThinMissAnswer(req.Query, hopResults, cur))
+					leftoverThinMissAnswer(req.Query, hopResults, cur))
+				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
+					useCovering = true
+				}
 				if !useCovering && !typedJoin && (src == "hybrid_llm_packet" || looksWhereQuery(req.Query)) {
 					useCovering = leftoverCoveringBeatsAnswer(req.Query, hopResults, covering, cur)
 				}
@@ -3697,7 +3700,8 @@ func leftoverCoverWeakToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "mention", "mentioned", "during", "together", "frequently",
 		"which", "where", "what", "when", "their", "they", "them",
-		"have", "been", "does", "did", "cool", "find":
+		"have", "been", "does", "did", "doing", "cool", "find",
+		"activity", "activities":
 		return true
 	}
 	return false
@@ -3718,10 +3722,8 @@ func leftoverCoverStrongTokens(toks []string) []string {
 }
 
 func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
-	if looksWhereQuery(query) {
-		return leftoverCoverRareTokens(query, nil)
-	}
-	return leftoverCoverRareTokens(query, hops)
+	_ = hops
+	return leftoverCoverRareTokens(query, nil)
 }
 
 func filterLeftoverCoverTokens(leftover []string, minLen int) []string {
@@ -3929,16 +3931,12 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 	if strings.EqualFold(answer, "not in memory") {
 		return true
 	}
+	if looksWhenEventQuery(query) && parseDateFromText(answer) != nil && parseDateFromText(covering) == nil {
+		return false
+	}
 	coverHits, ansHits := 0, 0
 	extra := false
-	minHit := 8
-	if looksWhereQuery(query) {
-		minHit = 6
-	}
 	for _, tok := range leftoverCoverStrongTokens(leftoverCoveringRareForQuery(query, hops)) {
-		if utf8Len(tok) < minHit {
-			continue
-		}
 		c := contentCoversQueryToken(covering, tok)
 		a := contentCoversQueryToken(answer, tok)
 		if c {

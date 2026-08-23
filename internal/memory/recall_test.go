@@ -3624,6 +3624,16 @@ func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	) {
 		t.Fatal("mention-only covering must not beat a book answer")
 	}
+	qWalk := "What activity do Andrew and Buddy enjoy doing together?"
+	hopsWalk := []HopResult{
+		{Kind: "resolve_entity", Entity: "Andrew", Value: "Andrew", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Buddy", Value: "Buddy", Source: "search_fallback"},
+	}
+	selfCare := "Make sure to do at least one self-care activity each day - like treating myself to something nice"
+	walks := "They enjoy going for walks together."
+	if leftoverCoveringBeatsAnswer(qWalk, hopsWalk, selfCare, walks) {
+		t.Fatal("activity-schema leftover covering must not beat a walks hybrid")
+	}
 }
 
 func TestLeftoverCoveringWhereIgnoresHopSlotStarvation(t *testing.T) {
