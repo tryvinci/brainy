@@ -722,7 +722,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
 					useCovering = true
 				}
-				if !useCovering && !typedJoin && src == "hybrid_llm_packet" {
+				if !useCovering && !typedJoin && src == "hybrid_llm_packet" &&
+					(looksWhereQuery(req.Query) || leftoverCoveringShouldJoin(req.Query)) {
 					useCovering = leftoverCoveringBeatsAnswer(req.Query, hopResults, covering, cur)
 				}
 				if useCovering {

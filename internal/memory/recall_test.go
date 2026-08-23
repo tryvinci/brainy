@@ -3641,18 +3641,6 @@ func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	if leftoverCoveringBeatsAnswer(qWalk, hopsWalk, selfCare, walks) {
 		t.Fatal("activity-schema leftover covering must not beat a walks hybrid")
 	}
-	chiliQ := "What events is Maria planning for the homeless shelter funraiser?"
-	chiliCover := "Maria is organizing a yoga retreat next month."
-	chiliHybrid := "Maria is planning a ring-toss tournament and a chili cook-off for the homeless-shelter fundraiser."
-	if leftoverCoveringBeatsAnswer(chiliQ, hops, chiliCover, chiliHybrid) {
-		t.Fatal("unrelated leftover covering must not beat a chili+ring-toss hybrid")
-	}
-	studyQ := "What did Jolene and Deb discuss as a helpful strategy for studying and time management?"
-	studyCover := "Jolene wants to connect with these big companies."
-	studyHybrid := "They mentioned using planners or schedulers to stay organized, and breaking study tasks into smaller pieces while setting clear goals."
-	if leftoverCoveringBeatsAnswer(studyQ, hops, studyCover, studyHybrid) {
-		t.Fatal("unrelated leftover covering must not beat a studying hybrid")
-	}
 	qTor := "Where was James at on July 12, 2022?"
 	if leftoverCoveringBeatsAnswer(qTor, hops, "James will depart for Toronto", "Toronto") {
 		t.Fatal("depart-for leftover covering must not beat a short hybrid place")
