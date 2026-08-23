@@ -402,6 +402,35 @@ func TestFormatHybridMemoryLinesSkipsActivityDumpForCountryQuery(t *testing.T) {
 	}
 }
 
+func TestSkipUnrelatedHopSlotsKeepsCoParticipantVisitPlan(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "alex", Value: "Alex", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "dana", Value: "Dana", Source: "typed_store"},
+		{Kind: "follow_relation", Entity: "Alex", Predicate: PredicatePlan, Source: "typed_store",
+			Value:  "visit dana's studio, travel to boston",
+			Values: []string{"visit dana's studio", "travel to boston"}},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{
+			"Alex plans to visit Boston.",
+			"Alex wants to visit Dana's studio while there.",
+		},
+		ContextEvidence: []PacketItem{
+			{Content: "Alex plans to visit Boston."},
+			{Content: "Alex wants to visit Dana's studio while there."},
+		},
+		Coverage: map[string]any{"hop_results": hops},
+	}
+	q := "What plans do Alex and Dana have for when Alex visits Boston?"
+	if skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatalf("co-participant visit destination must stay in hop slots, leftover=%v slots=%v", leftoverNonEntityQueryTokens(q, hops), hopSlotValues(hops))
+	}
+	joined := strings.ToLower(strings.Join(formatHybridMemoryLinesForQuery(q, pkt), "\n"))
+	if !strings.Contains(joined, "studio") {
+		t.Fatalf("visit destination must remain in hybrid prompt, got %q", joined)
+	}
+}
+
 func TestFormatHybridMemoryLinesDropsFarDatedCrowd(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{

@@ -1354,6 +1354,11 @@ func hopValueHasForeignPossessive(v, entity string, hops []HopResult) bool {
 	if lower == "" {
 		return false
 	}
+	// Visiting / checking out someone else's place is a destination, not a
+	// stolen possession. Keep those slots so plan answers can name the stop.
+	if hopValueIsCoParticipantVisit(lower) {
+		return false
+	}
 	self := strings.ToLower(strings.TrimSpace(entity))
 	seen := map[string]struct{}{}
 	for _, h := range hops {
@@ -1367,6 +1372,43 @@ func hopValueHasForeignPossessive(v, entity string, hops []HopResult) bool {
 		seen[other] = struct{}{}
 		if strings.Contains(lower, other+"'s") || strings.Contains(lower, other+"’s") {
 			return true
+		}
+	}
+	return false
+}
+
+// hopValueIsCoParticipantVisit is true when a slot is a visit / check-out of
+// someone else's place ("visit dana's studio"), not a copied possession.
+func hopValueIsCoParticipantVisit(v string) bool {
+	padded := " " + strings.ToLower(strings.TrimSpace(v)) + " "
+	if padded == "  " {
+		return false
+	}
+	if !strings.Contains(padded, "'s") && !strings.Contains(padded, "’s") {
+		return false
+	}
+	for _, cue := range []string{
+		" visit ", " visiting ",
+		" check out ", " checking out ",
+		" stop by ", " stop in ",
+		" drop by ",
+	} {
+		if strings.Contains(padded, cue) {
+			return true
+		}
+	}
+	return false
+}
+
+func hopHasCoParticipantVisit(hops []HopResult) bool {
+	for _, h := range hops {
+		if hopValueIsCoParticipantVisit(h.Value) {
+			return true
+		}
+		for _, v := range h.Values {
+			if hopValueIsCoParticipantVisit(v) {
+				return true
+			}
 		}
 	}
 	return false

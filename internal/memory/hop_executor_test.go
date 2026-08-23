@@ -450,3 +450,21 @@ func TestHopSlotValuesDropsAttendedAndForeignPossessive(t *testing.T) {
 		t.Fatalf("foreign attended event leaked into dest slots: %#v", vals)
 	}
 }
+
+func TestHopSlotValuesKeepsVisitPossessiveDestination(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Dana", Value: "Dana", Source: "typed_store"},
+		{Kind: "follow_relation", Entity: "Alex", Predicate: PredicatePlan, Source: "typed_store",
+			Value:  "write songs, visit dana's studio, attended dana's yoga class",
+			Values: []string{"write songs", "visit dana's studio", "attended dana's yoga class"}},
+	}
+	vals := hopSlotValues(hops)
+	joined := strings.ToLower(strings.Join(vals, ","))
+	if !strings.Contains(joined, "studio") {
+		t.Fatalf("visit destination dropped as foreign possessive: %#v", vals)
+	}
+	if strings.Contains(joined, "yoga") || strings.Contains(joined, "attended") {
+		t.Fatalf("attended foreign event leaked into dest slots: %#v", vals)
+	}
+}

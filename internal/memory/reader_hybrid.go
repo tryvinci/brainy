@@ -954,6 +954,34 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 		}
 		leftover = append(leftover, tok)
 	}
+	if hopHasCoParticipantVisit(hops) {
+		ents := map[string]struct{}{}
+		for _, e := range hopQueryEntities(query) {
+			e = strings.ToLower(strings.TrimSpace(e))
+			if e == "" {
+				continue
+			}
+			ents[e] = struct{}{}
+			ents[e+"'s"] = struct{}{}
+			ents[e+"’s"] = struct{}{}
+		}
+		filtered := leftover[:0]
+		for _, tok := range leftover {
+			low := strings.ToLower(tok)
+			if leftoverPlanVisitCue(low) {
+				continue
+			}
+			if _, ok := ents[low]; ok {
+				continue
+			}
+			base := strings.TrimSuffix(strings.TrimSuffix(low, "'s"), "’s")
+			if _, ok := ents[base]; ok {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		leftover = filtered
+	}
 	if len(leftover) == 0 {
 		return false
 	}
@@ -964,6 +992,15 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 		}
 	}
 	return false
+}
+
+func leftoverPlanVisitCue(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "plan", "plans", "planning", "visit", "visits", "visiting", "trip", "trips":
+		return true
+	default:
+		return false
+	}
 }
 
 func hopsKeepTypedJoin(hops []HopResult) bool {
