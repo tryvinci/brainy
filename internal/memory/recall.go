@@ -2005,9 +2005,13 @@ func parseDateFromText(s string) *time.Time {
 	return nil
 }
 
-// queryDateMatchWindow keeps last-week / last-weekend relative facts
+// leftoverDateMatchWindow keeps last-week / last-weekend relative facts
 // (session date vs event date) while dropping weeks-away crowding.
-const queryDateMatchWindow = 10 * 24 * time.Hour
+const leftoverDateMatchWindow = 10 * 24 * time.Hour
+
+// hybridDateMatchWindow is tighter so other same-month events do not
+// crowd a day-specific where/when packet.
+const hybridDateMatchWindow = 48 * time.Hour
 
 func queryHasCalendarDay(query string) bool {
 	hasMonth, hasDay := false, false
@@ -2068,7 +2072,23 @@ func datedContentConflictsQuery(query, content string) bool {
 	if d < 0 {
 		d = -d
 	}
-	return d > queryDateMatchWindow
+	return d > leftoverDateMatchWindow
+}
+
+func datedHybridContentConflictsQuery(query, content string) bool {
+	qd := querySpecificCalendarDate(query)
+	if qd == nil {
+		return false
+	}
+	ld := parseDateFromText(content)
+	if ld == nil {
+		return false
+	}
+	d := qd.Sub(*ld)
+	if d < 0 {
+		d = -d
+	}
+	return d > hybridDateMatchWindow
 }
 
 func queryCalendarYear(query string) int {
@@ -3632,6 +3652,14 @@ func looksCodedEventToken(s string) bool {
 	return false
 }
 
+func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
+	minLen := 6
+	if querySpecificCalendarDate(query) != nil {
+		minLen = 4
+	}
+	return filterLeftoverCoverTokens(leftoverNonEntityQueryTokens(query, hops), minLen)
+}
+
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	leftover := leftoverNonEntityQueryTokens(query, hops)
 	if len(leftover) == 0 {
@@ -3641,6 +3669,10 @@ func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	if querySpecificCalendarDate(query) != nil {
 		minLen = 4
 	}
+	return filterLeftoverCoverTokens(leftover, minLen)
+}
+
+func filterLeftoverCoverTokens(leftover []string, minLen int) []string {
 	rare := make([]string, 0, len(leftover))
 	for _, tok := range leftover {
 		if utf8Len(tok) < minLen || isCalendarCoverToken(tok) {
@@ -3664,7 +3696,7 @@ func looksSpeakerPrefixedStatement(s string) bool {
 	return head != "" && !strings.Contains(head, " ") && consecutiveProperNouns(head) >= 1
 }
 
-func leftoverSkipLine(line string) bool {
+func leftoverSkipLine(line string, leftoverRare []string) bool {
 	if looksTitleCaseSlogan(line) || looksImageCaptionLine(line) || looksPromptNotAnswer(line) {
 		return true
 	}
@@ -3679,10 +3711,12 @@ func leftoverSkipLine(line string) bool {
 	if strings.HasPrefix(lower, "oh,") || strings.HasPrefix(lower, "oh ") {
 		return true
 	}
-	if looksChatTurnLine(line) && !looksSpeakerPrefixedStatement(line) {
-		return true
+	if looksSpeakerPrefixedStatement(line) {
+		i := strings.Index(line, ": ")
+		body := strings.TrimSpace(line[i+2:])
+		return len(leftoverRare) == 0 || !contentCoversAnyQueryToken(body, leftoverRare)
 	}
-	return false
+	return looksChatTurnLine(line)
 }
 
 func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt EvidencePacket) string {
@@ -3693,6 +3727,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if len(rare) == 0 {
 		return ""
 	}
+	speakerCover := leftoverNonEntityRareTokens(query, hops)
 	lines := packetContentLines(pkt)
 	df := make(map[string]int, len(rare))
 	for _, line := range lines {
@@ -3705,7 +3740,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	best := ""
 	bestScore := 0
 	for _, line := range lines {
-		if leftoverSkipLine(line) || datedContentConflictsQuery(query, line) {
+		if leftoverSkipLine(line, speakerCover) || datedContentConflictsQuery(query, line) {
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, rare) {

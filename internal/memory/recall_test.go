@@ -3411,6 +3411,24 @@ func TestDatedContentConflictsQuerySkipsFarRelativeTail(t *testing.T) {
 	}
 }
 
+func TestDatedHybridContentConflictsQueryIsTighterThanLeftover(t *testing.T) {
+	q := "Where was James at on July 12, 2022?"
+	if datedHybridContentConflictsQuery(q, "James will depart for Toronto on July 11, 2022 in the evening.") {
+		t.Fatal("adjacent-day location must stay in hybrid packet")
+	}
+	if !datedHybridContentConflictsQuery(q, "James went surfing on 6 July 2022.") {
+		t.Fatal("same-month far event must drop from hybrid packet")
+	}
+	gym := "What exciting news did Maria share on 16 June, 2023?"
+	gymLine := "I got some great news to share - I joined a gym last week (9 June 2023; the week before 16 June 2023)"
+	if datedContentConflictsQuery(gym, gymLine) {
+		t.Fatal("leftover covering must keep last-week gym news")
+	}
+	if !datedHybridContentConflictsQuery(gym, gymLine) {
+		t.Fatal("hybrid packet may drop last-week gym; leftover covering recovers it")
+	}
+}
+
 func TestLeftoverCoveringSpecificAnswerSkipsFarDatedCrowd(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene", Source: "search_fallback"},
@@ -3466,6 +3484,28 @@ func TestLeftoverCoveringSpecificAnswerKeepsLastWeekSessionNews(t *testing.T) {
 	got := leftoverCoveringSpecificAnswer("What exciting news did Maria share on 16 June, 2023?", hops, pkt)
 	if !strings.Contains(strings.ToLower(got), "gym") {
 		t.Fatalf("expected last-week gym news over volunteer chat, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringSpecificAnswerKeepsWeekendPlanNotSpeakerChat(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Nate", Value: "Nate", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Nate: Just make sure you don't quit - the path forward will show up soon"},
+			{Content: "I'm going to make it for my family this weekend - can't wait (25 June 2022; the weekend before 24 June 2022)"},
+			{Content: "Nate encourages Joanna not to quit and to keep working toward her goals."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("When is Joanna going to make Nate's ice cream for her family?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "weekend") && !strings.Contains(lower, "family") {
+		t.Fatalf("expected weekend family plan, got %q", got)
+	}
+	if strings.Contains(lower, "quit") {
+		t.Fatalf("speaker-prefixed pep talk leaked: %q", got)
 	}
 }
 

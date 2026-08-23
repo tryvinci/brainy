@@ -130,7 +130,7 @@ func formatHybridMemoryLinesForQuery(query string, pkt EvidencePacket) []string 
 		if strings.HasSuffix(content, "?") && !strings.ContainsAny(content, "0123456789") {
 			return
 		}
-		if datedContentConflictsQuery(query, content) {
+		if datedHybridContentConflictsQuery(query, content) {
 			return
 		}
 		if skipSlots && len(coverToks) > 0 && !contentCoversAnyQueryToken(content, coverToks) {
