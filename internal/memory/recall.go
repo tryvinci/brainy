@@ -623,7 +623,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		// another multi-item list, or expands a short typed list. A long
 		// dump may still be replaced by a 1–2 item hybrid answer.
 		lockedList := lockHybridListExtras(enumerated, typedN, hybridN, extras, typedAnswerIsHopDump(typedAnswer) || echoSlogan)
-		if leftoverCoveringKeepTypedAnswer(req.Query, hopResults, typedAnswer) && len(childhoodClauseTokens(req.Query)) > 0 {
+		if leftoverCoveringKeepTypedAnswer(req.Query, hopResults, typedAnswer) && leftoverCoveringLockChildhoodPossessions(req.Query) {
 			lockedList = true
 		}
 		if hybrid.Attempted {
@@ -3850,7 +3850,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if len(rare) == 0 {
 		return ""
 	}
-	if len(childhoodClauseTokens(query)) > 0 {
+	if leftoverCoveringLockChildhoodPossessions(query) {
 		rare = leftoverCoverAddTokens(rare, "kid", "childhood")
 	}
 	var locativeMust []string
@@ -4067,8 +4067,15 @@ func leftoverCoveringPastPossessionLine(line string) bool {
 	return false
 }
 
+func leftoverCoveringLockChildhoodPossessions(query string) bool {
+	if queryHasToken(query, "name", "named", "names") {
+		return false
+	}
+	return len(childhoodClauseTokens(query)) > 0
+}
+
 func leftoverCoveringJoinPastPossessions(query string, strong []string, scored []leftoverCoverScored, best string) string {
-	if leftoverCoveringShouldJoin(query) || looksWhereQuery(query) {
+	if leftoverCoveringShouldJoin(query) || looksWhereQuery(query) || !leftoverCoveringLockChildhoodPossessions(query) {
 		return ""
 	}
 	if !leftoverCoveringPastPossessionLine(best) {

@@ -3897,6 +3897,20 @@ func TestLeftoverThinSloganAnswer(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringSkipsChildhoodNameDump(t *testing.T) {
+	q := "What is the name of Audrey's childhood dog?"
+	if leftoverCoveringLockChildhoodPossessions(q) {
+		t.Fatal("childhood name questions must not lock hop possession dumps")
+	}
+	if !leftoverCoveringLockChildhoodPossessions("What items des John mention having as a child?") {
+		t.Fatal("childhood item lists should still lock a 2-item hybrid")
+	}
+	dump := "Four Dogs, Photo Of Lake, Behavior Tips, Buddy, Fourth Dog (unnamed), Birdwatching Guidebook"
+	if leftoverCoveringMayReplaceHybrid(q, nil, dump, "Max") {
+		t.Fatalf("leftover covering %q must not replace childhood dog name Max", dump)
+	}
+}
+
 func TestLeftoverCoveringJoinsChildhoodPossessions(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "John", Value: "John", Source: "search_fallback"},

@@ -760,6 +760,62 @@ func TestRecallHybridKeepsTypedChildhoodPossessions(t *testing.T) {
 	}
 }
 
+func TestRecallHybridKeepsChildhoodDogName(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"Max","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	facts := []struct {
+		key, val, content string
+	}{
+		{"dogs", "Four Dogs", "Audrey has four dogs."},
+		{"lake", "Photo Of Lake", "Audrey shared a photo of a lake."},
+		{"tips", "Behavior Tips", "Audrey gives dog behavior tips."},
+		{"buddy", "Buddy", "Audrey walks with Buddy."},
+		{"fourth", "Fourth Dog (unnamed)", "Audrey's fourth dog is unnamed."},
+		{"guide", "Birdwatching Guidebook", "Audrey has a birdwatching guidebook."},
+		{"max", "Max", "Audrey and Max took long walks in the neighborhood during her childhood."},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-hyb-dog", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "Audrey"},
+			Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "Audrey"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicatePossession, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-dog", SubjectID: "u1",
+		Query: "What is the name of Audrey's childhood dog?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if strings.Contains(got, "four dogs") || strings.Contains(got, "birdwatching") {
+		t.Fatalf("hop possession dump replaced childhood dog name: %q explain=%v", out.Answer, out.Explain)
+	}
+	if !strings.Contains(got, "max") {
+		t.Fatalf("expected childhood dog name Max, answer=%q items=%#v explain=%v", out.Answer, out.Items, out.Explain)
+	}
+}
+
 func TestPrioritizeHybridMemoryLinesPrefersCovering(t *testing.T) {
 	lines := make([]string, 0, 40)
 	for i := 0; i < 40; i++ {
