@@ -706,10 +706,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			if covering := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt); covering != "" {
 				cur := strings.TrimSpace(out.Answer)
 				src, _ := out.Explain["reader_source"].(string)
-				useCovering := out.Abstained || strings.EqualFold(cur, "not in memory") ||
-					leftoverQueryEchoAnswer(req.Query, cur) ||
-					leftoverThinMissAnswer(req.Query, hopResults, cur)
-				if !useCovering && src == "hybrid_llm_packet" {
+				typedJoin := hopsKeepTypedJoin(hopResults) && lockedMHList && strings.Contains(cur, ",")
+				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
+					leftoverThinMissAnswer(req.Query, hopResults, cur))
+				if !useCovering && !typedJoin && src == "hybrid_llm_packet" {
 					useCovering = leftoverCoveringBeatsAnswer(req.Query, hopResults, covering, cur)
 				}
 				if useCovering {
@@ -3738,7 +3738,7 @@ func leftoverSkipLine(line string, leftoverRare []string) bool {
 }
 
 func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt EvidencePacket) string {
-	if looksPolarQuery(query) || hopsKeepTypedJoin(hops) {
+	if looksPolarQuery(query) {
 		return ""
 	}
 	whereQ := looksWhereQuery(query)
@@ -3764,10 +3764,13 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	scored := make([]scoredLine, 0, 8)
 	for _, line := range lines {
-		if leftoverSkipLine(line, speakerCover) || datedContentConflictsQuery(query, line) {
+		if leftoverSkipLine(line, speakerCover) {
 			continue
 		}
-		if whereQ && !looksLocativePlaceLine(line) {
+		if !whereQ && datedContentConflictsQuery(query, line) {
+			continue
+		}
+		if whereQ && !looksLocativePrepositionLine(line) {
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, rare) {
@@ -3810,7 +3813,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			if row.score < 2 {
 				continue
 			}
-			if !contentCoversQueryToken(row.line, "played") && !contentCoversQueryToken(row.line, "tournament") {
+			if !contentCoversQueryToken(row.line, "played") || !contentCoversQueryToken(row.line, "tournament") {
 				continue
 			}
 			line := stripConflictingDateTail(query, row.line)

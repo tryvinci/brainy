@@ -389,14 +389,11 @@ func consecutiveProperNouns(line string) int {
 	return best
 }
 
-func looksLocativePlaceLine(line string) bool {
-	if looksSpecificPlaceOrNameLine(line) {
-		return true
-	}
+func looksLocativePrepositionLine(line string) bool {
 	fields := strings.Fields(hybridLineBody(line))
 	for i, w := range fields {
 		switch strings.ToLower(strings.Trim(w, ".,;:")) {
-		case "to", "in", "at", "near", "from":
+		case "to", "in", "at", "near", "from", "for":
 		default:
 			continue
 		}
@@ -409,6 +406,10 @@ func looksLocativePlaceLine(line string) bool {
 		}
 	}
 	return false
+}
+
+func looksLocativePlaceLine(line string) bool {
+	return looksSpecificPlaceOrNameLine(line) || looksLocativePrepositionLine(line)
 }
 
 func looksSpecificPlaceOrNameLine(line string) bool {
