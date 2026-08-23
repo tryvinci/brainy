@@ -3739,6 +3739,24 @@ func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	if leftoverCoveringMayReplaceHybrid(ukQ, hops, "Tim visited a Harry Potter-themed place in London a few years ago.", "United Kingdom") {
 		t.Fatal("compact UK name must stay locked against leftover covering")
 	}
+	horseQ := "What activity did Caroline used to do with her dad?"
+	if leftoverCoveringMayReplaceHybrid(horseQ, hops,
+		"Both Melanie and her kids helped with the painting, describing it as a bonding activity.",
+		"She went horseback riding with her dad.") {
+		t.Fatal("non-schema leftover covering must not replace a horseback hybrid")
+	}
+	letterQ := "How did Joanna feel when someone wrote her a letter after reading her blog post?"
+	if leftoverCoveringMayReplaceHybrid(letterQ, hops,
+		"Last week, someone wrote me a letter after reading an online blog post I made about a hard moment in my life",
+		"She felt it was a blessing (grateful for the support).") {
+		t.Fatal("letter-event leftover covering must not replace a feeling hybrid")
+	}
+	consoleQ := "When did Jolene's parents give her first console?"
+	if leftoverCoveringMayReplaceHybrid(consoleQ, hops,
+		"Jolene had a lot of support from her parents.",
+		"When she was 10 years old.") {
+		t.Fatal("parents-support leftover covering must not replace a first-console hybrid")
+	}
 	qTor := "Where was James at on July 12, 2022?"
 	if leftoverCoveringBeatsAnswer(qTor, hops, "James will depart for Toronto", "Toronto") {
 		t.Fatal("depart-for leftover covering must not beat a short hybrid place")

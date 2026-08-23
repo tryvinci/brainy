@@ -4118,6 +4118,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 	if typedAnswerIsHopDump(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
 		return false
 	}
+	if !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) && !leftoverCoveringSchemaActivityLine(covering) {
+		return false
+	}
 	return leftoverCoveringBeatsAnswer(query, hops, covering, answer)
 }
 
