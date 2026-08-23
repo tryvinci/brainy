@@ -12,7 +12,7 @@ This file is the live start doc. Older research notes stay useful as history. If
 ## 0. First 30 minutes
 
 1. Confirm you are on `dev` (staging) at `453a929` (or later). `main` is production (`6d05e1b` packet/proof) and is **not** fast-forwarded this cycle. Do not push `main` unless the owner asks.
-2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-23 — P13 gated leftover-vs-hybrid (102/180)**.
+2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-23 — P14 childhood possession lock (103/180)**.
 3. Skim [sota-execution-plan.md](./sota-execution-plan.md) but **do not** treat its “expected S1 compiler first” as live. S0 ledger **outranks** that expectation.
 4. Do **not** re-queue R0–R10. Substrate is merged.
 5. Do **not** merge [PR #133](https://github.com/tryvinci/brainy/pull/133) (compiler S1–S5 fishing) or revive [PR #131](https://github.com/tryvinci/brainy/pull/131).
@@ -36,7 +36,7 @@ Path docs (do not invent a new program):
 - [locomo-dual-path-freeze.md](./locomo-dual-path-freeze.md) — product `/recall` vs industry search+harness.
 - [sota-representation-path.md](./sota-representation-path.md) — compile facts; episodes are provenance.
 
-**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b / **73/180** P3 / **79/180** P4 / **84/180** P5 / **87/180** P6 / **88/180** P7 / **93/180** P8 / **94/180** P9 / **96/180** P10 / **97/180** P11 / **101/180** P12 / **102/180** P13 hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **17/33** P5 / **13/33** P6 / **14/33** P7 / **15/33** P8–P10 / **13/33** P11 / **15/33** P12–P13 hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR.
+**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b / **73/180** P3 / **79/180** P4 / **84/180** P5 / **87/180** P6 / **88/180** P7 / **93/180** P8 / **94/180** P9 / **96/180** P10 / **97/180** P11 / **101/180** P12 / **102/180** P13 / **103/180** P14 hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **17/33** P5 / **13/33** P6 / **14/33** P7 / **15/33** P8–P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14 hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR.
 
 ---
 
@@ -48,7 +48,7 @@ Path docs (do not invent a new program):
 | --- | --- |
 | `dev` **now** | `453a929` — #135 merge (MH slot-aligned dest-subject). Staging. |
 | `main` | `6d05e1b` — #134 packet/proof. Production. **Do not FF** unless the owner asks. |
-| PR **#136** `pr/s0-current-sha-baseline-1e9e` | Open draft. Mem0 v3 harness, S0 19/180 reader-off, P1 37/180, P2 56/180, P2b 61/180, P3 73/180, P4 79/180, P5 84/180, P6 87/180, P7 88/180, P8 93/180 (`86eab77`), P9 94/180 (`bdee669`), P10 96/180 (`e461d70`), P11 97/180 (`bc6dc92`), P12 101/180 (`d292a09`), P13 102/180 (`50b8e43`). |
+| PR **#136** `pr/s0-current-sha-baseline-1e9e` | Open draft. Mem0 v3 harness, S0 19/180 reader-off, P1 37/180, P2 56/180, P2b 61/180, P3 73/180, P4 79/180, P5 84/180, P6 87/180, P7 88/180, P8 93/180 (`86eab77`), P9 94/180 (`bdee669`), P10 96/180 (`e461d70`), P11 97/180 (`bc6dc92`), P12 101/180 (`d292a09`), P13 102/180 (`50b8e43`), P14 103/180 (`90750e5`). |
 | PR **#135** | Merged. MH list/join proof. |
 | PR **#134** | Merged. MH packet/proof + earlier handover. |
 | PR **#133** | OPEN draft. Compiler S1–S5. **Do not merge.** |
@@ -96,6 +96,7 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | S0 product P11 locative leftover covering | **97/180 (0.539)** | SHA `bc6dc92`. MH **13/33 dip** · OD **3/11 dip** · SH **58/98** · temporal **23/38**. Ledger: **RETRIEVAL 29 / PROOF 27 / READER 20 / WRITE 5 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p11-20260823.md) |
 | S0 product P12 keep short where NPs / typed item joins | **101/180 (0.561)** | SHA `d292a09`. MH **15/33** · OD **4/11** · SH **58/98** · temporal **24/38**. Ledger: **RETRIEVAL 29 / PROOF 26 / READER 18 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p12-20260823.md) |
 | S0 product P13 gated leftover-vs-hybrid | **102/180 (0.567)** | SHA `50b8e43`. MH **15/33** · OD **4/11** · SH **59/98** · temporal **24/38**. Ledger: **RETRIEVAL 29 / PROOF 26 / READER 17 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p13-20260823.md) |
+| S0 product P14 childhood possession lock | **103/180 (0.572)** | SHA `90750e5`. MH **16/33** · OD **4/11** · SH **59/98** · temporal **24/38**. Ledger: **RETRIEVAL 29 / PROOF 26 / READER 16 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p14-20260823.md) |
 | S0 MH product (post-#134) | **2/33** | Was **1/33**. Attributed win: turtles. Second hit (soda/candy) is a crowded-list judge accept. [pin](../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
 | S0 MH product diagnostic ingest | **7/33** | WRITE+PROOF mixed on `diag-mh-135`. Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
 | S0 MH product diagnostic skip-ingest | **12/33** | PROOF-only on frozen `diag-mh-135`. Kinship dest `9d8dbeb` was **10/33**; slot-aligned recovery `2e84435` is **12/33** (`conv-44-q26` work, `conv-26-q60` clarinet/violin). Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md) |
@@ -109,12 +110,12 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 
 **Invalidated:** Aug-19 S0 17/180 / 52/180 (no pgvector, silent extract degrade). Never cite those as quality.
 
-**Bottleneck on this VM is split:** product S0 WRITE_MISS is **4/180** on P13 (P12 was **4/180**; integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **102/180** P13 hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **17/33** P5 / **15/33** P10 / **13/33** P11 / **15/33** P12–P13 vs integrity **2/33**. SH 5→59 is the hybrid+admit+dump-skip path. Remaining mass is SH **PROOF 20**. MH **17→15** vs P5 is a named dip.
+**Bottleneck on this VM is split:** product S0 WRITE_MISS is **4/180** on P14 (P13 was **4/180**; integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **103/180** P14 hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **17/33** P5 / **15/33** P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14 vs integrity **2/33**. SH 5→59 is the hybrid+admit+dump-skip path. Remaining mass is SH **PROOF 20**. MH **17→16** vs P5 is a named dip.
 
 ### Competitor stand (honest)
 
 - **1×30 freeze:** Brainy 21/30 vs Mem0 Platform 11/30 is a prior **lead on a handicapped Mem0 protocol**. It is not full LoCoMo and not permission to write “we beat Mem0.”
-- **S0 / n=1540:** no same-n Mem0 pin yet (fair 180 429 quota until 2026-09-01). Do not trail/lead 32/180, 19/180, 61/180, 73/180, 79/180, 84/180, 87/180, 88/180, 93/180, 94/180, 96/180, 97/180, 101/180, 102/180, or 11.4% vs 11/30 or vs published 92.5%.
+- **S0 / n=1540:** no same-n Mem0 pin yet (fair 180 429 quota until 2026-09-01). Do not trail/lead 32/180, 19/180, 61/180, 73/180, 79/180, 84/180, 87/180, 88/180, 93/180, 94/180, 96/180, 97/180, 101/180, 102/180, 103/180, or 11.4% vs 11/30 or vs published 92.5%.
 - **Ops / marketing:** Brainy lead (Mem0 pins stale). Must not regress. Not the next cycle.
 - **Graphiti / Zep / SuperMemory:** no same-pin. Published headlines are context.
 - **Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
@@ -143,13 +144,16 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 | P11 | Locative leftover covering / hop-slot ignore / hybrid overwrite only on where+games-played (not #133) | **Done.** Product **97/180**. MH **15→13 dip**. SH **55→58**. Jasper + tournament games recovered. Toronto + signed basketball dipped. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p11-20260823.md) |
 | P12 | Keep short where NPs and typed item joins (not #133) | **Done.** Product **101/180**. MH **13→15**. OD **3→4**. Temporal **23→24**. Toronto / signed basketball / snacks / girlfriend restored. No losses vs P11. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p12-20260823.md) |
 | P13 | Gated leftover covering vs hybrid (schema-activity covering only) | **Done.** Product **102/180**. SH **58→59**. Thanksgiving feast+thankful recovered. Unrestricted leftover-vs-hybrid reverted. First gated 180 **98/180** is not a pin. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p13-20260823.md) |
+| P14 | Childhood possession lock; name questions are not item lists | **Done.** Product **103/180**. MH **15→16**. Childhood items recovered. Broad typed-join 180 **98/180** is not a pin. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p14-20260823.md) |
 | S1 compiler | Provider-extract / named-subject mass | **No** until the ledger says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
-| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19→102. Full n=1540 only at S6. |
+| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19→103. Full n=1540 only at S6. |
 
-**Suggested first remasure:** remaining SH **PROOF 20** (nearby-wrong hybrid, incomplete dual-entity compose) without giving back Thanksgiving / Toronto / signed basketball / snacks / Jasper / tournament games / Sapiens / retreat / studying / Shadow / festival / CS:GO / chili / walking / UK / gym / community yoga+running / horseback / first-console. Boston garage still incomplete. Name the MH **17→15** dip vs P5. Fair Mem0 180 is quota-blocked until 2026-09-01. Do not start n=1540 yet. Do not merge #133. Do not special-case German vs Spanish.
+**Suggested first remasure:** remaining SH **PROOF 20** (nearby-wrong hybrid, incomplete dual-entity compose) without giving back childhood items / Max / Thanksgiving / Toronto / signed basketball / snacks / Jasper / tournament games / Sapiens / retreat / studying / Shadow / festival / CS:GO / chili / walking / UK / gym / community yoga+running / horseback / first-console. Boston garage still incomplete. Name the MH **17→16** dip vs P5. Fair Mem0 180 is quota-blocked until 2026-09-01. Do not start n=1540 yet. Do not merge #133. Do not special-case German vs Spanish.
 
-**Shipped this increment (P13):** leftover covering may replace hybrid only for schema-activity covering or where/games-played; chat turns do not get a locative leftover bonus; leftover covering re-picks the rarest leftover token so Thanksgiving feast+thankful beats movies.
+**Shipped this increment (P14):** 2-item childhood possession lists lock against speaker chat; leftover covering can join `had a` + age-cue facts; name questions are not childhood item lists so Max is not replaced by a hop possession dump.
+
+**Prior (P13):** leftover covering may replace hybrid only for schema-activity covering or where/games-played; chat turns do not get a locative leftover bonus; leftover covering re-picks the rarest leftover token so Thanksgiving feast+thankful beats movies.
 
 **Prior (P12):** where leftover covering returns the locative place NP; leftover covering does not beat a short hybrid place name; short typed item joins stay locked and are not leftover thin misses; leftover `support` is a weak token.
 

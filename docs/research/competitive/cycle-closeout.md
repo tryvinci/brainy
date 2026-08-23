@@ -2854,3 +2854,76 @@ P12 leftover covering could not overwrite a movies hybrid because leftover-vs-hy
 
 **One step:** remaining SH **PROOF 20** (nearby-wrong hybrid, incomplete dual-entity compose) without giving back Thanksgiving / Toronto / signed basketball / snacks / Jasper / tournament games / Sapiens / retreat / studying / Shadow / festival / CS:GO / chili / walking / UK / gym / community yoga+running / horseback / first-console. Boston garage still incomplete. MH **17→15** vs P5 is still a named dip (Phuket write split). Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→102 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-23 — P14 childhood possession lock (103/180)
+
+**Landed:** product SHA `90750e5` on `pr/s0-current-sha-baseline-1e9e` (draft PR #136). Staging `dev` remains `453a929`. **Not** merged to `main`. Skip-ingest pin [locomo-s0-diag-mh-135-p14-20260823.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p14-20260823.md) (`locomo-s0-diag-mh-135-p14d-product-recall-s1-21c5ea`). Broad typed-join / hop-slot leftover covering (`ffb36b8` / `0a2011e`, 180 `fd9dbf`, **98/180**) is not a pin.
+
+Product change: lock a 2-item hybrid only for childhood *item* lists (`leftoverCoveringLockChildhoodPossessions`); leftover covering can join `had a` + age-cue packet lines; queries with name/named/names do not take that lock, so a compact hybrid name (`Max`) is not replaced by a hop possession dump.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; re-run on this SHA before merge. |
+| Marketing vertical | **17/17** | Merge gate; re-run on this SHA before merge. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P13 | **102/180 (0.567)** | MH **15/33** · OD **4/11** · SH **59/98** · temporal **24/38**. SHA `50b8e43`. |
+| LoCoMo S0 product hybrid **on** P14 | **103/180 (0.572)** | MH **16/33** · OD **4/11** · SH **59/98** · temporal **24/38**. SHA `90750e5`. Ledger: **RETRIEVAL 29 / PROOF 26 / READER 16 / WRITE 4 / HARNESS 2**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 103/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. MH **17→16** vs P5 remains a dip. Item flips vs P13: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 103 vs 11, or 103 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **102** P13 → **103** P14 | **no same-n pin** (fair 180 429) | Product 19→103 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P5 **17/33** → P13 **15/33** → P14 **16/33** | no 33-item freeze | +1 vs P13; still a dip vs P5 17. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P14 product ~140 ms local (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (16/33).** Named recovery: childhood items `conv-41-q7` (doll + film camera). Chili / walking / UK / community yoga+running / signed basketball / snacks **held**. Still missing: Phuket diving (`conv-48-q77` → not in memory) — write split. Do not treat 16/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **Held 59/98**. Industry **27/98**. Max (`conv-44-q82`) **held** after the name-query gate. Thanksgiving / Jasper / tournament games / Jolene video games + Susie / Sapiens / retreat / Shadow / festival / CS:GO / gym / studying **held**. Remaining mass is SH **PROOF 20**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment.
+
+**Temporal.** **Held 24/38**. Toronto July 12, Caroline biking last-weekend, James adopted Ned, ice-cream weekend **held**. Broad P14 moved two dates and is not a pin. Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (re-run before merge)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Re-confirm on `90750e5` before merge.
+
+#### 3. Marketing vertical — lead (re-run before merge)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+P13 leftover covering could not keep a 2-item childhood possession list: list-lock required 3 items, and speaker leftover covering treated "having a blast" as covering `having`, so pizza chat replaced doll + film camera. A broad typed-join lock recovered that list but also locked name questions and unrelated possession hops (Max dump, bank, school funding) and hop-slot leftover covering moved two temporal dates (**98/180**). Restricting the lock to childhood *item* queries, and excluding name/named/names, recovers the list without those dumps. WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** remaining SH **PROOF 20** (nearby-wrong hybrid, incomplete dual-entity compose) without giving back childhood items / Max / Thanksgiving / Toronto / signed basketball / snacks / Jasper / tournament games / Sapiens / retreat / studying / Shadow / festival / CS:GO / chili / walking / UK / gym / community yoga+running / horseback / first-console. Boston garage still incomplete. MH **17→16** vs P5 is still a named dip (Phuket write split). Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→103 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
