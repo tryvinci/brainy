@@ -3621,6 +3621,43 @@ func TestLeftoverCoveringThanksgivingTradition(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringThanksgivingIgnoresChatTurnLocative(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Tim", Value: "Tim", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Tim", Predicate: PredicatePreference, Source: "typed_store",
+			Value:  "ocean views, cliffs, exploring other cultures via fantasy stories at home",
+			Values: []string{"ocean views, cliffs"}},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{
+			"Tim enjoys prepping the feast as part of his Thanksgiving tradition.",
+			"Tim enjoys talking about what they're thankful for during Thanksgiving.",
+			"Tim: Thanksgiving's always special for us",
+			"They usually watch a few movies together during Thanksgiving.",
+			"Tim enjoys having movie marathons",
+			"Tim enjoys books that transport him to another world and spark his imagination.",
+			"Tim's family had a Thanksgiving gathering where they ate together.",
+			"Tim's favorite Thanksgiving movie is \"Home Alone\".",
+		},
+	}
+	q := "What tradition does Tim mention they love during Thanksgiving?"
+	if !looksLocativePlaceLine("Tim: Thanksgiving's always special for us") {
+		t.Fatal("speaker+Thanksgiving still looks locative; scoring must ignore chat-turn locative bonus")
+	}
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "feast") || !strings.Contains(lower, "thankful") {
+		t.Fatalf("expected feast+thankful covering over chat-turn locative, got %q", got)
+	}
+	if strings.Contains(lower, "always special") || strings.Contains(lower, "movie") {
+		t.Fatalf("chat-turn locative or movies leaked into tradition covering: %q", got)
+	}
+	hybrid := "They usually watch a few movies together during Thanksgiving."
+	if !leftoverCoveringMayReplaceHybrid(q, hops, got, hybrid) {
+		t.Fatalf("feast+thankful covering must replace movies hybrid, covering=%q", got)
+	}
+}
+
 func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},

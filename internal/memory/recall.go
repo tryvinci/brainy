@@ -3854,7 +3854,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if looksCodedEventToken(line) {
 			score += 3
 		}
-		if looksLocativePlaceLine(line) || looksHyphenatedEventLine(line) {
+		if !looksChatTurnLine(line) && (looksLocativePlaceLine(line) || looksHyphenatedEventLine(line)) {
 			score += 2
 		}
 		hits := 0
@@ -3879,6 +3879,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	if bestScore < 2 {
 		return ""
+	}
+	if rarest := leftoverCoverRarestTokens(strong, df); len(rarest) > 0 && !contentCoversAnyQueryToken(best, rarest) {
+		for _, row := range scored {
+			if row.score < 2 || looksChatTurnLine(row.line) {
+				continue
+			}
+			if contentCoversAnyQueryToken(row.line, rarest) {
+				best = row.line
+				break
+			}
+		}
 	}
 	if leftoverCoveringShouldJoin(query) {
 		parts := make([]string, 0, 4)
@@ -3919,6 +3930,29 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		return joined
 	}
 	return best
+}
+
+func leftoverCoverRarestTokens(strong []string, df map[string]int) []string {
+	min := -1
+	for _, tok := range strong {
+		d := df[tok]
+		if d <= 0 {
+			continue
+		}
+		if min < 0 || d < min {
+			min = d
+		}
+	}
+	if min < 0 {
+		return nil
+	}
+	out := make([]string, 0, 2)
+	for _, tok := range strong {
+		if df[tok] == min {
+			out = append(out, tok)
+		}
+	}
+	return out
 }
 
 type leftoverCoverScored struct {
