@@ -474,6 +474,7 @@ func TestPreferCoParticipantVisitDestination(t *testing.T) {
 		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex"},
 		{Kind: "resolve_entity", Entity: "Dana", Value: "Dana"},
 		{Kind: "follow_relation", Entity: "Alex", Predicate: PredicatePlan,
+			Value:  "write songs, visit dana's studio, travel to boston, share a ferrari",
 			Values: []string{"write songs", "visit dana's studio", "travel to boston"}},
 	}
 	q := "What plans do Alex and Dana have for when Alex visits Boston?"

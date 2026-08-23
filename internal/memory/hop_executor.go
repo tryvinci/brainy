@@ -1405,14 +1405,21 @@ func hopHasCoParticipantVisit(hops []HopResult) bool {
 }
 
 func firstCoParticipantVisitValue(hops []HopResult) string {
-	for _, h := range hops {
-		if hopValueIsCoParticipantVisit(h.Value) {
-			return strings.TrimSpace(h.Value)
+	pick := func(v string) string {
+		v = strings.TrimSpace(v)
+		if v == "" || typedAnswerIsHopDump(v) || !hopValueIsCoParticipantVisit(v) {
+			return ""
 		}
+		return v
+	}
+	for _, h := range hops {
 		for _, v := range h.Values {
-			if hopValueIsCoParticipantVisit(v) {
-				return strings.TrimSpace(v)
+			if got := pick(v); got != "" {
+				return got
 			}
+		}
+		if got := pick(h.Value); got != "" {
+			return got
 		}
 	}
 	return ""
