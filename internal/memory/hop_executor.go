@@ -1459,7 +1459,10 @@ func preferCoParticipantVisitDestination(query string, hops []HopResult, answer 
 		return cur
 	}
 	dest := firstCoParticipantVisitValue(hops)
-	if dest == "" || contentCoversVisitDestination(cur, dest) {
+	if dest == "" {
+		return cur
+	}
+	if contentCoversVisitDestination(cur, dest) && !typedAnswerIsHopDump(cur) {
 		return cur
 	}
 	return dest

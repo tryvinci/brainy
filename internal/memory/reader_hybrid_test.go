@@ -431,6 +431,31 @@ func TestSkipUnrelatedHopSlotsKeepsCoParticipantVisitPlan(t *testing.T) {
 	}
 }
 
+func TestSkipUnrelatedHopSlotsStillSkipsVisitOnDateQuery(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "alex", Value: "Alex", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "dana", Value: "Dana", Source: "typed_store"},
+		{Kind: "follow_relation", Entity: "Alex", Predicate: PredicatePlan, Source: "typed_store",
+			Value:  "visit dana's studio, travel to boston",
+			Values: []string{"visit dana's studio", "travel to boston"}},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{
+			"Alex adopted Ned in the first week of April 2022.",
+			"Alex went bowling on 17 March 2022.",
+		},
+		ContextEvidence: []PacketItem{
+			{Content: "Alex adopted Ned in the first week of April 2022."},
+			{Content: "Alex went bowling on 17 March 2022."},
+		},
+		Coverage: map[string]any{"hop_results": hops},
+	}
+	q := "When did Alex adopt Ned?"
+	if !skipUnrelatedHopSlots(q, hops, pkt) {
+		t.Fatalf("date queries must still skip unrelated visit-plan slots, leftover=%v slots=%v", leftoverNonEntityQueryTokens(q, hops), hopSlotValues(hops))
+	}
+}
+
 func TestFormatHybridMemoryLinesDropsFarDatedCrowd(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{

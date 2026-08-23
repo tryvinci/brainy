@@ -482,11 +482,16 @@ func TestPreferCoParticipantVisitDestination(t *testing.T) {
 		t.Fatalf("expected visit destination over related-activity paraphrase, got %q", got)
 	}
 	kept := preferCoParticipantVisitDestination(q, hops, "They will visit Dana's studio while Alex is in Boston.")
-	if !strings.Contains(strings.ToLower(kept), "studio") || strings.EqualFold(kept, "visit dana's studio") && !strings.Contains(strings.ToLower(kept), "boston") {
-		// keep the richer hybrid that already names the place
-		if !strings.Contains(strings.ToLower(kept), "studio") {
-			t.Fatalf("hybrid that already names the place must be kept, got %q", kept)
-		}
+	if !strings.Contains(strings.ToLower(kept), "studio") {
+		t.Fatalf("hybrid that already names the place must be kept, got %q", kept)
+	}
+	if strings.Count(kept, ",") >= 3 {
+		t.Fatalf("short hybrid that names the place must not be replaced by a dump, got %q", kept)
+	}
+	dump := "write songs, visit dana's studio, travel to tokyo, share a ferrari, jam session"
+	gotDump := preferCoParticipantVisitDestination(q, hops, dump)
+	if !strings.Contains(strings.ToLower(gotDump), "studio") || strings.Count(gotDump, ",") >= 3 {
+		t.Fatalf("hop dump that merely mentions the place must collapse to the visit stop, got %q", gotDump)
 	}
 	if preferCoParticipantVisitDestination("When did Alex adopt Ned?", hops, "first week of April 2022") != "first week of April 2022" {
 		t.Fatal("non-visit queries must not be rewritten")

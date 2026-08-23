@@ -954,7 +954,7 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 		}
 		leftover = append(leftover, tok)
 	}
-	if hopHasCoParticipantVisit(hops) {
+	if hopHasCoParticipantVisit(hops) && looksVisitPlanQuery(query) {
 		ents := map[string]struct{}{}
 		for _, e := range hopQueryEntities(query) {
 			e = strings.ToLower(strings.TrimSpace(e))
