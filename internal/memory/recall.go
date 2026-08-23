@@ -735,13 +735,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 					out.Explain["reader_source"] = "leftover_packet_fact"
 				}
 			}
-			if next := preferCoParticipantVisitDestination(req.Query, hopResults, out.Answer); next != "" && next != strings.TrimSpace(out.Answer) {
-				out.Answer = next
-				out.Abstained = false
-				out.AnswerStatus = AnswerSupported
-				out.Explain["co_participant_visit_destination"] = true
-			}
 		}
+	}
+	if next := preferCoParticipantVisitDestination(req.Query, hopResults, out.Answer); next != "" && next != strings.TrimSpace(out.Answer) {
+		out.Answer = next
+		out.Abstained = false
+		out.AnswerStatus = AnswerSupported
+		out.Explain["co_participant_visit_destination"] = true
 	}
 	pkt.Plan = plan
 	out.Explain["evidence_packet"] = pkt
