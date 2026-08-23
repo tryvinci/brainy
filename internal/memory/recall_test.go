@@ -3959,6 +3959,11 @@ func TestLeftoverHedgedAbsenceYieldsToHopSlot(t *testing.T) {
 	if !strings.Contains(strings.ToLower(got), "garage") {
 		t.Fatalf("expected garage hop slot leftover covering, got %q", got)
 	}
+	goalsQ := "What do Calvin and Dave use to reach their goals?"
+	goalsHybrid := "Calvin uses hard work and dedication to reach his goals. Dave's method for reaching his goals is not specified in the available memories."
+	if leftoverCoveringBeatsAnswer(goalsQ, hops, got, goalsHybrid) {
+		t.Fatal("boston plan covering must not beat a goals hybrid")
+	}
 }
 
 func TestRecallOrdinalNameBeatsIdentityDump(t *testing.T) {

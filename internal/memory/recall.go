@@ -721,7 +721,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				// which starve locative leftover covering with activity lists.
 				typedJoin := leftoverCoveringKeepTypedAnswer(req.Query, hopResults, cur)
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
-					leftoverThinMissAnswer(req.Query, hopResults, cur) || leftoverHedgedAbsenceAnswer(cur))
+					leftoverThinMissAnswer(req.Query, hopResults, cur) ||
+					(leftoverHedgedAbsenceAnswer(cur) && leftoverCoveringBeatsAnswer(req.Query, hopResults, covering, cur)))
 				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
 					useCovering = true
 				}
