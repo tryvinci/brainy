@@ -3365,6 +3365,13 @@ func TestLeftoverCoveringSpecificAnswerSkipsImageCaption(t *testing.T) {
 	if strings.Contains(strings.ToLower(got), "photo") {
 		t.Fatalf("image caption leaked: %q", got)
 	}
+	pkt.ContextEvidence = append(pkt.ContextEvidence, PacketItem{
+		Content: "Riley offered emotional support to Casey.",
+	})
+	got = leftoverCoveringSpecificAnswer("Which basketball team does Riley support?", hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "wolves") {
+		t.Fatalf("support-verb leftover covering must not pick emotional support: %q", got)
+	}
 }
 
 func TestLeftoverCoveringSpecificAnswerSkipsQuestionPrompt(t *testing.T) {

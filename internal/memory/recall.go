@@ -3708,7 +3708,7 @@ func leftoverCoverWeakToken(tok string) bool {
 	case "mention", "mentioned", "during", "together", "frequently",
 		"which", "where", "what", "when", "their", "they", "them",
 		"have", "been", "does", "did", "doing", "cool", "find",
-		"activity", "activities":
+		"activity", "activities", "support", "supports", "supporting":
 		return true
 	}
 	return false
