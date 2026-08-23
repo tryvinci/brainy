@@ -3545,10 +3545,12 @@ func TestLeftoverCoveringWhereQuerySkipsNonPlace(t *testing.T) {
 		ContextEvidence: []PacketItem{
 			{Content: "Riley participated in a scuba diving lesson on 15 September 2023."},
 			{Content: "Riley attended a meditation retreat in Phuket with Casey, starting on 9 September 2023."},
+			{Content: "Riley and her partner attended a yoga retreat in South America."},
 		},
 	}
 	got := leftoverCoveringSpecificAnswer("Where did Riley and Casey find a cool diving spot?", hops, pkt)
-	if strings.Contains(strings.ToLower(got), "phuket") {
+	lower := strings.ToLower(got)
+	if strings.Contains(lower, "phuket") || strings.Contains(lower, "south america") || strings.Contains(lower, "yoga") {
 		t.Fatalf("retreat place must not stand in for a diving-spot write miss: %q", got)
 	}
 }
@@ -3572,6 +3574,29 @@ func TestLeftoverCoveringJoinsPlayedGames(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringThanksgivingTradition(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicatePreference, Source: "typed_store",
+			Value: "ocean views, cliffs", Values: []string{"ocean views, cliffs"}},
+	}
+	pkt := EvidencePacket{
+		Contents: []string{
+			"They usually watch a few movies together during Thanksgiving.",
+			"Riley enjoys prepping the feast as part of his Thanksgiving tradition.",
+		},
+	}
+	q := "What tradition does Riley mention they love during Thanksgiving?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "feast") {
+		t.Fatalf("expected feast tradition leftover covering, got %q rare=%v", got, leftoverCoverRareTokens(q, hops))
+	}
+	hybrid := "They usually watch a few movies together during Thanksgiving."
+	if !leftoverCoveringBeatsAnswer(q, hops, got, hybrid) {
+		t.Fatalf("feast covering must beat movies paraphrase, covering=%q", got)
+	}
+}
+
 func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
@@ -3584,6 +3609,26 @@ func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	}
 	if leftoverCoveringBeatsAnswer(q, hops, covering, covering) {
 		t.Fatal("same covering must not beat itself")
+	}
+}
+
+func TestLeftoverCoveringWhereIgnoresHopSlotStarvation(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity, Source: "typed_store",
+			Value:  "hiking, road trip to jasper national park, hiked trails with family",
+			Values: []string{"hiking, road trip to jasper national park, hiked trails with family"}},
+	}
+	q := "Where did Riley take his family for a road trip on 24 May, 2023?"
+	got := leftoverCoveringRareForQuery(q, hops)
+	hasTrip := false
+	for _, tok := range got {
+		if tok == "trip" || tok == "family" || tok == "road" {
+			hasTrip = true
+		}
+	}
+	if !hasTrip {
+		t.Fatalf("where leftover rare must keep locative tokens despite hop dumps, hops=%v covering=%v", leftoverCoverRareTokens(q, hops), got)
 	}
 }
 

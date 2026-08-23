@@ -602,12 +602,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedMHList := plan.NeedsMultiHop && len(hopQueryEntities(req.Query)) >= 2 && typedAnswer != "" && !strings.EqualFold(typedAnswer, "not in memory")
 		lockedOrdinal := out.Explain["ordinal_name"] == true
 		echoSlogan := leftoverQueryEchoAnswer(req.Query, typedAnswer)
-		if typedAnswerIsHopDump(typedAnswer) || hopDumpsUnproven(hopResults) || echoSlogan || (skipSlots && looksWhereQuery(req.Query)) {
+		thinMiss := leftoverThinMissAnswer(req.Query, hopResults, typedAnswer)
+		if typedAnswerIsHopDump(typedAnswer) || hopDumpsUnproven(hopResults) || echoSlogan || thinMiss || (skipSlots && looksWhereQuery(req.Query)) {
 			// Dual-entity SH questions often plan as MH and lock a slogan
-			// dump, an unproven search_fallback fragment, or a leftover-
-			// unrelated short slot (Rocks) over hybrid. Only unlock mh_list
-			// on where-questions when slots skip so typed community/skill
-			// joins stay locked.
+			// dump, an unproven search_fallback fragment, a leftover-
+			// unrelated short slot (Rocks), or a thin leftover-miss
+			// fragment over hybrid. Only unlock mh_list on where-questions
+			// when slots skip so typed community/skill joins stay locked.
 			lockedWhere = false
 			lockedMHList = false
 		}
@@ -702,14 +703,17 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "hybrid_llm_packet"
 			}
 		}
-		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedCount && !lockedWhere {
+		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedCount {
 			if covering := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt); covering != "" {
 				cur := strings.TrimSpace(out.Answer)
 				src, _ := out.Explain["reader_source"].(string)
-				typedJoin := hopsKeepTypedJoin(hopResults) && lockedMHList && strings.Contains(cur, ",")
+				// Comma typed joins stay locked except where hop-dumps, which
+				// starve locative leftover covering with activity lists.
+				typedJoin := hopsKeepTypedJoin(hopResults) && lockedMHList && strings.Contains(cur, ",") &&
+					!looksWhereQuery(req.Query) && !typedAnswerIsHopDump(cur)
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
-					leftoverThinMissAnswer(req.Query, hopResults, cur))
-				if !useCovering && !typedJoin && src == "hybrid_llm_packet" {
+					typedAnswerIsHopDump(cur) || leftoverThinMissAnswer(req.Query, hopResults, cur))
+				if !useCovering && !typedJoin && (src == "hybrid_llm_packet" || looksWhereQuery(req.Query)) {
 					useCovering = leftoverCoveringBeatsAnswer(req.Query, hopResults, covering, cur)
 				}
 				if useCovering {
@@ -3677,15 +3681,23 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 }
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
-	leftover := leftoverNonEntityQueryTokens(query, hops)
-	if len(leftover) == 0 {
-		leftover = distinctiveQueryTokens(tokenize(query))
-	}
 	minLen := 6
 	if querySpecificCalendarDate(query) != nil {
 		minLen = 4
 	}
-	return filterLeftoverCoverTokens(leftover, minLen)
+	leftover := leftoverNonEntityQueryTokens(query, hops)
+	rare := filterLeftoverCoverTokens(leftover, minLen)
+	if len(rare) > 0 {
+		return rare
+	}
+	return filterLeftoverCoverTokens(distinctiveQueryTokens(tokenize(query)), minLen)
+}
+
+func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
+	if looksWhereQuery(query) {
+		return leftoverCoverRareTokens(query, nil)
+	}
+	return leftoverCoverRareTokens(query, hops)
 }
 
 func filterLeftoverCoverTokens(leftover []string, minLen int) []string {
@@ -3765,14 +3777,13 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		return ""
 	}
 	whereQ := looksWhereQuery(query)
-	rare := leftoverCoverRareTokens(query, hops)
-	if whereQ && len(rare) == 0 {
-		// Hop dumps often mention leftover locative tokens (road/trip/family)
-		// and would otherwise starve where leftover covering.
-		rare = leftoverCoverRareTokens(query, nil)
-	}
+	rare := leftoverCoveringRareForQuery(query, hops)
 	if len(rare) == 0 {
 		return ""
+	}
+	var locativeMust []string
+	if whereQ {
+		locativeMust = locativeLeftoverTokens(query, nil)
 	}
 	speakerCover := leftoverNonEntityRareTokens(query, hops)
 	lines := packetContentLines(pkt)
@@ -3804,6 +3815,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if !contentCoversAnyQueryToken(line, rare) {
 			continue
 		}
+		if len(locativeMust) > 0 && !contentCoversAnyQueryToken(line, locativeMust) {
+			continue
+		}
 		score := 1
 		if looksCodedEventToken(line) {
 			score += 3
@@ -3822,6 +3836,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score += 2
 			case 2:
 				score += 1
+			}
+			if utf8Len(tok) >= 8 {
+				score += 2
 			}
 		}
 		score += hits
@@ -3889,8 +3906,12 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 	}
 	coverHits, ansHits := 0, 0
 	extra := false
-	for _, tok := range leftoverCoverRareTokens(query, hops) {
-		if utf8Len(tok) < 8 {
+	minHit := 8
+	if looksWhereQuery(query) {
+		minHit = 6
+	}
+	for _, tok := range leftoverCoveringRareForQuery(query, hops) {
+		if utf8Len(tok) < minHit {
 			continue
 		}
 		c := contentCoversQueryToken(covering, tok)
