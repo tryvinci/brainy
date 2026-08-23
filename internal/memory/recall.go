@@ -722,9 +722,8 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
 					useCovering = true
 				}
-				if !useCovering && !typedJoin && src == "hybrid_llm_packet" &&
-					(looksWhereQuery(req.Query) || leftoverCoveringShouldJoin(req.Query)) {
-					useCovering = leftoverCoveringBeatsAnswer(req.Query, hopResults, covering, cur)
+				if !useCovering && !typedJoin && src == "hybrid_llm_packet" {
+					useCovering = leftoverCoveringMayReplaceHybrid(req.Query, hopResults, covering, cur)
 				}
 				if useCovering {
 					out.Answer = covering
@@ -3830,11 +3829,8 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	best := ""
 	bestScore := 0
-	type scoredLine struct {
-		line  string
-		score int
-	}
-	scored := make([]scoredLine, 0, 8)
+	strong := leftoverCoverStrongTokens(rare)
+	scored := make([]leftoverCoverScored, 0, 8)
 	for _, line := range lines {
 		if leftoverSkipLine(line, speakerCover) {
 			continue
@@ -3851,7 +3847,6 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if len(locativeMust) > 0 && !contentCoversAnyQueryToken(line, locativeMust) {
 			continue
 		}
-		strong := leftoverCoverStrongTokens(rare)
 		if !contentCoversAnyQueryToken(line, strong) {
 			continue
 		}
@@ -3876,7 +3871,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			}
 		}
 		score += hits
-		scored = append(scored, scoredLine{line: line, score: score})
+		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
 			best = line
@@ -3918,8 +3913,68 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if place := locativePlaceFromLine(best); place != "" {
 			return place
 		}
+		return best
+	}
+	if joined := leftoverCoveringJoinSchemaActivities(query, strong, scored, best); joined != "" {
+		return joined
 	}
 	return best
+}
+
+type leftoverCoverScored struct {
+	line  string
+	score int
+}
+
+func leftoverCoveringSchemaActivityLine(line string) bool {
+	body := " " + strings.ToLower(hybridLineBody(line)) + " "
+	for _, p := range []string{
+		" enjoys ", " enjoy ", " enjoyed ",
+		" likes ", " liked ",
+		" loves ", " loved ",
+		" participates in ", " participated in ",
+	} {
+		if strings.Contains(body, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringJoinSchemaActivities(query string, strong []string, scored []leftoverCoverScored, best string) string {
+	if leftoverCoveringShouldJoin(query) || looksWhereQuery(query) {
+		return ""
+	}
+	if !leftoverCoveringSchemaActivityLine(best) {
+		return ""
+	}
+	parts := []string{best}
+	seen := map[string]struct{}{strings.ToLower(strings.TrimSpace(best)): {}}
+	for _, row := range scored {
+		if row.score < 2 || !leftoverCoveringSchemaActivityLine(row.line) {
+			continue
+		}
+		if !contentCoversAnyQueryToken(row.line, strong) {
+			continue
+		}
+		line := stripConflictingDateTail(query, row.line)
+		key := strings.ToLower(strings.TrimSpace(line))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		parts = append(parts, line)
+		if len(parts) >= 4 {
+			break
+		}
+	}
+	if len(parts) < 2 {
+		return ""
+	}
+	return strings.Join(parts, "; ")
 }
 
 func locativePlaceFromLine(line string) string {
@@ -3984,9 +4039,17 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 	if looksWhenEventQuery(query) && parseDateFromText(answer) != nil && parseDateFromText(covering) == nil {
 		return false
 	}
+	if leftoverCoveringDropsNamedSpan(covering, answer) {
+		return false
+	}
+	if leftoverCoveringMostlyCoveredByAnswer(covering, answer) {
+		return false
+	}
+	strong := leftoverCoverStrongTokens(leftoverCoveringRareForQuery(query, hops))
 	coverHits, ansHits := 0, 0
 	extra := false
-	for _, tok := range leftoverCoverStrongTokens(leftoverCoveringRareForQuery(query, hops)) {
+	dropped := false
+	for _, tok := range strong {
 		c := contentCoversQueryToken(covering, tok)
 		a := contentCoversQueryToken(answer, tok)
 		if c {
@@ -3998,8 +4061,129 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 		if c && !a {
 			extra = true
 		}
+		if a && !c {
+			dropped = true
+		}
+	}
+	if dropped {
+		return false
+	}
+	if len(strong) > 0 && ansHits == len(strong) {
+		return false
 	}
 	return extra && coverHits > ansHits
+}
+
+func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, answer string) bool {
+	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
+		return false
+	}
+	if leftoverCoveringIsCompactNamed(answer) {
+		return false
+	}
+	if typedAnswerIsHopDump(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
+		return false
+	}
+	return leftoverCoveringBeatsAnswer(query, hops, covering, answer)
+}
+
+func leftoverCoveringIsCompactNamed(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" || leftoverShortItemJoin(s) || typedAnswerIsHopDump(s) {
+		return false
+	}
+	if strings.Contains(s, ".") || strings.Contains(s, ":") {
+		return false
+	}
+	if len(strings.Fields(s)) > 4 || utf8Len(s) > 48 {
+		return false
+	}
+	return consecutiveProperNouns(s) >= 1
+}
+
+func leftoverCoveringQuotedTitles(s string) []string {
+	out := make([]string, 0, 2)
+	for {
+		i := strings.Index(s, `"`)
+		if i < 0 {
+			break
+		}
+		rest := s[i+1:]
+		j := strings.Index(rest, `"`)
+		if j < 0 {
+			break
+		}
+		t := strings.TrimSpace(rest[:j])
+		if t != "" && utf8Len(t) <= 48 {
+			out = append(out, t)
+		}
+		s = rest[j+1:]
+	}
+	return out
+}
+
+func leftoverCoveringProperRuns(s string) []string {
+	fields := strings.Fields(hybridLineBody(s))
+	out := make([]string, 0, 2)
+	run := make([]string, 0, 4)
+	flush := func() {
+		if len(run) >= 2 {
+			out = append(out, strings.Join(run, " "))
+		}
+		run = run[:0]
+	}
+	for _, w := range fields {
+		n := strings.Trim(w, ".,;:()[]\"'")
+		if n != "" && n[0] >= 'A' && n[0] <= 'Z' && len(n) > 1 {
+			run = append(run, n)
+			continue
+		}
+		flush()
+	}
+	flush()
+	return out
+}
+
+func leftoverCoveringNamedSpans(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	out := leftoverCoveringQuotedTitles(s)
+	out = append(out, leftoverCoveringProperRuns(s)...)
+	if leftoverCoveringIsCompactNamed(s) {
+		out = append(out, s)
+	}
+	return out
+}
+
+func leftoverCoveringDropsNamedSpan(covering, answer string) bool {
+	cl := strings.ToLower(covering)
+	for _, span := range leftoverCoveringNamedSpans(answer) {
+		span = strings.TrimSpace(span)
+		if span == "" {
+			continue
+		}
+		if !strings.Contains(cl, strings.ToLower(span)) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringMostlyCoveredByAnswer(covering, answer string) bool {
+	toks := distinctiveQueryTokens(tokenize(hybridLineBody(covering)))
+	n, hits := 0, 0
+	for _, tok := range toks {
+		if utf8Len(tok) < 5 {
+			continue
+		}
+		n++
+		if contentCoversQueryToken(answer, tok) {
+			hits++
+		}
+	}
+	return n > 0 && hits*2 >= n
 }
 
 func leftoverQueryEchoAnswer(query, answer string) bool {

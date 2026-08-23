@@ -3597,16 +3597,27 @@ func TestLeftoverCoveringThanksgivingTradition(t *testing.T) {
 		Contents: []string{
 			"They usually watch a few movies together during Thanksgiving.",
 			"Riley enjoys prepping the feast as part of his Thanksgiving tradition.",
+			"Riley enjoys talking about what they're thankful for during Thanksgiving.",
 		},
 	}
 	q := "What tradition does Riley mention they love during Thanksgiving?"
 	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
-	if !strings.Contains(strings.ToLower(got), "feast") {
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "feast") {
 		t.Fatalf("expected feast tradition leftover covering, got %q rare=%v", got, leftoverCoverRareTokens(q, hops))
+	}
+	if !strings.Contains(lower, "thankful") {
+		t.Fatalf("expected thankful complement joined with feast, got %q", got)
+	}
+	if strings.Contains(lower, "movie") {
+		t.Fatalf("movies paraphrase must not join the tradition covering: %q", got)
 	}
 	hybrid := "They usually watch a few movies together during Thanksgiving."
 	if !leftoverCoveringBeatsAnswer(q, hops, got, hybrid) {
 		t.Fatalf("feast covering must beat movies paraphrase, covering=%q", got)
+	}
+	if !leftoverCoveringMayReplaceHybrid(q, hops, got, hybrid) {
+		t.Fatalf("leftover covering must be allowed to replace a movies hybrid, covering=%q", got)
 	}
 }
 
@@ -3640,6 +3651,56 @@ func TestLeftoverCoveringBeatsAnswerMissingRareToken(t *testing.T) {
 	walks := "They enjoy going for walks together."
 	if leftoverCoveringBeatsAnswer(qWalk, hopsWalk, selfCare, walks) {
 		t.Fatal("activity-schema leftover covering must not beat a walks hybrid")
+	}
+	chiliQ := "What events is Maria planning for the homeless shelter funraiser?"
+	chiliCover := "Maria is organizing a yoga retreat next month."
+	chiliHybrid := "Maria is planning a ring-toss tournament and a chili cook-off for the homeless-shelter fundraiser."
+	if leftoverCoveringBeatsAnswer(chiliQ, hops, chiliCover, chiliHybrid) {
+		t.Fatal("unrelated leftover covering must not beat a chili+ring-toss hybrid")
+	}
+	if leftoverCoveringMayReplaceHybrid(chiliQ, hops, chiliCover, chiliHybrid) {
+		t.Fatal("chili+ring-toss hybrid must stay locked against leftover covering")
+	}
+	ringOnly := "Maria is organizing a ring-toss tournament for the fundraiser."
+	if leftoverCoveringMayReplaceHybrid(chiliQ, hops, ringOnly, chiliHybrid) {
+		t.Fatal("ring-toss-only covering must not replace a chili+ring-toss hybrid")
+	}
+	studyQ := "What did Jolene and Deb discuss as a helpful strategy for studying and time management?"
+	studyCover := "Jolene wants to connect with these big companies."
+	studyHybrid := "They mentioned using planners or schedulers to stay organized, and breaking study tasks into smaller pieces while setting clear goals."
+	if leftoverCoveringBeatsAnswer(studyQ, hops, studyCover, studyHybrid) {
+		t.Fatal("unrelated leftover covering must not beat a studying hybrid")
+	}
+	if leftoverCoveringMayReplaceHybrid(studyQ, hops, "They mentioned using planners or schedulers to stay organized.", studyHybrid) {
+		t.Fatal("planners-only covering must not replace a studying hybrid that already has both halves")
+	}
+	sapiensQ := "What is Jolene's favorite book which she mentioned on 4 February, 2023?"
+	sapiensHybrid := `I'm really into this book called "Sapiens" - it's a fascinating look at human history`
+	mother := "Deborah's mother loves reading historical books."
+	if leftoverCoveringBeatsAnswer(sapiensQ, hops, mother, sapiensHybrid) {
+		t.Fatal("mother-reading covering must not beat a Sapiens hybrid")
+	}
+	if leftoverCoveringMayReplaceHybrid(sapiensQ, hops, mother, sapiensHybrid) {
+		t.Fatal("Sapiens hybrid must stay locked against leftover covering")
+	}
+	if leftoverCoveringMayReplaceHybrid(sapiensQ, hops, mother, "Sapiens") {
+		t.Fatal("compact Sapiens title must stay locked against leftover covering")
+	}
+	joleneDump := "video games, hanging out with Susie, hiking, pottery class, community garden"
+	if !typedAnswerIsHopDump(joleneDump) {
+		t.Fatalf("expected Jolene activity dump, got %q", joleneDump)
+	}
+	if leftoverCoveringMayReplaceHybrid(
+		"What activities have been helping Jolene stay distracted during tough times?",
+		[]HopResult{{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene", Source: "search_fallback"}},
+		"I'm passionate about helping people find peace and joy through it",
+		joleneDump,
+	) {
+		t.Fatal("activity hop dump must stay locked against leftover covering slogans")
+	}
+	ukQ := "which country has Tim visited most frequently in his travels?"
+	if leftoverCoveringMayReplaceHybrid(ukQ, hops, "Tim visited a Harry Potter-themed place in London a few years ago.", "United Kingdom") {
+		t.Fatal("compact UK name must stay locked against leftover covering")
 	}
 	qTor := "Where was James at on July 12, 2022?"
 	if leftoverCoveringBeatsAnswer(qTor, hops, "James will depart for Toronto", "Toronto") {
