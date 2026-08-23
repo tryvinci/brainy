@@ -3387,6 +3387,68 @@ func TestLeftoverCoveringSpecificAnswerSkipsQuestionPrompt(t *testing.T) {
 	}
 }
 
+func TestDatedContentConflictsQuerySkipsFarRelativeTail(t *testing.T) {
+	q := "What is Jolene's favorite book which she mentioned on 4 February, 2023?"
+	if !datedContentConflictsQuery(q, `Jolene read "Neal Stephenson" (21 January 2023; the week before 4 February 2023)`) {
+		t.Fatal("January event must conflict with February 4 query even with session-relative tail")
+	}
+	if datedContentConflictsQuery(q, `I'm really into this book called "Sapiens" - it's a fascinating look at human history`) {
+		t.Fatal("undated covering fact must not conflict")
+	}
+	csgo := "What did John organize with his friends on May 8, 2022?"
+	if datedContentConflictsQuery(csgo, "John organized a charity gaming tournament for the game CS:GO on 7 May 2022.") {
+		t.Fatal("adjacent-day event must stay eligible")
+	}
+	if querySpecificCalendarDate("Which basketball team does Riley support?") != nil {
+		t.Fatal("dateless query must not date-filter")
+	}
+	if querySpecificCalendarDate("What setback did Melanie face in October 2023?") != nil {
+		t.Fatal("month-year query must not day-filter")
+	}
+}
+
+func TestLeftoverCoveringSpecificAnswerSkipsFarDatedCrowd(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: `Jolene read "Neal Stephenson" (21 January 2023; the week before 4 February 2023) (28 January 2023)`},
+			{Content: `I'm really into this book called "Sapiens" - it's a fascinating look at human history and how technology has affected us`},
+			{Content: "Jolene read the book \"Avalanche\" by Neal Stephenson on 21 January 2023."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What is Jolene's favorite book which she mentioned on 4 February, 2023?", hops, pkt)
+	if !strings.Contains(strings.ToLower(got), "sapiens") {
+		t.Fatalf("expected Sapiens over far-dated Stephenson crowd, got %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "stephenson") || strings.Contains(strings.ToLower(got), "avalanche") {
+		t.Fatalf("far-dated book crowd leaked: %q", got)
+	}
+}
+
+func TestLeftoverCoveringSpecificAnswerKeepsSpeakerPrefixedDatedCover(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: `Jolene read "Neal Stephenson" (21 January 2023; the week before 4 February 2023)`},
+			{Content: "During the mini retreat on 8 February 2023, Jolene gained a new outlook on life."},
+			{Content: "Jolene: I really accomplished something with my engineering project - I came up with some neat solutions and I'm really excited about it"},
+			{Content: "Jolene did a mini retreat on 8 February 2023 to assess where she is in life."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What cool stuff did Jolene accomplish at the retreat on 9 February, 2023?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "neat solutions") && !strings.Contains(lower, "engineering") {
+		t.Fatalf("expected speaker-prefixed accomplishment over Stephenson/outlook crowd, got %q", got)
+	}
+	if strings.Contains(lower, "stephenson") {
+		t.Fatalf("far-dated crowd leaked: %q", got)
+	}
+}
+
 func TestRecallOrdinalNameBeatsIdentityDump(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

@@ -402,6 +402,31 @@ func TestFormatHybridMemoryLinesSkipsActivityDumpForCountryQuery(t *testing.T) {
 	}
 }
 
+func TestFormatHybridMemoryLinesDropsFarDatedCrowd(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: `Jolene read "Neal Stephenson" (21 January 2023; the week before 4 February 2023)`},
+			{Content: `I'm really into this book called "Sapiens" - it's a fascinating look at human history`},
+			{Content: "Jolene: I really accomplished something with my engineering project - I came up with some neat solutions"},
+			{Content: "During the mini retreat on 8 February 2023, Jolene gained a new outlook on life."},
+		},
+	}
+	book := strings.Join(formatHybridMemoryLinesForQuery("What is Jolene's favorite book which she mentioned on 4 February, 2023?", pkt), "\n")
+	if strings.Contains(strings.ToLower(book), "stephenson") {
+		t.Fatalf("far-dated book crowd must drop from hybrid packet, got %q", book)
+	}
+	if !strings.Contains(strings.ToLower(book), "sapiens") {
+		t.Fatalf("undated covering book fact must remain, got %q", book)
+	}
+	retreat := strings.Join(formatHybridMemoryLinesForQuery("What cool stuff did Jolene accomplish at the retreat on 9 February, 2023?", pkt), "\n")
+	if strings.Contains(strings.ToLower(retreat), "stephenson") {
+		t.Fatalf("far-dated crowd must drop from dated hybrid packet, got %q", retreat)
+	}
+	if !strings.Contains(strings.ToLower(retreat), "neat solutions") {
+		t.Fatalf("speaker-prefixed accomplishment must remain, got %q", retreat)
+	}
+}
+
 func TestSkipUnrelatedIdentityDumpLiveShape(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "maria", Source: "search_fallback", Value: "Maria"},

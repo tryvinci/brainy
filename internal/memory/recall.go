@@ -2005,6 +2005,71 @@ func parseDateFromText(s string) *time.Time {
 	return nil
 }
 
+// queryDateMatchWindow keeps same-day and adjacent-day facts (session vs
+// event, "the day before") while dropping weeks-away crowding.
+const queryDateMatchWindow = 48 * time.Hour
+
+func queryHasCalendarDay(query string) bool {
+	hasMonth, hasDay := false, false
+	for _, tok := range tokenize(query) {
+		if isMonthWord(tok) {
+			hasMonth = true
+		}
+		n, err := strconv.Atoi(tok)
+		if err != nil {
+			continue
+		}
+		if n >= 1 && n <= 31 {
+			hasDay = true
+		}
+	}
+	return hasMonth && hasDay
+}
+
+func querySpecificCalendarDate(query string) *time.Time {
+	if !queryHasCalendarDay(query) {
+		return nil
+	}
+	return parseDateFromText(query)
+}
+
+func isCalendarCoverToken(tok string) bool {
+	tok = strings.ToLower(strings.TrimSpace(tok))
+	if tok == "" || isMonthWord(tok) {
+		return tok != ""
+	}
+	if n, err := strconv.Atoi(tok); err == nil {
+		if (n >= 1 && n <= 31) || (n >= 1900 && n <= 2100) {
+			return true
+		}
+	}
+	switch tok {
+	case "today", "yesterday", "tomorrow", "weekend", "weekday":
+		return true
+	}
+	return false
+}
+
+// datedContentConflictsQuery is true when the query names a calendar day and
+// the line's primary event date is more than two days away. Relative-session
+// tails ("the week before 4 February") must not make a January fact match a
+// February question. Month-or-year-only queries do not filter.
+func datedContentConflictsQuery(query, content string) bool {
+	qd := querySpecificCalendarDate(query)
+	if qd == nil {
+		return false
+	}
+	ld := parseDateFromText(content)
+	if ld == nil {
+		return false
+	}
+	d := qd.Sub(*ld)
+	if d < 0 {
+		d = -d
+	}
+	return d > queryDateMatchWindow
+}
+
 func queryCalendarYear(query string) int {
 	for _, tok := range tokenize(query) {
 		if len(tok) != 4 {
@@ -3562,27 +3627,80 @@ func looksCodedEventToken(s string) bool {
 	return false
 }
 
-func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt EvidencePacket) string {
-	if looksWhereQuery(query) || looksPolarQuery(query) || hopsKeepTypedJoin(hops) {
-		return ""
-	}
+func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	leftover := leftoverNonEntityQueryTokens(query, hops)
 	if len(leftover) == 0 {
 		leftover = distinctiveQueryTokens(tokenize(query))
 	}
+	minLen := 6
+	if querySpecificCalendarDate(query) != nil {
+		minLen = 4
+	}
 	rare := make([]string, 0, len(leftover))
 	for _, tok := range leftover {
-		if utf8Len(tok) >= 6 {
-			rare = append(rare, tok)
+		if utf8Len(tok) < minLen || isCalendarCoverToken(tok) {
+			continue
 		}
+		rare = append(rare, tok)
 	}
+	return rare
+}
+
+func looksSpeakerPrefixedStatement(s string) bool {
+	t := strings.TrimSpace(s)
+	if t == "" || strings.HasSuffix(t, "?") {
+		return false
+	}
+	i := strings.Index(t, ": ")
+	if i <= 0 || i >= 24 {
+		return false
+	}
+	head := strings.TrimSpace(t[:i])
+	return head != "" && !strings.Contains(head, " ") && consecutiveProperNouns(head) >= 1
+}
+
+func leftoverSkipLine(line string) bool {
+	if looksTitleCaseSlogan(line) || looksImageCaptionLine(line) || looksPromptNotAnswer(line) {
+		return true
+	}
+	if looksCrowdedHopDump(line) {
+		return true
+	}
+	body := line
+	if i := strings.Index(line, ": "); i > 0 && i < 24 {
+		body = strings.TrimSpace(line[i+2:])
+	}
+	lower := strings.ToLower(strings.TrimSpace(body))
+	if strings.HasPrefix(lower, "oh,") || strings.HasPrefix(lower, "oh ") {
+		return true
+	}
+	if looksChatTurnLine(line) && !looksSpeakerPrefixedStatement(line) {
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt EvidencePacket) string {
+	if looksWhereQuery(query) || looksPolarQuery(query) || hopsKeepTypedJoin(hops) {
+		return ""
+	}
+	rare := leftoverCoverRareTokens(query, hops)
 	if len(rare) == 0 {
 		return ""
 	}
+	lines := packetContentLines(pkt)
+	df := make(map[string]int, len(rare))
+	for _, line := range lines {
+		for _, tok := range rare {
+			if contentCoversQueryToken(line, tok) {
+				df[tok]++
+			}
+		}
+	}
 	best := ""
 	bestScore := 0
-	for _, line := range packetContentLines(pkt) {
-		if looksChatTurnLine(line) || looksTitleCaseSlogan(line) || looksImageCaptionLine(line) || looksPromptNotAnswer(line) {
+	for _, line := range lines {
+		if leftoverSkipLine(line) || datedContentConflictsQuery(query, line) {
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, rare) {
@@ -3597,8 +3715,15 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		}
 		hits := 0
 		for _, tok := range rare {
-			if contentCoversQueryToken(line, tok) {
-				hits++
+			if !contentCoversQueryToken(line, tok) {
+				continue
+			}
+			hits++
+			switch df[tok] {
+			case 1:
+				score += 2
+			case 2:
+				score += 1
 			}
 		}
 		score += hits
