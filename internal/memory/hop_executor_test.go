@@ -478,11 +478,12 @@ func TestPreferCoParticipantVisitDestination(t *testing.T) {
 			Values: []string{"write songs", "visit dana's studio", "travel to boston"}},
 	}
 	q := "What plans do Alex and Dana have for when Alex visits Boston?"
-	got := preferCoParticipantVisitDestination(q, hops, "Dana will show Alex classic cars and meet at a bench.")
+	empty := EvidencePacket{}
+	got := preferCoParticipantVisitDestination(q, hops, "Dana will show Alex classic cars and meet at a bench.", empty)
 	if !strings.Contains(strings.ToLower(got), "studio") {
 		t.Fatalf("expected visit destination over related-activity paraphrase, got %q", got)
 	}
-	kept := preferCoParticipantVisitDestination(q, hops, "They will visit Dana's studio while Alex is in Boston.")
+	kept := preferCoParticipantVisitDestination(q, hops, "They will visit Dana's studio while Alex is in Boston.", empty)
 	if !strings.Contains(strings.ToLower(kept), "studio") {
 		t.Fatalf("hybrid that already names the place must be kept, got %q", kept)
 	}
@@ -490,11 +491,45 @@ func TestPreferCoParticipantVisitDestination(t *testing.T) {
 		t.Fatalf("short hybrid that names the place must not be replaced by a dump, got %q", kept)
 	}
 	dump := "write songs, visit dana's studio, travel to tokyo, share a ferrari, jam session"
-	gotDump := preferCoParticipantVisitDestination(q, hops, dump)
+	gotDump := preferCoParticipantVisitDestination(q, hops, dump, empty)
 	if !strings.Contains(strings.ToLower(gotDump), "studio") || strings.Count(gotDump, ",") >= 3 {
 		t.Fatalf("hop dump that merely mentions the place must collapse to the visit stop, got %q", gotDump)
 	}
-	if preferCoParticipantVisitDestination("When did Alex adopt Ned?", hops, "first week of April 2022") != "first week of April 2022" {
+	if preferCoParticipantVisitDestination("When did Alex adopt Ned?", hops, "first week of April 2022", empty) != "first week of April 2022" {
+		t.Fatal("non-visit queries must not be rewritten")
+	}
+}
+
+func TestEnrichVisitDestinationFromPacket(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex"},
+		{Kind: "resolve_entity", Entity: "Dana", Value: "Dana"},
+		{Kind: "follow_relation", Entity: "Alex", Predicate: PredicatePlan,
+			Value:  "write songs, visit dana's studio, travel to boston",
+			Values: []string{"write songs", "visit dana's studio", "travel to boston"}},
+	}
+	purpose := "Alex plans to visit Dana's studio to sketch lighting setups for the next album."
+	pkt := EvidencePacket{
+		Contents: []string{
+			purpose,
+			"write songs, visit dana's studio, travel to boston, share a ferrari, jam session, buy a boat",
+			"Dana's studio has vintage cameras on the wall.",
+		},
+	}
+	q := "What plans do Alex and Dana have for when Alex visits Boston?"
+	got := preferCoParticipantVisitDestination(q, hops, "visit dana's studio", pkt)
+	if !strings.Contains(strings.ToLower(got), "studio") || !strings.Contains(strings.ToLower(got), "lighting") {
+		t.Fatalf("compressed hop slot should pick packet purpose line, got %q", got)
+	}
+	if strings.Count(got, ",") >= 3 {
+		t.Fatalf("must not pick hop dump from packet, got %q", got)
+	}
+	hybrid := "They will visit Dana's studio while Alex is in Boston."
+	kept := preferCoParticipantVisitDestination(q, hops, hybrid, pkt)
+	if kept != hybrid {
+		t.Fatalf("hybrid sentence that already names the place must be kept, got %q", kept)
+	}
+	if preferCoParticipantVisitDestination("When did Alex adopt Ned?", hops, "first week of April 2022", pkt) != "first week of April 2022" {
 		t.Fatal("non-visit queries must not be rewritten")
 	}
 }

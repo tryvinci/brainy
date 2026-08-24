@@ -737,7 +737,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 		}
 	}
-	if next := preferCoParticipantVisitDestination(req.Query, hopResults, out.Answer); next != "" && next != strings.TrimSpace(out.Answer) {
+	if next := preferCoParticipantVisitDestination(req.Query, hopResults, out.Answer, pkt); next != "" && next != strings.TrimSpace(out.Answer) {
 		out.Answer = next
 		out.Abstained = false
 		out.AnswerStatus = AnswerSupported

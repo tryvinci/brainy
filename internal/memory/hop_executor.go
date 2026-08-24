@@ -1460,7 +1460,7 @@ func looksVisitPlanQuery(query string) bool {
 
 // preferCoParticipantVisitDestination keeps a visit/check-out stop when the
 // reader named a related activity but dropped the actual place.
-func preferCoParticipantVisitDestination(query string, hops []HopResult, answer string) string {
+func preferCoParticipantVisitDestination(query string, hops []HopResult, answer string, pkt EvidencePacket) string {
 	cur := strings.TrimSpace(answer)
 	if !looksVisitPlanQuery(query) {
 		return cur
@@ -1469,10 +1469,120 @@ func preferCoParticipantVisitDestination(query string, hops []HopResult, answer 
 	if dest == "" {
 		return cur
 	}
+	enriched := enrichVisitDestinationFromPacket(dest, pkt)
 	if contentCoversVisitDestination(cur, dest) && !typedAnswerIsHopDump(cur) {
+		if visitAnswerIsCompressedHopSlot(cur) && extraContentBeyondVisitDest(enriched, dest) > extraContentBeyondVisitDest(cur, dest) {
+			return enriched
+		}
 		return cur
 	}
+	if extraContentBeyondVisitDest(enriched, dest) > extraContentBeyondVisitDest(dest, dest) {
+		return enriched
+	}
 	return dest
+}
+
+func visitAnswerIsCompressedHopSlot(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" || typedAnswerIsHopDump(s) {
+		return false
+	}
+	if len(strings.Fields(s)) > 8 {
+		return false
+	}
+	return hopValueIsCoParticipantVisit(s)
+}
+
+func looksVisitPlanLine(s string) bool {
+	padded := " " + strings.ToLower(s) + " "
+	for _, cue := range []string{
+		" visit ", " visiting ", " visits ",
+		" check out ", " checking out ",
+		" stop by ", " stop in ",
+		" drop by ",
+		" plans to ", " plan to ", " planning to ",
+	} {
+		if strings.Contains(padded, cue) {
+			return true
+		}
+	}
+	return false
+}
+
+func extraContentBeyondVisitDest(line, dest string) int {
+	place := visitDestinationPlace(dest)
+	stop := map[string]struct{}{
+		"the": {}, "and": {}, "for": {}, "with": {}, "from": {},
+		"visit": {}, "visiting": {}, "visits": {},
+		"check": {}, "checking": {}, "out": {},
+		"stop": {}, "drop": {}, "by": {}, "in": {},
+		"plans": {}, "plan": {}, "planning": {},
+		"will": {}, "they": {}, "that": {},
+	}
+	if place != "" {
+		stop[place] = struct{}{}
+	}
+	for _, tok := range tokenize(dest) {
+		t := strings.ToLower(strings.Trim(tok, "'\".,;:"))
+		if t != "" {
+			stop[t] = struct{}{}
+		}
+	}
+	n := 0
+	seen := map[string]struct{}{}
+	for _, tok := range tokenize(line) {
+		t := strings.ToLower(strings.Trim(tok, "'\".,;:"))
+		if utf8Len(t) < 3 {
+			continue
+		}
+		if _, ok := stop[t]; ok {
+			continue
+		}
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		n++
+	}
+	return n
+}
+
+// enrichVisitDestinationFromPacket expands a compressed visit hop slot using a
+// short packet source line that names the same place plus leftover purpose.
+func enrichVisitDestinationFromPacket(dest string, pkt EvidencePacket) string {
+	place := visitDestinationPlace(dest)
+	if place == "" {
+		return dest
+	}
+	best := dest
+	bestExtra := extraContentBeyondVisitDest(dest, dest)
+	bestN := utf8Len(dest)
+	for _, line := range packetContentLines(pkt) {
+		line = strings.TrimSpace(line)
+		n := utf8Len(line)
+		if n < 24 || n > 180 {
+			continue
+		}
+		if typedAnswerIsHopDump(line) {
+			continue
+		}
+		if !strings.Contains(strings.ToLower(line), place) {
+			continue
+		}
+		if !hopValueIsCoParticipantVisit(line) && !looksVisitPlanLine(line) {
+			continue
+		}
+		extra := extraContentBeyondVisitDest(line, dest)
+		if extra <= 0 {
+			continue
+		}
+		if extra > bestExtra || (extra == bestExtra && n < bestN) {
+			best = line
+			bestExtra = extra
+			bestN = n
+		}
+	}
+	return best
 }
 
 func hopSharedSlotValues(results []HopResult) []string {
