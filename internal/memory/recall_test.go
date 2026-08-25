@@ -4849,6 +4849,15 @@ func TestLeftoverCoveringMotivatePrefersCauseOverTurtle(t *testing.T) {
 	if !leftoverCoveringMotivateMissesCause(q, got, hybrid) {
 		t.Fatal("what-motivates covering must replace a compiler motivate-her restatement")
 	}
+	if !leftoverCoveringSkipsHybrid(q, got) {
+		t.Fatal("what-motivates cause leftover must skip hybrid so recall cannot idle-timeout")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, hybrid) {
+		t.Fatal("empty covering and turtle restatement must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("How does Nate describe the process of taking care of turtles?", "Just keep their area clean, feed them properly, and make sure they get enough light") {
+		t.Fatal("how-describe-process must not skip hybrid via what-motivates")
+	}
 }
 
 func TestLeftoverCoveringMotivateEmptyLeavesHybrid(t *testing.T) {

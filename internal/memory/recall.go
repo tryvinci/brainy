@@ -564,7 +564,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	// Typed counts, dual-entity lists, and enumerated lists that hybrid
 	// does not shorten stay locked so dumps cannot replace a typed join.
 	if mode == "answer" || mode == "enumerate" {
-		hybrid := s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt)
+		coveringEarly := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt)
+		var hybrid hybridReaderResult
+		if leftoverCoveringSkipsHybrid(req.Query, coveringEarly) {
+			hybrid = hybridReaderResult{Reason: "leftover_covering"}
+			out.Explain["hybrid_skipped_leftover_covering"] = true
+		} else {
+			hybrid = s.synthesizeHybridAnswer(ctx, req.Query, plan, pkt)
+		}
 		if hybrid.Reason != "" {
 			out.Explain["hybrid_reader_reason"] = hybrid.Reason
 		}
@@ -5548,6 +5555,14 @@ func leftoverCoveringMotivateMissesCause(query, covering, answer string) bool {
 		return false
 	}
 	return true
+}
+
+func leftoverCoveringSkipsHybrid(query, covering string) bool {
+	covering = strings.TrimSpace(covering)
+	if covering == "" {
+		return false
+	}
+	return looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, covering)
 }
 
 func leftoverCoveringRestatementToken(tok string) bool {
