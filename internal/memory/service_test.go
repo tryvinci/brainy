@@ -1144,6 +1144,35 @@ func TestSingleTokenAttendedEchoDoesNotOutrankProvenance(t *testing.T) {
 	}
 }
 
+func TestSingleTokenAttendedEchoLosesExactTokenQuery(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["echo"] = MemoryRecord{
+		MemoryID: "mem_echo", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Melanie attended setback",
+		DedupeKey: "echo", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"rule": "attribute_event"},
+	}
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Melanie had to take a break from pottery after she hurt her wrist, calling it a real setback",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What was Melanie's setback")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected hits")
+	}
+	if strings.Contains(strings.ToLower(search.Results[0].Content), "attended setback") {
+		t.Fatalf("exact-token attended echo still ranked first under fusion v2: %#v", search.Results)
+	}
+}
+
 func TestEpisodeOnlyPoolFallsBack(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)
