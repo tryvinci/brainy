@@ -4022,3 +4022,76 @@ The gold leftover (`It had lots of great things like salads, sandwiches, and hom
 
 **One step:** ranking so gold enters the leftover packet without a category dictionary (turtle-care; Joanna writing). Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 16** + RETRIEVAL 27. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→118 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `spread`. Do not add a food/salad dictionary. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-25 — P35 how-describe-process prefix hortative leftover covering (119/180)
+
+**Landed:** product SHA `a7d8bfb` on `pr/locomo-180-p35-1e9e` (PR #151). Skip-ingest pin [locomo-s0-diag-mh-135-p35-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p35-20260825.md) (`locomo-s0-diag-mh-135-p35-product-recall-s1-50fd99`). P34 is already on dest and main (`482933a` / `763a90a`).
+
+Product change: how-describe-process leftover covering prefers **prefix hortative leftover** (`just keep`, `make sure`, `don't forget`, `be sure`, `remember to`, `try to`) over hybrid companion slogans. Sentence-initial `just` is hortative, not a person. Process leftover covering **returns empty** unless the best leftover is that prefix hortative **and** does not restate process/describe/taking/care. Dedicated expand does **not** reuse advice expand (which would admit `don't forget … process`). How-describe-process session-neighbor seeding prefers hortative leftover sessions already in the corpus so a random FTS-head cap of 6 cannot drop the gold session. Does not drop `turtles`/`care`. Does not add a care→clean/feed/light dictionary. Does not treat first-person gerunds (`Hoping to share…`) as process leftover. Does not steal Calvin electronic `fresh vibe`. Does not name LoCoMo.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; last pin. Not re-run this increment. |
+| Marketing vertical | **17/17** | Merge gate; last pin. Not re-run this increment. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P34 | **118/180 (0.656)** | MH **18/33** · OD **4/11** · SH **66/98** · temporal **30/38**. SHA `763a90a`. |
+| LoCoMo S0 product hybrid **on** P35 | **119/180 (0.661)** | MH **18/33** · OD **4/11** · SH **67/98** · temporal **30/38**. SHA `a7d8bfb`. Ledger: **RETRIEVAL 27 / PROOF 21 / READER 7 / WRITE 4 / HARNESS 2**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** 90%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 119/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. Item flips vs P34: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 119 vs 11, or 119 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **118** P34 → **119** P35 | **no same-n pin** (fair 180 429) | Product 19→119 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P34 **18/33** → P35 **18/33** | no 33-item freeze | Held P21 high. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P35 product local (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (18/33).** Held P21 high. Destress pottery **held**. Yoga locations **held**. Childhood items **held**. Still missing: Phuket diving (`conv-48-q77`) — write split. Do not treat 18/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. James girlfriend April 2022 **held**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **66→67/98**. Industry **27/98**. Named recovery: Nate turtle-care (`conv-42-q108`). Remaining mass is SH **PROOF 15**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment. Joanna writing and camping-peaceful still miss (gold stored but ranking flood; peaceful not stored). Do not drop `turtles`/`care`. Do not add a care dictionary. Do not drop `motivate`.
+
+**Temporal.** **Held 30/38**. Joanna letter 7 August 2022 **held**. Paint Saturday, health start year, community-center, August teammates, art-show April, Jon banker, Ned, McGee's, Toronto, Caroline biking, Gina internship **held**. Jolene yoga year still MISS (2020 start year is not a stored fact). Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+The gold leftover (`Just keep their area clean, feed them properly, and make sure they get enough light`) is stored and active in session_5, but hybrid ranked companion slogans (`calming and relaxing`, `Hoping to share my love of gaming`). Gold has no turtle/care tokens. First-person gerunds match leftover advice shape; restricting process leftover to **imperative prefixes** keeps gaming slogans out. Hortative leftover that restates `process` (`Don't forget to relax and enjoy the process too`) must not replace Calvin electronic hybrid. Sentence-initial `just` was a foreign person named Just until it joined the hortative verb list. An FTS-head cap of 6 over n≥1 turtle tokens randomly dropped session_5 until hortative leftover sessions seed neighbors first. Do not drop `turtles`/`care`. Do not add clean/feed/light as query tokens. WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** ranking so gold enters the leftover packet without dropping FTS structure tokens (Joanna writing — do not drop `motivate`). Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 15** + RETRIEVAL 27. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→119 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `turtles`/`care`. Do not add a care dictionary. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
