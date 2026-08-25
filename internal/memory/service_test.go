@@ -753,6 +753,26 @@ func TestSearchLexicalTokensDropsDecideWhenEventRemains(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalTokensDropsWhatMadeStructureAndPerson(t *testing.T) {
+	q := "What made being part of the running group easy for Deborah to stay motivated?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"made", "part", "deborah"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("what-made lexical tokens must drop structure/person %q, got %v", banned, got)
+		}
+	}
+	for _, keep := range []string{"running", "group", "easy", "stay", "motivated"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("what-made lexical tokens must keep %q, got %v", keep, got)
+		}
+	}
+	destress := searchLexicalQueryTokens("What does Melanie do to destress?", tokenize("What does Melanie do to destress?"))
+	if !strings.Contains(strings.Join(destress, " "), "melanie") {
+		t.Fatalf("non-what-made queries must keep the person token, got %v", destress)
+	}
+}
+
 func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

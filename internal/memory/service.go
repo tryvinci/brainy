@@ -404,7 +404,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 
 	queryTokens := tokenize(query)
-	contentQueryTokens := searchLexicalTokens(queryTokens)
+	contentQueryTokens := searchLexicalQueryTokens(query, queryTokens)
 
 	intents := AnalyzeQueryIntents(query)
 	if !opts.IncludeHistorical && WantsHistoricalRetrieval(intents) {
@@ -675,7 +675,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			}
 		}
 		if len(corpus) > 0 {
-			idf = computeQueryIDF(corpus, searchLexicalTokens(queryTokens))
+			idf = computeQueryIDF(corpus, contentQueryTokens)
 		}
 	}
 
@@ -705,7 +705,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 				continue
 			}
 		}
-		score, explain := scoreMemoryIDF(record, queryTokens, packWeights, idf)
+		score, explain := scoreMemoryIDF(record, query, queryTokens, packWeights, idf)
 		if explain == nil {
 			explain = map[string]any{}
 		}
@@ -1839,7 +1839,7 @@ func supersedesMemoryIDFromMetadata(metadata map[string]any) string {
 }
 
 func scoreMemory(record MemoryRecord, queryTokens []string, primitiveWeights map[string]int) (float64, map[string]any) {
-	return scoreMemoryIDF(record, queryTokens, primitiveWeights, nil)
+	return scoreMemoryIDF(record, "", queryTokens, primitiveWeights, nil)
 }
 
 // coverageScore returns matched/total query coverage, IDF-weighted when idf is
@@ -1910,9 +1910,9 @@ func computeQueryIDF(all []MemoryRecord, bearingQuery []string) map[string]float
 // base lexical coverage is IDF-weighted (BM25-style): matching rare/distinctive
 // query terms counts more than common ones. idf==nil falls back to plain
 // match-count coverage (used by direct unit tests / no-corpus paths).
-func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights map[string]int, idf map[string]float64) (float64, map[string]any) {
+func scoreMemoryIDF(record MemoryRecord, query string, queryTokens []string, primitiveWeights map[string]int, idf map[string]float64) (float64, map[string]any) {
 	contentTokens := tokenize(record.Content)
-	bearingQuery := searchLexicalTokens(queryTokens)
+	bearingQuery := searchLexicalQueryTokens(query, queryTokens)
 	if len(bearingQuery) == 0 {
 		bearingQuery = queryTokens
 	}
@@ -2052,12 +2052,28 @@ func contentBearingTokens(tokens []string) []string {
 	return out
 }
 
+// searchLexicalQueryTokens are ILIKE / FTS / scoring tokens for a query.
+// What-made questions also drop person names when other event tokens remain,
+// because causal leftover lines are often first-person and omit the name.
+func searchLexicalQueryTokens(query string, queryTokens []string) []string {
+	if len(queryTokens) == 0 && strings.TrimSpace(query) != "" {
+		queryTokens = tokenize(query)
+	}
+	return filterWhatMadeLexicalTokens(query, searchLexicalTokens(queryTokens))
+}
+
 // searchLexicalTokens are the tokens used for ILIKE patterns and lexical
 // scoring. When/which-year queries drop leftover-weak speech-act and year
 // words when another event token remains, so "decide" / "year" do not flood
-// the candidate pool.
+// the candidate pool. What-made queries drop structure tokens ("made" /
+// "part") that FTS would AND against first-person cause lines.
 func searchLexicalTokens(queryTokens []string) []string {
 	bearing := contentBearingTokens(queryTokens)
+	if searchDropsWhatMadeStructureTokens(queryTokens) {
+		if trimmed := dropWhatMadeStructureTokens(bearing); len(trimmed) > 0 {
+			bearing = trimmed
+		}
+	}
 	if !searchDropsWeakEventTokens(queryTokens) {
 		return bearing
 	}
@@ -2066,6 +2082,57 @@ func searchLexicalTokens(queryTokens []string) []string {
 		return bearing
 	}
 	return strong
+}
+
+func searchDropsWhatMadeStructureTokens(queryTokens []string) bool {
+	for i := 0; i+1 < len(queryTokens); i++ {
+		if queryTokens[i] == "what" && (queryTokens[i+1] == "made" || queryTokens[i+1] == "makes") {
+			return true
+		}
+	}
+	return false
+}
+
+func dropWhatMadeStructureTokens(bearing []string) []string {
+	out := make([]string, 0, len(bearing))
+	for _, tok := range bearing {
+		switch strings.ToLower(strings.TrimSpace(tok)) {
+		case "made", "makes", "making", "part":
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func filterWhatMadeLexicalTokens(query string, tokens []string) []string {
+	if !looksWhatMadeQuery(query) || len(tokens) < 4 {
+		return tokens
+	}
+	drop := map[string]struct{}{}
+	for _, raw := range strings.Fields(query) {
+		w := strings.Trim(raw, "?,.!\"'")
+		if !looksHopPerson(w) {
+			continue
+		}
+		key := strings.ToLower(w)
+		drop[key] = struct{}{}
+		drop[strings.TrimSuffix(strings.TrimSuffix(key, "'s"), "’s")] = struct{}{}
+	}
+	if len(drop) == 0 {
+		return tokens
+	}
+	out := make([]string, 0, len(tokens))
+	for _, tok := range tokens {
+		if _, ok := drop[strings.ToLower(tok)]; ok {
+			continue
+		}
+		out = append(out, tok)
+	}
+	if len(out) < 3 {
+		return tokens
+	}
+	return out
 }
 
 func searchDropsWeakEventTokens(queryTokens []string) bool {
