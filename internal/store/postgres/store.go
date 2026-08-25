@@ -345,6 +345,64 @@ LIMIT $7
 	return out, rows.Err()
 }
 
+func (s *Store) ListMemoriesBySessionIDs(ctx context.Context, tenantID, subjectID string, sessionIDs []string, includeSuperseded bool, perSession int) ([]memory.MemoryRecord, error) {
+	if len(sessionIDs) == 0 {
+		return nil, nil
+	}
+	if len(sessionIDs) > 8 {
+		sessionIDs = sessionIDs[:8]
+	}
+	if perSession <= 0 || perSession > 80 {
+		perSession = 80
+	}
+	var (
+		rows pgx.Rows
+		err  error
+	)
+	cols := memoryRecordSelectCols
+	if includeSuperseded {
+		rows, err = s.pool.Query(ctx, `
+SELECT `+cols+`
+FROM (
+  SELECT `+cols+`,
+         row_number() OVER (PARTITION BY metadata->>'session_id' ORDER BY updated_at DESC, memory_id ASC) AS rn
+  FROM memory_records
+  WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+    AND lifecycle_state NOT IN ($4, $5)
+    AND metadata->>'session_id' = ANY($6)
+) q
+WHERE q.rn <= $7
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuppressed, sessionIDs, perSession)
+	} else {
+		rows, err = s.pool.Query(ctx, `
+SELECT `+cols+`
+FROM (
+  SELECT `+cols+`,
+         row_number() OVER (PARTITION BY metadata->>'session_id' ORDER BY updated_at DESC, memory_id ASC) AS rn
+  FROM memory_records
+  WHERE tenant_id = $1 AND subject_id = $2 AND status = $3
+    AND lifecycle_state NOT IN ($4, $5, $6)
+    AND metadata->>'session_id' = ANY($7)
+) q
+WHERE q.rn <= $8
+`, tenantID, subjectID, memory.StatusActive, memory.LifecycleArchived, memory.LifecycleSuperseded, memory.LifecycleSuppressed, sessionIDs, perSession)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []memory.MemoryRecord
+	for rows.Next() {
+		record, err := scanMemoryRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, record)
+	}
+	return out, rows.Err()
+}
+
 func (s *Store) SearchActiveMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int) ([]memory.MemoryRecord, error) {
 	return s.SearchMemories(ctx, tenantID, subjectID, patterns, limit, false)
 }

@@ -645,8 +645,18 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	// crowded same-timestamp session. Admit a bounded set of those lines from
 	// lexical-seed sessions without raising the global neighbor cap or adding
 	// event nouns as query tokens.
-	if looksHostQuery(query) && len(allMemories) > 0 {
-		expandHostedEventSessionNeighbors(candidates, memories, allMemories, 8)
+	if looksHostQuery(query) {
+		hostAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok {
+			if ids := sessionIDsOf(memories); len(ids) > 0 {
+				if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+					hostAll = listed
+				}
+			}
+		}
+		if len(hostAll) > 0 {
+			expandHostedEventSessionNeighbors(candidates, memories, hostAll, 8)
+		}
 	}
 
 	// Rare query tokens (filling, gym, series) lose the lexical pool when FTS
@@ -1106,6 +1116,33 @@ func (s *Service) listSubjectCorpus(ctx context.Context, tenantID, subjectID str
 		return all[:limit], nil
 	}
 	return all, nil
+}
+
+// SessionMemoryLister fetches memories for known session_ids without a recency
+// subject scan. Host leftover covering needs this when the hosted event sits
+// past ListMemoriesLimited's 400-row window.
+type SessionMemoryLister interface {
+	ListMemoriesBySessionIDs(ctx context.Context, tenantID, subjectID string, sessionIDs []string, includeSuperseded bool, perSession int) ([]MemoryRecord, error)
+}
+
+func sessionIDsOf(records []MemoryRecord) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 8)
+	for _, record := range records {
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := seen[sid]; ok {
+			continue
+		}
+		seen[sid] = struct{}{}
+		out = append(out, sid)
+		if len(out) >= 8 {
+			break
+		}
+	}
+	return out
 }
 
 func sessionIDOf(record MemoryRecord) string {

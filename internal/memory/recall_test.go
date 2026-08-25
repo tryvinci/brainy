@@ -4277,6 +4277,9 @@ func TestExpandHostedEventSessionNeighborsAdmitsPartyPastCap(t *testing.T) {
 	if _, ok := candidates["party"]; !ok {
 		t.Fatal("hosted-event session expand must admit the party line past the generic cap")
 	}
+	if ids := sessionIDsOf([]MemoryRecord{seed, party}); len(ids) != 1 || ids[0] != session {
+		t.Fatalf("sessionIDsOf must uniq seed sessions, got %#v", ids)
+	}
 }
 
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
