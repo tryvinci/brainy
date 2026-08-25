@@ -3879,7 +3879,7 @@ func looksSpeakerPrefixedStatement(s string) bool {
 	return head != "" && !strings.Contains(head, " ") && consecutiveProperNouns(head) >= 1
 }
 
-func leftoverSkipLine(line string, leftoverRare []string) bool {
+func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 	if looksTitleCaseSlogan(line) || looksImageCaptionLine(line) || looksPromptNotAnswer(line) {
 		return true
 	}
@@ -3888,7 +3888,7 @@ func leftoverSkipLine(line string, leftoverRare []string) bool {
 			return true
 		}
 	}
-	if looksCrowdedHopDump(line) && !leftoverCoveringKindListLine(line) {
+	if looksCrowdedHopDump(line) && !(looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)) {
 		return true
 	}
 	body := line
@@ -3958,7 +3958,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	strong := leftoverCoverStrongTokens(rare)
 	scored := make([]leftoverCoverScored, 0, 8)
 	for _, line := range lines {
-		if leftoverSkipLine(line, speakerCover) {
+		if leftoverSkipLine(query, line, speakerCover) {
 			continue
 		}
 		if leftoverCoveringSkipForeignWhenEvent(query, line) {

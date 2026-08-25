@@ -4523,6 +4523,59 @@ func TestLeftoverCoveringKindPrefersLikeListOverSpread(t *testing.T) {
 	if !leftoverCoveringKindMissesList(q, got, hybrid) {
 		t.Fatal("what-kind covering must replace a spread restatement")
 	}
+	salad := "It had lots of great things like salads, sandwiches, and homemade desserts"
+	rare := leftoverCoverNonWeakTokens(leftoverNonEntityRareTokens(q, hops))
+	if leftoverSkipLine(q, salad, rare) {
+		t.Fatal("what-kind leftover covering must still admit like-A,-B,-and-C leftover")
+	}
+}
+
+func TestLeftoverCoveringWhenEventSkipsKindListHopDump(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},
+	}
+	dump := "visit nate to watch turtles from a distance, make script into a movie, visit nate on 2022-11-05, write a new script, make coconut milk ice cream like nate, try chocolate, and mixed berry flavors"
+	letter := "Joanna received a touching letter after someone read her blog post (7 August 2022; the week before 14 August 2022)"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: dump},
+			{Content: "Themes like sisterhood, love, and chasing dreams (18 March 2022)"},
+			{Content: letter},
+			{Content: "Joanna would get two turtles today if she could. (18 March 2022)"},
+		},
+	}
+	q := "When did someone write Joanna a touching letter?"
+	rare := leftoverCoverNonWeakTokens(leftoverNonEntityRareTokens(q, hops))
+	if !leftoverCoveringKindListLine(dump) {
+		t.Fatal("activity dump with like-A,-B,-and-C must still classify as kind-list shape")
+	}
+	if !leftoverSkipLine(q, dump, rare) {
+		t.Fatal("when-event leftover covering must skip crowded kind-list hop dumps")
+	}
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(got, "7 August") && !strings.Contains(lower, "week before") {
+		t.Fatalf("when-event leftover covering must pick the dated letter leftover, got %q", got)
+	}
+	if strings.Contains(lower, "turtle") || strings.Contains(lower, "sisterhood") || strings.Contains(lower, "ice cream") {
+		t.Fatalf("kind-list hop dump must not cover a when-event letter query, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringPolarIgnoresKindList(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "James", Value: "James", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "It had lots of great things like salads, sandwiches, and homemade desserts"},
+			{Content: "Yesterday, when we were at the theater, Samantha loves theater, I asked her to become my girlfriend, and she agreed (3 September 2022)"},
+		},
+	}
+	q := "Did James have a girlfriend during April 2022?"
+	if leftoverCoveringSpecificAnswer(q, hops, pkt) != "" {
+		t.Fatal("polar leftover covering must stay empty so like-lists cannot rewrite girlfriend absence")
+	}
 }
 
 func TestExpandKindListSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
@@ -4891,7 +4944,7 @@ func TestLeftoverCoveringJoinsChildhoodPossessions(t *testing.T) {
 	}
 	q := "What items des John mention having as a child?"
 	pizza := "Maria: I can picture you all laughing and having a blast making your own pizzas - a great way to bond"
-	if !leftoverSkipLine(pizza, leftoverCoverNonWeakTokens(leftoverNonEntityRareTokens(q, hops))) {
+	if !leftoverSkipLine(q, pizza, leftoverCoverNonWeakTokens(leftoverNonEntityRareTokens(q, hops))) {
 		t.Fatal("having-a-blast chat must not survive leftover covering skip")
 	}
 	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
