@@ -3824,6 +3824,60 @@ func TestLeftoverCoveringReplacesBareDateMissingEvent(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringBindsWhenEventToQueryEntity(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Alex lost his job as a banker on 19 January 2023."},
+			{Content: "Dana lost her job at Night Shift in January 2023. (15 January 2023)"},
+		},
+	}
+	q := "When Alex has lost his job as a banker?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "alex") || !strings.Contains(got, "19 January") {
+		t.Fatalf("when-event leftover covering must bind to the query person, got %q", got)
+	}
+	if strings.Contains(lower, "dana") || strings.Contains(lower, "night shift") {
+		t.Fatalf("another person's dated job-loss must not answer a named when-event query, got %q", got)
+	}
+	foreign := "Dana lost her job at Night Shift in January 2023. (15 January 2023)"
+	if leftoverCoveringBareDateMissesEvent(q, hops, foreign, "19 January 2023") {
+		t.Fatal("foreign-subject leftover covering must not replace a matching date")
+	}
+	if !leftoverCoveringBareDateMissesEvent(q, hops, got, "19 January 2023") {
+		t.Fatal("query-entity covering that names the event must still replace a bare date")
+	}
+	ginaQ := "When did Gina interview for a design internship?"
+	ginaPkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Gina had an interview for a design internship on 10 May 2023."},
+			{Content: "Alex lost his job as a banker on 19 January 2023."},
+		},
+	}
+	ginaGot := leftoverCoveringSpecificAnswer(ginaQ, hops, ginaPkt)
+	if !strings.Contains(strings.ToLower(ginaGot), "gina") || strings.Contains(strings.ToLower(ginaGot), "banker") {
+		t.Fatalf("named internship when-event must stay on Gina, got %q", ginaGot)
+	}
+	iceQ := "When is Joanna going to make Nate's ice cream for her family?"
+	icePkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Nate encourages Joanna not to quit and to keep working toward her goals."},
+			{Content: "I'm going to make it for my family this weekend - can't wait (25 June 2022; the weekend before 24 June 2022)"},
+		},
+	}
+	iceGot := leftoverCoveringSpecificAnswer(iceQ, hops, icePkt)
+	iceLower := strings.ToLower(iceGot)
+	if !strings.Contains(iceLower, "weekend") && !strings.Contains(iceLower, "family") {
+		t.Fatalf("first-person dated plan must still cover a when-event query, got %q", iceGot)
+	}
+	if strings.Contains(iceLower, "quit") {
+		t.Fatalf("named pep-talk must not beat the first-person weekend plan, got %q", iceGot)
+	}
+}
+
 func TestLeftoverCoveringKeepsTypedItemJoins(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Tim", Value: "Tim", Source: "search_fallback"},

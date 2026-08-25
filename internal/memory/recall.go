@@ -3884,6 +3884,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverSkipLine(line, speakerCover) {
 			continue
 		}
+		if leftoverCoveringSkipForeignWhenEvent(query, line) {
+			continue
+		}
 		if !whereQ && datedContentConflictsQuery(query, line) {
 			continue
 		}
@@ -4436,6 +4439,9 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 	if leftoverCoveringKeepTypedAnswer(query, hops, answer) {
 		return false
 	}
+	if leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
 	if parseDateFromText(answer) == nil || parseDateFromText(covering) == nil {
 		return false
 	}
@@ -4450,6 +4456,84 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 		return false
 	}
 	return contentCoversAnyQueryToken(covering, strong)
+}
+
+// leftoverCoveringRequiresQueryEntity is true for when-event questions that
+// name a hop person. Covering lines about a different person must not win.
+func leftoverCoveringRequiresQueryEntity(query string) bool {
+	return looksWhenEventQuery(query) && len(hopQueryEntities(query)) > 0
+}
+
+func leftoverCoveringMentionsQueryEntity(query, line string) bool {
+	ents := hopQueryEntities(query)
+	if len(ents) == 0 {
+		return true
+	}
+	for _, e := range ents {
+		if contentCoversQueryToken(line, e) {
+			return true
+		}
+	}
+	return false
+}
+
+// leftoverCoveringSkipForeignWhenEvent drops when-event covering lines that
+// name a different person and do not name a query person. First-person and
+// unnamed dated lines still compete.
+func leftoverCoveringSkipForeignWhenEvent(query, line string) bool {
+	if !leftoverCoveringRequiresQueryEntity(query) {
+		return false
+	}
+	if leftoverCoveringMentionsQueryEntity(query, line) {
+		return false
+	}
+	return leftoverCoveringLineHasForeignPerson(query, line)
+}
+
+func leftoverCoveringLineHasForeignPerson(query, line string) bool {
+	known := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		known[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	if len(known) == 0 {
+		return false
+	}
+	for _, raw := range strings.Fields(hybridLineBody(line)) {
+		key, ok := leftoverCoveringPersonToken(raw)
+		if !ok {
+			continue
+		}
+		if _, ok := known[key]; ok {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringPersonToken(raw string) (string, bool) {
+	w := strings.Trim(raw, ".,;:()[]\"'")
+	w = strings.TrimSuffix(strings.TrimSuffix(w, "'s"), "’s")
+	if leftoverCoveringCalendarName(w) || !looksHopPerson(w) {
+		return "", false
+	}
+	for _, r := range w {
+		if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') {
+			return "", false
+		}
+	}
+	return strings.ToLower(w), true
+}
+
+func leftoverCoveringCalendarName(tok string) bool {
+	if isCalendarCoverToken(tok) {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday":
+		return true
+	}
+	return false
 }
 
 func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {
