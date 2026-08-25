@@ -768,6 +768,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if explain == nil {
 			explain = map[string]any{}
 		}
+		if score <= 0 && looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "advice_directive_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0

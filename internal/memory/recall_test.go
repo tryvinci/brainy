@@ -4450,6 +4450,22 @@ func TestApplyAdviceDirectiveRankBoostSkipsAwesome(t *testing.T) {
 	}
 }
 
+func TestScoreMemoryIDFAdviceGoldNeedsDirectiveFloor(t *testing.T) {
+	q := "What advice does Gina give to Jon about running a successful business?"
+	gold := MemoryRecord{Content: "Building relationships and creating a strong brand image for my store is something I'm always working on"}
+	if !leftoverCoveringAdviceOffQueryLine(gold.Content) {
+		t.Fatal("first-person gerund leftover must classify as off-query advice")
+	}
+	score, _ := scoreMemoryIDF(gold, q, tokenize(q), nil, nil)
+	if score > 0 {
+		t.Fatalf("advice gold has no query tokens so IDF score must be 0 without a floor, got %v", score)
+	}
+	hortative := "Also be sure to build relationships with your customers – let them know you care"
+	if !leftoverCoveringAdviceOffQueryLine(hortative) {
+		t.Fatal("hortative leftover must classify as off-query advice")
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsAdviceEpisode(t *testing.T) {
 	q := "What advice does Gina give to Jon about running a successful business?"
 	candidates := map[string]MemoryRecord{
