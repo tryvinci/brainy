@@ -5992,6 +5992,46 @@ func TestExpandDurationSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 	}
 }
 
+func TestSessionIDsForHowLongBeenPrefersStateTokenSessions(t *testing.T) {
+	q := "How long have Mel and her husband been married?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "Caroline: Hey Mel, long time no chat",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	husband := MemoryRecord{
+		MemoryID: "husband",
+		Content:  "Melanie has a husband.",
+		Metadata: map[string]any{"session_id": "session_3"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Melanie's marriage duration is 5 years.",
+		Metadata: map[string]any{"session_id": "session_3"},
+	}
+	seeds := append(recent, husband)
+	ids := sessionIDsForHowLongBeenQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_3" {
+		t.Fatalf("how-long-been session rank must prefer duration/husband session over recency chat, got %v", ids)
+	}
+	raw := sessionIDsOf(seeds)
+	if len(raw) > 8 {
+		raw = raw[:8]
+	}
+	found := false
+	for _, id := range raw {
+		if id == "session_3" {
+			found = true
+		}
+	}
+	if found && len(raw) <= 8 {
+		// still OK if recency order happened to include it; the ranked helper must keep it first
+	}
+}
+
 func TestExpandKindListSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 	session := "session_13"
 	seed := MemoryRecord{

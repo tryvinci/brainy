@@ -872,12 +872,15 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 
 	// How-long-been leftover covering needs continuing-duration leftover
 	// ("marriage duration is 5 years" / "5 years already") that omits
-	// "long". Seed sessions from FTS hits.
+	// "long". Rank sessions by remaining query tokens so recency FTS
+	// chatter does not spend the 8-session list budget first.
 	if looksHowLongBeenQuery(query) {
-		ids := sessionIDsOf(memories)
-		if len(ids) == 0 {
-			ids = sessionIDsOf(seedsFromDurationCandidates(candidates, query))
+		seeds := make([]MemoryRecord, 0, len(memories)+len(candidates))
+		seeds = append(seeds, memories...)
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
 		}
+		ids := sessionIDsForHowLongBeenQuery(query, seeds, allMemories)
 		idSeeds := make([]MemoryRecord, 0, len(ids))
 		for _, id := range ids {
 			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
@@ -3705,6 +3708,67 @@ func seedsFromDurationCandidates(candidates map[string]MemoryRecord, query strin
 		return out[i].MemoryID < out[j].MemoryID
 	})
 	return out
+}
+
+func sessionIDsForHowLongBeenQuery(query string, seeds, all []MemoryRecord) []string {
+	toks := leftoverCoverNonWeakTokens(dropHowLongBeenStructureTokens(contentBearingTokens(tokenize(query))))
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	add := func(sid string, n int) {
+		if sid == "" {
+			return
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	for _, rec := range all {
+		if leftoverCoveringDurationLine(query, rec.Content) {
+			add(sessionIDOf(rec), 100)
+		}
+	}
+	for _, rec := range seeds {
+		if leftoverCoveringDurationLine(query, rec.Content) {
+			add(sessionIDOf(rec), 100)
+		}
+		if len(toks) == 0 {
+			continue
+		}
+		n := 0
+		for _, tok := range toks {
+			if !contentCoversQueryToken(rec.Content, tok) {
+				continue
+			}
+			if _, isPerson := people[strings.ToLower(tok)]; isPerson {
+				n++
+				continue
+			}
+			n += 3
+		}
+		if n >= 3 {
+			add(sessionIDOf(rec), n)
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return order[i] < order[j]
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	if len(order) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	return order
 }
 
 func expandDurationSessionNeighbors(candidates map[string]MemoryRecord, query string, seeds, all []MemoryRecord, limit int) {
