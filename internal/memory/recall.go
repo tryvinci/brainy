@@ -6511,8 +6511,11 @@ func leftoverCoveringStartMissesMethod(query, covering, answer string) bool {
 	}
 	covering = strings.TrimSpace(covering)
 	answer = strings.TrimSpace(answer)
-	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+	if covering == "" {
 		return false
+	}
+	if leftoverCoveringStartMethodPairLine(query, covering) && !leftoverCoveringStartMethodPairLine(query, answer) {
+		return true
 	}
 	if leftoverCoveringStartMethodLine(query, answer) {
 		return false

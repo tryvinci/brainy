@@ -5770,6 +5770,13 @@ func TestLeftoverCoveringHowDidStartPrefersChangedStartedPair(t *testing.T) {
 	if !leftoverCoveringStartMissesMethod(q, got, hybrid) {
 		t.Fatal("gym hybrid must miss start-method leftover")
 	}
+	walkOnly := "Evan started walking regularly around two years ago (approximately 2021-10-25). (25 October 2021; 2 years ago) (via Evan has a 2-year duration)"
+	if leftoverCoveringStartMethodPairLine(q, walkOnly) {
+		t.Fatal("walking-only duration fact is not a changed+started pair")
+	}
+	if !leftoverCoveringStartMissesMethod(q, got, walkOnly) {
+		t.Fatal("walking-only evidence_packet answer must miss changed+started pair leftover")
+	}
 	dumpItems := []RecallItem{
 		{Value: "gym membership"},
 		{Value: "fitness routine"},
