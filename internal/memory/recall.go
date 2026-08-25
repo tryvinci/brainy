@@ -8179,11 +8179,19 @@ func leftoverCoveringExperiencingFeelingMissesFeeling(query, covering, answer st
 		return false
 	}
 	covering = strings.TrimSpace(covering)
-	answer = strings.TrimSpace(answer)
+	answer = leftoverCoveringAnswerHead(answer)
 	if covering == "" || leftoverCoveringExperiencingFeelingLine(query, answer) {
 		return false
 	}
 	return leftoverCoveringExperiencingFeelingLine(query, covering)
+}
+
+func leftoverCoveringAnswerHead(s string) string {
+	s = strings.TrimSpace(s)
+	if i := strings.Index(s, " (via "); i > 0 {
+		return strings.TrimSpace(s[:i])
+	}
+	return s
 }
 
 func leftoverCoveringRestatementToken(tok string) bool {

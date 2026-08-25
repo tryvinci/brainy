@@ -7009,6 +7009,13 @@ func TestLeftoverCoveringHowFeelAboutPrefersExperiencingLeftover(t *testing.T) {
 	if !leftoverCoveringExperiencingFeelingMissesFeeling(q, got, process) {
 		t.Fatal("process leftover answer must miss experiencing-feeling covering")
 	}
+	via := process + " (via " + gold + ")"
+	if leftoverCoveringExperiencingFeelingLine(q, leftoverCoveringAnswerHead(via)) {
+		t.Fatal("via-joined process head must not count as experiencing covering")
+	}
+	if !leftoverCoveringExperiencingFeelingMissesFeeling(q, got, via) {
+		t.Fatal("via-joined process leftover answer must miss experiencing-feeling covering")
+	}
 	dumpItems := []RecallItem{{Value: process}}
 	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
 	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "new level") {
