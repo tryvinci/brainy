@@ -4144,15 +4144,11 @@ func TestLeftoverCoveringInstrumentPurposePrefersUseOverOwns(t *testing.T) {
 		t.Fatal("ownership leftover must not replace a purpose answer")
 	}
 	feelQ := "According to Jolene, what does exercise help her to feel?"
-	feelPkt := EvidencePacket{
-		ContextEvidence: []PacketItem{
-			{Content: "Deborah: Exercise is key for me - it makes me feel connected to my body"},
-			{Content: "Jolene participates in yoga."},
-		},
+	if leftoverCoveringInstrumentNoun(feelQ) != "" || looksInstrumentPurposeQuery(feelQ) {
+		t.Fatal("exercise-feel must not classify as instrument-purpose")
 	}
-	feelGot := leftoverCoveringSpecificAnswer(feelQ, []HopResult{{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene"}}, feelPkt)
-	if strings.Contains(strings.ToLower(feelGot), "connected") || strings.Contains(strings.ToLower(feelGot), "deborah") {
-		t.Fatalf("instrument leftover covering must not steal another person's exercise feeling, got %q", feelGot)
+	if leftoverCoveringPurposeMissesInstrument(feelQ, "Deborah: Exercise is key for me - it makes me feel connected to my body", "not in memory") {
+		t.Fatal("exercise-feel questions must not take the instrument-purpose replace gate")
 	}
 }
 

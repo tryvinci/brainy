@@ -582,7 +582,7 @@ func looksYearQuery(query string) bool {
 	return strings.Contains(q, "which year") || strings.Contains(q, "what year")
 }
 
-// looksInstrumentPurposeQuery is "what does (the) X help ... with" — the
+// looksInstrumentPurposeQuery is "what does the X help … with" — the
 // instrument noun is the leftover, not the speech-act verb help.
 func looksInstrumentPurposeQuery(query string) bool {
 	return leftoverCoveringInstrumentNoun(query) != ""

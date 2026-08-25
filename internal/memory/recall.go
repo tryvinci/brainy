@@ -4792,7 +4792,9 @@ func leftoverCoveringInstrumentNoun(query string) string {
 		} else {
 			continue
 		}
+		hadThe := false
 		if j < len(toks) && toks[j] == "the" {
+			hadThe = true
 			j++
 		}
 		if j+1 >= len(toks) {
@@ -4807,6 +4809,19 @@ func leftoverCoveringInstrumentNoun(query string) string {
 		}
 		if utf8Len(inst) < 4 {
 			continue
+		}
+		// "what does the smartwatch help … with", not "what does exercise help her feel".
+		if !hadThe {
+			hasWith := false
+			for _, t := range toks[j+2:] {
+				if t == "with" {
+					hasWith = true
+					break
+				}
+			}
+			if !hasWith {
+				continue
+			}
 		}
 		return inst
 	}
