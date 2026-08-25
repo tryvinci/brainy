@@ -746,6 +746,12 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		out.AnswerStatus = AnswerSupported
 		out.Explain["co_participant_visit_destination"] = true
 	}
+	if next := preferUnwindPacketActivities(req.Query, out.Answer, pkt); next != "" && next != strings.TrimSpace(out.Answer) {
+		out.Answer = next
+		out.Abstained = false
+		out.AnswerStatus = AnswerSupported
+		out.Explain["unwind_packet_activities"] = true
+	}
 	pkt.Plan = plan
 	out.Explain["evidence_packet"] = pkt
 	return out, nil
@@ -4534,6 +4540,58 @@ func leftoverCoveringCalendarName(tok string) bool {
 		return true
 	}
 	return false
+}
+
+// preferUnwindPacketActivities appends unwind-evidenced packet activities the
+// current answer omitted. Lines without unwind evidence (plain participates-in)
+// stay out so camping dumps cannot crowd the list.
+func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket) string {
+	if !looksUnwindQuery(query) {
+		return ""
+	}
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") {
+		return ""
+	}
+	bind := len(hopQueryEntities(query)) > 0
+	var extra []string
+	seen := map[string]struct{}{}
+	add := func(slot string) {
+		slot = strings.TrimSpace(slot)
+		if slot == "" || utf8Len(slot) > 40 {
+			return
+		}
+		key := strings.ToLower(slot)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if contentCoversQueryToken(answer, key) {
+			return
+		}
+		seen[key] = struct{}{}
+		extra = append(extra, slot)
+	}
+	for _, line := range packetContentLines(pkt) {
+		if !unwindEvidenceHit(line) {
+			continue
+		}
+		if bind && !leftoverCoveringMentionsQueryEntity(query, line) {
+			continue
+		}
+		for _, slot := range unwindActivitySlots(line) {
+			add(slot)
+			if len(extra) >= 3 {
+				break
+			}
+		}
+		if len(extra) >= 3 {
+			break
+		}
+	}
+	if len(extra) == 0 {
+		return ""
+	}
+	return answer + ", " + strings.Join(extra, ", ")
 }
 
 func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {

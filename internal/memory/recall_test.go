@@ -3878,6 +3878,30 @@ func TestLeftoverCoveringBindsWhenEventToQueryEntity(t *testing.T) {
 	}
 }
 
+func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley runs to unwind after work."},
+			{Content: "Riley finds making pottery calming"},
+			{Content: "Riley enjoys camping"},
+			{Content: "Riley participates in pottery"},
+			{Content: "Dana finds making jewelry calming"},
+		},
+	}
+	q := "What does Riley do to unwind?"
+	got := preferUnwindPacketActivities(q, "runs, running", pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "run") || !strings.Contains(lower, "potter") {
+		t.Fatalf("unwind packet join must add calming pottery, got %q", got)
+	}
+	if strings.Contains(lower, "camp") || strings.Contains(lower, "nurse") || strings.Contains(lower, "jewel") {
+		t.Fatalf("unwind packet join must not dump camping or another person's calming slot, got %q", got)
+	}
+	if preferUnwindPacketActivities("When did Riley run?", "19 January 2023", pkt) != "" {
+		t.Fatal("non-unwind queries must not take unwind packet join")
+	}
+}
+
 func TestLeftoverCoveringKeepsTypedItemJoins(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Tim", Value: "Tim", Source: "search_fallback"},
