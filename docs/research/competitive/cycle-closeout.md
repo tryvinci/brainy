@@ -4245,6 +4245,79 @@ The gold leftover (`They're so graceful`) is stored and active in session_1, but
 
 ---
 
+## 2026-08-25 — P45 currently-working leftover covering (129/180)
+
+**Landed:** product SHA `9513039` on `pr/locomo-180-p45-1e9e` (PR #161). Skip-ingest pin [locomo-s0-diag-mh-135-p45-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p45-20260825.md) (`locomo-s0-diag-mh-135-p45-product-recall-s1-323b12`). P44 is already on dest and main (`62b21f1` / `962f057`).
+
+Product change: what-project leftover covering admits **currently-working leftover** (`currently working` / `working on a new`) on `what` + `project` + token `working`/`work`. Covering requires first-person `I`/`I've`/`I'm`/` my ` or a named/nickname actor. Childhood desire (`childhood` / `as a child` / `since … kid`) and `creating` + `own` + `project` without `currently` lose to currently-working leftover. Lexical search drops trailing `in … course/class` adjuncts and structure tokens `project`/`course`/`class` only on that query shape. Session rank prefers currently-working leftover sessions because `ListMemoriesBySessionIDs` truncates to 8 and recency ILIKE fills comic-sketch desire. Does not add a football / comic-sketch / game-design dictionary. Does not drop `game` globally. Does not match how-often, how-long-been, how-did-start, what-did-purpose, how-describe, or how-react. Does not name LoCoMo.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; last pin. Not re-run this increment. |
+| Marketing vertical | **17/17** | Merge gate; last pin. Not re-run this increment. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P44 | **128/180 (0.711)** | MH **18/33** · OD **4/11** · SH **76/98** · temporal **30/38**. SHA `962f057`. |
+| LoCoMo S0 product hybrid **on** P45 | **129/180 (0.717)** | MH **18/33** · OD **4/11** · SH **77/98** · temporal **30/38**. SHA `9513039`. Ledger: **RETRIEVAL 19 / PROOF 20 / READER 7 / WRITE 4 / HARNESS 1**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** 90%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 129/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. Item flips vs P44: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 129 vs 11, or 129 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **128** P44 → **129** P45 | **no same-n pin** (fair 180 429) | Product 19→129 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P44 **18/33** → P45 **18/33** | no 33-item freeze | Held P21 high. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P45 harness overall latency_p50 **194.9 ms** (P44 194.0 ms; P43 193.5 ms) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (18/33).** Held P21 high. Destress pottery **held**. Yoga locations **held**. Childhood items **held**. Still missing: Phuket diving (`conv-48-q77`) — write split. Do not treat 18/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. James girlfriend April 2022 **held**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **76→77/98**. Industry **27/98**. Named recovery: currently-working leftover (`conv-47-q94`). Remaining mass is SH **PROOF 14**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment. James 9 July hobby still miss (gold stored; packet currently ranks John's metal detecting). Camping-peaceful still miss (not stored). Do not add a football / comic-sketch dictionary. Do not drop `game` globally. Do not add a how-often / playdate dictionary. Do not drop `often` globally. Do not add a marriage dictionary. Do not drop `long` globally. Do not add a diet/walking or gym dictionary. Do not add a dog/group dictionary. Do not drop November globally. Do not drop `react` globally. Do not drop `say` globally. Do not steal NYC `It's got`. Do not drop `motivate` globally. Do not drop `turtles`/`care`.
+
+**Temporal.** **Held 30/38**. Joanna letter 7 August 2022 **held**. Paint Saturday, health start year, community-center, August teammates, art-show April, Jon banker, Ned, McGee's, Toronto, Caroline biking, Gina internship **held**. Jolene yoga year still MISS (2020 start year is not a stored fact). Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+The gold leftover (`James: Yes, we are currently working on a new part of the football simulator`) and compiler fact (`James is currently working on a new part of a football simulator, focusing on collecting player databases.`) are stored and active in session_13, but P44 packets ranked childhood comic-sketch desire because leftover covering never fired on `what project` + `working`, FTS ANDed `project`/`game`/`design`/`course`, and hybrid stole `creating his own game project` / comic sketches from the hop packet. `sessionIDsOf(memories)[:8]` never fetched session_13 currently-working leftover first. What-project now requires currently-working / working-on-a-new plus a first-person/named actor, drops trailing `in … course` adjuncts and `project` only on that query shape, ranks currently-working leftover sessions ahead of recency chatter, and lets currently-working leftover beat childhood desire / creating-own / FIFA / sibling coding. WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** ranking miss with gold in store that is not a steal-slot — James 9 July hobby (`conv-47-q103`, gold `Extreme sports` stored as `Lately I've become interested in extreme sports`; current hybrid steals John's metal detecting). Do not chase camping-peaceful (`conv-41-q145`, peaceful not stored). Do not steal Deborah’s exploring for Jolene surf (`conv-48-q124`). Do not steal Deborah’s “connected to my body” for Jolene (`conv-48-q116` harness timeout). Do not special-case German vs Spanish. Do not add a football / comic-sketch dictionary. Do not drop `game` globally. Do not add a how-often / playdate dictionary. Do not drop `often` globally. Do not add a marriage dictionary. Do not drop `long` globally. Do not add a diet/walking or gym dictionary. Do not add a dog/group dictionary. Do not drop November globally. Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 14** + RETRIEVAL 19. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→129 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `say` globally. Do not drop `motivate` globally. Do not drop `turtles`/`care`. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
 ## 2026-08-25 — P44 how-often leftover covering (128/180)
 
 **Landed:** product SHA `962f057` on `pr/locomo-180-p44-1e9e` (PR #160). Skip-ingest pin [locomo-s0-diag-mh-135-p44-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p44-20260825.md) (`locomo-s0-diag-mh-135-p44-product-recall-s1-b195c5`). P43 is already on dest and main (`60e0eb0` / `0c302c1`).
