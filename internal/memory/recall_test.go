@@ -3885,6 +3885,35 @@ func TestLeftoverCoveringReplacesBareDateMissingEvent(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhenEventPrefersYearEventOverBareHopDate(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "John", Value: "John", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "John", Predicate: PredicateActivity, Source: "typed_store",
+			Value: "movie nights at home", Values: []string{"movie nights at home"}},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "John attended community (16 January 2023; the week before 9 January 2023) (2 January 2023)"},
+			{Content: "John will discuss infrastructure upgrades at the community meeting scheduled for the week of 16 January 2023."},
+			{Content: "John sat by a campfire with Max during the camping trip in summer 2022."},
+			{Content: "John helped renovate a rundown community center back home in 2022."},
+			{Content: "John: I feel a strong urge to serve my country and community"},
+		},
+	}
+	q := "When did John help renovate his hometown community center?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "renovate") || !strings.Contains(got, "2022") {
+		t.Fatalf("when-event leftover covering must pick the year-dated renovate fact, got %q", got)
+	}
+	if strings.Contains(got, "17 July") || strings.Contains(lower, "january") || strings.Contains(lower, "campfire") {
+		t.Fatalf("hop activity date or community meeting must not cover renovate, got %q", got)
+	}
+	if !leftoverCoveringBareDateMissesEvent(q, hops, got, "17 July 2023") {
+		t.Fatal("bare hop date must yield to year-dated renovate covering")
+	}
+}
+
 func TestLeftoverCoveringBindsWhenEventToQueryEntity(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},

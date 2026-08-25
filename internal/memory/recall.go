@@ -3943,7 +3943,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringSkipForeignWhenEvent(query, line) {
 			continue
 		}
-		if looksYearQuery(query) && !leftoverCoveringLineHasYear(line) {
+		if (looksYearQuery(query) || looksWhenEventQuery(query)) && !leftoverCoveringLineHasYear(line) {
 			continue
 		}
 		if looksLocationListQuery(query) {
@@ -4520,7 +4520,7 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 	if leftoverCoveringSkipForeignWhenEvent(query, covering) {
 		return false
 	}
-	if parseDateFromText(answer) == nil || parseDateFromText(covering) == nil {
+	if parseDateFromText(answer) == nil || !leftoverCoveringLineHasYear(covering) {
 		return false
 	}
 	if len(strings.Fields(answer)) > 6 {
