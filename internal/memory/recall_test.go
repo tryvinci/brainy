@@ -6625,6 +6625,160 @@ func TestSessionIDsForWhatFocusingBesidesPrefersJoinSessions(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhatNewSeriesPrefersQuotedShow(t *testing.T) {
+	gold := `Tim: I'm really excited to watch this new show that's coming out called "The Wheel of Time"`
+	journey := "I'm really excited about this new journey"
+	novel := `Tim recommends the fantasy novel "The Name of the Wind" as a captivating read.`
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: journey},
+			{Content: novel},
+			{Content: "Tim says Game of Thrones is amazing and he is totally hooked on it."},
+			{Content: gold},
+		},
+	}
+	q := "What new fantasy TV series is Tim excited about?"
+	if !looksWhatNewSeriesQuery(q) {
+		t.Fatal("what + new + series must count as what-new-series")
+	}
+	if looksWhatNewSeriesQuery("What has Jolene been focusing on lately besides studying?") {
+		t.Fatal("focusing-besides must not count as what-new-series")
+	}
+	if looksWhatNewSeriesQuery("What new hobby did James become interested in on 9 July, 2022?") {
+		t.Fatal("dated what-new-hobby must not count as what-new-series")
+	}
+	if looksWhatNewSeriesQuery("How does Jolene plan to pursue her dream of learning to surf?") {
+		t.Fatal("how-plan-dream must not count as what-new-series")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "wheel of time") {
+		t.Fatalf("what-new-series leftover covering must pick quoted titled-show leftover, got %q", got)
+	}
+	if strings.Contains(lower, "new journey") || strings.Contains(lower, "name of the wind") || strings.Contains(lower, "game of thrones") {
+		t.Fatalf("generic excitement or quoted novel must not cover what-new-series, got %q", got)
+	}
+	if leftoverCoveringTitledShowLine(q, journey) {
+		t.Fatal("generic new-journey leftover must not count as titled-show covering")
+	}
+	if leftoverCoveringTitledShowLine(q, novel) {
+		t.Fatal("quoted novel leftover must not count as titled-show covering")
+	}
+	if leftoverCoveringTitledShowLine(q, "Tim says Game of Thrones is amazing and he is totally hooked on it.") {
+		t.Fatal("unquoted other-series leftover must not count as titled-show covering")
+	}
+	if !leftoverCoveringTitledShowLine(q, gold) {
+		t.Fatal("quoted watch/show leftover must count as titled-show covering")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, journey) {
+		t.Fatal("empty covering and generic journey must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("What has Jolene been focusing on lately besides studying?", gold) {
+		t.Fatal("focusing-besides must not skip hybrid via titled-show leftover")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("titled-show leftover must skip hybrid")
+	}
+	if !leftoverCoveringTitledShowMissesTitle(q, got, journey) {
+		t.Fatal("generic journey answer must miss titled-show covering")
+	}
+	dumpItems := []RecallItem{{Value: journey}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "wheel of time") {
+		t.Fatalf("what-new-series covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringWhatNewSeriesStaysEmptyWithoutTitle(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "I'm really excited about this new journey"},
+			{Content: `Tim recommends the fantasy novel "The Name of the Wind" as a captivating read.`},
+			{Content: "Tim says Game of Thrones is amazing and he is totally hooked on it."},
+		},
+	}
+	q := "What new fantasy TV series is Tim excited about?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("what-new-series leftover covering must stay empty without quoted titled-show leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsTitledShowEpisode(t *testing.T) {
+	q := "What new fantasy TV series is Tim excited about?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "I'm really excited about this new journey"},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   `Tim: I'm really excited to watch this new show that's coming out called "The Wheel of Time"`,
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("what-new-series query must keep titled-show episode leftover")
+	}
+}
+
+func TestExpandTitledShowSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_26"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "I'm really excited about this new journey",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about fantasy novels",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  `Tim: I'm really excited to watch this new show that's coming out called "The Wheel of Time"`,
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the titled-show leftover can miss")
+	}
+	expandTitledShowSessionNeighbors(candidates, "What new fantasy TV series is Tim excited about?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("what-new-series session expand must admit titled-show leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatNewSeriesPrefersTitleSessions(t *testing.T) {
+	q := "What new fantasy TV series is Tim excited about?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "I'm really excited about this new journey",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	journey := MemoryRecord{
+		MemoryID: "journey",
+		Content:  "I'm really excited about this new journey",
+		Metadata: map[string]any{"session_id": "session_2"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  `Tim: I'm really excited to watch this new show that's coming out called "The Wheel of Time"`,
+		Metadata: map[string]any{"session_id": "session_26"},
+	}
+	seeds := append(recent, journey)
+	ids := sessionIDsForWhatNewSeriesQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_26" {
+		t.Fatalf("what-new-series session rank must prefer titled-show leftover session over recency journey leftover, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsBecomeInterestedEpisode(t *testing.T) {
 	q := "What new hobby did James become interested in on 9 July, 2022?"
 	candidates := map[string]MemoryRecord{

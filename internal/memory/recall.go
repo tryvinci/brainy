@@ -796,6 +796,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringFocusingBesidesMissesJoin(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringTitledShowMissesTitle(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3786,7 +3789,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3950,6 +3953,16 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 			rare = filtered
 		}
 	}
+	if looksWhatNewSeriesQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringTitledShowStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		rare = filtered
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -4019,6 +4032,9 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 	if looksTitleCaseSlogan(line) || looksImageCaptionLine(line) || looksPromptNotAnswer(line) {
 		return true
 	}
+	if leftoverCoveringAllowsZeroQueryTokens(query, line) {
+		return false
+	}
 	if i := strings.Index(line, ": "); i > 0 {
 		if looksTitleCaseSlogan(strings.TrimSpace(line[i+2:])) {
 			return true
@@ -4036,7 +4052,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, line)) &&
 		!(looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, line)) &&
 		!(looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, line)) &&
-		!(looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, line)) {
+		!(looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, line)) &&
+		!(looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4081,7 +4098,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	whereQ := looksWhereQuery(query)
 	rare := leftoverCoveringRareForQuery(query, hops)
-	if len(rare) == 0 {
+	if len(rare) == 0 && !looksWhatNewSeriesQuery(query) {
 		return ""
 	}
 	if leftoverCoveringLockChildhoodPossessions(query) {
@@ -4311,6 +4328,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatNewSeriesQuery(query) {
+			if leftoverCoveringTitledShowLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringTitledShowCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4496,6 +4521,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringFocusingBesidesLine(query, best) {
 			// besides-focusing leftover must be focusing-on + excluded object
 			// + first-person possessive conjunct, not occupation leftover.
+		} else {
+			return ""
+		}
+	}
+	if looksWhatNewSeriesQuery(query) {
+		if next := leftoverCoveringPreferTitledShow(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringTitledShowLine(query, best) {
+			// what-new-series leftover must quote a titled show, not a generic
+			// excitement leftover or a quoted novel.
 		} else {
 			return ""
 		}
@@ -5418,6 +5454,26 @@ func looksWhatFocusingBesidesQuery(query string) bool {
 	return hasFocus && hasBesides && len(leftoverCoveringBesidesObjectTokens(query)) > 0
 }
 
+func looksWhatNewSeriesQuery(query string) bool {
+	if looksWhatFocusingBesidesQuery(query) || looksHowPlanDreamQuery(query) || looksWhatNewHobbyQuery(query) || looksWhatProjectWorkingQuery(query) || looksHowOftenQuery(query) || looksHowLongBeenQuery(query) || looksHowDidStartQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDescribeQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "what") {
+		return false
+	}
+	hasNew, hasSeries := false, false
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "new":
+			hasNew = true
+		case "series", "show":
+			hasSeries = true
+		}
+	}
+	return hasNew && hasSeries
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5446,7 +5502,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5521,6 +5577,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, line) {
+		return true
+	}
+	if looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -6165,6 +6224,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, covering) {
+		return true
+	}
+	if looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -7672,6 +7734,105 @@ func leftoverCoveringFocusingBesidesMissesJoin(query, covering, answer string) b
 	return leftoverCoveringFocusingBesidesLine(query, covering)
 }
 
+func leftoverCoveringTitledShowStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "new", "fantasy", "tv", "television", "series", "excited", "about":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringTitledShowCue(line string) bool {
+	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	if strings.Contains(padded, " watch ") || strings.Contains(padded, " watching ") {
+		return true
+	}
+	if strings.Contains(padded, " show ") {
+		return true
+	}
+	if strings.Contains(padded, " coming out ") {
+		return true
+	}
+	if strings.Contains(padded, " titled ") && (strings.Contains(padded, " tv ") || strings.Contains(padded, " series ") || strings.Contains(padded, " show ")) {
+		return true
+	}
+	if strings.Contains(padded, " called ") && (strings.Contains(padded, " show ") || strings.Contains(padded, " series ") || strings.Contains(padded, " watch ") || strings.Contains(padded, " watching ")) {
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringTitledShowLine(query, line string) bool {
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	if len(leftoverCoveringQuotedTitles(hybridLineBody(line))) == 0 {
+		return false
+	}
+	if !leftoverCoveringTitledShowCue(line) {
+		return false
+	}
+	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	if (strings.Contains(padded, " novel ") || strings.Contains(padded, " book ")) &&
+		!strings.Contains(padded, " watch ") && !strings.Contains(padded, " watching ") &&
+		!strings.Contains(padded, " show ") && !strings.Contains(padded, " coming out ") &&
+		!strings.Contains(padded, " titled ") {
+		return false
+	}
+	body := hybridLineBody(line)
+	if i := strings.Index(body, ": "); i > 0 && i < 24 {
+		body = strings.TrimSpace(body[i+2:])
+	}
+	return leftoverCoveringDurationActorLine(query, line) || leftoverCoveringDurationActorLine(query, body)
+}
+
+func leftoverCoveringTitledShowCompanionLine(query, line string) bool {
+	if leftoverCoveringTitledShowLine(query, line) {
+		return false
+	}
+	if leftoverCoveringLineHasForeignPerson(query, line) {
+		return true
+	}
+	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	if strings.Contains(padded, " excited ") || strings.Contains(padded, " fantasy ") {
+		return true
+	}
+	return len(leftoverCoveringQuotedTitles(hybridLineBody(line))) > 0
+}
+
+func leftoverCoveringPreferTitledShow(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringTitledShowLine(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringTitledShowMissesTitle(query, covering, answer string) bool {
+	if !looksWhatNewSeriesQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringTitledShowLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringTitledShowLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -7839,6 +8000,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items
