@@ -793,6 +793,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringPrepPlanMissesPrep(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringFocusingBesidesMissesJoin(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3783,7 +3786,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3933,6 +3936,20 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 			rare = filtered
 		}
 	}
+	if looksWhatFocusingBesidesQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringFocusingBesidesStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		if objs := leftoverCoveringBesidesObjectTokens(query); len(objs) > 0 {
+			rare = leftoverCoverAddTokens(filtered, objs...)
+		} else {
+			rare = filtered
+		}
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -4018,7 +4035,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, line)) &&
 		!(looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, line)) &&
 		!(looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, line)) &&
-		!(looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, line)) {
+		!(looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, line)) &&
+		!(looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4285,6 +4303,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatFocusingBesidesQuery(query) {
+			if leftoverCoveringFocusingBesidesLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringFocusingBesidesCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4459,6 +4485,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringPrepPlanLine(query, best) {
 			// how-plan-dream leftover must be gathering/watching/guide prep,
 			// not a foreign-person "learning their stories" restatement.
+		} else {
+			return ""
+		}
+	}
+	if looksWhatFocusingBesidesQuery(query) {
+		if next := leftoverCoveringPreferFocusingBesides(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringFocusingBesidesLine(query, best) {
+			// besides-focusing leftover must be focusing-on + excluded object
+			// + first-person possessive conjunct, not occupation leftover.
 		} else {
 			return ""
 		}
@@ -5361,6 +5398,26 @@ func looksHowPlanDreamQuery(query string) bool {
 	return hasPlan && hasDream && hasLearn
 }
 
+func looksWhatFocusingBesidesQuery(query string) bool {
+	if looksHowPlanDreamQuery(query) || looksWhatNewHobbyQuery(query) || looksWhatProjectWorkingQuery(query) || looksHowOftenQuery(query) || looksHowLongBeenQuery(query) || looksHowDidStartQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDescribeQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "what has") && !strings.Contains(q, "what have") && !strings.Contains(q, "what is") && !strings.Contains(q, "what was") {
+		return false
+	}
+	hasFocus, hasBesides := false, false
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "focus", "focusing", "focused", "focuses":
+			hasFocus = true
+		case "besides", "except", "aside":
+			hasBesides = true
+		}
+	}
+	return hasFocus && hasBesides && len(leftoverCoveringBesidesObjectTokens(query)) > 0
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5389,7 +5446,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5461,6 +5518,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, line) {
+		return true
+	}
+	if looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -6102,6 +6162,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, covering) {
+		return true
+	}
+	if looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -7505,6 +7568,110 @@ func leftoverCoveringPrepPlanMissesPrep(query, covering, answer string) bool {
 	return leftoverCoveringPrepPlanLine(query, covering)
 }
 
+func leftoverCoveringFocusingBesidesStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "besides", "except", "aside", "lately":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringBesidesObjectTokens(query string) []string {
+	toks := tokenize(query)
+	start := -1
+	for i, tok := range toks {
+		switch tok {
+		case "besides", "except":
+			start = i + 1
+		case "aside":
+			if i+1 < len(toks) && toks[i+1] == "from" {
+				start = i + 2
+			} else {
+				start = i + 1
+			}
+		}
+	}
+	if start < 0 || start >= len(toks) {
+		return nil
+	}
+	var out []string
+	for _, tok := range toks[start:] {
+		if leftoverCoverWeakToken(tok) || leftoverCoveringFocusingBesidesStructureToken(tok) {
+			continue
+		}
+		if utf8Len(tok) < 4 {
+			continue
+		}
+		out = leftoverCoverAddTokens(out, tok)
+	}
+	return out
+}
+
+func leftoverCoveringFocusingBesidesLine(query, line string) bool {
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	if !strings.Contains(padded, " focusing on ") {
+		return false
+	}
+	if !leftoverCoveringDurationActorLine(query, line) {
+		return false
+	}
+	objs := leftoverCoveringBesidesObjectTokens(query)
+	if len(objs) == 0 || !contentCoversAnyQueryToken(line, objs) {
+		return false
+	}
+	if !strings.Contains(padded, " and my ") && !strings.Contains(padded, " and our ") {
+		return false
+	}
+	return true
+}
+
+func leftoverCoveringFocusingBesidesCompanionLine(query, line string) bool {
+	if leftoverCoveringFocusingBesidesLine(query, line) {
+		return false
+	}
+	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	if leftoverCoveringLineHasForeignPerson(query, line) {
+		return true
+	}
+	return strings.Contains(padded, " focusing on ")
+}
+
+func leftoverCoveringPreferFocusingBesides(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringFocusingBesidesLine(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringFocusingBesidesMissesJoin(query, covering, answer string) bool {
+	if !looksWhatFocusingBesidesQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringFocusingBesidesLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringFocusingBesidesLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -7669,6 +7836,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items

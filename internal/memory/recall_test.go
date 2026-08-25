@@ -6465,6 +6465,166 @@ func TestSessionIDsForHowPlanDreamPrefersPrepSessions(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhatFocusingBesidesPrefersPossessiveJoin(t *testing.T) {
+	gold := "I've been focusing on studying and my relationship with my partner"
+	engineering := "I've been focusing on applying my engineering skills to sustainable, community-focused projects and getting involved with organizations that address social causes."
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: engineering},
+			{Content: "She’s been focusing on applying her engineering skills to sustainable, community-focused projects and getting involved with organizations that address social causes."},
+			{Content: "I've been focusing on yoga and feeling more connected to my body."},
+			{Content: "I'm focusing on studying and gaining more experience"},
+			{Content: gold},
+		},
+	}
+	q := "What has Jolene been focusing on lately besides studying?"
+	if !looksWhatFocusingBesidesQuery(q) {
+		t.Fatal("what-has + focusing + besides + object must count as focusing-besides")
+	}
+	if looksWhatFocusingBesidesQuery("How does Jolene plan to pursue her dream of learning to surf?") {
+		t.Fatal("how-plan-dream must not count as focusing-besides")
+	}
+	if looksWhatFocusingBesidesQuery("What new hobby did James become interested in on 9 July, 2022?") {
+		t.Fatal("dated what-new-hobby must not count as focusing-besides")
+	}
+	if looksWhatFocusingBesidesQuery("What project is James working on in his game design course?") {
+		t.Fatal("what-project-working must not count as focusing-besides")
+	}
+	if looksWhatFocusingBesidesQuery("How often does Audrey meet up with other dog owners for tips and playdates?") {
+		t.Fatal("how-often must not count as focusing-besides")
+	}
+	if looksWhatFocusingBesidesQuery("What has Jolene been focusing on lately?") {
+		t.Fatal("focusing without besides/except/aside must not count as focusing-besides")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "relationship") || !strings.Contains(lower, "partner") {
+		t.Fatalf("focusing-besides leftover covering must pick possessive-join leftover, got %q", got)
+	}
+	if strings.Contains(lower, "engineering") || strings.Contains(lower, "social causes") || strings.Contains(lower, "yoga") {
+		t.Fatalf("occupation leftover must not cover focusing-besides, got %q", got)
+	}
+	if leftoverCoveringFocusingBesidesLine(q, engineering) {
+		t.Fatal("engineering focusing leftover must not count as focusing-besides covering")
+	}
+	if leftoverCoveringFocusingBesidesLine(q, "I'm focusing on studying and gaining more experience") {
+		t.Fatal("studying conjunct without possessive join must not count as focusing-besides covering")
+	}
+	if leftoverCoveringFocusingBesidesLine(q, "I've been focusing on yoga and feeling more connected to my body.") {
+		t.Fatal("foreign yoga leftover must not count as focusing-besides covering")
+	}
+	if !leftoverCoveringFocusingBesidesLine(q, gold) {
+		t.Fatal("first-person focusing-on + besides-object + possessive conjunct leftover must count as covering")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, engineering) {
+		t.Fatal("empty covering and occupation leftover must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("How does Jolene plan to pursue her dream of learning to surf?", gold) {
+		t.Fatal("how-plan-dream must not skip hybrid via focusing-besides leftover")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("focusing-besides leftover must skip hybrid")
+	}
+	if !leftoverCoveringFocusingBesidesMissesJoin(q, got, engineering) {
+		t.Fatal("occupation leftover answer must miss focusing-besides covering")
+	}
+	dumpItems := []RecallItem{{Value: engineering}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "relationship") {
+		t.Fatalf("focusing-besides covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringWhatFocusingBesidesStaysEmptyWithoutJoin(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "I've been focusing on applying my engineering skills to sustainable, community-focused projects and getting involved with organizations that address social causes."},
+			{Content: "I'm focusing on studying and gaining more experience"},
+			{Content: "I've been focusing on yoga and feeling more connected to my body."},
+		},
+	}
+	q := "What has Jolene been focusing on lately besides studying?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("focusing-besides leftover covering must stay empty without possessive-join leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsFocusingBesidesEpisode(t *testing.T) {
+	q := "What has Jolene been focusing on lately besides studying?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "I've been focusing on applying my engineering skills to sustainable, community-focused projects and getting involved with organizations that address social causes."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "I've been focusing on studying and my relationship with my partner",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("focusing-besides query must keep possessive-join episode leftover")
+	}
+}
+
+func TestExpandFocusingBesidesSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_24"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "I've been focusing on applying my engineering skills to sustainable, community-focused projects and getting involved with organizations that address social causes.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about engineering workshops",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I've been focusing on studying and my relationship with my partner",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the focusing-besides leftover can miss")
+	}
+	expandFocusingBesidesSessionNeighbors(candidates, "What has Jolene been focusing on lately besides studying?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("focusing-besides session expand must admit possessive-join leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatFocusingBesidesPrefersJoinSessions(t *testing.T) {
+	q := "What has Jolene been focusing on lately besides studying?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "I've been focusing on applying my engineering skills to sustainable, community-focused projects and getting involved with organizations that address social causes.",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	engineering := MemoryRecord{
+		MemoryID: "engineering",
+		Content:  "I've been focusing on applying my engineering skills to sustainable, community-focused projects and getting involved with organizations that address social causes.",
+		Metadata: map[string]any{"session_id": "session_18"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I've been focusing on studying and my relationship with my partner",
+		Metadata: map[string]any{"session_id": "session_24"},
+	}
+	seeds := append(recent, engineering)
+	ids := sessionIDsForWhatFocusingBesidesQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_24" {
+		t.Fatalf("focusing-besides session rank must prefer possessive-join leftover session over recency occupation leftover, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsBecomeInterestedEpisode(t *testing.T) {
 	q := "What new hobby did James become interested in on 9 July, 2022?"
 	candidates := map[string]MemoryRecord{
