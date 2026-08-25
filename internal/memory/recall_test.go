@@ -5824,6 +5824,94 @@ func TestLeftoverCoveringHowDidStartStaysEmptyWithoutMethod(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringHowLongBeenPrefersContinuingDuration(t *testing.T) {
+	gold := "Melanie's marriage duration is 5 years."
+	already := "Melanie: 5 years already"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Melanie is married."},
+			{Content: "Melanie has a husband."},
+			{Content: "Caroline: Hey Mel, long time no chat"},
+			{Content: "Been a long road, but I'm proud of how far I've come"},
+			{Content: "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)"},
+			{Content: already},
+			{Content: gold},
+		},
+	}
+	q := "How long have Mel and her husband been married?"
+	if !looksHowLongBeenQuery(q) {
+		t.Fatal("how-long + been must count as how-long-been")
+	}
+	if looksHowLongBeenQuery("How did Evan start his transformation journey two years ago?") {
+		t.Fatal("how-did-start must not count as how-long-been")
+	}
+	if looksHowLongBeenQuery("How does Nate describe the process of taking care of turtles?") {
+		t.Fatal("how-describe must not count as how-long-been")
+	}
+	if looksHowLongBeenQuery("How do Audrey's dogs react to snow?") {
+		t.Fatal("how-react must not count as how-long-been")
+	}
+	if looksHowLongBeenQuery("How often does Audrey meet up with other dog owners for tips and playdates?") {
+		t.Fatal("how-often must not count as how-long-been")
+	}
+	if looksHowLongBeenQuery("How long ago did Melanie start pottery?") {
+		t.Fatal("how-long-ago must not count as how-long-been")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "5 years") && !strings.Contains(lower, "five years") {
+		t.Fatalf("how-long-been leftover covering must pick continuing duration, got %q", got)
+	}
+	if strings.Contains(lower, "is married") || strings.Contains(lower, "guitar") || strings.Contains(lower, "long road") || strings.Contains(lower, "long time no chat") {
+		t.Fatalf("status facts and years-ago starts must not cover how-long-been, got %q", got)
+	}
+	if leftoverCoveringDurationLine(q, "Melanie is married.") {
+		t.Fatal("copula status is not continuing duration")
+	}
+	if leftoverCoveringDurationLine(q, "Caroline: I started playing acoustic guitar about five years ago; it's been a great way to express myself and escape into my emotions (28 August 2018; 5 years ago)") {
+		t.Fatal("years-ago start must not count as continuing duration")
+	}
+	if leftoverCoveringDurationLine(q, "Been a long road, but I'm proud of how far I've come") {
+		t.Fatal("long-road leftover is not continuing years")
+	}
+	if leftoverCoveringDurationLine(q, "Caroline: 5 years already") {
+		t.Fatal("foreign-speaker years-already leftover must not count as query-actor duration")
+	}
+	if !leftoverCoveringDurationLine(q, gold) {
+		t.Fatal("named duration-is-N-years fact must count as continuing duration")
+	}
+	if !leftoverCoveringDurationLine(q, already) {
+		t.Fatal("speaker-prefixed years-already leftover must count as continuing duration")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "Melanie is married.") {
+		t.Fatal("empty covering and status facts must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("How did Evan start his transformation journey two years ago?", gold) {
+		t.Fatal("how-did-start must not skip hybrid via how-long-been duration")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("how-long-been duration leftover must skip hybrid")
+	}
+	if !leftoverCoveringDurationMissesDuration(q, got, "Melanie is married.") {
+		t.Fatal("married-state evidence_packet answer must miss continuing duration leftover")
+	}
+}
+
+func TestLeftoverCoveringHowLongBeenStaysEmptyWithoutDuration(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Melanie is married."},
+			{Content: "Melanie has a husband."},
+			{Content: "Caroline: Hey Mel, long time no chat"},
+		},
+	}
+	q := "How long have Mel and her husband been married?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("how-long-been leftover covering must stay empty without continuing duration leftover, got %q", got)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsStartMethodEpisode(t *testing.T) {
 	q := "How did Evan start his transformation journey two years ago?"
 	candidates := map[string]MemoryRecord{
@@ -5869,6 +5957,38 @@ func TestExpandStartMethodSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 	expandStartMethodSessionNeighbors(candidates, "How did Evan start his transformation journey two years ago?", []MemoryRecord{seed}, all, 8)
 	if _, ok := candidates["gold"]; !ok {
 		t.Fatal("how-did-start session expand must admit changed+started leftover past the generic cap")
+	}
+}
+
+func TestExpandDurationSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_3"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Melanie is married.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about family hikes",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Melanie's marriage duration is 5 years.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the duration leftover can miss")
+	}
+	expandDurationSessionNeighbors(candidates, "How long have Mel and her husband been married?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("how-long-been session expand must admit continuing duration leftover past the generic cap")
 	}
 }
 

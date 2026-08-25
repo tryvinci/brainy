@@ -1242,6 +1242,57 @@ func TestKeepStartMethodInCapSurvivesListFill(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalQueryTokensDropsHowLongBeenStructure(t *testing.T) {
+	q := "How long have Mel and her husband been married?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	if strings.Contains(joined, "long") {
+		t.Fatalf("how-long-been lexical tokens must drop long, got %v", got)
+	}
+	for _, keep := range []string{"married", "husband", "mel"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("how-long-been lexical tokens must keep %q, got %v", keep, got)
+		}
+	}
+	start := searchLexicalQueryTokens("How did Evan start his transformation journey two years ago?", tokenize("How did Evan start his transformation journey two years ago?"))
+	joinedStart := strings.Join(start, " ")
+	if strings.Contains(joinedStart, "married") {
+		t.Fatalf("how-did-start must not be rewritten as how-long-been tokens, got %v", start)
+	}
+}
+
+func TestKeepDurationInCapSurvivesListFill(t *testing.T) {
+	q := "How long have Mel and her husband been married?"
+	obs := rankedSearchResult{result: SearchResult{
+		MemoryID: "obs",
+		Content:  "Melanie's marriage duration is 5 years.",
+		Score:    0.4,
+	}}
+	full := []rankedSearchResult{obs}
+	capped := make([]rankedSearchResult, 0, 30)
+	for i := 0; i < 30; i++ {
+		capped = append(capped, rankedSearchResult{result: SearchResult{
+			MemoryID: fmt.Sprintf("fill%02d", i),
+			Content:  "Melanie is married.",
+			Score:    1.5,
+		}})
+	}
+	got := keepDurationInCap(full, capped, q, 30)
+	found := false
+	for _, item := range got {
+		if strings.Contains(strings.ToLower(item.result.Content), "duration") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("how-long-been evidence-set cap must keep continuing duration leftover, n=%d", len(got))
+	}
+	if len(got) > 30 {
+		t.Fatalf("how-long-been duration keep must stay within limit, n=%d", len(got))
+	}
+}
+
 func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))

@@ -778,6 +778,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringStartMissesMethod(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringDurationMissesDuration(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3768,7 +3771,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3856,6 +3859,16 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 		}
 		rare = leftoverCoverAddTokens(filtered, leftoverCoveringAgoDurationTokens(query)...)
 	}
+	if looksHowLongBeenQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringDurationStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		rare = filtered
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -3936,7 +3949,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line)) &&
 		!(looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) && leftoverCoveringReactLineHasObject(query, line)) &&
 		!(looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line)) &&
-		!(looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line)) {
+		!(looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line)) &&
+		!(looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4157,6 +4171,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksHowLongBeenQuery(query) {
+			if leftoverCoveringDurationLine(query, line) {
+				score += 4
+				if leftoverCoveringDurationExplicitLine(line) {
+					score++
+				}
+			}
+			if leftoverCoveringDurationCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4275,6 +4300,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringStartMethodLine(query, best) {
 			// how-did-start leftover must be duration-matched inception or a
 			// first-person changed+started pair, not a gym restatement.
+		} else {
+			return ""
+		}
+	}
+	if looksHowLongBeenQuery(query) {
+		if next := leftoverCoveringPreferDuration(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringDurationLine(query, best) {
+			// how-long-been leftover must carry continuing years (already / for /
+			// duration is), not a copula status fact or a years-ago start.
 		} else {
 			return ""
 		}
@@ -5083,6 +5119,22 @@ func looksHowDidStartQuery(query string) bool {
 	return parseYearsAgo(q) > 0
 }
 
+func looksHowLongBeenQuery(query string) bool {
+	if looksHowDidStartQuery(query) || looksHowDescribeQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "how long") || strings.Contains(q, "how long ago") {
+		return false
+	}
+	for _, tok := range tokenize(query) {
+		if tok == "been" {
+			return true
+		}
+	}
+	return false
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5168,6 +5220,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line) {
+		return true
+	}
+	if looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5794,6 +5849,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, covering) {
+		return true
+	}
+	if looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -6523,6 +6581,181 @@ func leftoverCoveringStartMissesMethod(query, covering, answer string) bool {
 	return leftoverCoveringStartMethodLine(query, covering)
 }
 
+func leftoverCoveringDurationStructureToken(tok string) bool {
+	return strings.ToLower(strings.TrimSpace(tok)) == "long"
+}
+
+func yearCountBefore(lower, suffix string) int {
+	words := map[string]int{
+		"one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+		"six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10,
+	}
+	for word, n := range words {
+		if strings.Contains(lower, word+suffix) {
+			return n
+		}
+	}
+	for n := 1; n <= 20; n++ {
+		if strings.Contains(lower, strconv.Itoa(n)+suffix) {
+			return n
+		}
+	}
+	return 0
+}
+
+func parseContinuingYears(lower string) int {
+	lower = strings.ToLower(lower)
+	ago := parseYearsAgo(lower)
+	hasAlready := strings.Contains(lower, "already")
+	hasFor := strings.Contains(lower, " for ") || strings.HasPrefix(strings.TrimSpace(lower), "for ")
+	hasDuration := strings.Contains(lower, "duration")
+	if ago > 0 && !hasAlready && !hasFor && !hasDuration {
+		return 0
+	}
+	if n := yearCountBefore(lower, " years already"); n > 0 {
+		return n
+	}
+	if n := yearCountBefore(lower, " year already"); n > 0 {
+		return n
+	}
+	if hasDuration {
+		if n := yearCountBefore(lower, " years"); n > 0 {
+			return n
+		}
+		if n := yearCountBefore(lower, " year"); n > 0 {
+			return n
+		}
+	}
+	if hasFor {
+		rest := lower
+		if i := strings.Index(lower, " for "); i >= 0 {
+			rest = strings.TrimSpace(lower[i+5:])
+		} else if strings.HasPrefix(strings.TrimSpace(lower), "for ") {
+			rest = strings.TrimSpace(strings.TrimSpace(lower)[4:])
+		}
+		if n := yearCountBefore(" "+rest, " years"); n > 0 {
+			return n
+		}
+		if n := yearCountBefore(" "+rest, " year"); n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+func leftoverCoveringDurationKnownPerson(query, person string) bool {
+	person = strings.ToLower(strings.TrimSpace(person))
+	if person == "" {
+		return false
+	}
+	for _, e := range hopQueryEntities(query) {
+		e = strings.ToLower(strings.TrimSpace(e))
+		if e == "" {
+			continue
+		}
+		if e == person {
+			return true
+		}
+		if len(e) >= 3 && len(person) >= 3 && (strings.HasPrefix(person, e) || strings.HasPrefix(e, person)) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringDurationActorLine(query, line string) bool {
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	if body == "" {
+		return false
+	}
+	padded := " " + body + " "
+	if strings.Contains(padded, " i ") || strings.Contains(padded, " i've ") || strings.Contains(padded, " i'm ") ||
+		strings.HasPrefix(body, "i ") || strings.HasPrefix(body, "i've ") || strings.Contains(padded, " my ") {
+		return true
+	}
+	if leftoverCoveringQueryEntityHits(query, line) > 0 {
+		return true
+	}
+	fields := strings.Fields(line)
+	for _, raw := range fields {
+		key, ok := leftoverCoveringPersonToken(raw)
+		if !ok {
+			continue
+		}
+		if leftoverCoveringDurationKnownPerson(query, key) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringDurationExplicitLine(line string) bool {
+	body := strings.ToLower(hybridLineBody(line))
+	return strings.Contains(body, "duration") || strings.Contains(body, " for ")
+}
+
+func leftoverCoveringDurationLine(query, line string) bool {
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	if parseContinuingYears(strings.ToLower(hybridLineBody(line))) <= 0 {
+		return false
+	}
+	return leftoverCoveringDurationActorLine(query, line)
+}
+
+func leftoverCoveringDurationCompanionLine(query, line string) bool {
+	if leftoverCoveringDurationLine(query, line) {
+		return false
+	}
+	for _, tok := range tokenize(query) {
+		if leftoverCoveringDurationStructureToken(tok) || leftoverCoverWeakToken(tok) {
+			continue
+		}
+		if contentCoversQueryToken(line, tok) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringPreferDuration(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringDurationLine(query, row.line) {
+			continue
+		}
+		score := row.score
+		if leftoverCoveringDurationExplicitLine(row.line) {
+			score++
+		}
+		if score > pickScore {
+			pickScore = score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringDurationMissesDuration(query, covering, answer string) bool {
+	if !looksHowLongBeenQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringDurationLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringDurationLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -6672,6 +6905,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items
