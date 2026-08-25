@@ -130,8 +130,15 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	pkt := BuildEvidencePacket(plan, search.Results, out.Explain)
 	bindPacketToTargets(&pkt, search.Results, req.Query, plan.CoverageTargets)
 	var hopResults []HopResult
+	// Search already ranked a first-person cause leftover. Extra hop
+	// SearchOpt probes (and the hybrid reader after them) can idle past
+	// the harness timeout before leftover covering is allowed to fire.
+	skipHopsForCovering := leftoverCoveringSkipsHybrid(req.Query, leftoverCoveringSpecificAnswer(req.Query, nil, pkt))
+	if skipHopsForCovering {
+		out.Explain["hops_skipped_leftover_covering"] = true
+	}
 	// Typed hop executor: bind packet from hop joins when hops exist.
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration) && len(plan.Hops) > 0 {
+	if !skipHopsForCovering && (plan.NeedsMultiHop || plan.NeedsEnumeration) && len(plan.Hops) > 0 {
 		var byKey map[string]HopResult
 		hopResults, byKey = s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK, req.Query)
 		bindPacketFromHopResults(&pkt, hopResults, byKey)
@@ -192,7 +199,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				}
 			}
 		}
-	} else if plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
+	} else if !skipHopsForCovering && plan.NeedsMultiHop && plan.BudgetPasses >= 2 {
 		// Legacy lexical second pass when no typed hops were planned.
 		if unc := uncoveredTargets(pkt); len(unc) > 0 {
 			probe := nextHopProbe(plan, pkt)

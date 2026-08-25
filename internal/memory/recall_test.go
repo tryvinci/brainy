@@ -4860,6 +4860,27 @@ func TestLeftoverCoveringMotivatePrefersCauseOverTurtle(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringMotivatePacketAloneSkipsHybrid(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "It's knowing that my writing can make a difference that keeps me going, even on tough days"},
+		},
+	}
+	q := "What motivates Joanna to keep writing even on tough days?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if !leftoverCoveringSkipsHybrid(q, got) {
+		t.Fatalf("search-packet cause leftover must skip hops and hybrid without hop results, got %q", got)
+	}
+	emptyPkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times."},
+		},
+	}
+	if leftoverCoveringSkipsHybrid(q, leftoverCoveringSpecificAnswer(q, nil, emptyPkt)) {
+		t.Fatal("turtle compiler restatement must not skip hops or hybrid")
+	}
+}
+
 func TestLeftoverCoveringMotivateEmptyLeavesHybrid(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},
