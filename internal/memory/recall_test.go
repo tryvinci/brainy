@@ -4235,6 +4235,15 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if !leftoverCoveringAdviceOffQueryLine("Just keep their area clean, feed them properly, and make sure they get enough light") {
 		t.Fatal("just-keep hortative leftover must classify as a directive")
 	}
+	if leftoverCoveringProcessHortativeLine("Don't forget to relax and enjoy the process too") {
+		t.Fatal("process-restatement hortative must not count as process leftover")
+	}
+	if leftoverCoveringProcessHortativeLine("Hoping to share my love of gaming and connect with others who enjoy it too") {
+		t.Fatal("companion slogan is not process hortative leftover")
+	}
+	if !leftoverCoveringProcessHortativeLine("Just keep their area clean, feed them properly, and make sure they get enough light") {
+		t.Fatal("just-keep leftover without process restatement must count as process hortative")
+	}
 }
 
 func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
@@ -4598,6 +4607,7 @@ func TestLeftoverCoveringProcessPrefersHortativeOverCompanion(t *testing.T) {
 		ContextEvidence: []PacketItem{
 			{Content: "Nate says that looking after his turtles is a calming, stress-relieving activity."},
 			{Content: "Nate's pet turtles are calm and peaceful, and the recent tank expansion made them happy."},
+			{Content: "Hoping to share my love of gaming and connect with others who enjoy it too"},
 			{Content: "Just keep their area clean, feed them properly, and make sure they get enough light"},
 			{Content: "[pet turtles basking rock] [a photo of a turtle sitting on a log in a pond]"},
 		},
@@ -4608,7 +4618,7 @@ func TestLeftoverCoveringProcessPrefersHortativeOverCompanion(t *testing.T) {
 	if !strings.Contains(lower, "clean") || !strings.Contains(lower, "feed") || !strings.Contains(lower, "light") {
 		t.Fatalf("how-describe-process leftover covering must pick the hortative leftover, got %q", got)
 	}
-	if strings.Contains(lower, "calming") || strings.Contains(lower, "peaceful") {
+	if strings.Contains(lower, "calming") || strings.Contains(lower, "peaceful") || strings.Contains(lower, "gaming") {
 		t.Fatalf("companion slogan must not cover how-describe-process, got %q", got)
 	}
 	hybrid := "Nate says that looking after his turtles is a calming, stress-relieving activity."
@@ -4638,14 +4648,46 @@ func TestExpandProcessHortativeSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 		Content:  "Just keep their area clean, feed them properly, and make sure they get enough light",
 		Metadata: map[string]any{"session_id": session},
 	}
-	all = append(all, gold)
+	forget := MemoryRecord{
+		MemoryID: "forget",
+		Content:  "Don't forget to relax and enjoy the process too",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, forget, gold)
 	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
 	if _, ok := candidates["gold"]; ok {
 		t.Fatal("generic session expand must stay capped so the hortative leftover can miss")
 	}
-	expandAdviceDirectiveSessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	expandProcessHortativeSessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
 	if _, ok := candidates["gold"]; !ok {
 		t.Fatal("process hortative session expand must admit the just-keep leftover past the generic cap")
+	}
+	if _, ok := candidates["forget"]; ok {
+		t.Fatal("process hortative session expand must not admit process-restatement hortative")
+	}
+}
+
+func TestLeftoverCoveringProcessDoesNotStealElectronic(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Calvin", Value: "Calvin", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Don't forget to relax and enjoy the process too"},
+			{Content: "Adding electronic elements gives his songs a fresh vibe"},
+			{Content: "Calvin has been adding electronic elements to his songs."},
+		},
+	}
+	q := "How does Calvin describe his process of adding electronic elements to his songs?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	if got != "" {
+		t.Fatalf("process leftover covering must stay empty so electronic hybrid can hold, got %q", got)
+	}
+	if leftoverCoveringProcessHortativeLine("Don't forget to relax and enjoy the process too") {
+		t.Fatal("enjoy-the-process hortative must not count as process leftover")
+	}
+	if leftoverCoveringProcessMissesHortative(q, "", "Adding electronic elements gives his songs a fresh vibe") {
+		t.Fatal("empty process covering must not replace the electronic hybrid")
 	}
 }
 
@@ -4664,6 +4706,50 @@ func TestSessionIDsForHowDescribeProcessQueryUsesObjectSeed(t *testing.T) {
 	ids := sessionIDsForHowDescribeProcessQuery(q, []MemoryRecord{careSelf, photo})
 	if len(ids) == 0 || ids[0] != "session_5" {
 		t.Fatalf("how-describe-process session pick must prefer object-token coverage, got %#v", ids)
+	}
+}
+
+func TestApplyProcessHortativeRankBoostSkipsProcessRestatement(t *testing.T) {
+	q := "How does Nate describe the process of taking care of turtles?"
+	gold := 1.0
+	forget := 1.0
+	applyProcessHortativeRankBoost(&gold, map[string]any{}, q, MemoryRecord{Content: "Just keep their area clean, feed them properly, and make sure they get enough light"})
+	applyProcessHortativeRankBoost(&forget, map[string]any{}, q, MemoryRecord{Content: "Don't forget to relax and enjoy the process too"})
+	if gold <= forget {
+		t.Fatalf("process hortative rank boost must lift just-keep over process restatement, gold=%v forget=%v", gold, forget)
+	}
+	calming := 1.0
+	applyProcessHortativeRankBoost(&calming, map[string]any{}, q, MemoryRecord{Content: "Nate says looking after his turtles is calming"})
+	if calming != 1.0 {
+		t.Fatalf("companion slogan must not receive process hortative rank boost, got %v", calming)
+	}
+}
+
+func TestScoreMemoryIDFProcessHortativeNeedsFloor(t *testing.T) {
+	q := "How does Nate describe the process of taking care of turtles?"
+	gold := MemoryRecord{Content: "Just keep their area clean, feed them properly, and make sure they get enough light"}
+	if !leftoverCoveringProcessHortativeLine(gold.Content) {
+		t.Fatal("just-keep leftover must classify as process hortative")
+	}
+	score, _ := scoreMemoryIDF(gold, q, tokenize(q), nil, nil)
+	if score > 0 {
+		t.Fatalf("process hortative gold has no query tokens so IDF score must be 0 without a floor, got %v", score)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsProcessHortativeEpisode(t *testing.T) {
+	q := "How does Nate describe the process of taking care of turtles?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Nate has pet turtles."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "Just keep their area clean, feed them properly, and make sure they get enough light",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("how-describe-process query must keep hortative episode leftover")
 	}
 }
 

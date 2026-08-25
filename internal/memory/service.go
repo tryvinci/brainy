@@ -744,7 +744,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			}
 		}
 		if len(processAll) > 0 && len(idSeeds) > 0 {
-			expandAdviceDirectiveSessionNeighbors(candidates, idSeeds, processAll, 8)
+			expandProcessHortativeSessionNeighbors(candidates, idSeeds, processAll, 8)
 		}
 	}
 
@@ -827,7 +827,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "kind_list_floor"
 		}
-		if score <= 0 && looksHowDescribeProcessQuery(query) && leftoverCoveringAdviceOffQueryLine(record.Content) {
+		if score <= 0 && looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(record.Content) {
 			score = 0.9
 			explain["ranking_basis"] = "process_hortative_floor"
 		}
@@ -1064,7 +1064,7 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksWhatKindQuery(query) && leftoverCoveringKindListLine(ep.Content) {
 				continue
 			}
-			if looksHowDescribeProcessQuery(query) && leftoverCoveringAdviceOffQueryLine(ep.Content) {
+			if looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(ep.Content) {
 				continue
 			}
 			delete(candidates, ep.MemoryID)
@@ -1100,7 +1100,7 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	}
 	if looksHowDescribeProcessQuery(query) {
 		for _, ep := range episodes {
-			if leftoverCoveringAdviceOffQueryLine(ep.Content) {
+			if leftoverCoveringProcessHortativeLine(ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -1484,6 +1484,42 @@ func expandAdviceDirectiveSessionNeighbors(candidates map[string]MemoryRecord, s
 			continue
 		}
 		if !leftoverCoveringAdviceOffQueryLine(record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+// expandProcessHortativeSessionNeighbors admits hortative leftover that omits
+// process/care restatement ("just keep their area clean") from object-seeded
+// sessions. Advice expand would also admit "don't forget … the process".
+func expandProcessHortativeSessionNeighbors(candidates map[string]MemoryRecord, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringProcessHortativeLine(record.Content) {
 			continue
 		}
 		candidates[record.MemoryID] = record
@@ -2065,7 +2101,7 @@ func applyKindListRankBoost(score *float64, explain map[string]any, query string
 }
 
 func applyProcessHortativeRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
-	if score == nil || !looksHowDescribeProcessQuery(query) || !leftoverCoveringAdviceOffQueryLine(record.Content) {
+	if score == nil || !looksHowDescribeProcessQuery(query) || !leftoverCoveringProcessHortativeLine(record.Content) {
 		return
 	}
 	const bonus = 0.75

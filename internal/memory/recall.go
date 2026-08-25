@@ -746,6 +746,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringAdviceMissesDirective(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringProcessMissesHortative(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3889,7 +3892,7 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		}
 	}
 	if looksCrowdedHopDump(line) && !(looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)) &&
-		!(looksHowDescribeProcessQuery(query) && leftoverCoveringAdviceOffQueryLine(line)) {
+		!(looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line)) {
 		return true
 	}
 	body := line
@@ -4063,7 +4066,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			}
 		}
 		if looksHowDescribeProcessQuery(query) {
-			if leftoverCoveringAdviceOffQueryLine(line) {
+			if leftoverCoveringProcessHortativeLine(line) {
 				score += 4
 			}
 			if leftoverCoveringProcessCompanionLine(query, line) {
@@ -4117,8 +4120,11 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		}
 	}
 	if looksHowDescribeProcessQuery(query) {
-		if next := leftoverCoveringPreferAdviceDirective(query, scored, best); next != "" {
+		if next := leftoverCoveringPreferProcessHortative(query, scored, best); next != "" {
 			best = next
+		}
+		if !leftoverCoveringProcessHortativeLine(best) {
+			return ""
 		}
 	}
 	if leftoverCoveringShouldJoin(query) {
@@ -4901,7 +4907,7 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 	if looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(line) {
 		return true
 	}
-	if looksHowDescribeProcessQuery(query) && leftoverCoveringAdviceOffQueryLine(line) {
+	if looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5052,6 +5058,9 @@ func leftoverCoveringAdviceSpeechLine(line string) bool {
 }
 
 func leftoverCoveringAdviceDirectiveLine(line string) bool {
+	if leftoverCoveringHortativePrefixLine(line) {
+		return true
+	}
 	if looksChatTurnLine(line) || looksInterrogativeLine(line) || leftoverCoveringAdviceSpeechLine(line) {
 		return false
 	}
@@ -5059,24 +5068,7 @@ func leftoverCoveringAdviceDirectiveLine(line string) bool {
 	if body == "" {
 		return false
 	}
-	trimmed := body
-	for {
-		switch {
-		case strings.HasPrefix(trimmed, "and "):
-			trimmed = strings.TrimSpace(trimmed[4:])
-			continue
-		case strings.HasPrefix(trimmed, "also "):
-			trimmed = strings.TrimSpace(trimmed[5:])
-			continue
-		}
-		break
-	}
-	for _, p := range []string{"be sure ", "be sure to ", "don't forget", "do not forget", "make sure ", "remember to ", "try to ", "just keep "} {
-		if strings.HasPrefix(trimmed, p) {
-			return true
-		}
-	}
-	fields := strings.Fields(trimmed)
+	fields := strings.Fields(leftoverCoveringStripLeadConjunctions(body))
 	if len(fields) == 0 {
 		return false
 	}
@@ -5088,6 +5080,39 @@ func leftoverCoveringAdviceDirectiveLine(line string) bool {
 	// Second-person evaluative gerunds ("Seeing your students…") are not advice content.
 	padded := " " + body + " "
 	return strings.Contains(padded, " i ") || strings.Contains(padded, " i'm ") || strings.Contains(padded, " my ")
+}
+
+func leftoverCoveringStripLeadConjunctions(body string) string {
+	trimmed := strings.TrimSpace(body)
+	for {
+		switch {
+		case strings.HasPrefix(trimmed, "and "):
+			trimmed = strings.TrimSpace(trimmed[4:])
+			continue
+		case strings.HasPrefix(trimmed, "also "):
+			trimmed = strings.TrimSpace(trimmed[5:])
+			continue
+		}
+		break
+	}
+	return trimmed
+}
+
+func leftoverCoveringHortativePrefixLine(line string) bool {
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || leftoverCoveringAdviceSpeechLine(line) {
+		return false
+	}
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	if body == "" {
+		return false
+	}
+	trimmed := leftoverCoveringStripLeadConjunctions(body)
+	for _, p := range []string{"be sure ", "be sure to ", "don't forget", "do not forget", "make sure ", "remember to ", "try to ", "just keep "} {
+		if strings.HasPrefix(trimmed, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func leftoverCoveringAdviceOffQueryLine(line string) bool {
@@ -5293,7 +5318,7 @@ func leftoverCoveringProcessRestatementToken(tok string) bool {
 }
 
 func leftoverCoveringProcessCompanionLine(query, line string) bool {
-	if leftoverCoveringAdviceOffQueryLine(line) {
+	if leftoverCoveringProcessHortativeLine(line) {
 		return false
 	}
 	for _, tok := range leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query))) {
@@ -5307,6 +5332,45 @@ func leftoverCoveringProcessCompanionLine(query, line string) bool {
 	return false
 }
 
+func leftoverCoveringProcessHortativeLine(line string) bool {
+	if !leftoverCoveringHortativePrefixLine(line) {
+		return false
+	}
+	for _, tok := range tokenize(hybridLineBody(line)) {
+		if leftoverCoveringProcessRestatementToken(tok) {
+			return false
+		}
+	}
+	return true
+}
+
+func leftoverCoveringPreferProcessHortative(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringProcessHortativeLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && !leftoverCoveringMentionsQueryEntity(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
 func leftoverCoveringProcessMissesHortative(query, covering, answer string) bool {
 	if !looksHowDescribeProcessQuery(query) {
 		return false
@@ -5316,10 +5380,10 @@ func leftoverCoveringProcessMissesHortative(query, covering, answer string) bool
 	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
 		return false
 	}
-	if leftoverCoveringAdviceOffQueryLine(answer) {
+	if leftoverCoveringProcessHortativeLine(answer) {
 		return false
 	}
-	if !leftoverCoveringAdviceOffQueryLine(covering) {
+	if !leftoverCoveringProcessHortativeLine(covering) {
 		return false
 	}
 	return true
