@@ -624,7 +624,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if listQuery {
 			relLimit = 24
 		}
-		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, queryTokens, relatedSeeds, relLimit); err == nil {
+		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, contentQueryTokens, relatedSeeds, relLimit); err == nil {
 			for _, record := range related {
 				if _, ok := candidates[record.MemoryID]; !ok {
 					candidates[record.MemoryID] = record
@@ -636,7 +636,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	// Rare query tokens (filling, gym, series) lose the lexical pool when FTS
 	// ANDs every term or ILIKE is recency-capped on common names. Admit a
 	// bounded per-token hit set so compiled facts can rank.
-	trace.QueryTokenAdmitted = s.admitUncoveredQueryTokens(ctx, tenantID, subjectID, includeSuperseded, candidates, queryTokens)
+	trace.QueryTokenAdmitted = s.admitUncoveredQueryTokens(ctx, tenantID, subjectID, includeSuperseded, candidates, contentQueryTokens)
 
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
@@ -830,9 +830,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		limit = 32
 	}
 	if listQuery || looksMultiHopQuery(queryTokens) {
-		ranked = selectEvidenceSetCovering(ranked, limit, queryTokens)
+		ranked = selectEvidenceSetCovering(ranked, limit, contentQueryTokens)
 	} else if len(ranked) > limit {
-		ranked = coverQueryTokensThenCap(ranked, limit, queryTokens)
+		ranked = coverQueryTokensThenCap(ranked, limit, contentQueryTokens)
 	}
 
 	results := make([]SearchResult, len(ranked))
@@ -2096,8 +2096,13 @@ func searchDropsWhatMadeStructureTokens(queryTokens []string) bool {
 func dropWhatMadeStructureTokens(bearing []string) []string {
 	out := make([]string, 0, len(bearing))
 	for _, tok := range bearing {
-		switch strings.ToLower(strings.TrimSpace(tok)) {
-		case "made", "makes", "making", "part":
+		low := strings.ToLower(strings.TrimSpace(tok))
+		switch low {
+		case "made", "makes", "making", "part",
+			"easy", "easier", "stay", "staying":
+			// Short reason verbs ILIKE-flood ("stay connected") and crowd
+			// first-person cause lines out of recency overfetch. Keep longer
+			// reason tokens like "motivated" so the cause line still admits.
 			continue
 		}
 		out = append(out, tok)

@@ -762,7 +762,12 @@ func TestSearchLexicalTokensDropsWhatMadeStructureAndPerson(t *testing.T) {
 			t.Fatalf("what-made lexical tokens must drop structure/person %q, got %v", banned, got)
 		}
 	}
-	for _, keep := range []string{"running", "group", "easy", "stay", "motivated"} {
+	for _, banned := range []string{"easy", "stay"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("what-made lexical tokens must drop short reason verb %q, got %v", banned, got)
+		}
+	}
+	for _, keep := range []string{"running", "group", "motivated"} {
 		if !strings.Contains(joined, keep) {
 			t.Fatalf("what-made lexical tokens must keep %q, got %v", keep, got)
 		}
