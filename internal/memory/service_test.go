@@ -1371,6 +1371,58 @@ func TestKeepCurrentProjectInCapSurvivesListFill(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalQueryTokensDropsWhatNewHobbyStructure(t *testing.T) {
+	q := "What new hobby did James become interested in on 9 July, 2022?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	if strings.Contains(joined, "hobby") {
+		t.Fatalf("what-new-hobby lexical tokens must drop hobby, got %v", got)
+	}
+	if !strings.Contains(joined, "interested") {
+		t.Fatalf("what-new-hobby lexical tokens must keep interested, got %v", got)
+	}
+	proj := searchLexicalQueryTokens("What project is James working on in his game design course?", tokenize("What project is James working on in his game design course?"))
+	joinedProj := strings.Join(proj, " ")
+	if strings.Contains(joinedProj, "hobby") {
+		t.Fatalf("what-project must not be rewritten as what-new-hobby tokens, got %v", proj)
+	}
+	if !strings.Contains(joinedProj, "working") {
+		t.Fatalf("what-project must keep working, got %v", proj)
+	}
+}
+
+func TestKeepBecomeInterestedInCapSurvivesListFill(t *testing.T) {
+	q := "What new hobby did James become interested in on 9 July, 2022?"
+	obs := rankedSearchResult{result: SearchResult{
+		MemoryID: "obs",
+		Content:  "Lately I've become interested in extreme sports",
+		Score:    0.4,
+	}}
+	full := []rankedSearchResult{obs}
+	capped := make([]rankedSearchResult, 0, 30)
+	for i := 0; i < 30; i++ {
+		capped = append(capped, rankedSearchResult{result: SearchResult{
+			MemoryID: fmt.Sprintf("fill%02d", i),
+			Content:  "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector.",
+			Score:    1.5,
+		}})
+	}
+	got := keepBecomeInterestedInCap(full, capped, q, 30)
+	found := false
+	for _, item := range got {
+		if strings.Contains(strings.ToLower(item.result.Content), "become interested") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("what-new-hobby evidence-set cap must keep become-interested leftover, n=%d", len(got))
+	}
+	if len(got) > 30 {
+		t.Fatalf("what-new-hobby become-interested keep must stay within limit, n=%d", len(got))
+	}
+}
+
 func TestKeepDurationInCapSurvivesListFill(t *testing.T) {
 	q := "How long have Mel and her husband been married?"
 	obs := rankedSearchResult{result: SearchResult{

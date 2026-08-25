@@ -787,6 +787,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringCurrentProjectMissesCurrent(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringBecomeInterestedMissesInterest(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3777,7 +3780,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3903,6 +3906,16 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 			rare = filtered
 		}
 	}
+	if looksWhatNewHobbyQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringBecomeInterestedStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		rare = filtered
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -3986,7 +3999,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line)) &&
 		!(looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, line)) &&
 		!(looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, line)) &&
-		!(looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, line)) {
+		!(looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, line)) &&
+		!(looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4234,6 +4248,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatNewHobbyQuery(query) {
+			if leftoverCoveringBecomeInterestedLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringBecomeInterestedCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4386,6 +4408,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringCurrentProjectLine(query, best) {
 			// what-project leftover must be currently-working / working-on-a-new,
 			// not a childhood desire or "creating his own" without currently.
+		} else {
+			return ""
+		}
+	}
+	if looksWhatNewHobbyQuery(query) {
+		if next := leftoverCoveringPreferBecomeInterested(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringBecomeInterestedLine(query, best) {
+			// dated what-new-hobby leftover must be first-person become-interested,
+			// not a foreign-person "new hobby" restatement.
 		} else {
 			return ""
 		}
@@ -5245,6 +5278,27 @@ func looksWhatProjectWorkingQuery(query string) bool {
 	return hasWhat && hasProject && hasWork
 }
 
+func looksWhatNewHobbyQuery(query string) bool {
+	if looksWhatProjectWorkingQuery(query) || looksHowOftenQuery(query) || looksHowLongBeenQuery(query) || looksHowDidStartQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDescribeQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	if querySpecificCalendarDate(query) == nil {
+		return false
+	}
+	hasWhat, hasHobby, hasInterest := false, false, false
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "what":
+			hasWhat = true
+		case "hobby", "hobbies":
+			hasHobby = true
+		case "interested", "interest", "become", "became", "becoming":
+			hasInterest = true
+		}
+	}
+	return hasWhat && hasHobby && hasInterest
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5273,7 +5327,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5339,6 +5393,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, line) {
+		return true
+	}
+	if looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5974,6 +6031,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, covering) {
+		return true
+	}
+	if looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -7184,6 +7244,75 @@ func leftoverCoveringCurrentProjectMissesCurrent(query, covering, answer string)
 	return leftoverCoveringCurrentProjectLine(query, covering)
 }
 
+func leftoverCoveringBecomeInterestedStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "hobby", "hobbies":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringBecomeInterestedCue(s string) bool {
+	lower := strings.ToLower(s)
+	lower = strings.NewReplacer(",", " ", ".", " ", ";", " ", "?", " ", "!", " ", ":", " ").Replace(lower)
+	padded := " " + strings.Join(strings.Fields(lower), " ") + " "
+	return strings.Contains(padded, " become interested ") || strings.Contains(padded, " became interested ") || strings.Contains(padded, " becoming interested ")
+}
+
+func leftoverCoveringBecomeInterestedLine(query, line string) bool {
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	if !leftoverCoveringBecomeInterestedCue(hybridLineBody(line)) {
+		return false
+	}
+	return leftoverCoveringDurationActorLine(query, line)
+}
+
+func leftoverCoveringBecomeInterestedCompanionLine(query, line string) bool {
+	if leftoverCoveringBecomeInterestedLine(query, line) {
+		return false
+	}
+	if leftoverCoveringLineHasForeignPerson(query, line) {
+		return true
+	}
+	lower := strings.ToLower(hybridLineBody(line))
+	return strings.Contains(lower, "new hobby") || strings.Contains(lower, "taken up")
+}
+
+func leftoverCoveringPreferBecomeInterested(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringBecomeInterestedLine(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringBecomeInterestedMissesInterest(query, covering, answer string) bool {
+	if !looksWhatNewHobbyQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringBecomeInterestedLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringBecomeInterestedLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -7342,6 +7471,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items

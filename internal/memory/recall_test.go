@@ -6237,6 +6237,156 @@ func TestSessionIDsForWhatProjectWorkingPrefersCurrentSessions(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhatNewHobbyPrefersBecomeInterested(t *testing.T) {
+	gold := "Lately I've become interested in extreme sports"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector."},
+			{Content: "John: I've been getting into a new hobby recently"},
+			{Content: "James won an online gaming tournament last week (the week of 2 July 2022)."},
+			{Content: gold},
+			{Content: "James is interested in extreme sports."},
+		},
+	}
+	q := "What new hobby did James become interested in on 9 July, 2022?"
+	if !looksWhatNewHobbyQuery(q) {
+		t.Fatal("dated what-new-hobby + become interested must count as what-new-hobby")
+	}
+	if looksWhatNewHobbyQuery("What project is James working on in his game design course?") {
+		t.Fatal("what-project-working must not count as what-new-hobby")
+	}
+	if looksWhatNewHobbyQuery("How often does Audrey meet up with other dog owners for tips and playdates?") {
+		t.Fatal("how-often must not count as what-new-hobby")
+	}
+	if looksWhatNewHobbyQuery("What new hobby did James become interested in?") {
+		t.Fatal("undated what-new-hobby must not count as dated what-new-hobby")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "become interested") {
+		t.Fatalf("what-new-hobby leftover covering must pick become-interested leftover, got %q", got)
+	}
+	if strings.Contains(lower, "metal") || strings.Contains(lower, "detect") || strings.Contains(lower, "john") {
+		t.Fatalf("foreign-person new-hobby leftover must not cover dated what-new-hobby, got %q", got)
+	}
+	if leftoverCoveringBecomeInterestedLine(q, "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector.") {
+		t.Fatal("foreign metal-detecting leftover must not count as become-interested covering")
+	}
+	if leftoverCoveringBecomeInterestedLine(q, "John: I've been getting into a new hobby recently") {
+		t.Fatal("foreign getting-into leftover must not count as become-interested covering")
+	}
+	if !leftoverCoveringBecomeInterestedLine(q, gold) {
+		t.Fatal("first-person become-interested leftover must count as what-new-hobby covering")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector.") {
+		t.Fatal("empty covering and foreign new-hobby must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("What project is James working on in his game design course?", gold) {
+		t.Fatal("what-project-working must not skip hybrid via become-interested leftover")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("become-interested leftover must skip hybrid")
+	}
+	if !leftoverCoveringBecomeInterestedMissesInterest(q, got, "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector.") {
+		t.Fatal("foreign new-hobby answer must miss become-interested leftover")
+	}
+	dumpItems := []RecallItem{{Value: "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector."}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "become interested") {
+		t.Fatalf("what-new-hobby covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringWhatNewHobbyStaysEmptyWithoutInterest(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector."},
+			{Content: "James won an online gaming tournament last week (the week of 2 July 2022)."},
+			{Content: "James took many photographs on 21 July 2022."},
+		},
+	}
+	q := "What new hobby did James become interested in on 9 July, 2022?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("what-new-hobby leftover covering must stay empty without become-interested leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsBecomeInterestedEpisode(t *testing.T) {
+	q := "What new hobby did James become interested in on 9 July, 2022?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "Lately I've become interested in extreme sports",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("what-new-hobby query must keep become-interested episode leftover")
+	}
+}
+
+func TestExpandBecomeInterestedSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_16"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "James won an online gaming tournament last week (the week of 2 July 2022).",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about july photographs",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Lately I've become interested in extreme sports",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the become-interested leftover can miss")
+	}
+	expandBecomeInterestedSessionNeighbors(candidates, "What new hobby did James become interested in on 9 July, 2022?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("what-new-hobby session expand must admit become-interested leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatNewHobbyPrefersInterestSessions(t *testing.T) {
+	q := "What new hobby did James become interested in on 9 July, 2022?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector.",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	metal := MemoryRecord{
+		MemoryID: "metal",
+		Content:  "John has taken up metal detecting as a new hobby, walking along beaches with a metal detector.",
+		Metadata: map[string]any{"session_id": "session_2"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Lately I've become interested in extreme sports",
+		Metadata: map[string]any{"session_id": "session_16"},
+	}
+	seeds := append(recent, metal)
+	ids := sessionIDsForWhatNewHobbyQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_16" {
+		t.Fatalf("what-new-hobby session rank must prefer become-interested leftover session over recency metal detecting, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsStartMethodEpisode(t *testing.T) {
 	q := "How did Evan start his transformation journey two years ago?"
 	candidates := map[string]MemoryRecord{
