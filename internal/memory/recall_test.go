@@ -4625,6 +4625,36 @@ func TestLeftoverCoveringProcessPrefersHortativeOverCompanion(t *testing.T) {
 	if !leftoverCoveringProcessMissesHortative(q, got, hybrid) {
 		t.Fatal("how-describe-process covering must replace a companion slogan")
 	}
+	if leftoverCoveringLineHasForeignPerson(q, "Just keep their area clean, feed them properly, and make sure they get enough light") {
+		t.Fatal("sentence-initial just-keep must not count as a foreign person")
+	}
+}
+
+func TestLeftoverCoveringProcessLivePacketPrefersJustKeep(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Nate", Value: "Nate", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Nate describes his gaming space as a personal haven to escape into the virtual world."},
+			{Content: "I think just having someone to support me throughout the whole process is such a blessing"},
+			{Content: "Nate believes that taking care of ourselves helps us be more creative and happier."},
+			{Content: "Nate notes that his turtles require little looking after."},
+			{Content: "Just keep their area clean, feed them properly, and make sure they get enough light"},
+			{Content: "Nate recommends keeping turtles as pets to help relieve stress."},
+			{Content: "Nate's pet turtles are calm and peaceful, and the recent tank expansion made them happy."},
+			{Content: "Hoping to share my love of gaming and connect with others who enjoy it too"},
+		},
+	}
+	q := "How does Nate describe the process of taking care of turtles?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "clean") || !strings.Contains(lower, "feed") || !strings.Contains(lower, "light") {
+		t.Fatalf("live how-describe-process packet must cover with just-keep leftover, got %q", got)
+	}
+	if strings.Contains(lower, "gaming") || strings.Contains(lower, "blessing") || strings.Contains(lower, "calming") || strings.Contains(lower, "ourselves") {
+		t.Fatalf("companion, blessing, or gaming leftover must not cover, got %q", got)
+	}
 }
 
 func TestExpandProcessHortativeSessionNeighborsAdmitsGoldPastCap(t *testing.T) {

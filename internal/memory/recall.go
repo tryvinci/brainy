@@ -5357,9 +5357,6 @@ func leftoverCoveringPreferProcessHortative(query string, scored []leftoverCover
 		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
 			continue
 		}
-		if leftoverCoveringLineHasForeignPerson(query, row.line) && !leftoverCoveringMentionsQueryEntity(query, row.line) {
-			continue
-		}
 		if row.score > pickScore {
 			pickScore = row.score
 			pick = row.line
@@ -5699,7 +5696,7 @@ func leftoverCoveringSentenceInitialVerb(i int, fields []string) bool {
 	}
 	// Hortative / gerund leftover ("Also be sure…", "Building relationships…").
 	switch lower {
-	case "also", "and", "but", "so", "make", "don't", "dont", "it":
+	case "also", "and", "but", "so", "make", "don't", "dont", "it", "just":
 		return true
 	}
 	if len(lower) >= 6 && strings.HasSuffix(lower, "ing") {
