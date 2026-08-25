@@ -6070,6 +6070,173 @@ func TestSessionIDsForHowOftenPrefersCadenceSessions(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhatProjectWorkingPrefersCurrent(t *testing.T) {
+	gold := "James: Yes, we are currently working on a new part of the football simulator"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "James has wanted to turn his childhood comic sketches into a computer game since he was a kid."},
+			{Content: "James is creating his own game project."},
+			{Content: "John is playing FIFA 23."},
+			{Content: "James's sibling is working on a coding project."},
+			{Content: "James read a game design magazine."},
+			{Content: gold},
+			{Content: "James is currently working on a new part of a football simulator, focusing on collecting player databases."},
+		},
+	}
+	q := "What project is James working on in his game design course?"
+	if !looksWhatProjectWorkingQuery(q) {
+		t.Fatal("what project + working must count as what-project-working")
+	}
+	if looksWhatProjectWorkingQuery("How often does Audrey meet up with other dog owners for tips and playdates?") {
+		t.Fatal("how-often must not count as what-project-working")
+	}
+	if looksWhatProjectWorkingQuery("How long have Mel and her husband been married?") {
+		t.Fatal("how-long-been must not count as what-project-working")
+	}
+	if looksWhatProjectWorkingQuery("How did Evan start his transformation journey two years ago?") {
+		t.Fatal("how-did-start must not count as what-project-working")
+	}
+	if looksWhatProjectWorkingQuery("What did Audrey do in November 2023 to better take care of her dogs?") {
+		t.Fatal("what-did-purpose must not count as what-project-working")
+	}
+	if looksWhatProjectWorkingQuery("How does Nate describe the process of taking care of turtles?") {
+		t.Fatal("how-describe must not count as what-project-working")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "currently working") {
+		t.Fatalf("what-project leftover covering must pick currently-working leftover, got %q", got)
+	}
+	if strings.Contains(lower, "comic") || strings.Contains(lower, "childhood") || strings.Contains(lower, "creating his own") || strings.Contains(lower, "fifa") || strings.Contains(lower, "sibling") || strings.Contains(lower, "magazine") {
+		t.Fatalf("childhood desire, creating-own, FIFA, sibling coding, and magazine must not cover what-project, got %q", got)
+	}
+	if leftoverCoveringCurrentProjectLine(q, "James has wanted to turn his childhood comic sketches into a computer game since he was a kid.") {
+		t.Fatal("childhood desire must not count as currently-working covering")
+	}
+	if leftoverCoveringCurrentProjectLine(q, "James is creating his own game project.") {
+		t.Fatal("creating-own without currently must not count as currently-working covering")
+	}
+	if leftoverCoveringCurrentProjectLine(q, "John is playing FIFA 23.") {
+		t.Fatal("peer FIFA leftover must not count as currently-working covering")
+	}
+	if leftoverCoveringCurrentProjectLine(q, "James's sibling is working on a coding project.") {
+		t.Fatal("sibling coding leftover must not count as currently-working covering")
+	}
+	if leftoverCoveringCurrentProjectLine(q, gold) {
+		// speaker leftover is currently-working
+	} else {
+		t.Fatal("currently-working leftover must count as what-project covering")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "James is creating his own game project.") {
+		t.Fatal("empty covering and creating-own must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("How often does Audrey meet up with other dog owners for tips and playdates?", gold) {
+		t.Fatal("how-often must not skip hybrid via currently-working leftover")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("currently-working leftover must skip hybrid")
+	}
+	if !leftoverCoveringCurrentProjectMissesCurrent(q, got, "He is creating his own game project – turning his childhood comic sketches into a computer game.") {
+		t.Fatal("hybrid comic-sketch answer must miss currently-working leftover")
+	}
+	dumpItems := []RecallItem{{Value: "He is creating his own game project – turning his childhood comic sketches into a computer game."}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "currently working") {
+		t.Fatalf("what-project covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringWhatProjectWorkingStaysEmptyWithoutCurrent(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "James has wanted to turn his childhood comic sketches into a computer game since he was a kid."},
+			{Content: "James is creating his own game project."},
+			{Content: "John is playing FIFA 23."},
+			{Content: "James's sibling is working on a coding project."},
+		},
+	}
+	q := "What project is James working on in his game design course?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("what-project leftover covering must stay empty without currently-working leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsCurrentProjectEpisode(t *testing.T) {
+	q := "What project is James working on in his game design course?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "James is creating his own game project."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "James: Yes, we are currently working on a new part of the football simulator",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("what-project query must keep currently-working episode leftover")
+	}
+}
+
+func TestExpandCurrentProjectSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_13"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "James is creating his own game project.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about comic sketches",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "James: Yes, we are currently working on a new part of the football simulator",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the currently-working leftover can miss")
+	}
+	expandCurrentProjectSessionNeighbors(candidates, "What project is James working on in his game design course?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("what-project session expand must admit currently-working leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatProjectWorkingPrefersCurrentSessions(t *testing.T) {
+	q := "What project is James working on in his game design course?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "James has wanted to turn his childhood comic sketches into a computer game since he was a kid.",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	creating := MemoryRecord{
+		MemoryID: "creating",
+		Content:  "James is creating his own game project.",
+		Metadata: map[string]any{"session_id": "session_1"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "James: Yes, we are currently working on a new part of the football simulator",
+		Metadata: map[string]any{"session_id": "session_13"},
+	}
+	seeds := append(recent, creating)
+	ids := sessionIDsForWhatProjectWorkingQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_13" {
+		t.Fatalf("what-project session rank must prefer currently-working leftover session over recency comic sketches, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsStartMethodEpisode(t *testing.T) {
 	q := "How did Evan start his transformation journey two years ago?"
 	candidates := map[string]MemoryRecord{

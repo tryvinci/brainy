@@ -1317,6 +1317,60 @@ func TestKeepCadenceInCapSurvivesListFill(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalQueryTokensDropsWhatProjectWorkingStructure(t *testing.T) {
+	q := "What project is James working on in his game design course?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"project", "game", "design", "course"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("what-project lexical tokens must drop %q, got %v", banned, got)
+		}
+	}
+	if !strings.Contains(joined, "working") {
+		t.Fatalf("what-project lexical tokens must keep working, got %v", got)
+	}
+	often := searchLexicalQueryTokens("How often does Audrey meet up with other dog owners for tips and playdates?", tokenize("How often does Audrey meet up with other dog owners for tips and playdates?"))
+	joinedOften := strings.Join(often, " ")
+	if strings.Contains(joinedOften, "working") {
+		t.Fatalf("how-often must not be rewritten as what-project tokens, got %v", often)
+	}
+	if !strings.Contains(joinedOften, "meet") {
+		t.Fatalf("how-often must keep meet, got %v", often)
+	}
+}
+
+func TestKeepCurrentProjectInCapSurvivesListFill(t *testing.T) {
+	q := "What project is James working on in his game design course?"
+	obs := rankedSearchResult{result: SearchResult{
+		MemoryID: "obs",
+		Content:  "James: Yes, we are currently working on a new part of the football simulator",
+		Score:    0.4,
+	}}
+	full := []rankedSearchResult{obs}
+	capped := make([]rankedSearchResult, 0, 30)
+	for i := 0; i < 30; i++ {
+		capped = append(capped, rankedSearchResult{result: SearchResult{
+			MemoryID: fmt.Sprintf("fill%02d", i),
+			Content:  "James is creating his own game project.",
+			Score:    1.5,
+		}})
+	}
+	got := keepCurrentProjectInCap(full, capped, q, 30)
+	found := false
+	for _, item := range got {
+		if strings.Contains(strings.ToLower(item.result.Content), "currently working") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("what-project evidence-set cap must keep currently-working leftover, n=%d", len(got))
+	}
+	if len(got) > 30 {
+		t.Fatalf("what-project current-project keep must stay within limit, n=%d", len(got))
+	}
+}
+
 func TestKeepDurationInCapSurvivesListFill(t *testing.T) {
 	q := "How long have Mel and her husband been married?"
 	obs := rankedSearchResult{result: SearchResult{

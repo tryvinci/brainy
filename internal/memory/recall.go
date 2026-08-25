@@ -784,6 +784,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringCadenceMissesCadence(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringCurrentProjectMissesCurrent(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3774,7 +3777,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3886,6 +3889,20 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 			rare = filtered
 		}
 	}
+	if looksWhatProjectWorkingQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringCurrentProjectStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		if objs := leftoverCoveringCurrentProjectObjectTokens(query); len(objs) > 0 {
+			rare = objs
+		} else {
+			rare = filtered
+		}
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -3968,7 +3985,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line)) &&
 		!(looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line)) &&
 		!(looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, line)) &&
-		!(looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, line)) {
+		!(looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, line)) &&
+		!(looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4208,6 +4226,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatProjectWorkingQuery(query) {
+			if leftoverCoveringCurrentProjectLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringCurrentProjectCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4349,6 +4375,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			// how-often leftover must carry a cadence (once a week / every
 			// month / N times a day) plus object overlap, not a purpose
 			// join or a cadence about a different activity.
+		} else {
+			return ""
+		}
+	}
+	if looksWhatProjectWorkingQuery(query) {
+		if next := leftoverCoveringPreferCurrentProject(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringCurrentProjectLine(query, best) {
+			// what-project leftover must be currently-working / working-on-a-new,
+			// not a childhood desire or "creating his own" without currently.
 		} else {
 			return ""
 		}
@@ -5190,6 +5227,24 @@ func looksHowOftenQuery(query string) bool {
 	return false
 }
 
+func looksWhatProjectWorkingQuery(query string) bool {
+	if looksHowOftenQuery(query) || looksHowLongBeenQuery(query) || looksHowDidStartQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDescribeQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	hasWhat, hasProject, hasWork := false, false, false
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "what":
+			hasWhat = true
+		case "project", "projects":
+			hasProject = true
+		case "working", "work":
+			hasWork = true
+		}
+	}
+	return hasWhat && hasProject && hasWork
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5218,7 +5273,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5281,6 +5336,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, line) {
+		return true
+	}
+	if looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5913,6 +5971,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, covering) {
+		return true
+	}
+	if looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -6969,6 +7030,160 @@ func leftoverCoveringCadenceMissesCadence(query, covering, answer string) bool {
 	return leftoverCoveringCadenceLine(query, covering)
 }
 
+func leftoverCoveringCurrentProjectStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "project", "projects", "course", "courses", "class", "classes":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringCurrentProjectRareToken(tok string) bool {
+	low := strings.ToLower(strings.Trim(strings.TrimSpace(tok), "?,.!'\"’"))
+	if low == "" || leftoverCoveringCurrentProjectStructureToken(low) || leftoverCoverWeakToken(low) || isQueryStopword(low) {
+		return false
+	}
+	return utf8.RuneCountInString(low) >= 4
+}
+
+func dropTrailingInCourseAdjunct(toks []string) []string {
+	courseIdx := -1
+	for i := len(toks) - 1; i >= 0; i-- {
+		t := strings.ToLower(strings.Trim(toks[i], "?,.!'\"’"))
+		if t == "course" || t == "class" {
+			courseIdx = i
+			break
+		}
+	}
+	if courseIdx < 0 {
+		return toks
+	}
+	inIdx := -1
+	for i := courseIdx - 1; i >= 0; i-- {
+		if strings.EqualFold(strings.Trim(toks[i], "?,.!'\"’"), "in") {
+			inIdx = i
+			break
+		}
+	}
+	if inIdx <= 0 {
+		return toks
+	}
+	rare := 0
+	for _, tok := range toks[:inIdx] {
+		if leftoverCoveringCurrentProjectRareToken(tok) {
+			rare++
+		}
+	}
+	if rare < 2 {
+		return toks
+	}
+	return toks[:inIdx]
+}
+
+func leftoverCoveringCurrentProjectObjectTokens(query string) []string {
+	fields := dropTrailingInCourseAdjunct(dropWhatProjectWorkingStructureTokens(strings.Fields(query)))
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	out := make([]string, 0, 4)
+	seen := map[string]struct{}{}
+	for _, tok := range tokenize(strings.Join(fields, " ")) {
+		low := strings.ToLower(strings.TrimSpace(tok))
+		if !leftoverCoveringCurrentProjectRareToken(low) {
+			continue
+		}
+		if _, ok := people[low]; ok {
+			continue
+		}
+		if _, ok := seen[low]; ok {
+			continue
+		}
+		seen[low] = struct{}{}
+		out = append(out, low)
+	}
+	return out
+}
+
+func leftoverCoveringChildhoodDesireLine(line string) bool {
+	lower := strings.ToLower(hybridLineBody(line))
+	if strings.Contains(lower, "childhood") || strings.Contains(lower, "as a child") || strings.Contains(lower, "as a kid") {
+		return true
+	}
+	return strings.Contains(lower, "since he was a kid") || strings.Contains(lower, "since she was a kid") || strings.Contains(lower, "since i was a kid")
+}
+
+func leftoverCoveringOwnProjectWithoutCurrentLine(line string) bool {
+	lower := strings.ToLower(hybridLineBody(line))
+	if strings.Contains(lower, "currently") {
+		return false
+	}
+	return strings.Contains(lower, "creating") && strings.Contains(lower, "own") && strings.Contains(lower, "project")
+}
+
+func leftoverCoveringCurrentProjectCue(s string) bool {
+	lower := strings.ToLower(s)
+	lower = strings.NewReplacer(",", " ", ".", " ", ";", " ", "?", " ", "!", " ", ":", " ").Replace(lower)
+	padded := " " + strings.Join(strings.Fields(lower), " ") + " "
+	if strings.Contains(padded, " currently working ") || strings.Contains(padded, " currently work ") {
+		return true
+	}
+	return strings.Contains(padded, " working on a new ")
+}
+
+func leftoverCoveringCurrentProjectLine(query, line string) bool {
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	if leftoverCoveringChildhoodDesireLine(line) {
+		return false
+	}
+	if !leftoverCoveringCurrentProjectCue(hybridLineBody(line)) {
+		return false
+	}
+	return leftoverCoveringDurationActorLine(query, line)
+}
+
+func leftoverCoveringCurrentProjectCompanionLine(query, line string) bool {
+	if leftoverCoveringCurrentProjectLine(query, line) {
+		return false
+	}
+	return leftoverCoveringChildhoodDesireLine(line) || leftoverCoveringOwnProjectWithoutCurrentLine(line)
+}
+
+func leftoverCoveringPreferCurrentProject(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringCurrentProjectLine(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringCurrentProjectMissesCurrent(query, covering, answer string) bool {
+	if !looksWhatProjectWorkingQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringCurrentProjectLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringCurrentProjectLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -7124,6 +7339,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items
