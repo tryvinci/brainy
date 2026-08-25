@@ -728,6 +728,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && src == "hybrid_llm_packet" {
 					useCovering = leftoverCoveringMayReplaceHybrid(req.Query, hopResults, covering, cur)
 				}
+				if !useCovering && !typedJoin && leftoverCoveringBareDateMissesEvent(req.Query, hopResults, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3700,7 +3703,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -4416,6 +4419,37 @@ func leftoverShortItemJoin(answer string) bool {
 		}
 	}
 	return true
+}
+
+// leftoverCoveringBareDateMissesEvent is true when a when-event answer is just
+// a calendar date that does not cover leftover event tokens, but a packet
+// covering line does. Hop activity dates must not lock out the event fact.
+func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, covering, answer string) bool {
+	if !looksWhenEventQuery(query) {
+		return false
+	}
+	answer = strings.TrimSpace(answer)
+	covering = strings.TrimSpace(covering)
+	if covering == "" || answer == "" {
+		return false
+	}
+	if leftoverCoveringKeepTypedAnswer(query, hops, answer) {
+		return false
+	}
+	if parseDateFromText(answer) == nil || parseDateFromText(covering) == nil {
+		return false
+	}
+	if len(strings.Fields(answer)) > 6 {
+		return false
+	}
+	strong := leftoverCoverStrongTokens(leftoverCoveringRareForQuery(query, hops))
+	if len(strong) == 0 {
+		return false
+	}
+	if contentCoversAnyQueryToken(answer, strong) {
+		return false
+	}
+	return contentCoversAnyQueryToken(covering, strong)
 }
 
 func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {

@@ -3793,6 +3793,37 @@ func TestLeftoverCoveringExtractsWherePlaceNP(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringReplacesBareDateMissingEvent(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Alex adopted a puppy named Ned from a shelter on 2022-04-05."},
+			{Content: "Alex participates in bowling (16 March 2022; the day before 17 March 2022)"},
+		},
+	}
+	q := "When did Alex adopt Ned?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "adopt") && !strings.Contains(got, "2022-04-05") && !strings.Contains(lower, "april") {
+		t.Fatalf("when-event leftover covering must pick the adopt date, got %q", got)
+	}
+	if strings.Contains(lower, "bowl") || strings.Contains(got, "17 March") {
+		t.Fatalf("bowling leftover date must not win a when-adopt query, got %q", got)
+	}
+	if !leftoverCoveringBareDateMissesEvent(q, hops, got, "17 March 2022") {
+		t.Fatal("bare bowling date must yield to adopt covering")
+	}
+	if leftoverCoveringBareDateMissesEvent(q, hops, got, "Alex adopted Ned on 2022-04-05") {
+		t.Fatal("adopt hybrid that already names the event must stay")
+	}
+	ginaQ := "When did Gina interview for a design internship?"
+	if leftoverCoveringBareDateMissesEvent(ginaQ, hops, "Gina launched an ad campaign on 20 June 2023.", "10 May 2023") {
+		t.Fatal("unrelated dated leftover covering must not beat a matching internship date")
+	}
+}
+
 func TestLeftoverCoveringKeepsTypedItemJoins(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Tim", Value: "Tim", Source: "search_fallback"},
