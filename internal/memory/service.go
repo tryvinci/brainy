@@ -732,7 +732,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		for _, rec := range candidates {
 			seeds = append(seeds, rec)
 		}
-		ids := sessionIDsForHowDescribeProcessQuery(query, seeds)
+		ids := sessionIDsForHowDescribeProcessQuery(query, seeds, allMemories)
 		idSeeds := make([]MemoryRecord, 0, len(ids))
 		for _, id := range ids {
 			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
@@ -1573,21 +1573,52 @@ func sessionIDsForWhatKindQuery(query string, seeds []MemoryRecord) []string {
 	return order
 }
 
-// sessionIDsForHowDescribeProcessQuery ranks lexical-seed sessions by leftover
-// object-token coverage so a companion slogan cannot spend the fetch budget
-// before the hortative leftover. n>=1 because a photo seed may only cover
-// the object token.
-func sessionIDsForHowDescribeProcessQuery(query string, seeds []MemoryRecord) []string {
+// sessionIDsForHowDescribeProcessQuery ranks sessions so hortative leftover
+// ("just keep…") is fetched before companion turtle slogans. Object-token
+// seeds are n>=1 because a photo may only cover the object; many such
+// sessions exist, so a random FTS-head cap can drop the gold session.
+func sessionIDsForHowDescribeProcessQuery(query string, seeds, all []MemoryRecord) []string {
 	toks := leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query)))
-	if len(toks) == 0 {
-		return sessionIDsOf(seeds)
-	}
 	people := map[string]struct{}{}
 	for _, e := range hopQueryEntities(query) {
 		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
 	}
+	hort := map[string]struct{}{}
+	for _, rec := range all {
+		if !leftoverCoveringProcessHortativeLine(rec.Content) {
+			continue
+		}
+		if sid := sessionIDOf(rec); sid != "" {
+			hort[sid] = struct{}{}
+		}
+	}
+	for _, rec := range seeds {
+		if !leftoverCoveringProcessHortativeLine(rec.Content) {
+			continue
+		}
+		if sid := sessionIDOf(rec); sid != "" {
+			hort[sid] = struct{}{}
+		}
+	}
 	best := map[string]int{}
 	order := make([]string, 0, 8)
+	add := func(sid string, n int) {
+		if sid == "" {
+			return
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	for sid := range hort {
+		add(sid, 100)
+	}
+	if len(toks) == 0 && len(order) == 0 {
+		return sessionIDsOf(seeds)
+	}
 	for _, rec := range seeds {
 		sid := sessionIDOf(rec)
 		if sid == "" {
@@ -1608,18 +1639,18 @@ func sessionIDsForHowDescribeProcessQuery(query string, seeds []MemoryRecord) []
 		if n < 1 {
 			continue
 		}
-		if _, ok := best[sid]; !ok {
-			order = append(order, sid)
-		}
-		if n > best[sid] {
-			best[sid] = n
-		}
+		add(sid, n)
 	}
 	sort.SliceStable(order, func(i, j int) bool {
+		_, hi := hort[order[i]]
+		_, hj := hort[order[j]]
+		if hi != hj {
+			return hi
+		}
 		if best[order[i]] != best[order[j]] {
 			return best[order[i]] > best[order[j]]
 		}
-		return false
+		return order[i] < order[j]
 	})
 	if len(order) > 6 {
 		order = order[:6]

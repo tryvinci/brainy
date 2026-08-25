@@ -4733,9 +4733,26 @@ func TestSessionIDsForHowDescribeProcessQueryUsesObjectSeed(t *testing.T) {
 		Content:  "Nate believes that taking care of ourselves helps us be more creative and happier.",
 		Metadata: map[string]any{"session_id": "session_9"},
 	}
-	ids := sessionIDsForHowDescribeProcessQuery(q, []MemoryRecord{careSelf, photo})
+	ids := sessionIDsForHowDescribeProcessQuery(q, []MemoryRecord{careSelf, photo}, nil)
 	if len(ids) == 0 || ids[0] != "session_5" {
 		t.Fatalf("how-describe-process session pick must prefer object-token coverage, got %#v", ids)
+	}
+	noisy := make([]MemoryRecord, 0, 12)
+	for i := 11; i <= 22; i++ {
+		noisy = append(noisy, MemoryRecord{
+			MemoryID: "t" + itoa(i),
+			Content:  "Nate has pet turtles",
+			Metadata: map[string]any{"session_id": "session_" + itoa(i)},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "g",
+		Content:  "Just keep their area clean, feed them properly, and make sure they get enough light",
+		Metadata: map[string]any{"session_id": "session_5"},
+	}
+	ids = sessionIDsForHowDescribeProcessQuery(q, append(noisy, photo), []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_5" {
+		t.Fatalf("how-describe-process session pick must keep the hortative session ahead of turtle-slogan sessions, got %#v", ids)
 	}
 }
 
