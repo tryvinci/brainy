@@ -3888,7 +3888,7 @@ func leftoverSkipLine(line string, leftoverRare []string) bool {
 			return true
 		}
 	}
-	if looksCrowdedHopDump(line) {
+	if looksCrowdedHopDump(line) && !leftoverCoveringKindListLine(line) {
 		return true
 	}
 	body := line
@@ -3990,7 +3990,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, rare) {
-			if !(looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(line)) {
+			if !leftoverCoveringAllowsZeroQueryTokens(query, line) {
 				continue
 			}
 		}
@@ -3998,7 +3998,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, strong) {
-			if !(looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(line)) {
+			if !leftoverCoveringAllowsZeroQueryTokens(query, line) {
 				continue
 			}
 		}
@@ -4053,6 +4053,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatKindQuery(query) {
+			if leftoverCoveringKindListLine(line) {
+				score += 4
+			}
+			if leftoverCoveringKindRestatementLine(line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4092,6 +4100,11 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		}
 		if joined := leftoverCoveringJoinAdviceDirectives(query, scored); joined != "" {
 			return leftoverCoveringFinish(query, joined)
+		}
+	}
+	if looksWhatKindQuery(query) {
+		if next := leftoverCoveringPreferKindList(query, scored, best); next != "" {
+			best = next
 		}
 	}
 	if leftoverCoveringShouldJoin(query) {
@@ -4391,6 +4404,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringAdviceMissesDirective(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringKindMissesList(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -4856,6 +4872,17 @@ func looksAdviceQuery(query string) bool {
 	return strings.Contains(q, "what ") || strings.Contains(q, "how ")
 }
 
+func looksWhatKindQuery(query string) bool {
+	return strings.Contains(strings.ToLower(query), "what kind of")
+}
+
+func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
+	if looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(line) {
+		return true
+	}
+	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
+}
+
 func leftoverCoveringHostedEventLine(line string) bool {
 	low := " " + strings.ToLower(hybridLineBody(line)) + " "
 	for _, n := range []string{" party ", " dinner ", " gathering ", " celebration ", " reception "} {
@@ -5145,6 +5172,88 @@ func leftoverCoveringAdviceMissesDirective(query, covering, answer string) bool 
 		return false
 	}
 	if !leftoverCoveringAdviceOffQueryLine(covering) {
+		return false
+	}
+	return true
+}
+
+func leftoverCoveringKindRestatementToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "spread", "spreading", "spreads", "spreaded",
+		"kind", "kinds":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringKindRestatementLine(line string) bool {
+	for _, tok := range tokenize(hybridLineBody(line)) {
+		if leftoverCoveringKindRestatementToken(tok) {
+			return true
+		}
+	}
+	return false
+}
+
+// leftoverCoveringKindListLine is leftover that answers "what kind of"
+// with a like-A,-B,-and-C enumeration, omitting question restatement
+// ("spreading kindness" from dinner spread).
+func leftoverCoveringKindListLine(line string) bool {
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || leftoverCoveringKindRestatementLine(line) {
+		return false
+	}
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	if body == "" {
+		return false
+	}
+	idx := strings.Index(body, " like ")
+	if idx < 0 {
+		return false
+	}
+	rest := body[idx+6:]
+	return strings.Contains(rest, ",") && strings.Contains(rest, " and ")
+}
+
+func leftoverCoveringPreferKindList(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringKindListLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && !leftoverCoveringMentionsQueryEntity(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringKindMissesList(query, covering, answer string) bool {
+	if !looksWhatKindQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringKindListLine(answer) {
+		return false
+	}
+	if !leftoverCoveringKindListLine(covering) {
 		return false
 	}
 	return true
@@ -5460,7 +5569,7 @@ func leftoverCoveringSentenceInitialVerb(i int, fields []string) bool {
 	}
 	// Hortative / gerund leftover ("Also be sure…", "Building relationships…").
 	switch lower {
-	case "also", "and", "but", "so", "make", "don't", "dont":
+	case "also", "and", "but", "so", "make", "don't", "dont", "it":
 		return true
 	}
 	if len(lower) >= 6 && strings.HasSuffix(lower, "ing") {

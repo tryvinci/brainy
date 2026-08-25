@@ -697,6 +697,31 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// What-kind leftover covering needs the like-A,-B,-and-C leftover in the
+	// packet. FTS ANDs "spread" against kindness speech; the gold sits in the
+	// dinner session with no food tokens. Seed leftover-covering candidate
+	// sessions, then fetch bounded rows.
+	if looksWhatKindQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(candidates))
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsForWhatKindQuery(query, seeds)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		kindAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+				kindAll = listed
+			}
+		}
+		if len(kindAll) > 0 && len(idSeeds) > 0 {
+			expandKindListSessionNeighbors(candidates, idSeeds, kindAll, 8)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -772,6 +797,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "advice_directive_floor"
 		}
+		if score <= 0 && looksWhatKindQuery(query) && leftoverCoveringKindListLine(record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "kind_list_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
@@ -843,6 +872,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		applySessionNeighborBoost(&score, explain, record, memories)
 		applyHostedEventRankBoost(&score, explain, query, record)
 		applyAdviceDirectiveRankBoost(&score, explain, query, record)
+		applyKindListRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1000,6 +1030,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(ep.Content) {
 				continue
 			}
+			if looksWhatKindQuery(query) && leftoverCoveringKindListLine(ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -1020,6 +1053,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksAdviceQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringAdviceOffQueryLine(ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksWhatKindQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringKindListLine(ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -1403,6 +1443,88 @@ func expandAdviceDirectiveSessionNeighbors(candidates map[string]MemoryRecord, s
 			continue
 		}
 		if !leftoverCoveringAdviceOffQueryLine(record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+// sessionIDsForWhatKindQuery ranks lexical-seed sessions by leftover token
+// coverage so a kindness/spread echo cannot spend the fetch budget before
+// the dinner-session leftover.
+func sessionIDsForWhatKindQuery(query string, seeds []MemoryRecord) []string {
+	toks := leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query)))
+	if len(toks) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	for _, rec := range seeds {
+		sid := sessionIDOf(rec)
+		if sid == "" {
+			continue
+		}
+		n := 0
+		for _, tok := range toks {
+			if leftoverCoveringKindRestatementToken(tok) {
+				continue
+			}
+			if contentCoversQueryToken(rec.Content, tok) {
+				n++
+			}
+		}
+		if n < 2 {
+			continue
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return false
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	return order
+}
+
+// expandKindListSessionNeighbors admits like-A,-B,-and-C leftover that shares
+// a session with lexical seeds. Generic expand walks store order with a hard
+// cap, so the gold can miss a crowded session.
+func expandKindListSessionNeighbors(candidates map[string]MemoryRecord, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringKindListLine(record.Content) {
 			continue
 		}
 		candidates[record.MemoryID] = record
@@ -1833,6 +1955,17 @@ func applyAdviceDirectiveRankBoost(score *float64, explain map[string]any, query
 	*score += bonus
 	if explain != nil {
 		explain["advice_directive_boost"] = bonus
+	}
+}
+
+func applyKindListRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksWhatKindQuery(query) || !leftoverCoveringKindListLine(record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["kind_list_boost"] = bonus
 	}
 }
 

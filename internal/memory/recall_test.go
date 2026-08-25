@@ -4217,6 +4217,12 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if !looksAdviceQuery("What advice does Gina give to Jon about running a successful business?") {
 		t.Fatal("what-advice-give must classify as advice")
 	}
+	if looksWhatKindQuery("What does Melanie do to destress?") || looksWhatKindQuery("What advice does Gina give to Jon about running a successful business?") || looksWhatKindQuery("What did John host for the veterans in May 2023 as part of the project") {
+		t.Fatal("destress, advice, and host queries are not what-kind queries")
+	}
+	if !looksWhatKindQuery("What kind of food did Maria have on her dinner spread iwth her mother?") {
+		t.Fatal("what-kind-of must classify as what-kind")
+	}
 }
 
 func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
@@ -4479,6 +4485,137 @@ func TestApplyFactPrimaryRecallKeepsAdviceEpisode(t *testing.T) {
 	applyFactPrimaryRecall(candidates, q, false)
 	if _, ok := candidates["ep"]; !ok {
 		t.Fatal("advice query must keep hortative episode leftover")
+	}
+}
+
+func TestLeftoverCoveringKindPrefersLikeListOverSpread(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Maria", Value: "Maria", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Maria believes that spreading kindness and support can make a difference when someone is feeling down."},
+			{Content: "Maria and her mother cooked dinner together at home on 3 May 2023."},
+			{Content: "It had lots of great things like salads, sandwiches, and homemade desserts"},
+			{Content: "Maria's favorite dessert is the banana split sundae."},
+			{Content: "John signed a basketball shoe and gear deal with Nike."},
+		},
+	}
+	q := "What kind of food did Maria have on her dinner spread iwth her mother?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "salad") || !strings.Contains(lower, "sandwich") || !strings.Contains(lower, "dessert") {
+		t.Fatalf("what-kind leftover covering must pick the like-list leftover, got %q", got)
+	}
+	if strings.Contains(lower, "kindness") || strings.Contains(lower, "nike") {
+		t.Fatalf("spread restatement or foreign deals must not cover what-kind, got %q", got)
+	}
+	hybrid := "Maria believes that spreading kindness and support can make a difference when someone is feeling down."
+	if leftoverCoveringKindListLine(hybrid) {
+		t.Fatal("spreading kindness is not a like-list leftover")
+	}
+	if leftoverCoveringKindListLine("John signed a basketball shoe and gear deal with Nike, and is in talks about a potential sponsorship deal with Gatorade.") {
+		t.Fatal("deals line without like-A,-B,-and-C must not count as kind-list leftover")
+	}
+	if leftoverCoveringKindListLine("I like salad") {
+		t.Fatal("bare like without a comma list must not count as kind-list leftover")
+	}
+	if !leftoverCoveringKindMissesList(q, got, hybrid) {
+		t.Fatal("what-kind covering must replace a spread restatement")
+	}
+}
+
+func TestExpandKindListSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_13"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Maria and her mother cooked dinner together at home on 3 May 2023.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about dinner",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "It had lots of great things like salads, sandwiches, and homemade desserts",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the kind-list leftover can miss")
+	}
+	expandKindListSessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("kind-list session expand must admit the like-list leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatKindQueryPrefersDinnerSession(t *testing.T) {
+	q := "What kind of food did Maria have on her dinner spread iwth her mother?"
+	kindness := MemoryRecord{
+		MemoryID: "k",
+		Content:  "Maria believes that spreading kindness and support can make a difference when someone is feeling down.",
+		Metadata: map[string]any{"session_id": "session_5"},
+	}
+	dinner := MemoryRecord{
+		MemoryID: "d",
+		Content:  "Maria and her mother cooked dinner together at home on 3 May 2023.",
+		Metadata: map[string]any{"session_id": "session_13"},
+	}
+	ids := sessionIDsForWhatKindQuery(q, []MemoryRecord{kindness, dinner})
+	if len(ids) == 0 || ids[0] != "session_13" {
+		t.Fatalf("what-kind session pick must prefer maria/mother/dinner coverage, got %#v", ids)
+	}
+	for _, id := range ids {
+		if id == "session_5" {
+			t.Fatal("kindness-spread session must not be fetched from restatement token overlap")
+		}
+	}
+}
+
+func TestApplyKindListRankBoostSkipsKindness(t *testing.T) {
+	q := "What kind of food did Maria have on her dinner spread iwth her mother?"
+	gold := 1.0
+	kindness := 1.0
+	applyKindListRankBoost(&gold, map[string]any{}, q, MemoryRecord{Content: "It had lots of great things like salads, sandwiches, and homemade desserts"})
+	applyKindListRankBoost(&kindness, map[string]any{}, q, MemoryRecord{Content: "Maria believes that spreading kindness and support can make a difference when someone is feeling down."})
+	if gold <= kindness {
+		t.Fatalf("kind-list rank boost must lift like-list leftover over spreading kindness, gold=%v kindness=%v", gold, kindness)
+	}
+}
+
+func TestScoreMemoryIDFKindListNeedsFloor(t *testing.T) {
+	q := "What kind of food did Maria have on her dinner spread iwth her mother?"
+	gold := MemoryRecord{Content: "It had lots of great things like salads, sandwiches, and homemade desserts"}
+	if !leftoverCoveringKindListLine(gold.Content) {
+		t.Fatal("like-list leftover must classify as kind-list")
+	}
+	score, _ := scoreMemoryIDF(gold, q, tokenize(q), nil, nil)
+	if score > 0 {
+		t.Fatalf("kind-list gold has no query tokens so IDF score must be 0 without a floor, got %v", score)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsKindListEpisode(t *testing.T) {
+	q := "What kind of food did Maria have on her dinner spread iwth her mother?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Maria and her mother cooked dinner together at home on 3 May 2023."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "It had lots of great things like salads, sandwiches, and homemade desserts",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("what-kind query must keep like-list episode leftover")
 	}
 }
 
