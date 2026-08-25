@@ -1106,6 +1106,44 @@ func TestMalformedAtomsDoNotOutrankProvenance(t *testing.T) {
 	}
 }
 
+func TestSingleTokenAttendedEchoDoesNotOutrankProvenance(t *testing.T) {
+	store := newMemoryStoreStub()
+	service := NewService(store)
+	now := service.now()
+	store.records["echo"] = MemoryRecord{
+		MemoryID: "mem_echo", TenantID: "t1", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Melanie attended setback",
+		DedupeKey: "echo", Status: StatusActive, UpdatedAt: now,
+		Explain: map[string]any{"rule": "attribute_event"},
+	}
+	store.records["ep"] = MemoryRecord{
+		MemoryID: "mem_ep", TenantID: "t1", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Melanie: I attended a convention with colleagues after a tough week",
+		DedupeKey: "ep", Status: StatusActive, UpdatedAt: now,
+	}
+	search, err := service.Search(context.Background(), "t1", "u1", "", "", "What did Melanie attend with colleagues")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(search.Results) == 0 {
+		t.Fatal("expected hits")
+	}
+	if strings.Contains(strings.ToLower(search.Results[0].Content), "attended setback") {
+		t.Fatalf("single-token attended echo outranked provenance: %#v", search.Results)
+	}
+	sawConvention := false
+	for _, r := range search.Results {
+		if strings.Contains(strings.ToLower(r.Content), "convention") {
+			sawConvention = true
+		}
+	}
+	if !sawConvention {
+		t.Fatalf("expected convention provenance, got %#v", search.Results)
+	}
+}
+
 func TestEpisodeOnlyPoolFallsBack(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

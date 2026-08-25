@@ -2156,7 +2156,7 @@ func attributeAtomBoost(record MemoryRecord) float64 {
 }
 
 func malformedCompilerFactPenalty(content string) float64 {
-	if malformedCompilerFact(content) {
+	if malformedCompilerFact(content) || singleTokenAttendedEcho(content) {
 		return -0.85
 	}
 	return 0
