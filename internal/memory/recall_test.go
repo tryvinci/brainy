@@ -5391,6 +5391,7 @@ func TestLeftoverCoveringReactPrefersTheyWereObservation(t *testing.T) {
 			{Content: "Audrey's dogs dislike snow."},
 			{Content: gold},
 			{Content: "But one thing they hate is snow"},
+			{Content: "It took a while for them to calm down, but all cut up they looked so cute"},
 			{Content: "Audrey took her dogs to a snowy park last winter and they were confused."},
 		},
 	}
@@ -5420,6 +5421,13 @@ func TestLeftoverCoveringReactPrefersTheyWereObservation(t *testing.T) {
 	}
 	if leftoverCoveringReactionObservationLine("They're so graceful") {
 		t.Fatal("they-evaluative leftover is not how-react observation")
+	}
+	cute := "It took a while for them to calm down, but all cut up they looked so cute"
+	if leftoverCoveringReactLineHasObject(q, cute) {
+		t.Fatal("cute leftover has no query object token")
+	}
+	if leftoverCoveringReactMissesObservation(q, cute, "Audrey's dogs dislike snow.") {
+		t.Fatal("cute leftover must not replace hybrid as how-react covering")
 	}
 	if !leftoverCoveringReactionObservationLine(gold) {
 		t.Fatal("they-were-so-ADJ leftover must count as how-react observation")
@@ -5481,12 +5489,13 @@ func TestLeftoverCoveringReactEmptyLeavesHybrid(t *testing.T) {
 		ContextEvidence: []PacketItem{
 			{Content: "Audrey's dogs dislike snow."},
 			{Content: "But one thing they hate is snow"},
+			{Content: "It took a while for them to calm down, but all cut up they looked so cute"},
 		},
 	}
 	q := "How do Audrey's dogs react to snow?"
 	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
 	if got != "" {
-		t.Fatalf("how-react leftover covering must stay empty without they-were observation, got %q", got)
+		t.Fatalf("how-react leftover covering must stay empty without object-linked they-were observation, got %q", got)
 	}
 }
 
@@ -5529,7 +5538,7 @@ func TestExpandReactionObservationSessionNeighborsAdmitsGoldPastCap(t *testing.T
 	if _, ok := candidates["gold"]; ok {
 		t.Fatal("generic session expand must stay capped so the they-were observation leftover can miss")
 	}
-	expandReactionObservationSessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	expandReactionObservationSessionNeighbors(candidates, "How do Audrey's dogs react to snow?", []MemoryRecord{seed}, all, 8)
 	if _, ok := candidates["gold"]; !ok {
 		t.Fatal("how-react session expand must admit they-were observation leftover past the generic cap")
 	}

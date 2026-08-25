@@ -817,7 +817,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			}
 		}
 		if len(reactAll) > 0 && len(idSeeds) > 0 {
-			expandReactionObservationSessionNeighbors(candidates, idSeeds, reactAll, 8)
+			expandReactionObservationSessionNeighbors(candidates, query, idSeeds, reactAll, 8)
 		}
 	}
 
@@ -912,7 +912,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "evaluative_they_floor"
 		}
-		if score <= 0 && looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(record.Content) {
+		if score <= 0 && looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(record.Content) && leftoverCoveringReactLineHasObject(query, record.Content) {
 			score = 0.9
 			explain["ranking_basis"] = "react_observation_floor"
 		}
@@ -1161,7 +1161,7 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(ep.Content) {
 				continue
 			}
-			if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(ep.Content) {
+			if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(ep.Content) && leftoverCoveringReactLineHasObject(query, ep.Content) {
 				continue
 			}
 			delete(candidates, ep.MemoryID)
@@ -1218,7 +1218,7 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	}
 	if looksHowReactQuery(query) {
 		for _, ep := range episodes {
-			if leftoverCoveringReactionObservationLine(ep.Content) {
+			if leftoverCoveringReactionObservationLine(ep.Content) && leftoverCoveringReactLineHasObject(query, ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -2410,7 +2410,7 @@ func applyEvaluativeTheyRankBoost(score *float64, explain map[string]any, query 
 }
 
 func applyReactionObservationRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
-	if score == nil || !looksHowReactQuery(query) || !leftoverCoveringReactionObservationLine(record.Content) {
+	if score == nil || !looksHowReactQuery(query) || !leftoverCoveringReactionObservationLine(record.Content) || !leftoverCoveringReactLineHasObject(query, record.Content) {
 		return
 	}
 	const bonus = 0.75
@@ -3197,7 +3197,7 @@ func expandEvaluativeTheySessionNeighbors(candidates map[string]MemoryRecord, se
 	}
 }
 
-func expandReactionObservationSessionNeighbors(candidates map[string]MemoryRecord, seeds, all []MemoryRecord, limit int) {
+func expandReactionObservationSessionNeighbors(candidates map[string]MemoryRecord, query string, seeds, all []MemoryRecord, limit int) {
 	sessions := map[string]struct{}{}
 	for _, seed := range seeds {
 		if sid := sessionIDOf(seed); sid != "" {
@@ -3223,6 +3223,9 @@ func expandReactionObservationSessionNeighbors(candidates map[string]MemoryRecor
 			continue
 		}
 		if !leftoverCoveringReactionObservationLine(record.Content) {
+			continue
+		}
+		if !leftoverCoveringReactLineHasObject(query, record.Content) {
 			continue
 		}
 		candidates[record.MemoryID] = record

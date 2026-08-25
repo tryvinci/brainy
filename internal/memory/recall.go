@@ -3918,7 +3918,7 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line)) &&
 		!(looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line)) &&
 		!(looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line)) &&
-		!(looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line)) {
+		!(looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) && leftoverCoveringReactLineHasObject(query, line)) {
 		return true
 	}
 	body := line
@@ -4210,12 +4210,12 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		}
 	}
 	if looksHowReactQuery(query) {
-		hasObj := leftoverCoveringReactHasObjectEvidence(query, lines)
 		if next := leftoverCoveringPreferReactionObservation(query, scored, best); next != "" {
 			best = next
 		}
-		if leftoverCoveringReactionObservationLine(best) && hasObj {
-			// observational they-were leftover omits dislike/hate restatement.
+		if leftoverCoveringReactionObservationLine(best) && leftoverCoveringReactLineHasObject(query, best) {
+			// observational they-were leftover must name a query object (snow/dogs),
+			// not any they-looked-ADJ leftover from the same session.
 		} else {
 			return ""
 		}
@@ -5051,7 +5051,7 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 	if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line) {
 		return true
 	}
-	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) {
+	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) && leftoverCoveringReactLineHasObject(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5671,7 +5671,7 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 	if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, covering) {
 		return true
 	}
-	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(covering) {
+	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(covering) && leftoverCoveringReactLineHasObject(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -5994,12 +5994,10 @@ func leftoverCoveringReactObjectTokens(query string) []string {
 	return out
 }
 
-func leftoverCoveringReactHasObjectEvidence(query string, lines []string) bool {
-	for _, line := range lines {
-		for _, tok := range leftoverCoveringReactObjectTokens(query) {
-			if contentCoversQueryToken(line, tok) {
-				return true
-			}
+func leftoverCoveringReactLineHasObject(query, line string) bool {
+	for _, tok := range leftoverCoveringReactObjectTokens(query) {
+		if contentCoversQueryToken(line, tok) {
+			return true
 		}
 	}
 	return false
@@ -6025,6 +6023,9 @@ func leftoverCoveringPreferReactionObservation(query string, scored []leftoverCo
 			continue
 		}
 		if !leftoverCoveringReactionObservationLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringReactLineHasObject(query, row.line) {
 			continue
 		}
 		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
@@ -6054,6 +6055,9 @@ func leftoverCoveringReactMissesObservation(query, covering, answer string) bool
 		return false
 	}
 	if !leftoverCoveringReactionObservationLine(covering) {
+		return false
+	}
+	if !leftoverCoveringReactLineHasObject(query, covering) {
 		return false
 	}
 	return true
@@ -6201,7 +6205,7 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 	if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering) {
 		return []RecallItem{{Value: covering}}
 	}
-	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(covering) {
+	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(covering) && leftoverCoveringReactLineHasObject(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items
