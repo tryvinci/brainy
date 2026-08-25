@@ -4029,6 +4029,44 @@ func TestLeftoverCoveringBindsWhenEventToQueryEntity(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhenEventKeepsSentenceInitialVerbLine(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateEvent, Source: "typed_store",
+			Value: "23 January 2023", Values: []string{"23 January 2023"}},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley: Hey, sorry to tell you this but my dad passed away two days ago (25 January 2023)"},
+			{Content: "Sounds like you had a blast biking and at the art show"},
+			{Content: "Dana checked out a movie on 23 January 2023."},
+			{Content: "Checked out an art show with a friend today - really cool and inspiring stuff (9 April 2023)"},
+		},
+	}
+	q := "When did Riley go to an art show with a friend?"
+	art := "Checked out an art show with a friend today - really cool and inspiring stuff (9 April 2023)"
+	if leftoverCoveringSkipForeignWhenEvent(q, art) {
+		t.Fatal("sentence-initial verb must not count as a foreign person on an unnamed dated line")
+	}
+	if leftoverCoveringSkipForeignWhenEvent(q, "Dana checked out a movie on 23 January 2023.") != true {
+		t.Fatal("a named other person must still drop when-event covering")
+	}
+	if leftoverCoveringSkipForeignWhenEvent(q, "Dana lost her job at Night Shift in January 2023. (15 January 2023)") != true {
+		t.Fatal("sentence-initial names must still count as people")
+	}
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "art show") || !strings.Contains(got, "9 April") {
+		t.Fatalf("when-event leftover covering must pick the dated art-show line, got %q", got)
+	}
+	if strings.Contains(lower, "january") || strings.Contains(lower, "movie") || strings.Contains(lower, "dana") || strings.Contains(lower, "passed away") {
+		t.Fatalf("hop date, foreign movie, or bereavement must not cover the art show, got %q", got)
+	}
+	if !leftoverCoveringBareDateMissesEvent(q, hops, got, "23 January 2023") {
+		t.Fatal("bare hop date must yield to the year-dated art-show covering")
+	}
+}
+
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{

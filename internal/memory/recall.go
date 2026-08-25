@@ -4669,7 +4669,11 @@ func leftoverCoveringLineHasForeignPerson(query, line string) bool {
 	if len(known) == 0 {
 		return false
 	}
-	for _, raw := range strings.Fields(hybridLineBody(line)) {
+	fields := strings.Fields(hybridLineBody(line))
+	for i, raw := range fields {
+		if leftoverCoveringSentenceInitialVerb(i, fields) {
+			continue
+		}
 		key, ok := leftoverCoveringPersonToken(raw)
 		if !ok {
 			continue
@@ -4677,6 +4681,34 @@ func leftoverCoveringLineHasForeignPerson(query, line string) bool {
 		if _, ok := known[key]; ok {
 			continue
 		}
+		return true
+	}
+	return false
+}
+
+// leftoverCoveringSentenceInitialVerb is true when the first token is
+// orthographic capitalization of a verb, not a person. Diary lines such as
+// "Checked out an art show …" must still compete as unnamed dated facts.
+func leftoverCoveringSentenceInitialVerb(i int, fields []string) bool {
+	if i != 0 || len(fields) == 0 {
+		return false
+	}
+	w := strings.Trim(fields[0], ".,;:()[]\"'")
+	w = strings.TrimSuffix(strings.TrimSuffix(w, "'s"), "’s")
+	if w == "" {
+		return false
+	}
+	lower := strings.ToLower(w)
+	// Past-tense morphology. Short names (Ned, Fred) stay people.
+	if len(lower) >= 6 && strings.HasSuffix(lower, "ed") {
+		return true
+	}
+	if len(fields) < 2 {
+		return false
+	}
+	next := strings.ToLower(strings.Trim(fields[1], ".,;:()[]\"'"))
+	switch next {
+	case "out", "up", "off", "down", "away", "back":
 		return true
 	}
 	return false
