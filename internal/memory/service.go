@@ -466,7 +466,8 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	listQuery := looksListQuery(queryTokens)
 	needCorpus := looksMultiHopQuery(queryTokens) ||
 		(len(memories) < 10 && hasResponseKeyword(queryTokens)) ||
-		listQuery
+		listQuery ||
+		looksHostQuery(query)
 	if needCorpus {
 		listed, err := s.listSubjectCorpus(ctx, tenantID, subjectID, includeSuperseded, 400)
 		if err != nil {
@@ -639,6 +640,13 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 				}
 			}
 		}
+	}
+	// Hosted-event lines often sit past the generic session-neighbor cap in a
+	// crowded same-timestamp session. Admit a bounded set of those lines from
+	// lexical-seed sessions without raising the global neighbor cap or adding
+	// event nouns as query tokens.
+	if looksHostQuery(query) && len(allMemories) > 0 {
+		expandHostedEventSessionNeighbors(candidates, memories, allMemories, 8)
 	}
 
 	// Rare query tokens (filling, gym, series) lose the lexical pool when FTS
@@ -1140,6 +1148,42 @@ func expandSessionNeighbors(candidates map[string]MemoryRecord, seeds []MemoryRe
 			candidates[record.MemoryID] = record
 			added++
 		}
+	}
+}
+
+// expandHostedEventSessionNeighbors admits leftover hosted-event lines that
+// share a session with lexical seeds. Generic expandSessionNeighbors walks
+// store order with a hard cap, so the hosted event can miss a crowded session.
+func expandHostedEventSessionNeighbors(candidates map[string]MemoryRecord, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringHostedEventLine(record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
 	}
 }
 

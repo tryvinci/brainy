@@ -4220,6 +4220,7 @@ func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
 			{Content: "John realized on 13 May 2023 that veterans have done a lot for us."},
+			{Content: "John has a photograph of veterans taken on 19 May 2023."},
 			{Content: "John organized a small party for veterans."},
 			{Content: "We had a great time throwing a small party and inviting some veterans to share their stories"},
 			{Content: "John organized a 5K charity run in his neighborhood to support veterans and their families."},
@@ -4231,15 +4232,50 @@ func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
 	if !strings.Contains(lower, "party") {
 		t.Fatalf("host leftover covering must pick the hosted event, got %q", got)
 	}
-	if strings.Contains(lower, "realized") || strings.Contains(lower, "5k") || strings.Contains(lower, "charity run") {
-		t.Fatalf("realize speech or later race must not cover host, got %q", got)
+	if strings.Contains(lower, "realized") || strings.Contains(lower, "photograph") || strings.Contains(lower, "5k") || strings.Contains(lower, "charity run") {
+		t.Fatalf("realize, photograph, or later race must not cover host, got %q", got)
 	}
 	hybrid := "John realized on 13 May 2023 that veterans have done a lot for us."
 	if leftoverCoveringHostedEventLine(hybrid) {
 		t.Fatal("realize line is not a hosted event")
 	}
+	if leftoverCoveringHostedEventLine("John has a photograph of veterans taken on 19 May 2023.") {
+		t.Fatal("photograph line is not a hosted event")
+	}
 	if !leftoverCoveringHostMissesEvent(q, got, hybrid) {
 		t.Fatal("host covering must replace a realize restatement")
+	}
+}
+
+func TestExpandHostedEventSessionNeighborsAdmitsPartyPastCap(t *testing.T) {
+	session := "sess-host"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "John realized veterans have done a lot",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about veterans",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	party := MemoryRecord{
+		MemoryID: "party",
+		Content:  "John organized a small party for veterans",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, party)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["party"]; ok {
+		t.Fatal("generic session expand must stay capped so the hosted event can miss")
+	}
+	expandHostedEventSessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["party"]; !ok {
+		t.Fatal("hosted-event session expand must admit the party line past the generic cap")
 	}
 }
 
