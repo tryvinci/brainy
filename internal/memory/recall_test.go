@@ -5571,6 +5571,130 @@ func TestApplyFactPrimaryRecallKeepsReactObservationEpisode(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringPurposePrefersTakeCareAction(t *testing.T) {
+	gold := "On top of that, I recently joined a dog owners group to learn how to better take care of them"
+	compiler := "Audrey recently joined a dog owners group to learn how to better take care of her dogs."
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Audrey: Yep, taking a second to appreciate those moments makes like much better"},
+			{Content: "Audrey took her dogs to a pet salon on 17 November 2023."},
+			{Content: "Andrew: Awesome to see that you take such good care of your dogs"},
+			{Content: "Don't forget to take care of yourself and have some fun too"},
+			{Content: gold},
+			{Content: compiler},
+		},
+	}
+	q := "What did Audrey do in November 2023 to better take care of her dogs?"
+	if !looksWhatDidPurposeQuery(q) {
+		t.Fatal("what-did-X-do-to-purpose must count as what-did-purpose")
+	}
+	if looksWhatDidPurposeQuery("What did John say about NYC, enticing Tim to visit?") {
+		t.Fatal("what-say-about must not count as what-did-purpose")
+	}
+	if looksWhatDidPurposeQuery("What did John host for the veterans in May 2023 as part of the project") {
+		t.Fatal("host queries must not count as what-did-purpose")
+	}
+	if looksWhatDidPurposeQuery("What does Melanie do to destress?") {
+		t.Fatal("single-token unwind purpose must not count as what-did-purpose")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "joined") || !strings.Contains(lower, "take care") {
+		t.Fatalf("what-did-purpose leftover covering must pick take-care action leftover, got %q", got)
+	}
+	if strings.Contains(lower, "much better") || strings.Contains(lower, "pet salon") {
+		t.Fatalf("comparative-better chat and salon visit must not cover what-did-purpose, got %q", got)
+	}
+	if leftoverCoveringPurposeActionLine(q, "Audrey: Yep, taking a second to appreciate those moments makes like much better") {
+		t.Fatal("comparative-better chat is not purpose-action leftover")
+	}
+	if leftoverCoveringPurposeActionLine(q, "Audrey took her dogs to a pet salon on 17 November 2023.") {
+		t.Fatal("dated salon visit is not adjacent take-care purpose leftover")
+	}
+	if leftoverCoveringPurposeActionLine(q, "Don't forget to take care of yourself and have some fun too") {
+		t.Fatal("take-care-of-yourself leftover has no query actor")
+	}
+	if !leftoverCoveringPurposeActionLine(q, gold) {
+		t.Fatal("first-person take-care leftover must count as purpose action")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "Audrey's dogs dislike snow.") {
+		t.Fatal("empty covering and unrelated leftover must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("How do Audrey's dogs react to snow?", gold) {
+		t.Fatal("how-react must not skip hybrid via what-did-purpose action")
+	}
+	dumpItems := []RecallItem{
+		{Value: "behavior tips"},
+		{Value: "four dogs"},
+	}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || synced[0].Value != got {
+		t.Fatalf("what-did-purpose enumerate items must follow action covering, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringPurposeStaysEmptyWithoutAction(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Audrey: Yep, taking a second to appreciate those moments makes like much better"},
+			{Content: "Audrey took her dogs to a pet salon on 17 November 2023."},
+		},
+	}
+	q := "What did Audrey do in November 2023 to better take care of her dogs?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("what-did-purpose leftover covering must stay empty without take-care action leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsPurposeActionEpisode(t *testing.T) {
+	q := "What did Audrey do in November 2023 to better take care of her dogs?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Audrey took her dogs to a pet salon on 17 November 2023."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "On top of that, I recently joined a dog owners group to learn how to better take care of them",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("what-did-purpose query must keep take-care action episode leftover")
+	}
+}
+
+func TestExpandPurposeActionSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_27"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Audrey's dogs ran around and got fresh air in a park on the weekend of 2–3 November 2023.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about park walks",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "On top of that, I recently joined a dog owners group to learn how to better take care of them",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the purpose-action leftover can miss")
+	}
+	expandPurposeActionSessionNeighbors(candidates, "What did Audrey do in November 2023 to better take care of her dogs?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("what-did-purpose session expand must admit take-care action leftover past the generic cap")
+	}
+}
+
 func TestExpandKindListSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 	session := "session_13"
 	seed := MemoryRecord{

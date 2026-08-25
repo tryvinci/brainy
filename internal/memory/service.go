@@ -603,7 +603,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	relatedToks := queryTokens
 	admitToks := queryTokens
 	coverToks := queryTokens
-	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) {
+	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) {
 		relatedToks = contentQueryTokens
 		admitToks = contentQueryTokens
 		coverToks = contentQueryTokens
@@ -823,6 +823,30 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// What-did-purpose leftover covering needs the first-person / named
+	// purpose-infinitive leftover ("I recently joined … to take care").
+	// Seed sessions from FTS hits so month/year restatement sessions do
+	// not spend the neighbor budget before the purpose-action session.
+	if looksWhatDidPurposeQuery(query) {
+		ids := sessionIDsOf(memories)
+		if len(ids) == 0 {
+			ids = sessionIDsOf(seedsFromPurposeActionCandidates(candidates, query))
+		}
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		purposeAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
+				purposeAll = listed
+			}
+		}
+		if len(purposeAll) > 0 && len(idSeeds) > 0 {
+			expandPurposeActionSessionNeighbors(candidates, query, idSeeds, purposeAll, 32)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -918,6 +942,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "react_observation_floor"
 		}
+		if score <= 0 && looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "purpose_action_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
@@ -994,6 +1022,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		applyMotivateCauseRankBoost(&score, explain, query, record)
 		applyEvaluativeTheyRankBoost(&score, explain, query, record)
 		applyReactionObservationRankBoost(&score, explain, query, record)
+		applyPurposeActionRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1053,6 +1082,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 	if looksHowReactQuery(query) {
 		ranked = keepReactionObservationInCap(fullRanked, ranked, query, limit)
+	}
+	if looksWhatDidPurposeQuery(query) {
+		ranked = keepPurposeActionInCap(fullRanked, ranked, query, limit)
 	}
 
 	results := make([]SearchResult, len(ranked))
@@ -1170,6 +1202,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(ep.Content) && leftoverCoveringReactLineHasObject(query, ep.Content) {
 				continue
 			}
+			if looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -1225,6 +1260,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksHowReactQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringReactionObservationLine(ep.Content) && leftoverCoveringReactLineHasObject(query, ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksWhatDidPurposeQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringPurposeActionLine(query, ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -2426,6 +2468,17 @@ func applyReactionObservationRankBoost(score *float64, explain map[string]any, q
 	}
 }
 
+func applyPurposeActionRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksWhatDidPurposeQuery(query) || !leftoverCoveringPurposeActionLine(query, record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["purpose_action_boost"] = bonus
+	}
+}
+
 func hasResponseKeyword(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
@@ -2952,6 +3005,11 @@ func searchLexicalQueryTokens(query string, queryTokens []string) []string {
 			toks = trimmed
 		}
 	}
+	if looksWhatDidPurposeQuery(query) {
+		if trimmed := dropWhatDidPurposeCalendarTokens(toks); len(trimmed) > 0 {
+			toks = trimmed
+		}
+	}
 	return toks
 }
 
@@ -3047,6 +3105,18 @@ func dropHowReactStructureTokens(bearing []string) []string {
 	out := make([]string, 0, len(bearing))
 	for _, tok := range bearing {
 		if leftoverCoveringReactStructureToken(tok) {
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func dropWhatDidPurposeCalendarTokens(bearing []string) []string {
+	out := make([]string, 0, len(bearing))
+	for _, tok := range bearing {
+		low := strings.ToLower(strings.TrimSpace(tok))
+		if leftoverCoveringPurposeStructureToken(low) || isMonthWord(low) || isCalendarCoverToken(low) {
 			continue
 		}
 		out = append(out, tok)
@@ -3262,6 +3332,99 @@ func keepReactionObservationInCap(full, capped []rankedSearchResult, query strin
 			continue
 		}
 		if !leftoverCoveringReactLineHasObject(query, item.result.Content) {
+			continue
+		}
+		extra = append(extra, item)
+		if len(extra) >= 8 {
+			break
+		}
+	}
+	if len(extra) == 0 {
+		return capped
+	}
+	seen := map[string]struct{}{}
+	out := make([]rankedSearchResult, 0, limit)
+	for _, item := range extra {
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	for _, item := range capped {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	return out
+}
+
+func seedsFromPurposeActionCandidates(candidates map[string]MemoryRecord, query string) []MemoryRecord {
+	out := make([]MemoryRecord, 0, 8)
+	for _, rec := range candidates {
+		if leftoverCoveringPurposeActionLine(query, rec.Content) {
+			out = append(out, rec)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].MemoryID < out[j].MemoryID
+	})
+	return out
+}
+
+func expandPurposeActionSessionNeighbors(candidates map[string]MemoryRecord, query string, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringPurposeActionLine(query, record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+func keepPurposeActionInCap(full, capped []rankedSearchResult, query string, limit int) []rankedSearchResult {
+	if !looksWhatDidPurposeQuery(query) {
+		return capped
+	}
+	extra := make([]rankedSearchResult, 0, 8)
+	for _, item := range full {
+		if !leftoverCoveringPurposeActionLine(query, item.result.Content) {
 			continue
 		}
 		extra = append(extra, item)

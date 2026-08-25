@@ -1133,6 +1133,62 @@ func TestKeepReactionObservationInCapSurvivesListFill(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalQueryTokensDropsWhatDidPurposeCalendar(t *testing.T) {
+	q := "What did Audrey do in November 2023 to better take care of her dogs?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"november", "2023", "better", "audrey"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("what-did-purpose lexical tokens must drop calendar/person/comparative %q, got %v", banned, got)
+		}
+	}
+	for _, keep := range []string{"take", "care", "dogs"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("what-did-purpose lexical tokens must keep %q, got %v", keep, got)
+		}
+	}
+	injury := searchLexicalQueryTokens("What did Tim say about his injury on 16 November, 2023?", tokenize("What did Tim say about his injury on 16 November, 2023?"))
+	joinedInjury := strings.Join(injury, " ")
+	if strings.Contains(joinedInjury, "take") && strings.Contains(joinedInjury, "care") {
+		t.Fatalf("dated what-say-about must not be rewritten as what-did-purpose tokens, got %v", injury)
+	}
+	if !strings.Contains(joinedInjury, "injury") {
+		t.Fatalf("dated what-say-about must keep injury, got %v", injury)
+	}
+}
+
+func TestKeepPurposeActionInCapSurvivesListFill(t *testing.T) {
+	q := "What did Audrey do in November 2023 to better take care of her dogs?"
+	obs := rankedSearchResult{result: SearchResult{
+		MemoryID: "obs",
+		Content:  "Audrey recently joined a dog owners group to learn how to better take care of her dogs.",
+		Score:    0.4,
+	}}
+	full := []rankedSearchResult{obs}
+	capped := make([]rankedSearchResult, 0, 30)
+	for i := 0; i < 30; i++ {
+		capped = append(capped, rankedSearchResult{result: SearchResult{
+			MemoryID: fmt.Sprintf("fill%02d", i),
+			Content:  "Audrey walked the dogs in the park last week.",
+			Score:    1.5,
+		}})
+	}
+	got := keepPurposeActionInCap(full, capped, q, 30)
+	found := false
+	for _, item := range got {
+		if strings.Contains(strings.ToLower(item.result.Content), "joined") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("what-did-purpose evidence-set cap must keep take-care action leftover, n=%d", len(got))
+	}
+	if len(got) > 30 {
+		t.Fatalf("what-did-purpose action keep must stay within limit, n=%d", len(got))
+	}
+}
+
 func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))

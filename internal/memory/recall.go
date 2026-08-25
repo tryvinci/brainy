@@ -772,6 +772,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringReactMissesObservation(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringPurposeMissesAction(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3762,7 +3765,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3918,7 +3921,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line)) &&
 		!(looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line)) &&
 		!(looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line)) &&
-		!(looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) && leftoverCoveringReactLineHasObject(query, line)) {
+		!(looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) && leftoverCoveringReactLineHasObject(query, line)) &&
+		!(looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4123,6 +4127,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatDidPurposeQuery(query) {
+			if leftoverCoveringPurposeActionLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringPurposeCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4216,6 +4228,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringReactionObservationLine(best) && leftoverCoveringReactLineHasObject(query, best) {
 			// observational they-were leftover must name a query object (snow/dogs),
 			// not any they-looked-ADJ leftover from the same session.
+		} else {
+			return ""
+		}
+	}
+	if looksWhatDidPurposeQuery(query) {
+		if next := leftoverCoveringPreferPurposeAction(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringPurposeActionLine(query, best) {
+			// purpose-infinitive leftover must carry the adjacent purpose pair
+			// (take care), not comparative-better chat or a dated salon visit.
 		} else {
 			return ""
 		}
@@ -5000,8 +5023,35 @@ func looksHowReactQuery(query string) bool {
 	return hasReact || hasRespondTo
 }
 
+func looksWhatDidPurposeQuery(query string) bool {
+	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "what did") && !strings.Contains(q, "what does") && !strings.Contains(q, "what has") {
+		return false
+	}
+	toks := tokenize(query)
+	sawDo := false
+	sawTo := false
+	for _, tok := range toks {
+		if tok == "do" {
+			sawDo = true
+			continue
+		}
+		if sawDo && tok == "to" {
+			sawTo = true
+			break
+		}
+	}
+	if !sawDo || !sawTo {
+		return false
+	}
+	return len(leftoverCoveringPurposeObjectTokens(query)) >= 2
+}
+
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5052,6 +5102,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) && leftoverCoveringReactLineHasObject(query, line) {
+		return true
+	}
+	if looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5674,6 +5727,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(covering) && leftoverCoveringReactLineHasObject(query, covering) {
 		return true
 	}
+	if looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, covering) {
+		return true
+	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
 }
 
@@ -6063,6 +6119,139 @@ func leftoverCoveringReactMissesObservation(query, covering, answer string) bool
 	return true
 }
 
+func leftoverCoveringPurposeStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "better", "best", "worse", "greater", "less":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringPurposeObjectTokens(query string) []string {
+	toks := tokenize(query)
+	toIdx := -1
+	sawDo := false
+	for i, tok := range toks {
+		if tok == "do" {
+			sawDo = true
+			continue
+		}
+		if sawDo && tok == "to" {
+			toIdx = i
+		}
+	}
+	if toIdx < 0 || toIdx+1 >= len(toks) {
+		return nil
+	}
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	out := make([]string, 0, 4)
+	for _, tok := range toks[toIdx+1:] {
+		low := strings.ToLower(strings.TrimSpace(tok))
+		if low == "" || leftoverCoveringPurposeStructureToken(low) || leftoverCoverWeakToken(low) || isQueryStopword(low) || isMonthWord(low) || isCalendarCoverToken(low) {
+			continue
+		}
+		if _, ok := people[low]; ok {
+			continue
+		}
+		out = append(out, low)
+	}
+	return out
+}
+
+func leftoverCoveringPurposePairAdjacent(query, line string) bool {
+	objs := leftoverCoveringPurposeObjectTokens(query)
+	if len(objs) < 2 {
+		return false
+	}
+	a, b := objs[0], objs[1]
+	words := tokenize(hybridLineBody(line))
+	for i := 0; i+1 < len(words); i++ {
+		if tokensMatch(words[i], a) && tokensMatch(words[i+1], b) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringPurposeActorLine(query, line string) bool {
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	if body == "" {
+		return false
+	}
+	padded := " " + body + " "
+	if strings.Contains(padded, " i ") || strings.Contains(padded, " i've ") || strings.Contains(padded, " i’m ") || strings.HasPrefix(body, "i ") || strings.HasPrefix(body, "i've ") {
+		return true
+	}
+	return leftoverCoveringQueryEntityHits(query, hybridLineBody(line)) > 0
+}
+
+func leftoverCoveringPurposeActionLine(query, line string) bool {
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	if !leftoverCoveringPurposePairAdjacent(query, line) {
+		return false
+	}
+	return leftoverCoveringPurposeActorLine(query, line)
+}
+
+func leftoverCoveringPurposeCompanionLine(query, line string) bool {
+	if leftoverCoveringPurposeActionLine(query, line) {
+		return false
+	}
+	for _, tok := range leftoverCoveringPurposeObjectTokens(query) {
+		if contentCoversQueryToken(line, tok) {
+			return true
+		}
+	}
+	if leftoverCoveringPurposeStructureToken("better") && contentCoversQueryToken(line, "better") {
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringPreferPurposeAction(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringPurposeActionLine(query, row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringPurposeMissesAction(query, covering, answer string) bool {
+	if !looksWhatDidPurposeQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringPurposeActionLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringPurposeActionLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -6206,6 +6395,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(covering) && leftoverCoveringReactLineHasObject(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items
