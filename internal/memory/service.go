@@ -672,6 +672,31 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// Advice leftover covering needs hortative/first-person-gerund lines that
+	// omit the speech-act token. FTS ANDs "advice" against the echo; the gold
+	// sits in that session past the recency window. Seed from leftover-covering
+	// candidates that actually mention advice, then fetch bounded rows.
+	if looksAdviceQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(candidates))
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsForAdviceQuery(query, seeds)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		adviceAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+				adviceAll = listed
+			}
+		}
+		if len(adviceAll) > 0 && len(idSeeds) > 0 {
+			expandAdviceDirectiveSessionNeighbors(candidates, idSeeds, adviceAll, 8)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -813,6 +838,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 		applySessionNeighborBoost(&score, explain, record, memories)
 		applyHostedEventRankBoost(&score, explain, query, record)
+		applyAdviceDirectiveRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -967,6 +993,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksHostQuery(query) && leftoverCoveringHostedEventLine(ep.Content) {
 				continue
 			}
+			if looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -980,6 +1009,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksHostQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringHostedEventLine(ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksAdviceQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringAdviceOffQueryLine(ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -1207,6 +1243,54 @@ func sessionIDsForHostQuery(query string, seeds []MemoryRecord) []string {
 	return order
 }
 
+// sessionIDsForAdviceQuery ranks lexical-seed sessions that actually mention
+// the speech-act token so a business/campaign session cannot spend the fetch
+// budget before the advice-echo session.
+func sessionIDsForAdviceQuery(query string, seeds []MemoryRecord) []string {
+	toks := leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query)))
+	if len(toks) == 0 {
+		return nil
+	}
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	for _, rec := range seeds {
+		sid := sessionIDOf(rec)
+		if sid == "" {
+			continue
+		}
+		n := 0
+		speech := false
+		for _, tok := range toks {
+			if !contentCoversQueryToken(rec.Content, tok) {
+				continue
+			}
+			n++
+			if leftoverCoveringAdviceSpeechToken(tok) {
+				speech = true
+			}
+		}
+		if !speech || n < 2 {
+			continue
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return false
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	return order
+}
+
 func sessionIDOf(record MemoryRecord) string {
 	if record.Metadata == nil {
 		return ""
@@ -1279,6 +1363,42 @@ func expandHostedEventSessionNeighbors(candidates map[string]MemoryRecord, seeds
 			continue
 		}
 		if !leftoverCoveringHostedEventLine(record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+// expandAdviceDirectiveSessionNeighbors admits hortative / first-person-gerund
+// leftover that shares a session with an advice echo. Generic expand walks
+// store order with a hard cap, so the gold can miss a crowded session.
+func expandAdviceDirectiveSessionNeighbors(candidates map[string]MemoryRecord, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringAdviceOffQueryLine(record.Content) {
 			continue
 		}
 		candidates[record.MemoryID] = record
@@ -1698,6 +1818,17 @@ func applyHostedEventRankBoost(score *float64, explain map[string]any, query str
 	*score += bonus
 	if explain != nil {
 		explain["hosted_event_boost"] = bonus
+	}
+}
+
+func applyAdviceDirectiveRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksAdviceQuery(query) || !leftoverCoveringAdviceOffQueryLine(record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["advice_directive_boost"] = bonus
 	}
 }
 

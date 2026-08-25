@@ -743,6 +743,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringHostMissesEvent(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringAdviceMissesDirective(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3987,13 +3990,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, rare) {
-			continue
+			if !(looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(line)) {
+				continue
+			}
 		}
 		if len(locativeMust) > 0 && !contentCoversAnyQueryToken(line, locativeMust) {
 			continue
 		}
 		if !contentCoversAnyQueryToken(line, strong) {
-			continue
+			if !(looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(line)) {
+				continue
+			}
 		}
 		score := 1
 		if looksCodedEventToken(line) {
@@ -4038,6 +4045,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksAdviceQuery(query) {
+			if leftoverCoveringAdviceOffQueryLine(line) {
+				score += 4
+			}
+			if leftoverCoveringAdviceSpeechLine(line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4068,6 +4083,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			best = next
 		}
 		if joined := leftoverCoveringJoinHostedEvents(query, scored); joined != "" {
+			return leftoverCoveringFinish(query, joined)
+		}
+	}
+	if looksAdviceQuery(query) {
+		if next := leftoverCoveringPreferAdviceDirective(query, scored, best); next != "" {
+			best = next
+		}
+		if joined := leftoverCoveringJoinAdviceDirectives(query, scored); joined != "" {
 			return leftoverCoveringFinish(query, joined)
 		}
 	}
@@ -4365,6 +4388,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringHostMissesEvent(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringAdviceMissesDirective(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -4815,6 +4841,21 @@ func looksHostQuery(query string) bool {
 	return strings.Contains(q, "what did") || strings.Contains(q, "what does") || strings.Contains(q, "what has")
 }
 
+func looksAdviceQuery(query string) bool {
+	hasAdvice := false
+	for _, tok := range tokenize(query) {
+		if leftoverCoveringAdviceSpeechToken(tok) {
+			hasAdvice = true
+			break
+		}
+	}
+	if !hasAdvice {
+		return false
+	}
+	q := strings.ToLower(query)
+	return strings.Contains(q, "what ") || strings.Contains(q, "how ")
+}
+
 func leftoverCoveringHostedEventLine(line string) bool {
 	low := " " + strings.ToLower(hybridLineBody(line)) + " "
 	for _, n := range []string{" party ", " dinner ", " gathering ", " celebration ", " reception "} {
@@ -4925,6 +4966,185 @@ func leftoverCoveringHostMissesEvent(query, covering, answer string) bool {
 		return false
 	}
 	if leftoverCoveringLineHasForeignPerson(query, covering) && !leftoverCoveringMentionsQueryEntity(query, covering) {
+		return false
+	}
+	return true
+}
+
+func leftoverCoveringAdviceSpeechToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "advice", "advise", "advises", "advised", "advising":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringAdviceRestatementToken(tok string) bool {
+	if leftoverCoveringAdviceSpeechToken(tok) {
+		return true
+	}
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "business", "biz", "running", "successful", "success",
+		"give", "gives", "gave", "giving", "tip", "tips":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringAdviceSpeechLine(line string) bool {
+	for _, tok := range tokenize(hybridLineBody(line)) {
+		if leftoverCoveringAdviceSpeechToken(tok) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringAdviceDirectiveLine(line string) bool {
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || leftoverCoveringAdviceSpeechLine(line) {
+		return false
+	}
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	if body == "" {
+		return false
+	}
+	trimmed := body
+	for {
+		switch {
+		case strings.HasPrefix(trimmed, "and "):
+			trimmed = strings.TrimSpace(trimmed[4:])
+			continue
+		case strings.HasPrefix(trimmed, "also "):
+			trimmed = strings.TrimSpace(trimmed[5:])
+			continue
+		}
+		break
+	}
+	for _, p := range []string{"be sure ", "be sure to ", "don't forget", "do not forget", "make sure ", "remember to ", "try to "} {
+		if strings.HasPrefix(trimmed, p) {
+			return true
+		}
+	}
+	fields := strings.Fields(trimmed)
+	if len(fields) == 0 {
+		return false
+	}
+	w := strings.Trim(fields[0], ".,;:()[]\"'")
+	if len(w) < 6 || !strings.HasSuffix(w, "ing") {
+		return false
+	}
+	// First-person gerund leftover ("Building X … I'm always working on").
+	// Second-person evaluative gerunds ("Seeing your students…") are not advice content.
+	padded := " " + body + " "
+	return strings.Contains(padded, " i ") || strings.Contains(padded, " i'm ") || strings.Contains(padded, " my ")
+}
+
+func leftoverCoveringAdviceOffQueryLine(line string) bool {
+	if !leftoverCoveringAdviceDirectiveLine(line) {
+		return false
+	}
+	for _, tok := range tokenize(hybridLineBody(line)) {
+		if leftoverCoveringAdviceRestatementToken(tok) {
+			return false
+		}
+	}
+	return true
+}
+
+func leftoverCoveringPreferAdviceDirective(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringAdviceOffQueryLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && !leftoverCoveringMentionsQueryEntity(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringJoinAdviceDirectives(query string, scored []leftoverCoverScored) string {
+	if !looksAdviceQuery(query) {
+		return ""
+	}
+	rows := make([]leftoverCoverScored, 0, 6)
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringAdviceOffQueryLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && !leftoverCoveringMentionsQueryEntity(query, row.line) {
+			continue
+		}
+		rows = append(rows, row)
+	}
+	if len(rows) < 2 {
+		return ""
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].score != rows[j].score {
+			return rows[i].score > rows[j].score
+		}
+		li := len(contentBearingTokens(tokenize(rows[i].line)))
+		lj := len(contentBearingTokens(tokenize(rows[j].line)))
+		return li > lj
+	})
+	parts := make([]string, 0, 3)
+	seen := map[string]struct{}{}
+	for _, row := range rows {
+		line := stripConflictingDateTail(query, row.line)
+		key := strings.ToLower(strings.TrimSpace(line))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		parts = append(parts, line)
+		if len(parts) >= 3 {
+			break
+		}
+	}
+	if len(parts) < 2 {
+		return ""
+	}
+	return strings.Join(parts, "; ")
+}
+
+func leftoverCoveringAdviceMissesDirective(query, covering, answer string) bool {
+	if !looksAdviceQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringAdviceOffQueryLine(answer) {
+		return false
+	}
+	if !leftoverCoveringAdviceOffQueryLine(covering) {
 		return false
 	}
 	return true
@@ -5236,6 +5456,14 @@ func leftoverCoveringSentenceInitialVerb(i int, fields []string) bool {
 	lower := strings.ToLower(w)
 	// Past-tense morphology. Short names (Ned, Fred) stay people.
 	if len(lower) >= 6 && strings.HasSuffix(lower, "ed") {
+		return true
+	}
+	// Hortative / gerund leftover ("Also be sure…", "Building relationships…").
+	switch lower {
+	case "also", "and", "but", "so", "make", "don't", "dont":
+		return true
+	}
+	if len(lower) >= 6 && strings.HasSuffix(lower, "ing") {
 		return true
 	}
 	if len(fields) < 2 {

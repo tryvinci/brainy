@@ -4211,6 +4211,12 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if looksHostQuery("What does Melanie do to destress?") || looksHostQuery("What made being part of the running group easy for Deborah to stay motivated?") {
 		t.Fatal("destress and what-made queries are not host queries")
 	}
+	if looksAdviceQuery("What does Melanie do to destress?") || looksAdviceQuery("What made being part of the running group easy for Deborah to stay motivated?") || looksAdviceQuery("What did John host for the veterans in May 2023 as part of the project") {
+		t.Fatal("destress, what-made, and host queries are not advice queries")
+	}
+	if !looksAdviceQuery("What advice does Gina give to Jon about running a successful business?") {
+		t.Fatal("what-advice-give must classify as advice")
+	}
 }
 
 func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
@@ -4333,6 +4339,130 @@ func TestApplyFactPrimaryRecallKeepsHostedEventEpisode(t *testing.T) {
 	applyFactPrimaryRecall(candidates, q, false)
 	if _, ok := candidates["ep"]; !ok {
 		t.Fatal("host query must keep hosted-event episode leftover")
+	}
+}
+
+func TestLeftoverCoveringAdvicePrefersDirectiveOverAwesome(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Gina", Value: "Gina", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Jon", Value: "Jon", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Gina: Sorry about your job Jon, but starting your own business sounds awesome"},
+			{Content: "Got any advice or tips on running a successful biz"},
+			{Content: "Gina: Thanks for the advice, Jon"},
+			{Content: "Starting a business takes courage - you hang in there too"},
+			{Content: "Seeing your students grow and succeed must be really fulfilling"},
+			{Content: "Building relationships and creating a strong brand image for my store is something I'm always working on"},
+			{Content: "Also be sure to build relationships with your customers – let them know you care"},
+			{Content: "And don't forget to stay positive and motivate others"},
+			{Content: "Make sure yours stands out"},
+		},
+	}
+	q := "What advice does Gina give to Jon about running a successful business?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "relationship") || !strings.Contains(lower, "brand") || !strings.Contains(lower, "positive") {
+		t.Fatalf("advice leftover covering must join relationships, brand, and stay positive, got %q", got)
+	}
+	if strings.Contains(lower, "awesome") || strings.Contains(lower, "got any advice") || strings.Contains(lower, "students") || strings.Contains(lower, "courage") {
+		t.Fatalf("advice echo, awesome, students, or business restatement must not cover, got %q", got)
+	}
+	hybrid := "She tells Jon that starting his own business sounds awesome."
+	if leftoverCoveringAdviceOffQueryLine(hybrid) {
+		t.Fatal("awesome restatement is not off-query advice leftover")
+	}
+	if leftoverCoveringAdviceOffQueryLine("Starting a business takes courage - you hang in there too") {
+		t.Fatal("business restatement gerund must not count as off-query advice leftover")
+	}
+	if leftoverCoveringAdviceOffQueryLine("Seeing your students grow and succeed must be really fulfilling") {
+		t.Fatal("second-person evaluative gerund must not count as advice leftover")
+	}
+	if !leftoverCoveringAdviceMissesDirective(q, got, hybrid) {
+		t.Fatal("advice covering must replace an awesome restatement")
+	}
+}
+
+func TestExpandAdviceDirectiveSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_7"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Got any advice or tips on running a successful biz",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about the store",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Building relationships and creating a strong brand image for my store is something I'm always working on",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the advice leftover can miss")
+	}
+	expandAdviceDirectiveSessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("advice session expand must admit the first-person gerund leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForAdviceQueryRequiresSpeechEcho(t *testing.T) {
+	q := "What advice does Gina give to Jon about running a successful business?"
+	campaign := MemoryRecord{
+		MemoryID: "c",
+		Content:  "Gina launched an ad campaign for her clothing store to grow the business.",
+		Metadata: map[string]any{"session_id": "session_3"},
+	}
+	echo := MemoryRecord{
+		MemoryID: "e",
+		Content:  "Got any advice or tips on running a successful biz",
+		Metadata: map[string]any{"session_id": "session_7"},
+	}
+	ids := sessionIDsForAdviceQuery(q, []MemoryRecord{campaign, echo})
+	if len(ids) == 0 || ids[0] != "session_7" {
+		t.Fatalf("advice session pick must prefer the advice echo, got %#v", ids)
+	}
+	for _, id := range ids {
+		if id == "session_3" {
+			t.Fatal("business campaign session must not be fetched without an advice echo")
+		}
+	}
+}
+
+func TestApplyAdviceDirectiveRankBoostSkipsAwesome(t *testing.T) {
+	q := "What advice does Gina give to Jon about running a successful business?"
+	gold := 1.0
+	awesome := 1.0
+	applyAdviceDirectiveRankBoost(&gold, map[string]any{}, q, MemoryRecord{Content: "Also be sure to build relationships with your customers – let them know you care"})
+	applyAdviceDirectiveRankBoost(&awesome, map[string]any{}, q, MemoryRecord{Content: "Gina: Sorry about your job Jon, but starting your own business sounds awesome"})
+	if gold <= awesome {
+		t.Fatalf("advice directive rank boost must lift hortative leftover over awesome, gold=%v awesome=%v", gold, awesome)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsAdviceEpisode(t *testing.T) {
+	q := "What advice does Gina give to Jon about running a successful business?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Building relationships and creating a strong brand image for my store is something I'm always working on"},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "And don't forget to stay positive and motivate others",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("advice query must keep hortative episode leftover")
 	}
 }
 

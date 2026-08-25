@@ -804,6 +804,10 @@ func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	if !strings.Contains(strings.Join(island, " "), "island") {
 		t.Fatalf("how-describe island must keep the object token, got %v", island)
 	}
+	advice := searchLexicalQueryTokens("What advice does Gina give to Jon about running a successful business?", tokenize("What advice does Gina give to Jon about running a successful business?"))
+	if !strings.Contains(strings.Join(advice, " "), "advice") {
+		t.Fatalf("advice queries must keep the speech-act token, got %v", advice)
+	}
 }
 
 func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
