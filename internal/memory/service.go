@@ -599,6 +599,14 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 
 	// For multi-hop shaped questions, admit a capped set of same-session neighbors
 	// and a second-pass of fact-like memories related to first-hit content tokens.
+	relatedToks := queryTokens
+	admitToks := queryTokens
+	coverToks := queryTokens
+	if looksWhatMadeQuery(query) {
+		relatedToks = contentQueryTokens
+		admitToks = contentQueryTokens
+		coverToks = contentQueryTokens
+	}
 	if looksMultiHopQuery(queryTokens) {
 		if len(allMemories) > 0 {
 			expandSessionNeighbors(candidates, memories, allMemories, 16)
@@ -624,7 +632,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if listQuery {
 			relLimit = 24
 		}
-		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, contentQueryTokens, relatedSeeds, relLimit); err == nil {
+		if related, err := s.relatedFactMemories(ctx, tenantID, subjectID, relatedToks, relatedSeeds, relLimit); err == nil {
 			for _, record := range related {
 				if _, ok := candidates[record.MemoryID]; !ok {
 					candidates[record.MemoryID] = record
@@ -636,7 +644,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	// Rare query tokens (filling, gym, series) lose the lexical pool when FTS
 	// ANDs every term or ILIKE is recency-capped on common names. Admit a
 	// bounded per-token hit set so compiled facts can rank.
-	trace.QueryTokenAdmitted = s.admitUncoveredQueryTokens(ctx, tenantID, subjectID, includeSuperseded, candidates, contentQueryTokens)
+	trace.QueryTokenAdmitted = s.admitUncoveredQueryTokens(ctx, tenantID, subjectID, includeSuperseded, candidates, admitToks)
 
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
@@ -830,9 +838,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		limit = 32
 	}
 	if listQuery || looksMultiHopQuery(queryTokens) {
-		ranked = selectEvidenceSetCovering(ranked, limit, contentQueryTokens)
+		ranked = selectEvidenceSetCovering(ranked, limit, coverToks)
 	} else if len(ranked) > limit {
-		ranked = coverQueryTokensThenCap(ranked, limit, contentQueryTokens)
+		ranked = coverQueryTokensThenCap(ranked, limit, coverToks)
 	}
 
 	results := make([]SearchResult, len(ranked))
