@@ -4145,6 +4145,42 @@ func TestLeftoverCoveringWhereIgnoresHopSlotStarvation(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringPrefersDatedPlanOverActivityPepTalk(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Casey", Value: "Casey", Source: "search_fallback"},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity, Source: "typed_store",
+			Value: "kayaking", Values: []string{"kayaking"}},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "It's such a rewarding and tough activity - keep going and have fun"},
+			{Content: "Riley plans to organize a kayaking trip together with Casey."},
+			{Content: "Casey plans to paint with Riley on Saturday, 16 September 2023."},
+			{Content: "Riley finished a contemporary figurative painting a few days ago (2023-12-14)."},
+		},
+	}
+	q := "Which activity do Riley and Casey plan on doing together during September 2023?"
+	rare := leftoverCoveringRareForQuery(q, hops)
+	if !contentCoversAnyQueryToken("september", rare) {
+		t.Fatalf("weak-only activity queries must keep the month token, rare=%v", rare)
+	}
+	if contentCoversAnyQueryToken("activity", leftoverCoverNonWeakTokens(rare)) {
+		t.Fatalf("activity must not stay a leftover covering bind token, rare=%v", rare)
+	}
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "paint") {
+		t.Fatalf("dated September plan must cover, got %q rare=%v", got, rare)
+	}
+	if strings.Contains(lower, "keep going") || strings.Contains(lower, "have fun") || strings.Contains(lower, "kayak") {
+		t.Fatalf("pep-talk or undated kayaking must not cover a September activity, got %q", got)
+	}
+	if !leftoverThinMissAnswer(q, hops, "kayaking") {
+		t.Fatal("one-word hop activity that misses the month must stay a leftover thin miss")
+	}
+}
+
 func TestLeftoverCoveringSkipsWeakAdverbCrowd(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Tim", Value: "Tim", Source: "search_fallback"},

@@ -3792,7 +3792,46 @@ func leftoverCoverNonWeakTokens(toks []string) []string {
 
 func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 	_ = hops
-	return leftoverCoverRareTokens(query, nil)
+	rare := leftoverCoverRareTokens(query, nil)
+	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
+		return rare
+	}
+	extra := leftoverCoverQueryMonthYearTokens(query)
+	if len(extra) == 0 {
+		return rare
+	}
+	// Weak-only leftover tokens cannot bind a covering line. Keep the query
+	// month/year so dated plan lines can compete with generic "activity" talk.
+	return leftoverCoverAddTokens(nil, extra...)
+}
+
+func leftoverCoverQueryMonthYearTokens(query string) []string {
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(tok string) {
+		tok = strings.ToLower(strings.TrimSpace(tok))
+		if tok == "" {
+			return
+		}
+		if _, ok := seen[tok]; ok {
+			return
+		}
+		seen[tok] = struct{}{}
+		out = append(out, tok)
+	}
+	month := false
+	for _, tok := range tokenize(query) {
+		if isMonthWord(tok) {
+			add(tok)
+			month = true
+		}
+	}
+	if !month {
+		if y := queryCalendarYear(query); y != 0 {
+			add(strconv.Itoa(y))
+		}
+	}
+	return out
 }
 
 func filterLeftoverCoverTokens(leftover []string, minLen int) []string {
@@ -4017,6 +4056,10 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 }
 
 func leftoverCoverRarestTokens(strong []string, df map[string]int) []string {
+	strong = leftoverCoverNonWeakTokens(strong)
+	if len(strong) == 0 {
+		return nil
+	}
 	min := -1
 	for _, tok := range strong {
 		d := df[tok]
