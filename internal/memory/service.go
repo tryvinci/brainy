@@ -800,12 +800,14 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 
 	// How-react leftover covering needs observational leftover
 	// ("they were so confused") that omits dislike/hate restatement tokens.
+	// Seed sessions from FTS hits (stable rank order). Iterating the
+	// candidate map mixes in list-corpus sessions and can spend the 8-session
+	// budget before the object-token leftover session.
 	if looksHowReactQuery(query) {
-		seeds := make([]MemoryRecord, 0, len(candidates))
-		for _, rec := range candidates {
-			seeds = append(seeds, rec)
+		ids := sessionIDsOf(memories)
+		if len(ids) == 0 {
+			ids = sessionIDsOf(seedsFromHowReactCandidates(candidates, query))
 		}
-		ids := sessionIDsOf(seeds)
 		idSeeds := make([]MemoryRecord, 0, len(ids))
 		for _, id := range ids {
 			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
@@ -817,7 +819,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			}
 		}
 		if len(reactAll) > 0 && len(idSeeds) > 0 {
-			expandReactionObservationSessionNeighbors(candidates, query, idSeeds, reactAll, 8)
+			expandReactionObservationSessionNeighbors(candidates, query, idSeeds, reactAll, 32)
 		}
 	}
 
@@ -3199,6 +3201,19 @@ func expandEvaluativeTheySessionNeighbors(candidates map[string]MemoryRecord, se
 		candidates[record.MemoryID] = record
 		added++
 	}
+}
+
+func seedsFromHowReactCandidates(candidates map[string]MemoryRecord, query string) []MemoryRecord {
+	out := make([]MemoryRecord, 0, 8)
+	for _, rec := range candidates {
+		if leftoverCoveringReactLineHasObject(query, rec.Content) {
+			out = append(out, rec)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].MemoryID < out[j].MemoryID
+	})
+	return out
 }
 
 func expandReactionObservationSessionNeighbors(candidates map[string]MemoryRecord, query string, seeds, all []MemoryRecord, limit int) {
