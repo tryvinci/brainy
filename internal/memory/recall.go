@@ -740,6 +740,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringWhatMadeMissesEvidence(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringHostMissesEvent(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -4027,6 +4030,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 2
 			}
 		}
+		if looksHostQuery(query) {
+			if leftoverCoveringHostedEventLine(line) {
+				score += 4
+			}
+			if leftoverCoveringRealizeSpeechLine(line) && !leftoverCoveringHostedEventLine(line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4049,6 +4060,11 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	if looksWhatMadeQuery(query) {
 		if next := leftoverCoveringPreferWhatMadeEvidence(query, scored, best); next != "" {
+			best = next
+		}
+	}
+	if looksHostQuery(query) {
+		if next := leftoverCoveringPreferHostedEvent(query, scored, best); next != "" {
 			best = next
 		}
 	}
@@ -4343,6 +4359,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringWhatMadeMissesEvidence(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringHostMissesEvent(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -4776,6 +4795,84 @@ func looksHowDescribeQuery(query string) bool {
 
 func looksFirstPersonLeftoverQuery(query string) bool {
 	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query)
+}
+
+func looksHostQuery(query string) bool {
+	hasHost := false
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "host", "hosted", "hosting", "hosts":
+			hasHost = true
+		}
+	}
+	if !hasHost {
+		return false
+	}
+	q := strings.ToLower(query)
+	return strings.Contains(q, "what did") || strings.Contains(q, "what does") || strings.Contains(q, "what has")
+}
+
+func leftoverCoveringHostedEventLine(line string) bool {
+	low := " " + strings.ToLower(hybridLineBody(line)) + " "
+	for _, n := range []string{" party ", " dinner ", " gathering ", " celebration ", " reception "} {
+		if strings.Contains(low, n) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringRealizeSpeechLine(line string) bool {
+	low := " " + strings.ToLower(hybridLineBody(line)) + " "
+	return strings.Contains(low, " realized ") || strings.Contains(low, " realise ") || strings.Contains(low, " realize ")
+}
+
+func leftoverCoveringPreferHostedEvent(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringHostedEventLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && !leftoverCoveringMentionsQueryEntity(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringHostMissesEvent(query, covering, answer string) bool {
+	if !looksHostQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringHostedEventLine(answer) {
+		return false
+	}
+	if !leftoverCoveringHostedEventLine(covering) {
+		return false
+	}
+	if leftoverCoveringLineHasForeignPerson(query, covering) && !leftoverCoveringMentionsQueryEntity(query, covering) {
+		return false
+	}
+	return true
 }
 
 func leftoverCoveringRestatementToken(tok string) bool {

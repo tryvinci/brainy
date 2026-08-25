@@ -4208,6 +4208,39 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if !looksHowDescribeQuery("How does Nate describe the stuffed animal he got for Joanna?") {
 		t.Fatal("how-does-describe must classify as how-describe")
 	}
+	if looksHostQuery("What does Melanie do to destress?") || looksHostQuery("What made being part of the running group easy for Deborah to stay motivated?") {
+		t.Fatal("destress and what-made queries are not host queries")
+	}
+}
+
+func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "John", Value: "John", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "John realized on 13 May 2023 that veterans have done a lot for us."},
+			{Content: "John organized a small party for veterans."},
+			{Content: "We had a great time throwing a small party and inviting some veterans to share their stories"},
+			{Content: "John organized a 5K charity run in his neighborhood to support veterans and their families."},
+		},
+	}
+	q := "What did John host for the veterans in May 2023 as part of the project"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "party") {
+		t.Fatalf("host leftover covering must pick the hosted event, got %q", got)
+	}
+	if strings.Contains(lower, "realized") || strings.Contains(lower, "5k") || strings.Contains(lower, "charity run") {
+		t.Fatalf("realize speech or later race must not cover host, got %q", got)
+	}
+	hybrid := "John realized on 13 May 2023 that veterans have done a lot for us."
+	if leftoverCoveringHostedEventLine(hybrid) {
+		t.Fatal("realize line is not a hosted event")
+	}
+	if !leftoverCoveringHostMissesEvent(q, got, hybrid) {
+		t.Fatal("host covering must replace a realize restatement")
+	}
 }
 
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
