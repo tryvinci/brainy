@@ -4095,3 +4095,76 @@ The gold leftover (`Just keep their area clean, feed them properly, and make sur
 
 **One step:** ranking so gold enters the leftover packet without dropping FTS structure tokens (Joanna writing — do not drop `motivate`). Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 15** + RETRIEVAL 27. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→119 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `turtles`/`care`. Do not add a care dictionary. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-25 — P36 what-motivates first-person object-cause leftover covering (120/180)
+
+**Landed:** product SHA `5dbc350` on `pr/locomo-180-p36-1e9e` (PR #152). Skip-ingest pin [locomo-s0-diag-mh-135-p36-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p36-20260825.md) (`locomo-s0-diag-mh-135-p36-product-recall-s1-cb539f`). P35 is already on dest and main (`7d6e979` / `a7d8bfb`).
+
+Product change: what-motivates leftover covering prefers **first-person object-cause leftover** (`It's knowing that my writing can make a difference that keeps me going`) over turtle / have-faith / occupation companions. Lexical search drops `motivate*` / `keep` / `even` only on `what motivates` / `what motivated` queries (not `stay motivated` / how-stay-motivated). Covering **returns empty** unless the best leftover is that cause line so P30 running-group hybrid/covering can hold. When the search packet already has a cause leftover, skip typed hops and the hybrid LLM reader so recall cannot idle-timeout. Does not drop `motivate` globally. Does not add a writing→difference dictionary. Does not treat occupation leftover (`my writing is consuming me`) as cause. Does not name LoCoMo.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; last pin. Not re-run this increment. |
+| Marketing vertical | **17/17** | Merge gate; last pin. Not re-run this increment. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P35 | **119/180 (0.661)** | MH **18/33** · OD **4/11** · SH **67/98** · temporal **30/38**. SHA `a7d8bfb`. |
+| LoCoMo S0 product hybrid **on** P36 | **120/180 (0.667)** | MH **18/33** · OD **4/11** · SH **68/98** · temporal **30/38**. SHA `5dbc350`. Ledger: **RETRIEVAL 27 / PROOF 21 / READER 7 / WRITE 4 / HARNESS 1**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** 90%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 120/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. Item flips vs P35: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 120 vs 11, or 120 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **119** P35 → **120** P36 | **no same-n pin** (fair 180 429) | Product 19→120 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P35 **18/33** → P36 **18/33** | no 33-item freeze | Held P21 high. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P36 product local 161 ms (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (18/33).** Held P21 high. Destress pottery **held**. Yoga locations **held**. Childhood items **held**. Still missing: Phuket diving (`conv-48-q77`) — write split. Do not treat 18/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. James girlfriend April 2022 **held**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **67→68/98**. Industry **27/98**. Named recovery: Joanna writing (`conv-42-q146`). Remaining mass is SH **PROOF 15**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment. Dancers graceful still miss (gold stored but dance-photo flood). Camping-peaceful still miss (not stored). Do not drop `motivate` globally. Do not add a writing dictionary. Do not drop `turtles`/`care`.
+
+**Temporal.** **Held 30/38**. Joanna letter 7 August 2022 **held**. Paint Saturday, health start year, community-center, August teammates, art-show April, Jon banker, Ned, McGee's, Toronto, Caroline biking, Gina internship **held**. Jolene yoga year still MISS (2020 start year is not a stored fact). Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+The gold leftover (`It's knowing that my writing can make a difference that keeps me going, even on tough days`) is stored and active in session_18, but FTS ANDed `motivate` against compiler turtle facts (`Joanna believes turtles … motivate her in tough times`). Gold has no `motivate` token and is first-person (omits Joanna). Dropping `motivate` globally would break P30 running-group. Restricting the drop to `what motivates` / `what motivated` (not stay-motivated) plus first-person object-cause covering recovers the leftover. Hybrid skip after hops was too late: hop `SearchOpt` probes still idled past the 120s harness window (`not in memory` / HARNESS_ERROR). Skipping hops and hybrid when the search packet already has a cause leftover makes recall ~100ms. Occupation leftover (`my writing is consuming me`) is not cause. WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** ranking so gold enters the leftover packet without a category dictionary (dancers graceful — `They're so graceful` stored session_1; dance-photo flood). Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Remaining harness timeout is Jolene exercise feel (`conv-48-q116`) — do not steal Deborah’s “connected to my body”. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 15** + RETRIEVAL 27. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→120 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `motivate` globally. Do not drop `turtles`/`care`. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
