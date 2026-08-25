@@ -6946,6 +6946,166 @@ func TestSessionIDsForWhatDidRecentlyAtPrefersPurposeSessions(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringHowFeelAboutPrefersExperiencingLeftover(t *testing.T) {
+	gold := "Jolene: I'm experiencing a new level of joy and happiness"
+	process := "Jolene is trying to be more mindful and grateful, practicing mindfulness and gratitude."
+	thin := "Jolene is experiencing joy and happiness."
+	deborah := "Deborah: I'm feeling a mix of happiness and being connected to my body"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: process},
+			{Content: thin},
+			{Content: deborah},
+			{Content: gold},
+		},
+	}
+	q := "How did Jolene feel about her progress in practicing mindfulness and gratitude?"
+	if !looksHowFeelAboutQuery(q) {
+		t.Fatal("how + feel + about must count as how-feel")
+	}
+	if looksHowFeelAboutQuery("What did Calvin do recently at his Japanese house?") {
+		t.Fatal("recently-at must not count as how-feel")
+	}
+	if looksHowFeelAboutQuery("What new fantasy TV series is Tim excited about?") {
+		t.Fatal("what-new-series must not count as how-feel")
+	}
+	if looksHowFeelAboutQuery("What has Jolene been focusing on lately besides studying?") {
+		t.Fatal("focusing-besides must not count as how-feel")
+	}
+	if looksHowFeelAboutQuery("How does Jolene plan to pursue her dream of learning to surf?") {
+		t.Fatal("how-plan-dream must not count as how-feel")
+	}
+	if looksHowFeelAboutQuery("How did Tim react when he got injured?") {
+		t.Fatal("how-react must not count as how-feel")
+	}
+	if leftoverCoveringExperiencingFeelingLine(q, process) {
+		t.Fatal("process leftover must not count as experiencing+new-level covering")
+	}
+	if leftoverCoveringExperiencingFeelingLine(q, thin) {
+		t.Fatal("thin experiencing compiler without new level must not count as covering")
+	}
+	if leftoverCoveringExperiencingFeelingLine(q, deborah) {
+		t.Fatal("Deborah mix-of-happiness leftover must not count as Jolene covering")
+	}
+	if !leftoverCoveringExperiencingFeelingLine(q, gold) {
+		t.Fatal("speaker-prefixed experiencing + new level leftover must count as covering")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if !strings.Contains(strings.ToLower(got), "new level") || !strings.Contains(strings.ToLower(got), "joy") {
+		t.Fatalf("how-feel leftover covering must prefer experiencing+new-level leftover, got %q", got)
+	}
+	if leftoverCoveringExperiencingFeelingCompanionLine(q, gold) {
+		t.Fatal("covering leftover must not score as companion")
+	}
+	if !leftoverCoveringExperiencingFeelingCompanionLine(q, process) {
+		t.Fatal("process leftover must score as companion")
+	}
+	if !leftoverCoveringExperiencingFeelingCompanionLine(q, thin) {
+		t.Fatal("thin experiencing compiler must score as companion")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("experiencing-feeling leftover must skip hybrid")
+	}
+	if !leftoverCoveringExperiencingFeelingMissesFeeling(q, got, process) {
+		t.Fatal("process leftover answer must miss experiencing-feeling covering")
+	}
+	dumpItems := []RecallItem{{Value: process}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "new level") {
+		t.Fatalf("how-feel covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringHowFeelAboutStaysEmptyWithoutFeeling(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Jolene is trying to be more mindful and grateful, practicing mindfulness and gratitude."},
+			{Content: "Jolene is experiencing joy and happiness."},
+			{Content: "Deborah: I'm feeling a mix of happiness and being connected to my body"},
+		},
+	}
+	q := "How did Jolene feel about her progress in practicing mindfulness and gratitude?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("how-feel leftover covering must stay empty without experiencing+new-level leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsExperiencingFeelingEpisode(t *testing.T) {
+	q := "How did Jolene feel about her progress in practicing mindfulness and gratitude?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Jolene is trying to be more mindful and grateful, practicing mindfulness and gratitude."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "Jolene: I'm experiencing a new level of joy and happiness",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("how-feel query must keep experiencing-feeling episode leftover")
+	}
+}
+
+func TestExpandExperiencingFeelingSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_27"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Jolene is trying to be more mindful and grateful, practicing mindfulness and gratitude.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about mindful walks",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Jolene: I'm experiencing a new level of joy and happiness",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the experiencing leftover can miss")
+	}
+	expandExperiencingFeelingSessionNeighbors(candidates, "How did Jolene feel about her progress in practicing mindfulness and gratitude?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("how-feel session expand must admit experiencing leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForHowFeelAboutPrefersFeelingSessions(t *testing.T) {
+	q := "How did Jolene feel about her progress in practicing mindfulness and gratitude?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "Jolene is trying to be more mindful and grateful, practicing mindfulness and gratitude.",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	process := MemoryRecord{
+		MemoryID: "process",
+		Content:  "Jolene is trying to be more mindful and grateful, practicing mindfulness and gratitude.",
+		Metadata: map[string]any{"session_id": "session_16"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Jolene: I'm experiencing a new level of joy and happiness",
+		Metadata: map[string]any{"session_id": "session_27"},
+	}
+	seeds := append(recent, process)
+	ids := sessionIDsForHowFeelAboutQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_27" {
+		t.Fatalf("how-feel session rank must prefer experiencing leftover session over recency process leftover, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsBecomeInterestedEpisode(t *testing.T) {
 	q := "What new hobby did James become interested in on 9 July, 2022?"
 	candidates := map[string]MemoryRecord{

@@ -802,6 +802,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringLocativePurposeMissesExtra(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringExperiencingFeelingMissesFeeling(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3792,7 +3795,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) || looksHowFeelAboutQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3980,6 +3983,16 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 			rare = filtered
 		}
 	}
+	if looksHowFeelAboutQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringFeelAboutStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		rare = filtered
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -4071,7 +4084,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, line)) &&
 		!(looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, line)) &&
 		!(looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, line)) &&
-		!(looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, line)) {
+		!(looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, line)) &&
+		!(looksHowFeelAboutQuery(query) && leftoverCoveringExperiencingFeelingLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4116,7 +4130,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	whereQ := looksWhereQuery(query)
 	rare := leftoverCoveringRareForQuery(query, hops)
-	if len(rare) == 0 && !looksWhatNewSeriesQuery(query) && !looksWhatDidRecentlyAtQuery(query) {
+	if len(rare) == 0 && !looksWhatNewSeriesQuery(query) && !looksWhatDidRecentlyAtQuery(query) && !looksHowFeelAboutQuery(query) {
 		return ""
 	}
 	if leftoverCoveringLockChildhoodPossessions(query) {
@@ -4362,6 +4376,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksHowFeelAboutQuery(query) {
+			if leftoverCoveringExperiencingFeelingLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringExperiencingFeelingCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4569,6 +4591,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringLocativePurposeLine(query, best) {
 			// recently-at leftover must name a locative action with an extra
 			// for-my/our purpose object, not a thin dated locative fact.
+		} else {
+			return ""
+		}
+	}
+	if looksHowFeelAboutQuery(query) {
+		if next := leftoverCoveringPreferExperiencingFeeling(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringExperiencingFeelingLine(query, best) {
+			// how-feel leftover must be first-person experiencing + new level,
+			// not a process restatement of practicing mindfulness.
 		} else {
 			return ""
 		}
@@ -5531,6 +5564,23 @@ func looksWhatDidRecentlyAtQuery(query string) bool {
 	return hasRecent && hasDo && len(leftoverCoveringRecentlyAtPlaceTokens(query)) > 0
 }
 
+func looksHowFeelAboutQuery(query string) bool {
+	if looksWhatDidRecentlyAtQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatFocusingBesidesQuery(query) || looksHowPlanDreamQuery(query) || looksWhatNewHobbyQuery(query) || looksWhatProjectWorkingQuery(query) || looksHowOftenQuery(query) || looksHowLongBeenQuery(query) || looksHowDidStartQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDescribeQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "how ") || !strings.Contains(q, " about ") {
+		return false
+	}
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "feel", "felt", "feeling", "feels":
+			return true
+		}
+	}
+	return false
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5559,7 +5609,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) || looksHowFeelAboutQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5640,6 +5690,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, line) {
+		return true
+	}
+	if looksHowFeelAboutQuery(query) && leftoverCoveringExperiencingFeelingLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -6290,6 +6343,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, covering) {
+		return true
+	}
+	if looksHowFeelAboutQuery(query) && leftoverCoveringExperiencingFeelingLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -7805,6 +7861,14 @@ func leftoverCoveringTitledShowStructureToken(tok string) bool {
 	return false
 }
 
+func leftoverCoveringFeelAboutStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "feel", "felt", "feeling", "feels", "about", "progress":
+		return true
+	}
+	return false
+}
+
 func leftoverCoveringTitledShowCue(line string) bool {
 	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
 	if strings.Contains(padded, " watch ") || strings.Contains(padded, " watching ") {
@@ -8047,6 +8111,81 @@ func leftoverCoveringLocativePurposeMissesExtra(query, covering, answer string) 
 	return leftoverCoveringLocativePurposeLine(query, covering)
 }
 
+func leftoverCoveringExperiencingFeelingLine(query, line string) bool {
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	padded := leftoverCoveringPrepPlanNormalized(line)
+	bodyPad := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	if !strings.Contains(padded, " experiencing ") && !strings.Contains(bodyPad, " experiencing ") {
+		return false
+	}
+	if !strings.Contains(padded, " new level ") && !strings.Contains(bodyPad, " new level ") {
+		return false
+	}
+	body := hybridLineBody(line)
+	if i := strings.Index(body, ": "); i > 0 && i < 24 {
+		body = strings.TrimSpace(body[i+2:])
+	}
+	return leftoverCoveringDurationActorLine(query, line) || leftoverCoveringDurationActorLine(query, body)
+}
+
+func leftoverCoveringExperiencingFeelingCompanionLine(query, line string) bool {
+	if leftoverCoveringExperiencingFeelingLine(query, line) {
+		return false
+	}
+	if leftoverCoveringLineHasForeignPerson(query, line) {
+		return true
+	}
+	padded := leftoverCoveringPrepPlanNormalized(line)
+	body := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	hasExperiencing := strings.Contains(padded, " experiencing ") || strings.Contains(body, " experiencing ")
+	hasNewLevel := strings.Contains(padded, " new level ") || strings.Contains(body, " new level ")
+	if hasExperiencing && !hasNewLevel {
+		return true
+	}
+	if strings.Contains(padded, " practicing ") || strings.Contains(body, " practicing ") {
+		return true
+	}
+	if strings.Contains(padded, " trying to be more ") || strings.Contains(body, " trying to be more ") {
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringPreferExperiencingFeeling(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringExperiencingFeelingLine(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringExperiencingFeelingMissesFeeling(query, covering, answer string) bool {
+	if !looksHowFeelAboutQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringExperiencingFeelingLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringExperiencingFeelingLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -8220,6 +8359,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksHowFeelAboutQuery(query) && leftoverCoveringExperiencingFeelingLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items
