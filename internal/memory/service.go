@@ -647,8 +647,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	// event nouns as query tokens.
 	if looksHostQuery(query) {
 		hostAll := allMemories
+		ids := sessionIDsForHostQuery(query, memories)
 		if lister, ok := s.store.(SessionMemoryLister); ok {
-			if ids := sessionIDsOf(memories); len(ids) > 0 {
+			if len(ids) > 0 {
 				if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
 					hostAll = listed
 				}
@@ -1143,6 +1144,49 @@ func sessionIDsOf(records []MemoryRecord) []string {
 		}
 	}
 	return out
+}
+
+// sessionIDsForHostQuery ranks lexical-seed sessions by leftover token coverage
+// so a crowded FTS head cannot spend the session-fetch budget on unrelated
+// "project" sessions before the hosted-event session.
+func sessionIDsForHostQuery(query string, seeds []MemoryRecord) []string {
+	toks := leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query)))
+	if len(toks) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	for _, rec := range seeds {
+		sid := sessionIDOf(rec)
+		if sid == "" {
+			continue
+		}
+		n := 0
+		for _, tok := range toks {
+			if contentCoversQueryToken(rec.Content, tok) {
+				n++
+			}
+		}
+		if n == 0 {
+			continue
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return false
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	return order
 }
 
 func sessionIDOf(record MemoryRecord) string {

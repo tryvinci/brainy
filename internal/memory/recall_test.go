@@ -4282,6 +4282,24 @@ func TestExpandHostedEventSessionNeighborsAdmitsPartyPastCap(t *testing.T) {
 	}
 }
 
+func TestSessionIDsForHostQueryPrefersCoveringSession(t *testing.T) {
+	q := "What did John host for the veterans in May 2023 as part of the project"
+	noisy := MemoryRecord{
+		MemoryID: "n",
+		Content:  "John is brainstorming future projects to provide underserved communities with education",
+		Metadata: map[string]any{"session_id": "session_4"},
+	}
+	goldSeed := MemoryRecord{
+		MemoryID: "g",
+		Content:  "John realized on 13 May 2023 that veterans have done a lot for us.",
+		Metadata: map[string]any{"session_id": "session_15"},
+	}
+	ids := sessionIDsForHostQuery(q, []MemoryRecord{noisy, goldSeed})
+	if len(ids) == 0 || ids[0] != "session_15" {
+		t.Fatalf("host session pick must prefer veterans/May coverage, got %#v", ids)
+	}
+}
+
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
