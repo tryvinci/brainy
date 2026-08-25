@@ -6779,6 +6779,173 @@ func TestSessionIDsForWhatNewSeriesPrefersTitleSessions(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhatDidRecentlyAtPrefersPurposeLeftover(t *testing.T) {
+	gold := "Last week I threw a small party at my Japanese house for my new album (26 October 2023; the week before 2 November 2023)"
+	thin := "Calvin threw a small party at his Japanese house on 26 October 2023."
+	video := "Last weekend I started shooting a video for my new album - can't wait for you to check it out (24 August 2023; the week before 31 August 2023)"
+	dave := "Dave: That's amazing, Calvin. Congrats on the new album party!"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: thin},
+			{Content: video},
+			{Content: dave},
+			{Content: gold},
+		},
+	}
+	q := "What did Calvin do recently at his Japanese house?"
+	if !looksWhatDidRecentlyAtQuery(q) {
+		t.Fatal("what did + do + recently + at-place must count as recently-at")
+	}
+	if looksWhatDidRecentlyAtQuery("What did Audrey do in November 2023 to better take care of her dogs?") {
+		t.Fatal("purpose do-to must not count as recently-at")
+	}
+	if looksWhatDidRecentlyAtQuery("What new fantasy TV series is Tim excited about?") {
+		t.Fatal("what-new-series must not count as recently-at")
+	}
+	if looksWhatDidRecentlyAtQuery("What has Jolene been focusing on lately besides studying?") {
+		t.Fatal("focusing-besides must not count as recently-at")
+	}
+	if looksWhatDidRecentlyAtQuery("How does Jolene plan to pursue her dream of learning to surf?") {
+		t.Fatal("how-plan-dream must not count as recently-at")
+	}
+	if looksWhatDidRecentlyAtQuery("What did Calvin do recently?") {
+		t.Fatal("recently without locative must not count as recently-at")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "album") || !strings.Contains(lower, "japanese house") {
+		t.Fatalf("recently-at leftover covering must pick locative leftover with extra purpose object, got %q", got)
+	}
+	if strings.Contains(lower, "26 october") && !strings.Contains(lower, "album") {
+		t.Fatalf("thin dated locative compiler fact must not cover recently-at, got %q", got)
+	}
+	if strings.Contains(lower, "shooting a video") {
+		t.Fatalf("off-locative extra-purpose leftover must not cover recently-at, got %q", got)
+	}
+	if strings.Contains(lower, "congrats") || strings.Contains(lower, "dave") {
+		t.Fatalf("foreign congratulations leftover must not cover recently-at, got %q", got)
+	}
+	if leftoverCoveringLocativePurposeLine(q, thin) {
+		t.Fatal("thin dated locative compiler fact must not count as locative-purpose covering")
+	}
+	if leftoverCoveringLocativePurposeLine(q, video) {
+		t.Fatal("off-locative extra-purpose leftover must not count as locative-purpose covering")
+	}
+	if leftoverCoveringLocativePurposeLine(q, dave) {
+		t.Fatal("congratulations leftover must not count as locative-purpose covering")
+	}
+	if !leftoverCoveringLocativePurposeLine(q, gold) {
+		t.Fatal("first-person locative leftover with extra for-my object must count as locative-purpose covering")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, thin) {
+		t.Fatal("empty covering and thin locative fact must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("What new fantasy TV series is Tim excited about?", gold) {
+		t.Fatal("what-new-series must not skip hybrid via locative-purpose leftover")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("locative-purpose leftover must skip hybrid")
+	}
+	if !leftoverCoveringLocativePurposeMissesExtra(q, got, thin) {
+		t.Fatal("thin locative fact answer must miss locative-purpose covering")
+	}
+	dumpItems := []RecallItem{{Value: thin}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "album") {
+		t.Fatalf("recently-at covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringWhatDidRecentlyAtStaysEmptyWithoutExtra(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Calvin threw a small party at his Japanese house on 26 October 2023."},
+			{Content: "Last weekend I started shooting a video for my new album - can't wait for you to check it out"},
+			{Content: "Dave: That's amazing, Calvin. Congrats on the new album party!"},
+		},
+	}
+	q := "What did Calvin do recently at his Japanese house?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("recently-at leftover covering must stay empty without locative extra-purpose leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsLocativePurposeEpisode(t *testing.T) {
+	q := "What did Calvin do recently at his Japanese house?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Calvin threw a small party at his Japanese house on 26 October 2023."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "Last week I threw a small party at my Japanese house for my new album (26 October 2023; the week before 2 November 2023)",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("recently-at query must keep locative-purpose episode leftover")
+	}
+}
+
+func TestExpandLocativePurposeSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_28"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Calvin threw a small party at his Japanese house on 26 October 2023.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about october photographs",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Last week I threw a small party at my Japanese house for my new album (26 October 2023; the week before 2 November 2023)",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the locative-purpose leftover can miss")
+	}
+	expandLocativePurposeSessionNeighbors(candidates, "What did Calvin do recently at his Japanese house?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("recently-at session expand must admit locative-purpose leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatDidRecentlyAtPrefersPurposeSessions(t *testing.T) {
+	q := "What did Calvin do recently at his Japanese house?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "Calvin threw a small party at his Japanese house on 26 October 2023.",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	thin := MemoryRecord{
+		MemoryID: "thin",
+		Content:  "Calvin threw a small party at his Japanese house on 26 October 2023.",
+		Metadata: map[string]any{"session_id": "session_16"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Last week I threw a small party at my Japanese house for my new album (26 October 2023; the week before 2 November 2023)",
+		Metadata: map[string]any{"session_id": "session_28"},
+	}
+	seeds := append(recent, thin)
+	ids := sessionIDsForWhatDidRecentlyAtQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_28" {
+		t.Fatalf("recently-at session rank must prefer locative-purpose leftover session over recency thin facts, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsBecomeInterestedEpisode(t *testing.T) {
 	q := "What new hobby did James become interested in on 9 July, 2022?"
 	candidates := map[string]MemoryRecord{

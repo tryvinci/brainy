@@ -799,6 +799,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringTitledShowMissesTitle(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringLocativePurposeMissesExtra(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3789,7 +3792,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3963,6 +3966,20 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 		}
 		rare = filtered
 	}
+	if looksWhatDidRecentlyAtQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringRecentlyAtStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		if objs := leftoverCoveringRecentlyAtPlaceTokens(query); len(objs) > 0 {
+			rare = leftoverCoverAddTokens(filtered, objs...)
+		} else {
+			rare = filtered
+		}
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -4053,7 +4070,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, line)) &&
 		!(looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, line)) &&
 		!(looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, line)) &&
-		!(looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, line)) {
+		!(looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, line)) &&
+		!(looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4098,7 +4116,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	whereQ := looksWhereQuery(query)
 	rare := leftoverCoveringRareForQuery(query, hops)
-	if len(rare) == 0 && !looksWhatNewSeriesQuery(query) {
+	if len(rare) == 0 && !looksWhatNewSeriesQuery(query) && !looksWhatDidRecentlyAtQuery(query) {
 		return ""
 	}
 	if leftoverCoveringLockChildhoodPossessions(query) {
@@ -4336,6 +4354,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatDidRecentlyAtQuery(query) {
+			if leftoverCoveringLocativePurposeLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringLocativePurposeCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4532,6 +4558,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringTitledShowLine(query, best) {
 			// what-new-series leftover must quote a titled show, not a generic
 			// excitement leftover or a quoted novel.
+		} else {
+			return ""
+		}
+	}
+	if looksWhatDidRecentlyAtQuery(query) {
+		if next := leftoverCoveringPreferLocativePurpose(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringLocativePurposeLine(query, best) {
+			// recently-at leftover must name a locative action with an extra
+			// for-my/our purpose object, not a thin dated locative fact.
 		} else {
 			return ""
 		}
@@ -5474,6 +5511,26 @@ func looksWhatNewSeriesQuery(query string) bool {
 	return hasNew && hasSeries
 }
 
+func looksWhatDidRecentlyAtQuery(query string) bool {
+	if looksWhatNewSeriesQuery(query) || looksWhatFocusingBesidesQuery(query) || looksHowPlanDreamQuery(query) || looksWhatNewHobbyQuery(query) || looksWhatProjectWorkingQuery(query) || looksHowOftenQuery(query) || looksHowLongBeenQuery(query) || looksHowDidStartQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDescribeQuery(query) || looksHowReactQuery(query) || looksHostQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "what did") && !strings.Contains(q, "what does") && !strings.Contains(q, "what has") {
+		return false
+	}
+	hasRecent, hasDo := false, false
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "recently", "lately":
+			hasRecent = true
+		case "do":
+			hasDo = true
+		}
+	}
+	return hasRecent && hasDo && len(leftoverCoveringRecentlyAtPlaceTokens(query)) > 0
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5502,7 +5559,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5580,6 +5637,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, line) {
+		return true
+	}
+	if looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -6227,6 +6287,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, covering) {
+		return true
+	}
+	if looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -7833,6 +7896,157 @@ func leftoverCoveringTitledShowMissesTitle(query, covering, answer string) bool 
 	return leftoverCoveringTitledShowLine(query, covering)
 }
 
+func leftoverCoveringRecentlyAtStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "recently", "lately":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringRecentlyAtPlaceTokens(query string) []string {
+	toks := tokenize(query)
+	start := -1
+	for i, tok := range toks {
+		switch tok {
+		case "at", "in":
+			start = i + 1
+		}
+	}
+	if start < 0 || start >= len(toks) {
+		return nil
+	}
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	var out []string
+	for _, tok := range toks[start:] {
+		low := strings.ToLower(strings.TrimSpace(tok))
+		if low == "" || leftoverCoveringRecentlyAtStructureToken(low) || leftoverCoverWeakToken(low) || isQueryStopword(low) || isMonthWord(low) || isCalendarCoverToken(low) {
+			continue
+		}
+		if _, ok := people[low]; ok {
+			continue
+		}
+		if utf8Len(low) < 4 {
+			continue
+		}
+		out = leftoverCoverAddTokens(out, low)
+	}
+	return out
+}
+
+func leftoverCoveringCongratsLine(line string) bool {
+	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	return strings.Contains(padded, " congrat") || strings.Contains(padded, " congrats ")
+}
+
+func leftoverCoveringExtraPurposeNouns(line string) []string {
+	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	var out []string
+	for _, cue := range []string{" for my ", " for our "} {
+		idx := strings.Index(padded, cue)
+		if idx < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(padded[idx+len(cue):])
+		for _, tok := range strings.Fields(rest) {
+			tok = strings.Trim(tok, ".,;:()[]\"'")
+			if tok == "" || tok == "new" || leftoverCoveringRecentlyAtStructureToken(tok) || leftoverCoverWeakToken(tok) || isQueryStopword(tok) || isMonthWord(tok) || isCalendarCoverToken(tok) || utf8Len(tok) < 4 {
+				continue
+			}
+			out = leftoverCoverAddTokens(out, tok)
+			break
+		}
+	}
+	return out
+}
+
+func leftoverCoveringLocativePurposeLine(query, line string) bool {
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) || looksChatTurnLine(line) || leftoverCoveringCongratsLine(line) {
+		return false
+	}
+	places := leftoverCoveringRecentlyAtPlaceTokens(query)
+	if len(places) == 0 {
+		return false
+	}
+	for _, p := range places {
+		if !contentCoversQueryToken(line, p) {
+			return false
+		}
+	}
+	extras := leftoverCoveringExtraPurposeNouns(line)
+	if len(extras) == 0 {
+		return false
+	}
+	qtoks := map[string]struct{}{}
+	for _, tok := range tokenize(query) {
+		qtoks[strings.ToLower(strings.TrimSpace(tok))] = struct{}{}
+	}
+	hasExtra := false
+	for _, n := range extras {
+		if _, ok := qtoks[n]; !ok {
+			hasExtra = true
+			break
+		}
+	}
+	if !hasExtra {
+		return false
+	}
+	body := hybridLineBody(line)
+	if i := strings.Index(body, ": "); i > 0 && i < 24 {
+		body = strings.TrimSpace(body[i+2:])
+	}
+	return leftoverCoveringDurationActorLine(query, line) || leftoverCoveringDurationActorLine(query, body)
+}
+
+func leftoverCoveringLocativePurposeCompanionLine(query, line string) bool {
+	if leftoverCoveringLocativePurposeLine(query, line) {
+		return false
+	}
+	if leftoverCoveringCongratsLine(line) || looksChatTurnLine(line) {
+		return true
+	}
+	places := leftoverCoveringRecentlyAtPlaceTokens(query)
+	hasPlace := len(places) > 0 && contentCoversAnyQueryToken(line, places)
+	hasExtra := len(leftoverCoveringExtraPurposeNouns(line)) > 0
+	return hasPlace || hasExtra
+}
+
+func leftoverCoveringPreferLocativePurpose(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringLocativePurposeLine(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringLocativePurposeMissesExtra(query, covering, answer string) bool {
+	if !looksWhatDidRecentlyAtQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringLocativePurposeLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringLocativePurposeLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -8003,6 +8217,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items
