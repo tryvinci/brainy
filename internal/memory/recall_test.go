@@ -1371,6 +1371,23 @@ func TestRecallUnwindRecoversDestressEvidence(t *testing.T) {
 	if strings.Contains(got, "camp") || strings.Contains(got, "nurse") {
 		t.Fatalf("unrelated dump crowded unwind list: %q", out.Answer)
 	}
+	listed, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-unw2", SubjectID: "u1",
+		Query: "What does Riley do to unwind?", Mode: "enumerate", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	listGot := strings.ToLower(listed.Answer)
+	for _, it := range listed.Items {
+		listGot += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(listGot, "run") || !strings.Contains(listGot, "potter") {
+		t.Fatalf("enumerate unwind must keep destress activities, answer=%q items=%#v", listed.Answer, listed.Items)
+	}
+	if strings.Contains(listGot, "camp") || strings.Contains(listGot, "nurse") {
+		t.Fatalf("enumerate unwind must not dump camping or occupation, %q", listed.Answer)
+	}
 }
 
 func TestRecallInstrumentRecoversPracticeObject(t *testing.T) {
@@ -3889,7 +3906,7 @@ func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 		},
 	}
 	q := "What does Riley do to unwind?"
-	got := preferUnwindPacketActivities(q, "runs, running", pkt)
+	got := preferUnwindPacketActivities(q, "runs, running", pkt, nil)
 	lower := strings.ToLower(got)
 	if !strings.Contains(lower, "run") || !strings.Contains(lower, "potter") {
 		t.Fatalf("unwind packet join must add calming pottery, got %q", got)
@@ -3897,8 +3914,21 @@ func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	if strings.Contains(lower, "camp") || strings.Contains(lower, "nurse") || strings.Contains(lower, "jewel") {
 		t.Fatalf("unwind packet join must not dump camping or another person's calming slot, got %q", got)
 	}
-	if preferUnwindPacketActivities("When did Riley run?", "19 January 2023", pkt) != "" {
+	if preferUnwindPacketActivities("When did Riley run?", "19 January 2023", pkt, nil) != "" {
 		t.Fatal("non-unwind queries must not take unwind packet join")
+	}
+	hopOnly := preferUnwindPacketActivities(q, "runs, running", EvidencePacket{}, []HopResult{
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity,
+			Value: "pottery", Contents: []string{"Riley finds making pottery calming"}},
+		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity,
+			Value: "camping", Contents: []string{"Riley enjoys camping"}},
+	})
+	hopLower := strings.ToLower(hopOnly)
+	if !strings.Contains(hopLower, "potter") {
+		t.Fatalf("unwind join must use hop contents when the packet leftover omits them, got %q", hopOnly)
+	}
+	if strings.Contains(hopLower, "camp") {
+		t.Fatalf("hop participates-in camping must not join, got %q", hopOnly)
 	}
 }
 

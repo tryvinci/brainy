@@ -746,7 +746,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		out.AnswerStatus = AnswerSupported
 		out.Explain["co_participant_visit_destination"] = true
 	}
-	if next := preferUnwindPacketActivities(req.Query, out.Answer, pkt); next != "" && next != strings.TrimSpace(out.Answer) {
+	if next := preferUnwindPacketActivities(req.Query, out.Answer, pkt, hopResults); next != "" && next != strings.TrimSpace(out.Answer) {
 		out.Answer = next
 		out.Abstained = false
 		out.AnswerStatus = AnswerSupported
@@ -4545,7 +4545,7 @@ func leftoverCoveringCalendarName(tok string) bool {
 // preferUnwindPacketActivities appends unwind-evidenced packet activities the
 // current answer omitted. Lines without unwind evidence (plain participates-in)
 // stay out so camping dumps cannot crowd the list.
-func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket) string {
+func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket, hops []HopResult) string {
 	if !looksUnwindQuery(query) {
 		return ""
 	}
@@ -4554,6 +4554,14 @@ func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket) stri
 		return ""
 	}
 	bind := len(hopQueryEntities(query)) > 0
+	lines := packetContentLines(pkt)
+	for _, h := range hops {
+		for _, c := range h.Contents {
+			if strings.TrimSpace(c) != "" {
+				lines = append(lines, c)
+			}
+		}
+	}
 	var extra []string
 	seen := map[string]struct{}{}
 	add := func(slot string) {
@@ -4571,7 +4579,7 @@ func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket) stri
 		seen[key] = struct{}{}
 		extra = append(extra, slot)
 	}
-	for _, line := range packetContentLines(pkt) {
+	for _, line := range lines {
 		if !unwindEvidenceHit(line) {
 			continue
 		}
