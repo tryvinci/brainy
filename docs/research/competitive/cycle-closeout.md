@@ -3073,3 +3073,76 @@ P17 leftover covering scored short event verbs (`lost`) without binding the cove
 
 **One step:** leftover unwind-evidence join for destress pottery (packet already has "finds making pottery calming"; do **not** join all `participates in` — camping dump; `"destress"` stays on the overfit denylist). Remaining SH **PROOF 20**. MH **17→16** vs P5 is still a named dip (Phuket write split). Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→105 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-25 — P20 enumerate unwind extras (106/180)
+
+**Landed:** product SHA `80471d8` on `pr/s0-current-sha-baseline-1e9e` (draft PR #136). Staging `dev` remains `453a929`. **Not** merged to `main`. Skip-ingest pin [locomo-s0-diag-mh-135-p20-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p20-20260825.md) (`locomo-s0-diag-mh-135-p20-product-recall-s1-36d1d3`). P19 (`dd1fbdd`) and P19b (`de53ca7`) each held 105/180 — not pins.
+
+Product change: unwind-evidenced packet/hop activity slots already joined into `answer`; list-mode `/recall` now also appends those extras onto enumerate `items`. Plain `participates in` without unwind evidence stays out.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; re-run on this SHA before merge. |
+| Marketing vertical | **17/17** | Merge gate; re-run on this SHA before merge. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P18 | **105/180 (0.583)** | MH **16/33** · OD **4/11** · SH **60/98** · temporal **25/38**. SHA `0c03107`. |
+| LoCoMo S0 product hybrid **on** P20 | **106/180 (0.589)** | MH **17/33** · OD **4/11** · SH **60/98** · temporal **25/38**. SHA `80471d8`. Ledger: **RETRIEVAL 29 / PROOF 26 / READER 13 / WRITE 4 / HARNESS 2**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** 90%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 106/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. MH **17/33** matches P5 on this axis. Item flips vs P18: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 106 vs 11, or 106 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **105** P18 → **106** P20 | **no same-n pin** (fair 180 429) | Product 19→106 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P5 **17/33** → P18 **16/33** → P20 **17/33** | no 33-item freeze | Recovers the P5 MH count on this axis. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P20 product ~150 ms local (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (17/33).** Recovers P5 **17/33** on this axis. Named recovery: destress `conv-26-q24`. Childhood items `conv-41-q7` **held**. Chili / walking / UK / community yoga+running / signed basketball / snacks **held**. Still missing: Phuket diving (`conv-48-q77`) — write split. Do not treat 17/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **Held 60/98**. Industry **27/98**. Boston garage+purpose **held**. Max / Thanksgiving / Jasper / chili+ring-toss / studying **held**. Remaining mass is SH **PROOF 20**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment.
+
+**Temporal.** **Held 25/38**. Jon banker, Ned `2022-04-05`, McGee's bar, Toronto July 12, Caroline biking, Gina internship 10 May, first-console, ice-cream weekend **held**. Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (re-run before merge)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Re-confirm on `80471d8` before merge.
+
+#### 3. Marketing vertical — lead (re-run before merge)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+P19 joined unwind-evidenced calming slots into `answer`. The 180 product lane asks enumerate (`what does `) and the harness serializes `items`, so pottery never reached the judge. Writing the same extras onto enumerate `items` recovers destress without joining plain `participates in` (camping stays out). WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** remaining READER list joins that already have packet evidence (yoga practice locations, Jolene balance habits, Gina business advice) without category dictionaries. Remaining mass is SH **PROOF 20**. Phuket remains a write split. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→106 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
