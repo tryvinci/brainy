@@ -4223,6 +4223,18 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if !looksWhatKindQuery("What kind of food did Maria have on her dinner spread iwth her mother?") {
 		t.Fatal("what-kind-of must classify as what-kind")
 	}
+	if looksHowDescribeProcessQuery("How does Nate describe the stuffed animal he got for Joanna?") {
+		t.Fatal("how-describe without process is not how-describe-process")
+	}
+	if !looksHowDescribeProcessQuery("How does Nate describe the process of taking care of turtles?") {
+		t.Fatal("how-describe-the-process must classify as how-describe-process")
+	}
+	if leftoverCoveringAdviceOffQueryLine("Nate says looking after his turtles is calming") {
+		t.Fatal("companion slogan is not hortative leftover")
+	}
+	if !leftoverCoveringAdviceOffQueryLine("Just keep their area clean, feed them properly, and make sure they get enough light") {
+		t.Fatal("just-keep hortative leftover must classify as a directive")
+	}
 }
 
 func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
@@ -4575,6 +4587,83 @@ func TestLeftoverCoveringPolarIgnoresKindList(t *testing.T) {
 	q := "Did James have a girlfriend during April 2022?"
 	if leftoverCoveringSpecificAnswer(q, hops, pkt) != "" {
 		t.Fatal("polar leftover covering must stay empty so like-lists cannot rewrite girlfriend absence")
+	}
+}
+
+func TestLeftoverCoveringProcessPrefersHortativeOverCompanion(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Nate", Value: "Nate", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Nate says that looking after his turtles is a calming, stress-relieving activity."},
+			{Content: "Nate's pet turtles are calm and peaceful, and the recent tank expansion made them happy."},
+			{Content: "Just keep their area clean, feed them properly, and make sure they get enough light"},
+			{Content: "[pet turtles basking rock] [a photo of a turtle sitting on a log in a pond]"},
+		},
+	}
+	q := "How does Nate describe the process of taking care of turtles?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "clean") || !strings.Contains(lower, "feed") || !strings.Contains(lower, "light") {
+		t.Fatalf("how-describe-process leftover covering must pick the hortative leftover, got %q", got)
+	}
+	if strings.Contains(lower, "calming") || strings.Contains(lower, "peaceful") {
+		t.Fatalf("companion slogan must not cover how-describe-process, got %q", got)
+	}
+	hybrid := "Nate says that looking after his turtles is a calming, stress-relieving activity."
+	if !leftoverCoveringProcessMissesHortative(q, got, hybrid) {
+		t.Fatal("how-describe-process covering must replace a companion slogan")
+	}
+}
+
+func TestExpandProcessHortativeSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_5"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "[pet turtles basking rock] [a photo of a turtle sitting on a log in a pond]",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about turtles",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Just keep their area clean, feed them properly, and make sure they get enough light",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the hortative leftover can miss")
+	}
+	expandAdviceDirectiveSessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("process hortative session expand must admit the just-keep leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForHowDescribeProcessQueryUsesObjectSeed(t *testing.T) {
+	q := "How does Nate describe the process of taking care of turtles?"
+	photo := MemoryRecord{
+		MemoryID: "p",
+		Content:  "[pet turtles basking rock] [a photo of a turtle sitting on a log in a pond]",
+		Metadata: map[string]any{"session_id": "session_5"},
+	}
+	careSelf := MemoryRecord{
+		MemoryID: "c",
+		Content:  "Nate believes that taking care of ourselves helps us be more creative and happier.",
+		Metadata: map[string]any{"session_id": "session_9"},
+	}
+	ids := sessionIDsForHowDescribeProcessQuery(q, []MemoryRecord{careSelf, photo})
+	if len(ids) == 0 || ids[0] != "session_5" {
+		t.Fatalf("how-describe-process session pick must prefer object-token coverage, got %#v", ids)
 	}
 }
 

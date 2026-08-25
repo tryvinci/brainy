@@ -3888,7 +3888,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 			return true
 		}
 	}
-	if looksCrowdedHopDump(line) && !(looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)) {
+	if looksCrowdedHopDump(line) && !(looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)) &&
+		!(looksHowDescribeProcessQuery(query) && leftoverCoveringAdviceOffQueryLine(line)) {
 		return true
 	}
 	body := line
@@ -4061,6 +4062,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksHowDescribeProcessQuery(query) {
+			if leftoverCoveringAdviceOffQueryLine(line) {
+				score += 4
+			}
+			if leftoverCoveringProcessCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4104,6 +4113,11 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	if looksWhatKindQuery(query) {
 		if next := leftoverCoveringPreferKindList(query, scored, best); next != "" {
+			best = next
+		}
+	}
+	if looksHowDescribeProcessQuery(query) {
+		if next := leftoverCoveringPreferAdviceDirective(query, scored, best); next != "" {
 			best = next
 		}
 	}
@@ -4407,6 +4421,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringKindMissesList(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringProcessMissesHortative(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -4838,6 +4855,10 @@ func looksHowDescribeQuery(query string) bool {
 	return strings.Contains(q, "how does") || strings.Contains(q, "how did") || strings.Contains(q, "how do ")
 }
 
+func looksHowDescribeProcessQuery(query string) bool {
+	return looksHowDescribeQuery(query) && strings.Contains(strings.ToLower(query), "process")
+}
+
 func looksFirstPersonLeftoverQuery(query string) bool {
 	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query)
 }
@@ -4878,6 +4899,9 @@ func looksWhatKindQuery(query string) bool {
 
 func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 	if looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(line) {
+		return true
+	}
+	if looksHowDescribeProcessQuery(query) && leftoverCoveringAdviceOffQueryLine(line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5047,7 +5071,7 @@ func leftoverCoveringAdviceDirectiveLine(line string) bool {
 		}
 		break
 	}
-	for _, p := range []string{"be sure ", "be sure to ", "don't forget", "do not forget", "make sure ", "remember to ", "try to "} {
+	for _, p := range []string{"be sure ", "be sure to ", "don't forget", "do not forget", "make sure ", "remember to ", "try to ", "just keep "} {
 		if strings.HasPrefix(trimmed, p) {
 			return true
 		}
@@ -5254,6 +5278,48 @@ func leftoverCoveringKindMissesList(query, covering, answer string) bool {
 		return false
 	}
 	if !leftoverCoveringKindListLine(covering) {
+		return false
+	}
+	return true
+}
+
+func leftoverCoveringProcessRestatementToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "process", "describe", "describes", "described", "describing",
+		"taking", "care", "cares":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringProcessCompanionLine(query, line string) bool {
+	if leftoverCoveringAdviceOffQueryLine(line) {
+		return false
+	}
+	for _, tok := range leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query))) {
+		if leftoverCoveringProcessRestatementToken(tok) {
+			continue
+		}
+		if contentCoversQueryToken(line, tok) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringProcessMissesHortative(query, covering, answer string) bool {
+	if !looksHowDescribeProcessQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringAdviceOffQueryLine(answer) {
+		return false
+	}
+	if !leftoverCoveringAdviceOffQueryLine(covering) {
 		return false
 	}
 	return true

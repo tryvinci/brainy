@@ -722,6 +722,32 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// How-describe-the-process leftover covering needs hortative leftover
+	// ("just keep…") that omits the object tokens. FTS ANDs turtles/care
+	// against companion slogans; the gold sits in that session past the
+	// recency window. Seed leftover-covering candidate sessions, then fetch
+	// bounded rows.
+	if looksHowDescribeProcessQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(candidates))
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsForHowDescribeProcessQuery(query, seeds)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		processAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+				processAll = listed
+			}
+		}
+		if len(processAll) > 0 && len(idSeeds) > 0 {
+			expandAdviceDirectiveSessionNeighbors(candidates, idSeeds, processAll, 8)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -801,6 +827,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "kind_list_floor"
 		}
+		if score <= 0 && looksHowDescribeProcessQuery(query) && leftoverCoveringAdviceOffQueryLine(record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "process_hortative_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
@@ -873,6 +903,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		applyHostedEventRankBoost(&score, explain, query, record)
 		applyAdviceDirectiveRankBoost(&score, explain, query, record)
 		applyKindListRankBoost(&score, explain, query, record)
+		applyProcessHortativeRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1033,6 +1064,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksWhatKindQuery(query) && leftoverCoveringKindListLine(ep.Content) {
 				continue
 			}
+			if looksHowDescribeProcessQuery(query) && leftoverCoveringAdviceOffQueryLine(ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -1060,6 +1094,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksWhatKindQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringKindListLine(ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksHowDescribeProcessQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringAdviceOffQueryLine(ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -1475,6 +1516,60 @@ func sessionIDsForWhatKindQuery(query string, seeds []MemoryRecord) []string {
 			}
 		}
 		if n < 2 {
+			continue
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return false
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	return order
+}
+
+// sessionIDsForHowDescribeProcessQuery ranks lexical-seed sessions by leftover
+// object-token coverage so a companion slogan cannot spend the fetch budget
+// before the hortative leftover. n>=1 because a photo seed may only cover
+// the object token.
+func sessionIDsForHowDescribeProcessQuery(query string, seeds []MemoryRecord) []string {
+	toks := leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query)))
+	if len(toks) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	for _, rec := range seeds {
+		sid := sessionIDOf(rec)
+		if sid == "" {
+			continue
+		}
+		n := 0
+		for _, tok := range toks {
+			if leftoverCoveringProcessRestatementToken(tok) {
+				continue
+			}
+			if _, ok := people[strings.ToLower(tok)]; ok {
+				continue
+			}
+			if contentCoversQueryToken(rec.Content, tok) {
+				n++
+			}
+		}
+		if n < 1 {
 			continue
 		}
 		if _, ok := best[sid]; !ok {
@@ -1966,6 +2061,17 @@ func applyKindListRankBoost(score *float64, explain map[string]any, query string
 	*score += bonus
 	if explain != nil {
 		explain["kind_list_boost"] = bonus
+	}
+}
+
+func applyProcessHortativeRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksHowDescribeProcessQuery(query) || !leftoverCoveringAdviceOffQueryLine(record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["process_hortative_boost"] = bonus
 	}
 }
 
