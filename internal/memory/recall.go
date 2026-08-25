@@ -4556,21 +4556,44 @@ func leftoverCoveringLineYear(s string) int {
 }
 
 // leftoverCoveringSkipYearMismatch drops when-event covering lines whose year
-// disagrees with a year named in the query. Month-only datedContentConflicts
-// does not apply here; a 2022 game must not cover an August 2023 meetup.
+// or month disagrees with a year/month named in the query. A 2022 game or an
+// October 2023 plan must not cover an August 2023 meetup.
 func leftoverCoveringSkipYearMismatch(query, line string) bool {
 	if !looksWhenEventQuery(query) && !looksYearQuery(query) {
 		return false
 	}
 	yq := queryCalendarYear(query)
-	if yq == 0 {
+	if yq != 0 {
+		yl := leftoverCoveringLineYear(line)
+		if yl != 0 && yl != yq {
+			return true
+		}
+	}
+	mq := leftoverCoverQueryMonth(query)
+	if mq == "" {
 		return false
 	}
-	yl := leftoverCoveringLineYear(line)
-	if yl == 0 {
+	ml := leftoverCoveringLineMonth(line)
+	if ml == "" {
 		return false
 	}
-	return yl != yq
+	return ml != mq
+}
+
+func leftoverCoverQueryMonth(query string) string {
+	for _, tok := range tokenize(query) {
+		if isMonthWord(tok) {
+			return strings.ToLower(strings.Trim(tok, ".,"))
+		}
+	}
+	return ""
+}
+
+func leftoverCoveringLineMonth(s string) string {
+	if t := parseDateFromText(s); t != nil {
+		return strings.ToLower(t.Month().String())
+	}
+	return leftoverCoverQueryMonth(s)
 }
 
 func leftoverCoveringLineHasYear(s string) bool {

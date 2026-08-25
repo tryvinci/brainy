@@ -3916,6 +3916,7 @@ func TestLeftoverCoveringWhenEventPrefersYearEventOverBareHopDate(t *testing.T) 
 	augPkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
 			{Content: "John participated in a basketball game in 2022 where his team trailed big in the fourth quarter but came back to win at the final buzzer."},
+			{Content: "John is planning a team trip in October 2023 to explore a new city. (15 October 2023)"},
 			{Content: "John met up with his teammates on 15 August 2023 after returning from a trip."},
 			{Content: "John celebrated with his teammates at a restaurant after a game, feeling exhausted but happy."},
 		},
@@ -3925,8 +3926,8 @@ func TestLeftoverCoveringWhenEventPrefersYearEventOverBareHopDate(t *testing.T) 
 	if !strings.Contains(augLower, "teammate") || !strings.Contains(augGot, "15 August") {
 		t.Fatalf("August 2023 meetup must cover, got %q", augGot)
 	}
-	if strings.Contains(augLower, "2022") || strings.Contains(augLower, "buzzer") {
-		t.Fatalf("different-year team game must not cover an August 2023 meetup, got %q", augGot)
+	if strings.Contains(augLower, "2022") || strings.Contains(augLower, "buzzer") || strings.Contains(augLower, "october") {
+		t.Fatalf("different-year or different-month leftover must not cover an August 2023 meetup, got %q", augGot)
 	}
 }
 
