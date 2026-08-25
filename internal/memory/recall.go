@@ -742,6 +742,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 					out.Abstained = false
 					out.AnswerStatus = AnswerSupported
 					out.Explain["reader_source"] = "leftover_packet_fact"
+					if next := leftoverCoveringSyncEnumerateItems(req.Query, covering, out.Items); len(next) > 0 {
+						out.Items = next
+						out.Explain["item_count"] = len(next)
+					}
 				}
 			}
 		}
@@ -4763,6 +4767,21 @@ func leftoverCoveringPurposeMissesInstrument(query, covering, answer string) boo
 		}
 	}
 	return false
+}
+
+// leftoverCoveringSyncEnumerateItems replaces enumerate items with the leftover
+// covering sentence for instrument-purpose questions. Enumerate clients (and
+// the product harness, which sends "what does …" as mode=enumerate) prefer
+// items over answer, so a covering rewrite of answer alone is invisible.
+func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallItem) []RecallItem {
+	if !looksInstrumentPurposeQuery(query) {
+		return items
+	}
+	covering = strings.TrimSpace(covering)
+	if covering == "" {
+		return items
+	}
+	return []RecallItem{{Value: covering}}
 }
 
 func leftoverCoveringInstrumentTokens(query string) []string {

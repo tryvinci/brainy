@@ -4150,6 +4150,18 @@ func TestLeftoverCoveringInstrumentPurposePrefersUseOverOwns(t *testing.T) {
 	if leftoverCoveringPurposeMissesInstrument(feelQ, "Deborah: Exercise is key for me - it makes me feel connected to my body", "not in memory") {
 		t.Fatal("exercise-feel questions must not take the instrument-purpose replace gate")
 	}
+	hybridItems := []RecallItem{{Value: hybrid}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, hybridItems)
+	if len(synced) != 1 || synced[0].Value != got {
+		t.Fatalf("enumerate items must follow instrument leftover covering, got %#v", synced)
+	}
+	unwindItems := []RecallItem{{Value: "runs"}, {Value: "pottery"}}
+	if kept := leftoverCoveringSyncEnumerateItems("What does Riley do to unwind?", "Riley uses pottery to unwind.", unwindItems); len(kept) != 2 {
+		t.Fatalf("unwind enumerate items must not collapse to leftover covering, got %#v", kept)
+	}
+	if kept := leftoverCoveringSyncEnumerateItems(feelQ, "Deborah: Exercise is key for me - it makes me feel connected to my body", hybridItems); len(kept) != 1 || kept[0].Value != hybrid {
+		t.Fatalf("exercise-feel must not sync leftover covering into enumerate items, got %#v", kept)
+	}
 }
 
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
