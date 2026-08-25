@@ -737,6 +737,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringPurposeMissesInstrument(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringWhatMadeMissesEvidence(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -4016,6 +4019,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if looksInstrumentPurposeQuery(query) && leftoverCoveringInstrumentPurposeLine(line) {
 			score += 3
 		}
+		if looksWhatMadeQuery(query) {
+			if leftoverCoveringHasOffQueryEvidence(query, line) {
+				score += 2 * leftoverCoveringReasonHits(query, line)
+			}
+			if leftoverCoveringSchemaActivityLine(line) && !leftoverCoveringHasOffQueryEvidence(query, line) {
+				score -= 2
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4034,6 +4045,11 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				best = row.line
 				break
 			}
+		}
+	}
+	if looksWhatMadeQuery(query) {
+		if next := leftoverCoveringPreferWhatMadeEvidence(query, scored, best); next != "" {
+			best = next
 		}
 	}
 	if leftoverCoveringShouldJoin(query) {
@@ -4324,6 +4340,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringPurposeMissesInstrument(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringWhatMadeMissesEvidence(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -4740,6 +4759,108 @@ func leftoverCoveringYearMissesEvent(query, covering, answer string) bool {
 		return true
 	}
 	return !leftoverCoveringLineHasForeignPerson(query, covering)
+}
+
+func looksWhatMadeQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "what made") || strings.Contains(q, "what makes")
+}
+
+func leftoverCoveringRestatementToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "enjoy", "enjoys", "enjoyed", "enjoying",
+		"participate", "participates", "participating", "participated",
+		"find", "finds", "finding", "found",
+		"friend", "friends", "like", "likes", "liked",
+		"make", "makes", "making", "made",
+		"awesome", "connecting", "people", "care", "fitness", "always":
+		return true
+	}
+	return leftoverCoverWeakToken(tok) || isQueryStopword(tok)
+}
+
+func leftoverCoveringReasonTokens(query string) []string {
+	out := make([]string, 0, 4)
+	for _, tok := range tokenize(query) {
+		switch strings.ToLower(tok) {
+		case "easy", "easier", "stay", "staying", "motivated", "motivating", "motivation":
+			out = append(out, tok)
+		}
+	}
+	return out
+}
+
+func leftoverCoveringReasonHits(query, line string) int {
+	n := 0
+	for _, tok := range leftoverCoveringReasonTokens(query) {
+		if contentCoversQueryToken(line, tok) {
+			n++
+		}
+	}
+	return n
+}
+
+func leftoverCoveringHasOffQueryEvidence(query, line string) bool {
+	qtoks := tokenize(query)
+	for _, tok := range tokenize(line) {
+		tok = strings.ToLower(strings.TrimSpace(tok))
+		if utf8.RuneCountInString(tok) < 4 || leftoverCoveringRestatementToken(tok) {
+			continue
+		}
+		if recordTokensCover(qtoks, tok) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringPreferWhatMadeEvidence(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if leftoverCoveringReasonHits(query, row.line) == 0 || !leftoverCoveringHasOffQueryEvidence(query, row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && !leftoverCoveringMentionsQueryEntity(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+// leftoverCoveringWhatMadeMissesEvidence is true when a what-made hybrid only
+// restates enjoy/participate, but leftover covering names off-query evidence
+// (push, remind) plus a query reason token (easy / stay / motivated).
+func leftoverCoveringWhatMadeMissesEvidence(query, covering, answer string) bool {
+	if !looksWhatMadeQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringHasOffQueryEvidence(query, answer) {
+		return false
+	}
+	if leftoverCoveringReasonHits(query, covering) == 0 || !leftoverCoveringHasOffQueryEvidence(query, covering) {
+		return false
+	}
+	if leftoverCoveringLineHasForeignPerson(query, covering) && !leftoverCoveringMentionsQueryEntity(query, covering) {
+		return false
+	}
+	return true
 }
 
 // leftoverCoveringPurposeMissesInstrument is true when a what-does-X-help-with

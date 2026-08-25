@@ -4164,6 +4164,46 @@ func TestLeftoverCoveringInstrumentPurposePrefersUseOverOwns(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Deborah", Value: "Deborah", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Deborah enjoys participating in the running group and finds it motivating."},
+			{Content: "We help and push each other during our runs, which makes it so much easier to stay motivated"},
+			{Content: "Anna is a member of Deborah's running group."},
+			{Content: "Deborah started a running group with Anna."},
+			{Content: "Jolene enjoys yoga and meditation to stay motivated."},
+		},
+	}
+	q := "What made being part of the running group easy for Deborah to stay motivated?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "push") {
+		t.Fatalf("what-made leftover covering must pick off-query evidence, got %q", got)
+	}
+	if strings.Contains(lower, "yoga") || strings.Contains(lower, "enjoys participating") {
+		t.Fatalf("schema restatement or foreign yoga must not cover what-made, got %q", got)
+	}
+	hybrid := "She enjoys participating in the running group, which makes it easy for her to stay motivated."
+	if leftoverCoveringHasOffQueryEvidence(q, hybrid) {
+		t.Fatal("enjoy/participate hybrid must not count as off-query evidence")
+	}
+	if !leftoverCoveringWhatMadeMissesEvidence(q, got, hybrid) {
+		t.Fatal("what-made covering must replace a restating enjoy/participate hybrid")
+	}
+	if leftoverCoveringWhatMadeMissesEvidence(q, got, got) {
+		t.Fatal("answer that already has off-query evidence must stay")
+	}
+	if leftoverCoveringMayReplaceHybrid(q, hops, got, hybrid) != true {
+		t.Fatal("what-made covering must be allowed to replace the restating hybrid")
+	}
+	if looksWhatMadeQuery("What does Melanie do to destress?") || looksWhatMadeQuery("What does the smartwatch help Riley with?") {
+		t.Fatal("destress and instrument-purpose queries are not what-made")
+	}
+}
+
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
