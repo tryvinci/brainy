@@ -5384,6 +5384,184 @@ func TestApplyFactPrimaryRecallKeepsEvaluativeTheyEpisode(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringReactPrefersTheyWereObservation(t *testing.T) {
+	gold := "I took them to a snowy one last winter and they were so confused"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Audrey's dogs dislike snow."},
+			{Content: gold},
+			{Content: "But one thing they hate is snow"},
+			{Content: "Audrey took her dogs to a snowy park last winter and they were confused."},
+		},
+	}
+	q := "How do Audrey's dogs react to snow?"
+	if !looksHowReactQuery(q) {
+		t.Fatal("how-do-react-to must count as how-react")
+	}
+	if looksHowReactQuery("How should I respond to that email?") {
+		t.Fatal("how-should-I-respond must not count as how-react")
+	}
+	if looksHowReactQuery("What does Gina say about the dancers in the photo?") {
+		t.Fatal("what-say-about must not count as how-react")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "confused") {
+		t.Fatalf("how-react leftover covering must pick they-were observation, got %q", got)
+	}
+	if strings.Contains(lower, "dislike") || strings.Contains(lower, "hate") {
+		t.Fatalf("dislike/hate restatement must not cover how-react, got %q", got)
+	}
+	if leftoverCoveringReactionObservationLine("Audrey's dogs dislike snow.") {
+		t.Fatal("dislike restatement is not observational they-were leftover")
+	}
+	if leftoverCoveringReactionObservationLine("But one thing they hate is snow") {
+		t.Fatal("hate restatement is not observational they-were leftover")
+	}
+	if leftoverCoveringReactionObservationLine("They're so graceful") {
+		t.Fatal("they-evaluative leftover is not how-react observation")
+	}
+	if !leftoverCoveringReactionObservationLine(gold) {
+		t.Fatal("they-were-so-ADJ leftover must count as how-react observation")
+	}
+	if !leftoverCoveringReactMissesObservation(q, got, "Audrey's dogs dislike snow.") {
+		t.Fatal("how-react covering must replace a dislike restatement")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "Audrey's dogs dislike snow.") {
+		t.Fatal("empty covering and dislike restatement must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("What does Gina say about the dancers in the photo?", gold) {
+		t.Fatal("what-say-about must not skip hybrid via how-react observation")
+	}
+	dumpItems := []RecallItem{
+		{Value: "Audrey's dogs dislike snow."},
+		{Value: "snow park"},
+	}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || synced[0].Value != got {
+		t.Fatalf("how-react enumerate items must follow observation covering, got %#v", synced)
+	}
+	if kept := leftoverCoveringSyncEnumerateItems("What does Riley do to unwind?", got, dumpItems); len(kept) != 2 {
+		t.Fatalf("non-how-react enumerate items must not collapse to observation covering, got %#v", kept)
+	}
+	injury := leftoverCoveringSpecificAnswer("What did Tim say about his injury on 16 November, 2023?", nil, EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Tim experienced a setback on 14 November 2023."},
+			{Content: "The doctor said it's not too serious"},
+			{Content: gold},
+		},
+	})
+	if !strings.Contains(strings.ToLower(injury), "not too serious") {
+		t.Fatalf("dated what-say-about must still pick reported-speech leftover, got %q", injury)
+	}
+	nyc := leftoverCoveringSpecificAnswer("What did John say about NYC, enticing Tim to visit?", nil, EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "John visited New York City."},
+			{Content: "It's got so much to check out - the culture, food - you won't regret it."},
+			{Content: gold},
+		},
+	})
+	if !strings.Contains(strings.ToLower(nyc), "got so much") {
+		t.Fatalf("undated what-say-about must still pick first-person got leftover, got %q", nyc)
+	}
+	dancers := leftoverCoveringSpecificAnswer("What does Gina say about the dancers in the photo?", nil, EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Gina performed a contemporary dance piece titled \"Finding Freedom\"."},
+			{Content: "They're so graceful"},
+			{Content: gold},
+		},
+	})
+	if !strings.Contains(strings.ToLower(dancers), "graceful") {
+		t.Fatalf("what-say-about must still pick they-evaluative leftover, got %q", dancers)
+	}
+}
+
+func TestLeftoverCoveringReactEmptyLeavesHybrid(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Audrey's dogs dislike snow."},
+			{Content: "But one thing they hate is snow"},
+		},
+	}
+	q := "How do Audrey's dogs react to snow?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("how-react leftover covering must stay empty without they-were observation, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringReactRequiresObjectEvidence(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "I took them to a rainy one last winter and they were so confused"},
+		},
+	}
+	q := "How do Audrey's dogs react to snow?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("how-react observation must not cover without object-token evidence in the packet, got %q", got)
+	}
+}
+
+func TestExpandReactionObservationSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_23"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Audrey's dogs dislike snow.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about winter walks",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I took them to a snowy one last winter and they were so confused",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the they-were observation leftover can miss")
+	}
+	expandReactionObservationSessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("how-react session expand must admit they-were observation leftover past the generic cap")
+	}
+}
+
+func TestApplyReactionObservationRankBoostSkipsDislike(t *testing.T) {
+	q := "How do Audrey's dogs react to snow?"
+	gold := 1.0
+	dislike := 1.0
+	applyReactionObservationRankBoost(&gold, map[string]any{}, q, MemoryRecord{Content: "I took them to a snowy one last winter and they were so confused"})
+	applyReactionObservationRankBoost(&dislike, map[string]any{}, q, MemoryRecord{Content: "Audrey's dogs dislike snow."})
+	if gold <= dislike {
+		t.Fatalf("how-react rank boost must lift they-were observation over dislike restatement, gold=%v dislike=%v", gold, dislike)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsReactObservationEpisode(t *testing.T) {
+	q := "How do Audrey's dogs react to snow?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Audrey's dogs dislike snow."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "I took them to a snowy one last winter and they were so confused",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("how-react query must keep they-were observation episode leftover")
+	}
+}
+
 func TestExpandKindListSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 	session := "session_13"
 	seed := MemoryRecord{

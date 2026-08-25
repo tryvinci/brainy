@@ -603,7 +603,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	relatedToks := queryTokens
 	admitToks := queryTokens
 	coverToks := queryTokens
-	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) {
+	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) {
 		relatedToks = contentQueryTokens
 		admitToks = contentQueryTokens
 		coverToks = contentQueryTokens
@@ -798,6 +798,29 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// How-react leftover covering needs observational leftover
+	// ("they were so confused") that omits dislike/hate restatement tokens.
+	if looksHowReactQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(candidates))
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsOf(seeds)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		reactAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
+				reactAll = listed
+			}
+		}
+		if len(reactAll) > 0 && len(idSeeds) > 0 {
+			expandReactionObservationSessionNeighbors(candidates, idSeeds, reactAll, 8)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -889,6 +912,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "evaluative_they_floor"
 		}
+		if score <= 0 && looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "react_observation_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
@@ -964,6 +991,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		applyProcessHortativeRankBoost(&score, explain, query, record)
 		applyMotivateCauseRankBoost(&score, explain, query, record)
 		applyEvaluativeTheyRankBoost(&score, explain, query, record)
+		applyReactionObservationRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1133,6 +1161,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(ep.Content) {
 				continue
 			}
+			if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -1181,6 +1212,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksWhatSayAboutQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringSayAboutTargetLine(ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksHowReactQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringReactionObservationLine(ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -2371,6 +2409,17 @@ func applyEvaluativeTheyRankBoost(score *float64, explain map[string]any, query 
 	}
 }
 
+func applyReactionObservationRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksHowReactQuery(query) || !leftoverCoveringReactionObservationLine(record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["react_observation_boost"] = bonus
+	}
+}
+
 func hasResponseKeyword(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
@@ -2928,6 +2977,11 @@ func searchLexicalTokens(queryTokens []string) []string {
 			bearing = trimmed
 		}
 	}
+	if searchDropsHowReactStructureTokens(queryTokens) {
+		if trimmed := dropHowReactStructureTokens(bearing); len(trimmed) > 0 {
+			bearing = trimmed
+		}
+	}
 	if !searchDropsWeakEventTokens(queryTokens) {
 		return bearing
 	}
@@ -2959,6 +3013,34 @@ func dropHowDescribeStructureTokens(bearing []string) []string {
 	for _, tok := range bearing {
 		switch strings.ToLower(strings.TrimSpace(tok)) {
 		case "describe", "describes", "described", "describing":
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func searchDropsHowReactStructureTokens(queryTokens []string) bool {
+	hasHow, hasReact := false, false
+	for i := 0; i+1 < len(queryTokens); i++ {
+		if queryTokens[i] == "how" && (queryTokens[i+1] == "does" || queryTokens[i+1] == "did" || queryTokens[i+1] == "do") {
+			hasHow = true
+		}
+	}
+	for _, tok := range queryTokens {
+		switch tok {
+		case "react", "reacts", "reacted", "reacting",
+			"respond", "responds", "responded", "responding":
+			hasReact = true
+		}
+	}
+	return hasHow && hasReact
+}
+
+func dropHowReactStructureTokens(bearing []string) []string {
+	out := make([]string, 0, len(bearing))
+	for _, tok := range bearing {
+		if leftoverCoveringReactStructureToken(tok) {
 			continue
 		}
 		out = append(out, tok)
@@ -3108,6 +3190,39 @@ func expandEvaluativeTheySessionNeighbors(candidates map[string]MemoryRecord, se
 			continue
 		}
 		if !leftoverCoveringSayAboutTargetLine(record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+func expandReactionObservationSessionNeighbors(candidates map[string]MemoryRecord, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringReactionObservationLine(record.Content) {
 			continue
 		}
 		candidates[record.MemoryID] = record

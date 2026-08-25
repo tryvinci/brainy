@@ -1028,6 +1028,79 @@ func TestSearchWhatSayAboutAdmitsReportedSpeechPastSessionWindow(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalTokensDropsHowReactStructure(t *testing.T) {
+	q := "How do Audrey's dogs react to snow?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	if strings.Contains(joined, "react") {
+		t.Fatalf("how-react lexical tokens must drop react, got %v", got)
+	}
+	for _, keep := range []string{"dogs", "snow"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("how-react lexical tokens must keep %q, got %v", keep, got)
+		}
+	}
+	respond := searchLexicalQueryTokens("How did they respond to the news?", tokenize("How did they respond to the news?"))
+	if strings.Contains(strings.Join(respond, " "), "respond") {
+		t.Fatalf("how-respond-to lexical tokens must drop respond, got %v", respond)
+	}
+	advice := searchLexicalQueryTokens("What advice does Gina give to Jon about running a successful business?", tokenize("What advice does Gina give to Jon about running a successful business?"))
+	if !strings.Contains(strings.Join(advice, " "), "advice") {
+		t.Fatalf("advice queries must keep the speech-act token, got %v", advice)
+	}
+	dancers := searchLexicalQueryTokens("What does Gina say about the dancers in the photo?", tokenize("What does Gina say about the dancers in the photo?"))
+	if strings.Contains(strings.Join(dancers, " "), "react") {
+		t.Fatalf("what-say-about must not be treated as how-react, got %v", dancers)
+	}
+}
+
+func TestSearchHowReactAdmitsObservationPastSessionWindow(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	const session = "session_23"
+	dislike := MemoryRecord{
+		MemoryID: "mem_dislike", TenantID: "t-react", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "Audrey's dogs dislike snow.",
+		DedupeKey: "dislike", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"session_id": session},
+	}
+	store.records["dislike"] = dislike
+	store.searchOnlyIDs = map[string]struct{}{dislike.MemoryID: {}}
+	for i := 0; i < 90; i++ {
+		key := fmt.Sprintf("early%02d", i)
+		store.records[key] = MemoryRecord{
+			MemoryID: "mem_" + key, TenantID: "t-react", SubjectID: "u1",
+			Kind: KindFact, Content: "Audrey walked the dogs in the park last week.",
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"session_id": session},
+		}
+	}
+	store.records["gold"] = MemoryRecord{
+		MemoryID: "mem_zz_gold", TenantID: "t-react", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "I took them to a snowy one last winter and they were so confused",
+		DedupeKey: "gold", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"session_id": session},
+	}
+	out, err := svc.SearchOpt(context.Background(), "t-react", "u1", "", "",
+		"How do Audrey's dogs react to snow?", SearchOptions{Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range out.Results {
+		if strings.Contains(strings.ToLower(r.Content), "confused") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("how-react search must admit they-were observation leftover past an 80-row session window, got %+v", out.Results)
+	}
+}
+
 func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))

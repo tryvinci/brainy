@@ -769,6 +769,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringSayAboutMissesEvaluative(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringReactMissesObservation(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3759,7 +3762,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3914,7 +3917,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 	if looksCrowdedHopDump(line) && !(looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)) &&
 		!(looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line)) &&
 		!(looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line)) &&
-		!(looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line)) {
+		!(looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line)) &&
+		!(looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line)) {
 		return true
 	}
 	body := line
@@ -4111,6 +4115,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksHowReactQuery(query) {
+			if leftoverCoveringReactionObservationLine(line) {
+				score += 4
+			}
+			if leftoverCoveringReactCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4193,6 +4205,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			// dated what-say-about uses reported-speech leftover, not it's-got.
 		} else if !dated && leftoverCoveringFirstPersonGotLine(best) && hasObj {
 			// first-person got leftover omits the object; another packet line must cover it.
+		} else {
+			return ""
+		}
+	}
+	if looksHowReactQuery(query) {
+		hasObj := leftoverCoveringReactHasObjectEvidence(query, lines)
+		if next := leftoverCoveringPreferReactionObservation(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringReactionObservationLine(best) && hasObj {
+			// observational they-were leftover omits dislike/hate restatement.
 		} else {
 			return ""
 		}
@@ -4506,6 +4529,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringSayAboutMissesEvaluative(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringReactMissesObservation(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -4954,6 +4980,26 @@ func looksHowDescribeProcessQuery(query string) bool {
 	return looksHowDescribeQuery(query) && strings.Contains(strings.ToLower(query), "process")
 }
 
+func looksHowReactQuery(query string) bool {
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "how does") && !strings.Contains(q, "how did") && !strings.Contains(q, "how do ") {
+		return false
+	}
+	hasReact, hasRespondTo := false, false
+	toks := tokenize(query)
+	for i, tok := range toks {
+		switch tok {
+		case "react", "reacts", "reacted", "reacting":
+			hasReact = true
+		case "respond", "responds", "responded", "responding":
+			if i+1 < len(toks) && toks[i+1] == "to" {
+				hasRespondTo = true
+			}
+		}
+	}
+	return hasReact || hasRespondTo
+}
+
 func looksFirstPersonLeftoverQuery(query string) bool {
 	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query)
 }
@@ -5003,6 +5049,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line) {
+		return true
+	}
+	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5622,6 +5671,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 	if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, covering) {
 		return true
 	}
+	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(covering) {
+		return true
+	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
 }
 
@@ -5872,6 +5924,141 @@ func leftoverCoveringSayAboutMissesEvaluative(query, covering, answer string) bo
 	return true
 }
 
+func leftoverCoveringReactStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "react", "reacts", "reacted", "reacting",
+		"respond", "responds", "responded", "responding":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringReactionAdj(tok string) bool {
+	tok = strings.ToLower(strings.TrimSpace(tok))
+	if len(tok) < 4 || leftoverCoverWeakToken(tok) || isQueryStopword(tok) || isMonthWord(tok) {
+		return false
+	}
+	for _, r := range tok {
+		if r < 'a' || r > 'z' {
+			return false
+		}
+	}
+	return true
+}
+
+// leftoverCoveringReactionObservationLine is leftover of the form
+// "they were (so) ADJ" / "they looked (so) ADJ" as the last words.
+func leftoverCoveringReactionObservationLine(line string) bool {
+	if leftoverCoveringEvaluativeTheyLine(line) {
+		return false
+	}
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	body = strings.Trim(body, `"'`)
+	body = strings.TrimRight(body, ".!")
+	words := strings.Fields(body)
+	if len(words) < 6 || len(words) > 24 {
+		return false
+	}
+	n := len(words)
+	if !leftoverCoveringReactionAdj(words[n-1]) {
+		return false
+	}
+	if n >= 4 && words[n-4] == "they" && (words[n-3] == "were" || words[n-3] == "looked" || words[n-3] == "seemed") && words[n-2] == "so" {
+		return true
+	}
+	if n >= 3 && words[n-3] == "they" && (words[n-2] == "were" || words[n-2] == "looked" || words[n-2] == "seemed") {
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringReactObjectTokens(query string) []string {
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	out := make([]string, 0, 4)
+	for _, tok := range leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query))) {
+		low := strings.ToLower(strings.TrimSpace(tok))
+		if leftoverCoveringReactStructureToken(low) {
+			continue
+		}
+		if _, ok := people[low]; ok {
+			continue
+		}
+		out = append(out, low)
+	}
+	return out
+}
+
+func leftoverCoveringReactHasObjectEvidence(query string, lines []string) bool {
+	for _, line := range lines {
+		for _, tok := range leftoverCoveringReactObjectTokens(query) {
+			if contentCoversQueryToken(line, tok) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func leftoverCoveringReactCompanionLine(query, line string) bool {
+	if leftoverCoveringReactionObservationLine(line) {
+		return false
+	}
+	for _, tok := range leftoverCoveringReactObjectTokens(query) {
+		if contentCoversQueryToken(line, tok) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringPreferReactionObservation(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringReactionObservationLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringReactMissesObservation(query, covering, answer string) bool {
+	if !looksHowReactQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringReactionObservationLine(answer) {
+		return false
+	}
+	if !leftoverCoveringReactionObservationLine(covering) {
+		return false
+	}
+	return true
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -6012,6 +6199,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items
