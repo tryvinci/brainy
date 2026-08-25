@@ -3146,3 +3146,76 @@ P19 joined unwind-evidenced calming slots into `answer`. The 180 product lane as
 
 **One step:** remaining READER list joins that already have packet evidence (yoga practice locations, Jolene balance habits, Gina business advice) without category dictionaries. Remaining mass is SH **PROOF 20**. Phuket remains a write split. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→106 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-25 — P21 location-list leftover lock (107/180)
+
+**Landed:** product SHA `fa915fe` on `pr/locomo-180-p21-1e9e` (draft PR #137). Skip-ingest pin [locomo-s0-diag-mh-135-p21-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p21-20260825.md) (`locomo-s0-diag-mh-135-p21b-product-recall-s1-7785cc`). First P21 180 (`…-p21-product-recall-s1-f3add8`) was **106/180** with an OD hybrid abstain flake — not a pin.
+
+Product change: location-list leftover covering no longer treats a short locative as a thin miss, covering lines must contain a place, leftover packet practice places join onto answer and items, and which/what-year covering binds to the query person and requires a year token. Does not expand `looksWhenEventQuery` (avoids the hop-date path).
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; last pin. Not re-run this increment. |
+| Marketing vertical | **17/17** | Merge gate; last pin. Not re-run this increment. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P20 | **106/180 (0.589)** | MH **17/33** · OD **4/11** · SH **60/98** · temporal **25/38**. SHA `80471d8`. |
+| LoCoMo S0 product hybrid **on** P21 | **107/180 (0.594)** | MH **18/33** · OD **4/11** · SH **60/98** · temporal **25/38**. SHA `fa915fe`. Ledger: **RETRIEVAL 29 / PROOF 26 / READER 12 / WRITE 4 / HARNESS 2**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** 90%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 107/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. Item flips vs P20: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 107 vs 11, or 107 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **106** P20 → **107** P21 | **no same-n pin** (fair 180 429) | Product 19→107 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P5 **17/33** → P20 **17/33** → P21 **18/33** | no 33-item freeze | New high on this axis. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P21 product ~160 ms local (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (18/33).** Named recovery: practice locations `conv-48-q82`. Destress pottery **held**. Childhood items **held**. Still missing: Phuket diving (`conv-48-q77`) — write split. Do not treat 18/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. First P21 180 flake-abstained James girlfriend; live `/recall` and p21b 180 held the P20 no-record answer. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **Held 60/98**. Industry **27/98**. Remaining mass is SH **PROOF 20**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment.
+
+**Temporal.** **Held 25/38**. Jon banker, Ned, McGee's, Toronto, Caroline biking, Gina internship, first-console **held**. Jolene yoga year still MISS (2020 not in the leftover packet). Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+A short locative list (`the park`) was classified as a leftover thin miss, so yoga-token purchase leftover replaced it. Requiring leftover covering lines to contain a place, and joining leftover packet locatives (park/beach/studio/mother) onto answer and items, recovers the location list. Clothing/room complements stay out. Which-year covering now skips foreign-person and undated lines; that stops Deborah leftover on Jolene's start year but cannot invent 2020 if the year fact is outside the packet. WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** remaining READER joins with packet evidence (Jolene balance habits, Gina business advice, relative-Sunday charity race, Melanie children count). Remaining mass is SH **PROOF 20** + RETRIEVAL 29 — ranking/compiler so gold enters the top packet. Phuket remains a write split. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→107 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
