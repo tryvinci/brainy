@@ -3766,7 +3766,7 @@ func leftoverCoverWeakToken(tok string) bool {
 		"have", "has", "had", "having", "been", "does", "did", "doing",
 		"cool", "find", "plan", "plans", "item", "items",
 		"activity", "activities", "support", "supports", "supporting",
-		"year", "years":
+		"year", "years", "decide", "decided", "deciding":
 		return true
 	}
 	return false
@@ -3995,6 +3995,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			}
 		}
 		score += hits
+		if leftoverCoveringQueryEntityHits(query, line) >= 2 {
+			score += 2
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4722,12 +4725,17 @@ func leftoverCoveringMentionsQueryEntity(query, line string) bool {
 	if len(ents) == 0 {
 		return true
 	}
-	for _, e := range ents {
+	return leftoverCoveringQueryEntityHits(query, line) > 0
+}
+
+func leftoverCoveringQueryEntityHits(query, line string) int {
+	n := 0
+	for _, e := range hopQueryEntities(query) {
 		if contentCoversQueryToken(line, e) {
-			return true
+			n++
 		}
 	}
-	return false
+	return n
 }
 
 // leftoverCoveringSkipForeignWhenEvent drops when-event covering lines that

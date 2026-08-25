@@ -4092,6 +4092,29 @@ func TestLeftoverCoveringWhichYearResolvesRelativeDuration(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhenEventPrefersBothQueryPeople(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Sam", Value: "Sam", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Sam decided he needs to make health changes after being mocked on 21 July 2023."},
+			{Content: "Riley painted a watercolor cactus in the desert last week (29 September 2023)."},
+			{Content: "Sam plans to paint with Riley on Saturday, 16 September 2023."},
+		},
+	}
+	q := "When did Riley and Sam decide to paint together?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "16 september") && !strings.Contains(lower, "saturday") {
+		t.Fatalf("when-event leftover covering must pick the dual-entity dated plan, got %q", got)
+	}
+	if strings.Contains(lower, "cactus") || strings.Contains(lower, "health") || strings.Contains(lower, "july") {
+		t.Fatalf("speech-act or solo-painter leftover must not cover the shared plan, got %q", got)
+	}
+}
+
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{

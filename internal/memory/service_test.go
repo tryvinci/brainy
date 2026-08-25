@@ -701,6 +701,58 @@ func TestSearchAdmitsRareQueryToken(t *testing.T) {
 	}
 }
 
+func TestSearchWhenEventDropsDecideFlood(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	for i := 0; i < 20; i++ {
+		key := "dec" + itoa(i)
+		store.records[key] = MemoryRecord{
+			MemoryID: "mem_" + key, TenantID: "t-paint", SubjectID: "u1",
+			Kind: KindFact, Content: "Sam decided he needs to make health changes after being mocked on 21 July 2023.",
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+		}
+	}
+	store.records["cactus"] = MemoryRecord{
+		MemoryID: "mem_cactus", TenantID: "t-paint", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley painted a watercolor cactus in the desert last week (29 September 2023).",
+		DedupeKey: "cactus", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["plan"] = MemoryRecord{
+		MemoryID: "mem_plan", TenantID: "t-paint", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam plans to paint with Riley on Saturday, 16 September 2023.",
+		DedupeKey: "plan", Status: StatusActive, UpdatedAt: now,
+	}
+	out, err := svc.SearchOpt(context.Background(), "t-paint", "u1", "", "",
+		"When did Riley and Sam decide to paint together?", SearchOptions{Limit: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range out.Results {
+		low := strings.ToLower(r.Content)
+		if strings.Contains(low, "16 september") || strings.Contains(low, "saturday") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("when-event search must admit the dual-entity paint plan, got %+v", out.Results)
+	}
+}
+
+func TestSearchLexicalTokensDropsDecideWhenEventRemains(t *testing.T) {
+	toks := tokenize("When did Riley and Sam decide to paint together?")
+	got := searchLexicalTokens(toks)
+	joined := strings.Join(got, " ")
+	if strings.Contains(joined, "decide") {
+		t.Fatalf("when-event lexical tokens must drop decide when paint remains, got %v", got)
+	}
+	if !strings.Contains(joined, "paint") || !strings.Contains(joined, "riley") || !strings.Contains(joined, "sam") {
+		t.Fatalf("when-event lexical tokens must keep people and the event noun, got %v", got)
+	}
+}
+
 func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

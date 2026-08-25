@@ -404,7 +404,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 
 	queryTokens := tokenize(query)
-	contentQueryTokens := contentBearingTokens(queryTokens)
+	contentQueryTokens := searchLexicalTokens(queryTokens)
 
 	intents := AnalyzeQueryIntents(query)
 	if !opts.IncludeHistorical && WantsHistoricalRetrieval(intents) {
@@ -675,7 +675,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			}
 		}
 		if len(corpus) > 0 {
-			idf = computeQueryIDF(corpus, contentBearingTokens(queryTokens))
+			idf = computeQueryIDF(corpus, searchLexicalTokens(queryTokens))
 		}
 	}
 
@@ -1910,7 +1910,7 @@ func computeQueryIDF(all []MemoryRecord, bearingQuery []string) map[string]float
 // match-count coverage (used by direct unit tests / no-corpus paths).
 func scoreMemoryIDF(record MemoryRecord, queryTokens []string, primitiveWeights map[string]int, idf map[string]float64) (float64, map[string]any) {
 	contentTokens := tokenize(record.Content)
-	bearingQuery := contentBearingTokens(queryTokens)
+	bearingQuery := searchLexicalTokens(queryTokens)
 	if len(bearingQuery) == 0 {
 		bearingQuery = queryTokens
 	}
@@ -2048,6 +2048,34 @@ func contentBearingTokens(tokens []string) []string {
 		out = append(out, token)
 	}
 	return out
+}
+
+// searchLexicalTokens are the tokens used for ILIKE patterns and lexical
+// scoring. When/which-year queries drop leftover-weak speech-act and year
+// words when another event token remains, so "decide" / "year" do not flood
+// the candidate pool.
+func searchLexicalTokens(queryTokens []string) []string {
+	bearing := contentBearingTokens(queryTokens)
+	if !searchDropsWeakEventTokens(queryTokens) {
+		return bearing
+	}
+	strong := leftoverCoverNonWeakTokens(bearing)
+	if len(strong) == 0 {
+		return bearing
+	}
+	return strong
+}
+
+func searchDropsWeakEventTokens(queryTokens []string) bool {
+	if len(queryTokens) > 0 && queryTokens[0] == "when" {
+		return true
+	}
+	for i := 0; i+1 < len(queryTokens); i++ {
+		if (queryTokens[i] == "which" || queryTokens[i] == "what") && queryTokens[i+1] == "year" {
+			return true
+		}
+	}
+	return false
 }
 
 func isQueryStopword(token string) bool {
