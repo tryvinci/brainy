@@ -5826,14 +5826,20 @@ func leftoverCoveringPurposeMissesInstrument(query, covering, answer string) boo
 // the product harness, which sends "what does …" as mode=enumerate) prefer
 // items over answer, so a covering rewrite of answer alone is invisible.
 func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallItem) []RecallItem {
-	if !looksInstrumentPurposeQuery(query) {
-		return items
-	}
 	covering = strings.TrimSpace(covering)
 	if covering == "" {
 		return items
 	}
-	return []RecallItem{{Value: covering}}
+	// Product-recall harness sends "what does …" as mode=enumerate and
+	// scores items, not Answer. A hop-dump list would beat leftover
+	// covering unless items follow the covering line.
+	if looksInstrumentPurposeQuery(query) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	return items
 }
 
 func leftoverCoveringInstrumentTokens(query string) []string {

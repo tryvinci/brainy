@@ -5088,6 +5088,18 @@ func TestLeftoverCoveringSayAboutPrefersTheyEvaluative(t *testing.T) {
 	if leftoverCoveringSkipsHybrid("What motivates Joanna to keep writing even on tough days?", "They're so graceful") {
 		t.Fatal("what-motivates must not skip hybrid via they-evaluative")
 	}
+	dumpItems := []RecallItem{
+		{Value: `performed contemporary piece "finding freedom"`},
+		{Value: "dance session"},
+		{Value: "stress relief"},
+	}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || synced[0].Value != got {
+		t.Fatalf("what-say-about enumerate items must follow they-evaluative covering, got %#v", synced)
+	}
+	if kept := leftoverCoveringSyncEnumerateItems("What does Riley do to unwind?", got, dumpItems); len(kept) != 3 {
+		t.Fatalf("non-say-about enumerate items must not collapse to they-evaluative covering, got %#v", kept)
+	}
 }
 
 func TestLeftoverCoveringSayAboutEmptyLeavesHybrid(t *testing.T) {
