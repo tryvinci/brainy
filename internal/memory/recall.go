@@ -808,6 +808,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringWorkDeterminationMissesPair(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringSelfDirectedRealizeMissesSelf(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3798,7 +3801,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) || looksHowFeelAboutQuery(query) || looksWhatDoCoordinatedUseQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) || looksHowFeelAboutQuery(query) || looksWhatDoCoordinatedUseQuery(query) || looksWhatDidRealizeAfterQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -4006,6 +4009,16 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 		}
 		rare = filtered
 	}
+	if looksWhatDidRealizeAfterQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringRealizeAfterStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		rare = filtered
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -4099,7 +4112,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, line)) &&
 		!(looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, line)) &&
 		!(looksHowFeelAboutQuery(query) && leftoverCoveringExperiencingFeelingLine(query, line)) &&
-		!(looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, line)) {
+		!(looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, line)) &&
+		!(looksWhatDidRealizeAfterQuery(query) && leftoverCoveringSelfDirectedRealizeLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4144,7 +4158,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	whereQ := looksWhereQuery(query)
 	rare := leftoverCoveringRareForQuery(query, hops)
-	if len(rare) == 0 && !looksWhatNewSeriesQuery(query) && !looksWhatDidRecentlyAtQuery(query) && !looksHowFeelAboutQuery(query) && !looksWhatDoCoordinatedUseQuery(query) {
+	if len(rare) == 0 && !looksWhatNewSeriesQuery(query) && !looksWhatDidRecentlyAtQuery(query) && !looksHowFeelAboutQuery(query) && !looksWhatDoCoordinatedUseQuery(query) && !looksWhatDidRealizeAfterQuery(query) {
 		return ""
 	}
 	if leftoverCoveringLockChildhoodPossessions(query) {
@@ -4406,6 +4420,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatDidRealizeAfterQuery(query) {
+			if leftoverCoveringSelfDirectedRealizeLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringSelfDirectedRealizeCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4635,6 +4657,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringWorkDeterminationLine(query, best) {
 			// coordinated-use leftover must be first-person-plural hard work
 			// and determination, not a dedication restatement or car leftover.
+		} else {
+			return ""
+		}
+	}
+	if looksWhatDidRealizeAfterQuery(query) {
+		if next := leftoverCoveringPreferSelfDirectedRealize(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringSelfDirectedRealizeLine(query, best) {
+			// realize-after leftover must be first-person realize leftover that
+			// names a self-directed object, not an others-directed support leftover.
 		} else {
 			return ""
 		}
@@ -5634,6 +5667,27 @@ func looksWhatDoCoordinatedUseQuery(query string) bool {
 	return false
 }
 
+func looksWhatDidRealizeAfterQuery(query string) bool {
+	if looksHostQuery(query) || looksAdviceQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "what did") && !strings.Contains(q, "what does") && !strings.Contains(q, "what has") {
+		return false
+	}
+	hasRealize := false
+	hasAfter := false
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "realize", "realized", "realised", "realizing", "realising":
+			hasRealize = true
+		case "after":
+			hasAfter = true
+		}
+	}
+	return hasRealize && hasAfter
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatDoCoordinatedUseQuery(query) || looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5662,7 +5716,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) || looksHowFeelAboutQuery(query) || looksWhatDoCoordinatedUseQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) || looksHowFeelAboutQuery(query) || looksWhatDoCoordinatedUseQuery(query) || looksWhatDidRealizeAfterQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5749,6 +5803,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, line) {
+		return true
+	}
+	if looksWhatDidRealizeAfterQuery(query) && leftoverCoveringSelfDirectedRealizeLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -6405,6 +6462,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, covering) {
+		return true
+	}
+	if looksWhatDidRealizeAfterQuery(query) && leftoverCoveringSelfDirectedRealizeLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -7936,6 +7996,14 @@ func leftoverCoveringCoordinatedUseStructureToken(tok string) bool {
 	return false
 }
 
+func leftoverCoveringRealizeAfterStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "realize", "realized", "realised", "realizing", "realising", "after":
+		return true
+	}
+	return false
+}
+
 func leftoverCoveringTitledShowCue(line string) bool {
 	padded := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
 	if strings.Contains(padded, " watch ") || strings.Contains(padded, " watching ") {
@@ -8342,6 +8410,89 @@ func leftoverCoveringWorkDeterminationMissesPair(query, covering, answer string)
 	return leftoverCoveringWorkDeterminationLine(query, covering)
 }
 
+func leftoverCoveringSelfDirectedRealizeLine(query, line string) bool {
+	if !looksWhatDidRealizeAfterQuery(query) {
+		return false
+	}
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) || leftoverCoveringCongratsLine(line) {
+		return false
+	}
+	padded := leftoverCoveringPrepPlanNormalized(line)
+	body := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	hasRealize := strings.Contains(padded, " realize ") || strings.Contains(padded, " realizing ") || strings.Contains(padded, " realised ") || strings.Contains(padded, " realized ") ||
+		strings.Contains(body, " realize ") || strings.Contains(body, " realizing ") || strings.Contains(body, " realised ") || strings.Contains(body, " realized ")
+	if !hasRealize {
+		return false
+	}
+	if strings.Contains(padded, " others ") || strings.Contains(body, " others ") {
+		return false
+	}
+	hasSelf := strings.Contains(padded, " self-") || strings.Contains(padded, " self ") || strings.Contains(padded, " myself ") ||
+		strings.Contains(body, " self-") || strings.Contains(body, " self ") || strings.Contains(body, " myself ")
+	if !hasSelf {
+		return false
+	}
+	return leftoverCoveringDurationActorLine(query, line) || leftoverCoveringDurationActorLine(query, hybridLineBody(line))
+}
+
+func leftoverCoveringSelfDirectedRealizeCompanionLine(query, line string) bool {
+	if leftoverCoveringSelfDirectedRealizeLine(query, line) {
+		return false
+	}
+	if leftoverCoveringLineHasForeignPerson(query, line) {
+		return true
+	}
+	padded := leftoverCoveringPrepPlanNormalized(line)
+	body := leftoverCoveringPrepPlanNormalized(hybridLineBody(line))
+	if strings.Contains(padded, " others ") || strings.Contains(body, " others ") {
+		return true
+	}
+	hasRealize := strings.Contains(padded, " realize ") || strings.Contains(padded, " realizing ") || strings.Contains(padded, " realised ") || strings.Contains(padded, " realized ") ||
+		strings.Contains(body, " realize ") || strings.Contains(body, " realizing ") || strings.Contains(body, " realised ") || strings.Contains(body, " realized ")
+	hasSelf := strings.Contains(padded, " self-") || strings.Contains(padded, " self ") || strings.Contains(padded, " myself ") ||
+		strings.Contains(body, " self-") || strings.Contains(body, " self ") || strings.Contains(body, " myself ")
+	if hasRealize && !hasSelf {
+		return true
+	}
+	if hasSelf && !hasRealize {
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringPreferSelfDirectedRealize(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringSelfDirectedRealizeLine(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringSelfDirectedRealizeMissesSelf(query, covering, answer string) bool {
+	if !looksWhatDidRealizeAfterQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = leftoverCoveringAnswerHead(answer)
+	if covering == "" || leftoverCoveringSelfDirectedRealizeLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringSelfDirectedRealizeLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -8521,6 +8672,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksWhatDidRealizeAfterQuery(query) && leftoverCoveringSelfDirectedRealizeLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items

@@ -7271,6 +7271,170 @@ func TestSessionIDsForWhatDoCoordinatedUsePrefersDeterminationSessions(t *testin
 	}
 }
 
+func TestLeftoverCoveringWhatDidRealizeAfterPrefersSelfCareLeftover(t *testing.T) {
+	others := "It made me realize how important it is for others to have a support system"
+	thin := "Melanie believes that self-care is important."
+	race := "I ran a charity race for mental health last Saturday – it was really rewarding"
+	veterans := "John realized on 13 May 2023 that veterans have done a lot for us."
+	gold := "I'm starting to realize that self-care is really important"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: others},
+			{Content: thin},
+			{Content: race},
+			{Content: veterans},
+			{Content: gold},
+		},
+	}
+	q := "What did Melanie realize after the charity race?"
+	if !looksWhatDidRealizeAfterQuery(q) {
+		t.Fatal("what did + realize + after must count as realize-after")
+	}
+	if looksWhatDidRealizeAfterQuery("What do Calvin and Dave use to reach their goals?") {
+		t.Fatal("coordinated-use must not count as realize-after")
+	}
+	if looksWhatDidRealizeAfterQuery("How did Jolene feel about her progress in practicing mindfulness and gratitude?") {
+		t.Fatal("how-feel must not count as realize-after")
+	}
+	if looksWhatDidRealizeAfterQuery("What did John host for the veterans in May 2023 as part of the project") {
+		t.Fatal("host must not count as realize-after")
+	}
+	if leftoverCoveringSelfDirectedRealizeLine(q, others) {
+		t.Fatal("others-directed realize leftover must not count as covering")
+	}
+	if leftoverCoveringSelfDirectedRealizeLine(q, thin) {
+		t.Fatal("believes self-care compiler without realize must not count as covering")
+	}
+	if leftoverCoveringSelfDirectedRealizeLine(q, race) {
+		t.Fatal("charity-race attendance leftover must not count as covering")
+	}
+	if leftoverCoveringSelfDirectedRealizeLine(q, veterans) {
+		t.Fatal("foreign-person realize leftover must not count as covering")
+	}
+	if !leftoverCoveringSelfDirectedRealizeLine(q, gold) {
+		t.Fatal("first-person realize leftover that names self-care must count as covering")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if !strings.Contains(strings.ToLower(got), "self-care") || !strings.Contains(strings.ToLower(got), "realize") {
+		t.Fatalf("realize-after leftover covering must prefer self-directed realize leftover, got %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "others") || strings.Contains(strings.ToLower(got), "support system") {
+		t.Fatalf("realize-after leftover covering must not steal others-directed leftover, got %q", got)
+	}
+	if leftoverCoveringSelfDirectedRealizeCompanionLine(q, gold) {
+		t.Fatal("covering leftover must not score as companion")
+	}
+	if !leftoverCoveringSelfDirectedRealizeCompanionLine(q, others) {
+		t.Fatal("others-directed realize leftover must score as companion")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("self-directed realize leftover must skip hybrid")
+	}
+	if !leftoverCoveringSelfDirectedRealizeMissesSelf(q, got, others) {
+		t.Fatal("others-directed realize answer must miss self-directed covering")
+	}
+	hybrid := "She realized how important it is for others to have a support system."
+	if !leftoverCoveringSelfDirectedRealizeMissesSelf(q, got, hybrid) {
+		t.Fatal("hybrid others-directed answer must miss self-directed covering")
+	}
+	dumpItems := []RecallItem{{Value: others}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "self-care") {
+		t.Fatalf("realize-after covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringWhatDidRealizeAfterStaysEmptyWithoutSelf(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "It made me realize how important it is for others to have a support system"},
+			{Content: "Melanie believes that self-care is important."},
+			{Content: "I ran a charity race for mental health last Saturday – it was really rewarding"},
+			{Content: "John realized on 13 May 2023 that veterans have done a lot for us."},
+		},
+	}
+	q := "What did Melanie realize after the charity race?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("realize-after leftover covering must stay empty without self-directed realize leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsSelfDirectedRealizeEpisode(t *testing.T) {
+	q := "What did Melanie realize after the charity race?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "It made me realize how important it is for others to have a support system"},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "I'm starting to realize that self-care is really important",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("realize-after query must keep self-directed realize episode leftover")
+	}
+}
+
+func TestExpandSelfDirectedRealizeSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_2"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "I ran a charity race for mental health last Saturday – it was really rewarding",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about pottery and camping",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I'm starting to realize that self-care is really important",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the self-directed realize leftover can miss")
+	}
+	expandSelfDirectedRealizeSessionNeighbors(candidates, "What did Melanie realize after the charity race?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("realize-after session expand must admit self-directed realize leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatDidRealizeAfterPrefersSelfCareSessions(t *testing.T) {
+	q := "What did Melanie realize after the charity race?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "It made me realize how important it is for others to have a support system",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	race := MemoryRecord{
+		MemoryID: "race",
+		Content:  "I ran a charity race for mental health last Saturday – it was really rewarding",
+		Metadata: map[string]any{"session_id": "session_7"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I'm starting to realize that self-care is really important",
+		Metadata: map[string]any{"session_id": "session_2"},
+	}
+	seeds := append(recent, race)
+	ids := sessionIDsForWhatDidRealizeAfterQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_2" {
+		t.Fatalf("realize-after session rank must prefer self-directed realize leftover session over recency others leftover, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsBecomeInterestedEpisode(t *testing.T) {
 	q := "What new hobby did James become interested in on 9 July, 2022?"
 	candidates := map[string]MemoryRecord{
