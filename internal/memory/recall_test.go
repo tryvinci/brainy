@@ -7113,6 +7113,164 @@ func TestSessionIDsForHowFeelAboutPrefersFeelingSessions(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhatDoCoordinatedUsePrefersDeterminationLeftover(t *testing.T) {
+	gold := "Hard work and determination will get us there"
+	dedication := "Calvin: Yeah, hard work and dedication are definitely key to reaching our goals and potential"
+	thin := "Calvin believes that hard work and dedication are essential for achieving goals and realizing potential."
+	car := "That must have taken a lot of skill and determination to bring that car back to life"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: dedication},
+			{Content: thin},
+			{Content: car},
+			{Content: gold},
+		},
+	}
+	q := "What do Calvin and Dave use to reach their goals?"
+	if !looksWhatDoCoordinatedUseQuery(q) {
+		t.Fatal("what do + two people + use must count as coordinated-use")
+	}
+	if looksWhatDoCoordinatedUseQuery("How did Jolene feel about her progress in practicing mindfulness and gratitude?") {
+		t.Fatal("how-feel must not count as coordinated-use")
+	}
+	if looksWhatDoCoordinatedUseQuery("What did Calvin do recently at his Japanese house?") {
+		t.Fatal("recently-at must not count as coordinated-use")
+	}
+	if looksWhatDoCoordinatedUseQuery("What did Audrey do in November 2023 to better take care of her dogs?") {
+		t.Fatal("purpose do-to must not count as coordinated-use")
+	}
+	if leftoverCoveringWorkDeterminationLine(q, dedication) {
+		t.Fatal("dedication leftover must not count as hard-work+determination covering")
+	}
+	if leftoverCoveringWorkDeterminationLine(q, thin) {
+		t.Fatal("Calvin-only dedication compiler must not count as covering")
+	}
+	if leftoverCoveringWorkDeterminationLine(q, car) {
+		t.Fatal("car restoration leftover must not count as covering")
+	}
+	if !leftoverCoveringWorkDeterminationLine(q, gold) {
+		t.Fatal("first-person-plural hard work and determination leftover must count as covering")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if !strings.Contains(strings.ToLower(got), "determination") || !strings.Contains(strings.ToLower(got), "hard work") {
+		t.Fatalf("coordinated-use leftover covering must prefer hard-work+determination leftover, got %q", got)
+	}
+	if strings.Contains(strings.ToLower(got), "dedication") {
+		t.Fatalf("coordinated-use leftover covering must not steal dedication leftover, got %q", got)
+	}
+	if leftoverCoveringWorkDeterminationCompanionLine(q, gold) {
+		t.Fatal("covering leftover must not score as companion")
+	}
+	if !leftoverCoveringWorkDeterminationCompanionLine(q, dedication) {
+		t.Fatal("dedication leftover must score as companion")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("work-determination leftover must skip hybrid")
+	}
+	if !leftoverCoveringWorkDeterminationMissesPair(q, got, thin) {
+		t.Fatal("Calvin-only dedication answer must miss work-determination covering")
+	}
+	hybrid := "Calvin uses hard work and dedication to reach his goals. Dave's method for reaching his goals is not specified in the available memories."
+	if !leftoverCoveringWorkDeterminationMissesPair(q, got, hybrid) {
+		t.Fatal("hybrid dedication+unspecified-Dave answer must miss work-determination covering")
+	}
+	dumpItems := []RecallItem{{Value: dedication}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "determination") {
+		t.Fatalf("coordinated-use covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringWhatDoCoordinatedUseStaysEmptyWithoutPair(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Calvin: Yeah, hard work and dedication are definitely key to reaching our goals and potential"},
+			{Content: "Calvin believes that hard work and dedication are essential for achieving goals and realizing potential."},
+			{Content: "That must have taken a lot of skill and determination to bring that car back to life"},
+		},
+	}
+	q := "What do Calvin and Dave use to reach their goals?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("coordinated-use leftover covering must stay empty without plural hard-work+determination leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsWorkDeterminationEpisode(t *testing.T) {
+	q := "What do Calvin and Dave use to reach their goals?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Calvin believes that hard work and dedication are essential for achieving goals and realizing potential."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "Hard work and determination will get us there",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("coordinated-use query must keep hard-work+determination episode leftover")
+	}
+}
+
+func TestExpandWorkDeterminationSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_21"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Calvin: Yeah, hard work and dedication are definitely key to reaching our goals and potential",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about classic cars",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Hard work and determination will get us there",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the determination leftover can miss")
+	}
+	expandWorkDeterminationSessionNeighbors(candidates, "What do Calvin and Dave use to reach their goals?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("coordinated-use session expand must admit determination leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatDoCoordinatedUsePrefersDeterminationSessions(t *testing.T) {
+	q := "What do Calvin and Dave use to reach their goals?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "Calvin believes that hard work and dedication are essential for achieving goals and realizing potential.",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	dedication := MemoryRecord{
+		MemoryID: "dedication",
+		Content:  "Calvin: Yeah, hard work and dedication are definitely key to reaching our goals and potential",
+		Metadata: map[string]any{"session_id": "session_16"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Hard work and determination will get us there",
+		Metadata: map[string]any{"session_id": "session_21"},
+	}
+	seeds := append(recent, dedication)
+	ids := sessionIDsForWhatDoCoordinatedUseQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_21" {
+		t.Fatalf("coordinated-use session rank must prefer determination leftover session over recency dedication leftover, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsBecomeInterestedEpisode(t *testing.T) {
 	q := "What new hobby did James become interested in on 9 July, 2022?"
 	candidates := map[string]MemoryRecord{

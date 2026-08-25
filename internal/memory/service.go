@@ -470,7 +470,8 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		looksHostQuery(query) ||
 		looksWhatNewSeriesQuery(query) ||
 		looksWhatDidRecentlyAtQuery(query) ||
-		looksHowFeelAboutQuery(query)
+		looksHowFeelAboutQuery(query) ||
+		looksWhatDoCoordinatedUseQuery(query)
 	if needCorpus {
 		listed, err := s.listSubjectCorpus(ctx, tenantID, subjectID, includeSuperseded, 400)
 		if err != nil {
@@ -606,7 +607,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	relatedToks := queryTokens
 	admitToks := queryTokens
 	coverToks := queryTokens
-	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) || looksHowFeelAboutQuery(query) {
+	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) || looksWhatFocusingBesidesQuery(query) || looksWhatNewSeriesQuery(query) || looksWhatDidRecentlyAtQuery(query) || looksHowFeelAboutQuery(query) || looksWhatDoCoordinatedUseQuery(query) {
 		relatedToks = contentQueryTokens
 		admitToks = contentQueryTokens
 		coverToks = contentQueryTokens
@@ -1101,6 +1102,31 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// Coordinated-use leftover covering needs first-person-plural hard-work
+	// and determination leftover. FTS hits dedication chat turns; the gold
+	// names neither person. Rank covering sessions, then fetch.
+	if looksWhatDoCoordinatedUseQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(memories)+len(candidates))
+		seeds = append(seeds, memories...)
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsForWhatDoCoordinatedUseQuery(query, seeds, allMemories)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		useAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
+				useAll = listed
+			}
+		}
+		if len(useAll) > 0 && len(idSeeds) > 0 {
+			expandWorkDeterminationSessionNeighbors(candidates, query, idSeeds, useAll, 32)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -1240,6 +1266,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "experiencing_feeling_floor"
 		}
+		if score <= 0 && looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "work_determination_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
@@ -1327,6 +1357,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		applyTitledShowRankBoost(&score, explain, query, record)
 		applyLocativePurposeRankBoost(&score, explain, query, record)
 		applyExperiencingFeelingRankBoost(&score, explain, query, record)
+		applyWorkDeterminationRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1419,6 +1450,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 	if looksHowFeelAboutQuery(query) {
 		ranked = keepExperiencingFeelingInCap(fullRanked, ranked, query, limit)
+	}
+	if looksWhatDoCoordinatedUseQuery(query) {
+		ranked = keepWorkDeterminationInCap(fullRanked, ranked, query, limit)
 	}
 
 	results := make([]SearchResult, len(ranked))
@@ -1569,6 +1603,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksHowFeelAboutQuery(query) && leftoverCoveringExperiencingFeelingLine(query, ep.Content) {
 				continue
 			}
+			if looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -1701,6 +1738,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksHowFeelAboutQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringExperiencingFeelingLine(query, ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksWhatDoCoordinatedUseQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringWorkDeterminationLine(query, ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -3023,6 +3067,17 @@ func applyExperiencingFeelingRankBoost(score *float64, explain map[string]any, q
 	}
 }
 
+func applyWorkDeterminationRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksWhatDoCoordinatedUseQuery(query) || !leftoverCoveringWorkDeterminationLine(query, record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["work_determination_boost"] = bonus
+	}
+}
+
 func hasResponseKeyword(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
@@ -3588,6 +3643,12 @@ func searchLexicalQueryTokens(query string, queryTokens []string) []string {
 			queryTokens = tokenize(strings.Join(raw, " "))
 		}
 	}
+	if looksWhatDoCoordinatedUseQuery(query) {
+		raw := dropWhatDoCoordinatedUseStructureTokens(strings.Fields(query))
+		if len(raw) > 0 {
+			queryTokens = tokenize(strings.Join(raw, " "))
+		}
+	}
 	if len(queryTokens) == 0 && strings.TrimSpace(query) != "" {
 		queryTokens = tokenize(query)
 	}
@@ -3649,6 +3710,11 @@ func searchLexicalQueryTokens(query string, queryTokens []string) []string {
 	}
 	if looksHowFeelAboutQuery(query) {
 		if trimmed := dropHowFeelAboutStructureTokens(toks); len(trimmed) > 0 {
+			toks = trimmed
+		}
+	}
+	if looksWhatDoCoordinatedUseQuery(query) {
+		if trimmed := dropWhatDoCoordinatedUseStructureTokens(toks); len(trimmed) > 0 {
 			toks = trimmed
 		}
 	}
@@ -3869,6 +3935,17 @@ func dropHowFeelAboutStructureTokens(bearing []string) []string {
 	out := make([]string, 0, len(bearing))
 	for _, tok := range bearing {
 		if leftoverCoveringFeelAboutStructureToken(tok) {
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func dropWhatDoCoordinatedUseStructureTokens(bearing []string) []string {
+	out := make([]string, 0, len(bearing))
+	for _, tok := range bearing {
+		if leftoverCoveringCoordinatedUseStructureToken(tok) {
 			continue
 		}
 		out = append(out, tok)
@@ -5340,6 +5417,125 @@ func keepExperiencingFeelingInCap(full, capped []rankedSearchResult, query strin
 	extra := make([]rankedSearchResult, 0, 8)
 	for _, item := range full {
 		if !leftoverCoveringExperiencingFeelingLine(query, item.result.Content) {
+			continue
+		}
+		extra = append(extra, item)
+		if len(extra) >= 8 {
+			break
+		}
+	}
+	if len(extra) == 0 {
+		return capped
+	}
+	seen := map[string]struct{}{}
+	out := make([]rankedSearchResult, 0, limit)
+	for _, item := range extra {
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	for _, item := range capped {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	return out
+}
+
+func sessionIDsForWhatDoCoordinatedUseQuery(query string, seeds, all []MemoryRecord) []string {
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	add := func(sid string, n int) {
+		if sid == "" {
+			return
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	for _, rec := range all {
+		if leftoverCoveringWorkDeterminationLine(query, rec.Content) {
+			add(sessionIDOf(rec), 100)
+		}
+	}
+	for _, rec := range seeds {
+		if leftoverCoveringWorkDeterminationLine(query, rec.Content) {
+			add(sessionIDOf(rec), 100)
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return order[i] < order[j]
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	if len(order) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	return order
+}
+
+func expandWorkDeterminationSessionNeighbors(candidates map[string]MemoryRecord, query string, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringWorkDeterminationLine(query, record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+func keepWorkDeterminationInCap(full, capped []rankedSearchResult, query string, limit int) []rankedSearchResult {
+	if !looksWhatDoCoordinatedUseQuery(query) {
+		return capped
+	}
+	extra := make([]rankedSearchResult, 0, 8)
+	for _, item := range full {
+		if !leftoverCoveringWorkDeterminationLine(query, item.result.Content) {
 			continue
 		}
 		extra = append(extra, item)
