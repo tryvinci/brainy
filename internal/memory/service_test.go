@@ -981,6 +981,53 @@ func TestSearchWhatSayAboutAdmitsFirstPersonGotPastSessionWindow(t *testing.T) {
 	}
 }
 
+func TestSearchWhatSayAboutAdmitsReportedSpeechPastSessionWindow(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	const session = "session_18"
+	photo := MemoryRecord{
+		MemoryID: "mem_photo", TenantID: "t-said", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "[ankle injury wrapped bandages] [a photo of a person with a bandage on their leg]",
+		DedupeKey: "photo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"session_id": session},
+	}
+	store.records["photo"] = photo
+	store.searchOnlyIDs = map[string]struct{}{photo.MemoryID: {}}
+	for i := 0; i < 90; i++ {
+		key := fmt.Sprintf("early%02d", i)
+		store.records[key] = MemoryRecord{
+			MemoryID: "mem_" + key, TenantID: "t-said", SubjectID: "u1",
+			Kind: KindFact, Content: "Tim cannot read due to an injury.",
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"session_id": session},
+		}
+	}
+	store.records["gold"] = MemoryRecord{
+		MemoryID: "mem_zz_gold", TenantID: "t-said", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "The doctor said it's not too serious",
+		DedupeKey: "gold", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"session_id": session},
+	}
+	out, err := svc.SearchOpt(context.Background(), "t-said", "u1", "", "",
+		"What did Tim say about his injury on 16 November, 2023?", SearchOptions{Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range out.Results {
+		if strings.Contains(strings.ToLower(r.Content), "not too serious") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("what-say-about search must admit reported-speech leftover past an 80-row session window, got %+v", out.Results)
+	}
+}
+
 func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))

@@ -774,9 +774,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 
 	// What-say-about leftover covering needs they-evaluative leftover
-	// ("They're so graceful") or first-person got leftover ("It's got so
-	// much to check out") that omits the object tokens. FTS ANDs
-	// dancers/photo or nyc/visit against captions and compiler facts.
+	// ("They're so graceful"), first-person got leftover ("It's got so
+	// much to check out"), or dated reported-speech leftover ("The doctor
+	// said it's not too serious") that omits the object tokens.
 	if looksWhatSayAboutQuery(query) {
 		seeds := make([]MemoryRecord, 0, len(candidates))
 		for _, rec := range candidates {

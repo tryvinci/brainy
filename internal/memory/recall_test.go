@@ -5154,15 +5154,91 @@ func TestLeftoverCoveringSayAboutCoversFirstPersonGotLine(t *testing.T) {
 			{Content: "Tim experienced a setback on 14 November 2023."},
 			{Content: "The doctor said it's not too serious"},
 			{Content: "John focused on recovery and worked hard to strengthen his body after the ankle injury."},
+			{Content: "It's got so much to check out - the culture, food - you won't regret it."},
 		},
 	}
 	injury := leftoverCoveringSpecificAnswer("What did Tim say about his injury on 16 November, 2023?", nil, injuryPkt)
-	if injury != "" {
-		t.Fatalf("injury what-say-about must stay empty without they-evaluative or first-person got leftover, got %q", injury)
+	if !strings.Contains(strings.ToLower(injury), "not too serious") {
+		t.Fatalf("dated what-say-about leftover covering must pick reported-speech leftover, got %q", injury)
+	}
+	if strings.Contains(strings.ToLower(injury), "check out") {
+		t.Fatalf("dated what-say-about must not steal first-person got leftover, got %q", injury)
+	}
+	if leftoverCoveringReportedSpeechLine(gold) {
+		t.Fatal("it's-got leftover is not reported-speech covering")
+	}
+	if !leftoverCoveringReportedSpeechLine("The doctor said it's not too serious") {
+		t.Fatal("the-role-said leftover must count as reported-speech covering")
 	}
 	synced := leftoverCoveringSyncEnumerateItems(q, got, []RecallItem{{Value: "John visited New York City."}})
 	if len(synced) != 1 || synced[0].Value != got {
 		t.Fatalf("what-say-about enumerate items must follow first-person got covering, got %#v", synced)
+	}
+	injurySynced := leftoverCoveringSyncEnumerateItems(
+		"What did Tim say about his injury on 16 November, 2023?",
+		injury,
+		[]RecallItem{{Value: "Tim experienced a setback on 14 November 2023."}},
+	)
+	if len(injurySynced) != 1 || injurySynced[0].Value != injury {
+		t.Fatalf("dated what-say-about enumerate items must follow reported-speech covering, got %#v", injurySynced)
+	}
+}
+
+func TestLeftoverCoveringSayAboutDatedSkipsGot(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Tim experienced a setback on 14 November 2023."},
+			{Content: "It's got so much to check out - the culture, food - you won't regret it."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What did Tim say about his injury on 16 November, 2023?", nil, pkt)
+	if got != "" {
+		t.Fatalf("dated what-say-about must not fall through to first-person got leftover, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringSayAboutUndatedSkipsReportedSpeech(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "John visited New York City."},
+			{Content: "The doctor said it's not too serious"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What did John say about NYC, enticing Tim to visit?", nil, pkt)
+	if got != "" {
+		t.Fatalf("undated what-say-about must not fall through to reported-speech leftover, got %q", got)
+	}
+}
+
+func TestExpandSayAboutSessionNeighborsAdmitsReportedSpeech(t *testing.T) {
+	session := "session_18"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "[ankle injury wrapped bandages] [a photo of a person with a bandage on their leg]",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about recovery",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "The doctor said it's not too serious",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the reported-speech leftover can miss")
+	}
+	expandEvaluativeTheySessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("what-say-about session expand must admit reported-speech leftover past the generic cap")
 	}
 }
 
