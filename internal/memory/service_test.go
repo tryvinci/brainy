@@ -753,6 +753,58 @@ func TestSearchLexicalTokensDropsDecideWhenEventRemains(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalTokensDropsHelpWhenInstrumentRemains(t *testing.T) {
+	toks := tokenize("What does the smartwatch help Riley with?")
+	got := searchLexicalTokens(toks)
+	joined := strings.Join(got, " ")
+	if strings.Contains(joined, "help") {
+		t.Fatalf("instrument-purpose lexical tokens must drop help when smartwatch remains, got %v", got)
+	}
+	if !strings.Contains(joined, "smartwatch") || !strings.Contains(joined, "riley") {
+		t.Fatalf("instrument-purpose lexical tokens must keep the instrument and person, got %v", got)
+	}
+}
+
+func TestSearchInstrumentPurposeDropsHelpFlood(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	for i := 0; i < 20; i++ {
+		key := "help" + itoa(i)
+		store.records[key] = MemoryRecord{
+			MemoryID: "mem_" + key, TenantID: "t-watch", SubjectID: "u1",
+			Kind: KindFact, Content: "Riley helped a lost tourist find their way around the city.",
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+		}
+	}
+	store.records["owns"] = MemoryRecord{
+		MemoryID: "mem_owns", TenantID: "t-watch", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley owns a fitness tracker smartwatch that he wears on his wrist.",
+		DedupeKey: "owns", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["use"] = MemoryRecord{
+		MemoryID: "mem_use", TenantID: "t-watch", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley uses his fitness tracker to monitor his health progress, which serves as a constant reminder to keep going.",
+		DedupeKey: "use", Status: StatusActive, UpdatedAt: now,
+	}
+	out, err := svc.SearchOpt(context.Background(), "t-watch", "u1", "", "",
+		"What does the smartwatch help Riley with?", SearchOptions{Limit: 8})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range out.Results {
+		low := strings.ToLower(r.Content)
+		if strings.Contains(low, "reminder") || strings.Contains(low, "progress") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("instrument-purpose search must admit the tracker purpose fact, got %+v", out.Results)
+	}
+}
+
 func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

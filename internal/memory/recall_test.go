@@ -4115,6 +4115,47 @@ func TestLeftoverCoveringWhenEventPrefersBothQueryPeople(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringInstrumentPurposePrefersUseOverOwns(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley owns a fitness tracker smartwatch that he wears on his wrist."},
+			{Content: "Riley helped a lost tourist find their way around the city."},
+			{Content: "Riley uses his fitness tracker to monitor his health progress, which serves as a constant reminder to keep going."},
+			{Content: "Dana uses her fitness tracker as a reminder to stretch after runs."},
+		},
+	}
+	q := "What does the smartwatch help Riley with?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "reminder") && !strings.Contains(lower, "progress") {
+		t.Fatalf("instrument leftover covering must pick the purpose fact, got %q", got)
+	}
+	if strings.Contains(lower, "owns") || strings.Contains(lower, "tourist") || strings.Contains(lower, "dana") {
+		t.Fatalf("ownership, help-flood, or foreign leftover must not cover instrument purpose, got %q", got)
+	}
+	hybrid := "The fitness-tracker smartwatch helps Riley monitor his fitness and health."
+	if !leftoverCoveringPurposeMissesInstrument(q, got, hybrid) {
+		t.Fatal("purpose covering with reminder/progress must replace a generic monitor paraphrase")
+	}
+	if leftoverCoveringPurposeMissesInstrument(q, "Riley owns a fitness tracker smartwatch that he wears on his wrist.", got) {
+		t.Fatal("ownership leftover must not replace a purpose answer")
+	}
+	feelQ := "According to Jolene, what does exercise help her to feel?"
+	feelPkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Deborah: Exercise is key for me - it makes me feel connected to my body"},
+			{Content: "Jolene participates in yoga."},
+		},
+	}
+	feelGot := leftoverCoveringSpecificAnswer(feelQ, []HopResult{{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene"}}, feelPkt)
+	if strings.Contains(strings.ToLower(feelGot), "connected") || strings.Contains(strings.ToLower(feelGot), "deborah") {
+		t.Fatalf("instrument leftover covering must not steal another person's exercise feeling, got %q", feelGot)
+	}
+}
+
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{

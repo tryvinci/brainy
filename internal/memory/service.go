@@ -1483,6 +1483,8 @@ func relatedIntentTokens(token string) []string {
 		return []string{"kids", "children", "child"}
 	case "research", "researched", "researching":
 		return []string{"research", "researched", "researching"}
+	case "smartwatch":
+		return []string{"tracker"}
 	default:
 		return nil
 	}
@@ -2051,9 +2053,9 @@ func contentBearingTokens(tokens []string) []string {
 }
 
 // searchLexicalTokens are the tokens used for ILIKE patterns and lexical
-// scoring. When/which-year queries drop leftover-weak speech-act and year
-// words when another event token remains, so "decide" / "year" do not flood
-// the candidate pool.
+// scoring. When/which-year and what-does-X-help queries drop leftover-weak
+// speech-act words when another event or instrument token remains, so "decide"
+// / "year" / "help" do not flood the candidate pool.
 func searchLexicalTokens(queryTokens []string) []string {
 	bearing := contentBearingTokens(queryTokens)
 	if !searchDropsWeakEventTokens(queryTokens) {
@@ -2075,7 +2077,7 @@ func searchDropsWeakEventTokens(queryTokens []string) bool {
 			return true
 		}
 	}
-	return false
+	return looksInstrumentPurposeQuery(strings.Join(queryTokens, " "))
 }
 
 func isQueryStopword(token string) bool {

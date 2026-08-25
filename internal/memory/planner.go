@@ -582,6 +582,12 @@ func looksYearQuery(query string) bool {
 	return strings.Contains(q, "which year") || strings.Contains(q, "what year")
 }
 
+// looksInstrumentPurposeQuery is "what does (the) X help ... with" — the
+// instrument noun is the leftover, not the speech-act verb help.
+func looksInstrumentPurposeQuery(query string) bool {
+	return leftoverCoveringInstrumentNoun(query) != ""
+}
+
 func looksWhereQuery(query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	return strings.HasPrefix(q, "where ")

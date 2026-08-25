@@ -734,6 +734,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringYearMissesEvent(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringPurposeMissesInstrument(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3766,7 +3769,8 @@ func leftoverCoverWeakToken(tok string) bool {
 		"have", "has", "had", "having", "been", "does", "did", "doing",
 		"cool", "find", "plan", "plans", "item", "items",
 		"activity", "activities", "support", "supports", "supporting",
-		"year", "years", "decide", "decided", "deciding":
+		"year", "years", "decide", "decided", "deciding",
+		"help", "helps", "helped", "helping":
 		return true
 	}
 	return false
@@ -3794,6 +3798,9 @@ func leftoverCoverNonWeakTokens(toks []string) []string {
 func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 	_ = hops
 	rare := leftoverCoverRareTokens(query, nil)
+	if looksInstrumentPurposeQuery(query) {
+		rare = leftoverCoverAddTokens(rare, leftoverCoveringInstrumentTokens(query)...)
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -3944,6 +3951,10 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringSkipForeignWhenEvent(query, line) {
 			continue
 		}
+		if looksInstrumentPurposeQuery(query) && leftoverCoveringInstrumentPossessLine(line) &&
+			!leftoverCoveringInstrumentPurposeLine(line) {
+			continue
+		}
 		if (looksYearQuery(query) || looksWhenEventQuery(query)) && !leftoverCoveringLineHasYear(line) {
 			continue
 		}
@@ -3997,6 +4008,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		score += hits
 		if leftoverCoveringQueryEntityHits(query, line) >= 2 {
 			score += 2
+		}
+		if looksInstrumentPurposeQuery(query) && leftoverCoveringInstrumentPurposeLine(line) {
+			score += 3
 		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
@@ -4305,6 +4319,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 	if leftoverCoveringYearMissesEvent(query, covering, answer) {
 		return true
 	}
+	if leftoverCoveringPurposeMissesInstrument(query, covering, answer) {
+		return true
+	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
 		return false
 	}
@@ -4549,7 +4566,8 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 // leftoverCoveringRequiresQueryEntity is true for when-event questions that
 // name a hop person. Covering lines about a different person must not win.
 func leftoverCoveringRequiresQueryEntity(query string) bool {
-	return (looksWhenEventQuery(query) || looksYearQuery(query)) && len(hopQueryEntities(query)) > 0
+	return (looksWhenEventQuery(query) || looksYearQuery(query) || looksInstrumentPurposeQuery(query)) &&
+		len(hopQueryEntities(query)) > 0
 }
 
 func leftoverCoveringLineYear(s string) int {
@@ -4718,6 +4736,114 @@ func leftoverCoveringYearMissesEvent(query, covering, answer string) bool {
 		return true
 	}
 	return !leftoverCoveringLineHasForeignPerson(query, covering)
+}
+
+// leftoverCoveringPurposeMissesInstrument is true when a what-does-X-help-with
+// answer is ownership or a generic help paraphrase, but a leftover line names
+// the instrument's purpose (uses / monitor / reminder / progress).
+func leftoverCoveringPurposeMissesInstrument(query, covering, answer string) bool {
+	if !looksInstrumentPurposeQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if !leftoverCoveringInstrumentPurposeLine(covering) {
+		return false
+	}
+	if leftoverCoveringInstrumentPossessLine(answer) && !leftoverCoveringInstrumentPurposeLine(answer) {
+		return leftoverCoveringMentionsQueryEntity(query, covering)
+	}
+	for _, tok := range leftoverCoveringInstrumentPurposeDetailTokens(covering) {
+		if !contentCoversQueryToken(answer, tok) {
+			return leftoverCoveringMentionsQueryEntity(query, covering) ||
+				!leftoverCoveringLineHasForeignPerson(query, covering)
+		}
+	}
+	return false
+}
+
+func leftoverCoveringInstrumentTokens(query string) []string {
+	inst := leftoverCoveringInstrumentNoun(query)
+	if inst == "" {
+		return nil
+	}
+	out := []string{inst}
+	for _, rel := range relatedIntentTokens(inst) {
+		if leftoverCoverWeakToken(rel) || rel == inst {
+			continue
+		}
+		out = leftoverCoverAddTokens(out, rel)
+	}
+	return out
+}
+
+func leftoverCoveringInstrumentNoun(query string) string {
+	toks := tokenize(query)
+	for i := 0; i+1 < len(toks); i++ {
+		if toks[i] != "what" {
+			continue
+		}
+		j := i + 1
+		if j < len(toks) && toks[j] == "does" {
+			j++
+		} else {
+			continue
+		}
+		if j < len(toks) && toks[j] == "the" {
+			j++
+		}
+		if j+1 >= len(toks) {
+			continue
+		}
+		inst := toks[j]
+		if inst == "" || isQueryStopword(inst) || leftoverCoverWeakToken(inst) {
+			continue
+		}
+		if toks[j+1] != "help" && toks[j+1] != "helps" {
+			continue
+		}
+		if utf8Len(inst) < 4 {
+			continue
+		}
+		return inst
+	}
+	return ""
+}
+
+func leftoverCoveringInstrumentPurposeLine(line string) bool {
+	for _, tok := range tokenize(hybridLineBody(line)) {
+		switch tok {
+		case "uses", "use", "using", "monitor", "monitors", "monitoring",
+			"reminder", "remind", "reminds", "serves",
+			"track", "tracks", "tracking", "progress":
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringInstrumentPossessLine(line string) bool {
+	for _, tok := range tokenize(hybridLineBody(line)) {
+		switch tok {
+		case "owns", "own", "owned", "wears", "wear", "wore":
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringInstrumentPurposeDetailTokens(line string) []string {
+	out := make([]string, 0, 2)
+	for _, tok := range tokenize(hybridLineBody(line)) {
+		switch tok {
+		case "reminder", "remind", "reminds", "progress", "track", "tracks", "tracking":
+			out = leftoverCoverAddTokens(out, tok)
+		}
+	}
+	return out
 }
 
 func leftoverCoveringMentionsQueryEntity(query, line string) bool {
