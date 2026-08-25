@@ -207,6 +207,7 @@ func TestSingleTokenAttendedEchoPenalty(t *testing.T) {
 	echoes := []string{
 		"Melanie attended setback",
 		"John attended community (16 January 2023; the week before 9 January 2023)",
+		"John attended community (16 January 2023; the week before 9 January 2023) (2 January 2023)",
 		"John attended crazy",
 	}
 	for _, c := range echoes {

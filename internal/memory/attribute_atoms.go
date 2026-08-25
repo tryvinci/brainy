@@ -1186,6 +1186,13 @@ func singleTokenAttendedEcho(content string) bool {
 	if c == "" {
 		return false
 	}
+	for {
+		next := stripTrailingStamp(c)
+		if next == c {
+			break
+		}
+		c = next
+	}
 	i := strings.Index(c, " attended ")
 	if i < 0 {
 		return false
