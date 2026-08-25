@@ -753,6 +753,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		out.AnswerStatus = AnswerSupported
 		out.Explain["unwind_packet_activities"] = true
 	}
+	if next, extra := preferPracticePacketPlaces(req.Query, out.Answer, pkt, hopResults); next != "" && next != strings.TrimSpace(out.Answer) {
+		out.Answer = next
+		out.Items = appendUniqueRecallItems(out.Items, extra)
+		out.Abstained = false
+		out.AnswerStatus = AnswerSupported
+		out.Explain["practice_packet_places"] = true
+	}
 	pkt.Plan = plan
 	out.Explain["evidence_packet"] = pkt
 	return out, nil
@@ -3710,7 +3717,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3893,6 +3900,15 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		}
 		if leftoverCoveringSkipForeignWhenEvent(query, line) {
 			continue
+		}
+		if looksLocationListQuery(query) {
+			focus := practiceObjectTokens(query)
+			if leftoverCoveringLineHasForeignPerson(query, line) && !leftoverCoveringMentionsQueryEntity(query, line) {
+				continue
+			}
+			if len(placesFromContent(line)) == 0 && compositionalPracticePlace(line, focus) == "" {
+				continue
+			}
 		}
 		if !whereQ && datedContentConflictsQuery(query, line) {
 			continue
@@ -4188,7 +4204,7 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 	if leftoverCoveringKeepTypedAnswer(query, hops, answer) {
 		return false
 	}
-	if looksWhenEventQuery(query) && parseDateFromText(answer) != nil && parseDateFromText(covering) == nil {
+	if (looksWhenEventQuery(query) || looksYearQuery(query)) && parseDateFromText(answer) != nil && parseDateFromText(covering) == nil {
 		return false
 	}
 	if leftoverCoveringDropsNamedSpan(covering, answer) {
@@ -4227,6 +4243,9 @@ func leftoverCoveringBeatsAnswer(query string, hops []HopResult, covering, answe
 }
 
 func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, answer string) bool {
+	if looksLocationListQuery(query) && !looksWhereQuery(query) {
+		return false
+	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
 		return false
 	}
@@ -4435,7 +4454,7 @@ func leftoverShortItemJoin(answer string) bool {
 // a calendar date that does not cover leftover event tokens, but a packet
 // covering line does. Hop activity dates must not lock out the event fact.
 func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, covering, answer string) bool {
-	if !looksWhenEventQuery(query) {
+	if !looksWhenEventQuery(query) && !looksYearQuery(query) {
 		return false
 	}
 	answer = strings.TrimSpace(answer)
@@ -4468,7 +4487,7 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 // leftoverCoveringRequiresQueryEntity is true for when-event questions that
 // name a hop person. Covering lines about a different person must not win.
 func leftoverCoveringRequiresQueryEntity(query string) bool {
-	return looksWhenEventQuery(query) && len(hopQueryEntities(query)) > 0
+	return (looksWhenEventQuery(query) || looksYearQuery(query)) && len(hopQueryEntities(query)) > 0
 }
 
 func leftoverCoveringMentionsQueryEntity(query, line string) bool {
@@ -4603,6 +4622,94 @@ func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket, hops
 	return answer + ", " + strings.Join(extra, ", "), extra
 }
 
+// preferPracticePacketPlaces appends practice-object places from leftover
+// packet lines and hop contents that locationItemsFromEvidence missed. Lines
+// about another named person stay out; purchase leftover without a place is
+// not a location.
+func preferPracticePacketPlaces(query, answer string, pkt EvidencePacket, hops []HopResult) (string, []string) {
+	if !looksLocationListQuery(query) {
+		return "", nil
+	}
+	focus := practiceObjectTokens(query)
+	if len(focus) == 0 {
+		return "", nil
+	}
+	answer = strings.TrimSpace(answer)
+	bind := len(hopQueryEntities(query)) > 0
+	lines := packetContentLines(pkt)
+	for _, h := range hops {
+		for _, c := range h.Contents {
+			if strings.TrimSpace(c) != "" {
+				lines = append(lines, c)
+			}
+		}
+	}
+	var extra []string
+	seen := map[string]struct{}{}
+	add := func(p string) {
+		p = strings.TrimSpace(p)
+		if p == "" || utf8Len(p) > 48 {
+			return
+		}
+		if placeEqualsAny(p, focus) {
+			return
+		}
+		key := strings.ToLower(p)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if answer != "" && !strings.EqualFold(answer, "not in memory") && contentCoversQueryToken(answer, key) {
+			return
+		}
+		seen[key] = struct{}{}
+		extra = append(extra, p)
+	}
+	for _, line := range lines {
+		if !contentCoversAnyQueryToken(line, focus) {
+			continue
+		}
+		if bind && leftoverCoveringLineHasForeignPerson(query, line) && !leftoverCoveringMentionsQueryEntity(query, line) {
+			continue
+		}
+		for _, p := range placesFromContent(line) {
+			add(p)
+			if len(extra) >= 6 {
+				break
+			}
+		}
+		if p := compositionalPracticePlace(line, focus); p != "" {
+			add(p)
+		}
+		if len(extra) >= 6 {
+			break
+		}
+	}
+	if len(extra) == 0 {
+		return "", nil
+	}
+	if locationListAnswerKeepsHead(answer, focus) {
+		return answer + ", " + strings.Join(extra, ", "), extra
+	}
+	return strings.Join(extra, ", "), extra
+}
+
+func locationListAnswerKeepsHead(answer string, focus []string) bool {
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") {
+		return false
+	}
+	if leftoverShortItemJoin(answer) || leftoverCoveringIsShortLocative(answer) {
+		return true
+	}
+	if len(placesFromContent(answer)) > 0 || compositionalPracticePlace(answer, focus) != "" {
+		return true
+	}
+	if parseDateFromText(answer) != nil {
+		return false
+	}
+	return utf8Len(answer) <= 48 && !looksChatTurnLine(answer)
+}
+
 func appendUniqueRecallItems(items []RecallItem, extra []string) []RecallItem {
 	seen := map[string]struct{}{}
 	for _, it := range items {
@@ -4647,6 +4754,9 @@ func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer stri
 
 func leftoverThinMissAnswer(query string, hops []HopResult, answer string) bool {
 	answer = strings.TrimSpace(answer)
+	if looksLocationListQuery(query) {
+		return false
+	}
 	if leftoverQueryEchoAnswer(query, answer) || leftoverShortItemJoin(answer) {
 		return false
 	}

@@ -577,6 +577,11 @@ func looksWhenEventQuery(query string) bool {
 	return strings.HasPrefix(q, "when ")
 }
 
+func looksYearQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	return strings.Contains(q, "which year") || strings.Contains(q, "what year")
+}
+
 func looksWhereQuery(query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	return strings.HasPrefix(q, "where ")

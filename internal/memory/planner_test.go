@@ -505,6 +505,18 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if toks := practiceObjectTokens("Which locations does Riley practice her yoga at?"); len(toks) != 1 || toks[0] != "yoga" {
 		t.Fatalf("expected yoga practice object, toks=%v", toks)
 	}
+	if !looksYearQuery("Which year did Riley start practicing yoga?") {
+		t.Fatal("which-year queries must bind as year-event")
+	}
+	if !looksYearQuery("What year did Riley start practicing yoga?") {
+		t.Fatal("what-year queries must bind as year-event")
+	}
+	if looksYearQuery("Which locations does Riley practice her yoga at?") {
+		t.Fatal("location lists must not count as year-event queries")
+	}
+	if looksWhenEventQuery("Which year did Riley start practicing yoga?") {
+		t.Fatal("which-year must not take the when-prefix hop-date path")
+	}
 	if toks := listHeadModifierTokens("What are Riley's pets' names?"); len(toks) != 0 {
 		t.Fatalf("pets names must not take a list-head modifier, toks=%v", toks)
 	}

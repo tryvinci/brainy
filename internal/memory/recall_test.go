@@ -1330,6 +1330,50 @@ func TestRecallPracticeLocationRecoversDestSubjectLocatives(t *testing.T) {
 	}
 }
 
+func TestRecallPracticeLocationListIgnoresPurchaseLeftover(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"park", PredicateActivity, "yoga", "Riley practices yoga at the park."},
+		{"buy", PredicateEvent, "candle", "Riley bought a scented candle for her yoga practice on 28 March 2023."},
+		{"beach", PredicateActivity, "yoga", "Riley does yoga on the beach."},
+		{"studio", PredicatePossession, "favorite yoga studio", "Riley recommends the yoga studio nearby."},
+		{"mom", PredicateActivity, "yoga", "Riley practices yoga at her mother's old home."},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-locbuy", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Riley"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-locbuy", SubjectID: "u1",
+		Query: "Which locations does Riley practice her yoga at?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if strings.Contains(got, "candle") {
+		t.Fatalf("purchase leftover must not cover a practice location list: %q", out.Answer)
+	}
+	if !strings.Contains(got, "park") || !strings.Contains(got, "beach") || !strings.Contains(got, "studio") || !strings.Contains(got, "mother") {
+		t.Fatalf("expected leftover practice places, answer=%q items=%#v", out.Answer, out.Items)
+	}
+}
+
 func TestRecallUnwindRecoversDestressEvidence(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -3893,6 +3937,30 @@ func TestLeftoverCoveringBindsWhenEventToQueryEntity(t *testing.T) {
 	if strings.Contains(iceLower, "quit") {
 		t.Fatalf("named pep-talk must not beat the first-person weekend plan, got %q", iceGot)
 	}
+	yearQ := "Which year did Riley start practicing yoga?"
+	yearHops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	yearPkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Dana started practicing yoga in 2018."},
+			{Content: "Riley started practicing yoga in 2020."},
+		},
+	}
+	yearGot := leftoverCoveringSpecificAnswer(yearQ, yearHops, yearPkt)
+	yearLower := strings.ToLower(yearGot)
+	if !strings.Contains(yearLower, "2020") || !strings.Contains(yearLower, "riley") {
+		t.Fatalf("which-year leftover covering must bind to the query person, got %q", yearGot)
+	}
+	if strings.Contains(yearLower, "dana") || strings.Contains(yearGot, "2018") {
+		t.Fatalf("another person's yoga start year must not cover a named which-year query, got %q", yearGot)
+	}
+	if leftoverCoveringSkipForeignWhenEvent(yearQ, "Dana started practicing yoga in 2018.") != true {
+		t.Fatal("which-year covering must skip a foreign-person start year")
+	}
+	if leftoverCoveringSkipForeignWhenEvent(yearQ, "I started practicing yoga in 2020.") {
+		t.Fatal("first-person unnamed year lines must still compete")
+	}
 }
 
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
@@ -3945,6 +4013,52 @@ func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	}
 	if !strings.Contains(hopBlob, "potter") {
 		t.Fatalf("hop-content unwind extras must land on enumerate items, got %#v", hopItems)
+	}
+}
+
+func TestPreferPracticePacketPlacesJoinsLeftoverLocatives(t *testing.T) {
+	q := "Which locations does Riley practice her yoga at?"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley bought a scented candle for her yoga practice on 28 March 2023."},
+			{Content: "Riley does yoga on the beach."},
+			{Content: "Riley recommends the yoga studio nearby."},
+			{Content: "Riley practices yoga at her mother's old home."},
+			{Content: "Dana does yoga in Denver."},
+		},
+	}
+	got, extra := preferPracticePacketPlaces(q, "the park", pkt, nil)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "park") || !strings.Contains(lower, "beach") || !strings.Contains(lower, "studio") || !strings.Contains(lower, "mother") {
+		t.Fatalf("practice packet join must keep the park and add leftover places, got %q", got)
+	}
+	if strings.Contains(lower, "candle") || strings.Contains(lower, "denver") {
+		t.Fatalf("practice packet join must not dump purchases or another person's place, got %q", got)
+	}
+	items := appendUniqueRecallItems([]RecallItem{{Value: "the park"}}, extra)
+	itemBlob := ""
+	for _, it := range items {
+		itemBlob += " " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(itemBlob, "park") || !strings.Contains(itemBlob, "beach") || !strings.Contains(itemBlob, "studio") || !strings.Contains(itemBlob, "mother") {
+		t.Fatalf("enumerate items must receive joined practice places, got %#v", items)
+	}
+	if next, _ := preferPracticePacketPlaces("When did Riley start yoga?", "2020", pkt, nil); next != "" {
+		t.Fatal("non-location queries must not take practice packet join")
+	}
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	if leftoverThinMissAnswer(q, hops, "the park") {
+		t.Fatal("location-list park answer must not be a leftover thin miss")
+	}
+	cover := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	coverLower := strings.ToLower(cover)
+	if strings.Contains(coverLower, "candle") {
+		t.Fatalf("location-list leftover covering must skip purchase leftover, got %q", cover)
+	}
+	if leftoverCoveringMayReplaceHybrid(q, hops, "Riley bought a scented candle for her yoga practice on 28 March 2023.", "the park") {
+		t.Fatal("location-list hybrid answers must not yield to purchase leftover")
 	}
 }
 
