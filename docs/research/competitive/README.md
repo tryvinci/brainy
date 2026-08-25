@@ -5,6 +5,7 @@ Standing process for inspecting Mem0 / Graphiti (and peers) before inventing Bra
 **Program of record (execution):** [sota-representation-path.md](../sota-representation-path.md) — compile interactions into facts/entities/relations; retrieve those; keep episodes as provenance + fallback. Wave 1 ranking PRs are not the SOTA bet. **Mem0 OSS ≠ Mem0 Platform; Graphiti ≠ Zep Platform.**  
 **Gap matrix:** [competitive-gap-matrix.md](./competitive-gap-matrix.md)  
 **Cycle closeout (required every remasure):** [cycle-closeout.md](./cycle-closeout.md)  
+**Benchmax audit (2026-08-25):** [benchmax-audit-2026-08-25.md](./benchmax-audit-2026-08-25.md) — leftover covering on the skip-ingest 180 is saturating; 137/180 is not a Mem0/n=1540 win.  
 **Full `/recall` dip (2026-08-17):** [locomo-full-recall-dip-why-20260817.md](../../benchmarks/artifacts/locomo-full-recall-dip-why-20260817.md) · live verdict: [2026-08-17-parity-gap-verdict.md](../external-reviews/2026-08-17-parity-gap-verdict.md)  
 **Borrow log:** [implementation-borrow-log.md](./implementation-borrow-log.md)
 

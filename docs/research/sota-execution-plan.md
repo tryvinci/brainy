@@ -28,6 +28,8 @@ Vendor headlines (Mem0 92.5%, SuperMemory 95 LME Recall@15) are context rows, ne
 
 **Critical fact:** every LoCoMo/LME pin above was measured **before** R5A structured-first, the copula clip, R6a named-subject, and the R5B–R10 stack. The current SHA has never been scored at scale. The first move is measurement, not more code.
 
+**2026-08-25 leftover-covering diversion:** a skip-ingest 180 on tenant `diag-mh-135` climbed product hybrid `/recall` from 19→**137/180** via isolated leftover-covering query shapes. Industry on that tenant stayed **62/180**. Full n=1540 stayed **11.4%** (old SHA). That 180 is **not** S1–S5. Do **not** add another covering detector from its remaining ledger. Honesty stop: [competitive/benchmax-audit-2026-08-25.md](./competitive/benchmax-audit-2026-08-25.md). Resume S1 compiler / S2 enumerate / S5 industry.
+
 ## Gap analysis by failure stage
 
 Using the earliest-failing-stage model (R0):
@@ -95,9 +97,9 @@ Each increment has an exit gate. OpMem 13/13, marketing 17/17, and the held-out 
 - Nothing in S1–S5 may cite LoCoMo/LME surface forms in product code or prompts (overfit denylist enforces part of this).
 - Full n=1540 runs happen exactly once, at S6, per freeze. Stratified subsets are the iteration currency.
 
-## Kill list (unchanged, restated)
+## Kill list (restated)
 
-No fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, no episode top-k stuffing to restore OD/SH, no mixing 11.4% with Mem0 92.5%, no publishing 1×30 as full LoCoMo, no LME-500/BEAM-1M as quality claims, no SOTA/beats-Mem0 in product copy without a frozen same-pin win and explicit approval, no reopening R0–R10 as if missing.
+No fusion fishing, no graph DB default, no category dictionaries, no unbounded top-k, no LoCoMo/LME-named product rules, **no new leftover-covering query-shape detectors queued from the skip-ingest 180 remaining ledger**, no episode top-k stuffing to restore OD/SH, no mixing 11.4% with Mem0 92.5%, no publishing 1×30 or 137/180 as full LoCoMo, no LME-500/BEAM-1M as quality claims, no SOTA/beats-Mem0 in product copy without a frozen same-pin win and explicit approval, no reopening R0–R10 as if missing. Honesty: [competitive/benchmax-audit-2026-08-25.md](./competitive/benchmax-audit-2026-08-25.md).
 
 ## Linear
 

@@ -14,6 +14,7 @@ Reference industry surfaces:
 
 - [ ] Same pins documented (dataset SHA, Brainy commit, judge, top_k, ingest mode)
 - [ ] No dataset speaker/answer special-cases in product or answerer
+- [ ] No leftover-covering query-shape detector queued from a remaining LoCoMo-item ledger (generic English is not enough if the *next* shape is chosen because one 180 item failed; [audit](./competitive/benchmax-audit-2026-08-25.md))
 - [ ] Score delta attributed to a product commit
 - [ ] Latency/tokens reported when claiming deployability wins
 - [ ] Cross-judge Mem0 blog numbers labeled incomparable unless re-run under our pins

@@ -3873,6 +3873,11 @@ func leftoverCoverNonWeakTokens(toks []string) []string {
 	return out
 }
 
+// leftover covering: prefer a distinctive stored leftover over a hybrid
+// restatement. Do NOT add another looks*Query / leftoverCovering*Line pair
+// because a skip-ingest LoCoMo 180 item is still wrong. That campaign
+// saturated at P53 (137/180); industry on the same tenant is 62/180.
+// See docs/research/competitive/benchmax-audit-2026-08-25.md.
 func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 	_ = hops
 	rare := leftoverCoverRareTokens(query, nil)

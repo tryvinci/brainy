@@ -4245,6 +4245,73 @@ The gold leftover (`They're so graceful`) is stored and active in session_1, but
 
 ---
 
+## 2026-08-25 — leftover covering honesty stop (no P54)
+
+**Landed:** docs + covering-block comment on `pr/benchmax-audit-1e9e`. Dest/main product SHA remains P53 `ae15e40` / pin docs `f09c4f4`. No product recall behavior change. Full write-up: [benchmax-audit-2026-08-25.md](./benchmax-audit-2026-08-25.md).
+
+Product change: **none.** Isolated leftover covering on the skip-ingest 180 is saturating. Do not add a `peaceful moments` / nature / miss-about detector for `conv-44-q62`. Do not queue the next `looks*Query` from this 180's remaining ledger.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; last pin. Not re-run. |
+| Marketing vertical | **17/17** | Merge gate; last pin. Not re-run. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P53 | **137/180 (0.761)** | MH **18/33** · OD **4/11** · SH **85/98** · temporal **30/38**. SHA `ae15e40`. **Not 80%. Not 90%. Not n=1540.** |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged since reader-off. Closest lane to Mem0's published protocol. |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run after covering. |
+| LME-20 / BEAM | **not re-run** | Last LME-20 **4/20**. |
+
+137/180 does not replace integrity 32/180, industry 62/180, 11.4%, or 70% 1×30.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score**. Fair Mem0 Platform 180 is still **quota-blocked** until 2026-09-01. The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do **not** refresh lead/trail from 137 vs 11, 21 vs 11, or 137 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **137** P53 covering | **no same-n pin** | Product vs itself on skip-ingest hybrid. **Not** a Mem0 same-pin. Covering saturating. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. Covering did not move this lane. |
+| Full n=1540 product `/recall` | **11.4%** | published **92.5%** (their harness, top-k 200) | Industry-format compare on this stack, **different path**. Trail. Covering SHA unmeasured at n=1540. |
+| Open-domain | 180: **4/11**; 1×30: **0/4**; full: **5.2%** | published **72.7%**; same-pin 1×30 **3/4** | **Trail.** Covering does not close OD hypotheticals. |
+| Multi-hop | 180: **18/33**; 1×30: **10/10**; full: **7.4%** | published **91.3%**; same-pin 1×30 **6/10** | 18/33 is not n=1540 MH. Remaining MH is WRITE / incomplete lists, not covering. |
+| Search p50 | P53 harness latency_p50 **712.1 ms** | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Published Mem0 92.5%** stays context, never a scoreboard row. SuperMemory LME 95% is Recall@15, not LLM-judge.
+
+**Why leftover covering is not the Mem0 lever:** Mem0's published protocol is ingest → search (top-k 200, v3 hybrid) → LLM answer. Our industry 62/180 is that shape. Leftover covering is a product `/recall` reader patch. July search+harness **49.8% vs 92.5%** is still the representation gap (compiler WRITE). See [mem0-harness-audit-2026-08-22.md](./mem0-harness-audit-2026-08-22.md).
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13** vs Mem0 Platform **10/13**. **Lead ops.** Not re-run.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy **4/20**. Not re-run. Do not spend a cycle on LME-500.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+### Why
+
+About half of `recall.go` is leftover covering (24 query detectors, 58 covering-line helpers). P28→P53 is +24 on this 180, almost all one-item recoveries. Cycle-closeout already called covering saturating; P54 would have been `conv-44-q62` peaceful-moments. Remaining 43 misses are WRITE, count dumps, incomplete lists, OD hypotheticals, relative dates, and steal-slots — not another English leftover shape. Optimistic covering ceiling on this 180 is ~141/180, still short of 162. Industry 62/180 and n=1540 11.4% did not move.
+
+### Next
+
+**One step:** resume [sota-execution-plan.md](../sota-execution-plan.md) **S2 entity-scoped enumerate/counts** (Melanie children 7 vs 3, pets 13 vs 1/3, ankle 38 vs 2) without a LoCoMo-named rule, **or S1 compiler WRITE** with re-ingest. Then current-SHA industry lane (S5). Fair Mem0 180 after 2026-09-01. Full n=1540 only at S6. Do **not** add leftover covering for peaceful moments, camping-peaceful, German vs Spanish, invent-Sunday, or steal-slots. Do not merge #133. Kill list now includes leftover-covering saturation. Start: [benchmax-audit-2026-08-25.md](./benchmax-audit-2026-08-25.md).
+
+---
+
 ## 2026-08-25 — P53 self-directed realize leftover covering (137/180)
 
 **Landed:** product SHA `ae15e40` on `pr/locomo-180-p53-1e9e` (PR #169). Skip-ingest pin [locomo-s0-diag-mh-135-p53-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p53-20260825.md) (`locomo-s0-diag-mh-135-p53-product-recall-s1-717510`). P52 is already on dest and main (`e79dd63` / `09327a2`).
@@ -4316,7 +4383,7 @@ The gold leftover (`I'm starting to realize that self-care is really important`)
 
 ### Next
 
-**One step:** ranking miss with gold in store that is not a steal-slot — Andrew peaceful moments (`conv-44-q62`). Alternate: Tim visualizing goals (`conv-43-q135`) if gold is stored. Do not chase camping-peaceful (`conv-41-q145`, peaceful not stored). Do not steal Deborah’s “connected to my body” for Jolene (`conv-48-q116` harness timeout). Do not special-case German vs Spanish (`conv-43-q163`). Do not add a charity-race or self-care dictionary. Do not invent Sunday. Do not drop `realize` globally. Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining SH PROOF 8.
+**One step:** leftover covering on this 180 is saturating — **stop**. See [2026-08-25 honesty stop](#2026-08-25--leftover-covering-honesty-stop-no-p54) and [benchmax-audit-2026-08-25.md](./benchmax-audit-2026-08-25.md). Do not cover `conv-44-q62` peaceful moments. Resume S2 enumerate / S1 compiler. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA.
 
 ---
 
