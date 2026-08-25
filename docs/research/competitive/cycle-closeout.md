@@ -3949,3 +3949,76 @@ The gold leftover (`Building relationships and creating a strong brand image for
 
 **One step:** ranking so gold enters the leftover packet without a category dictionary (turtle-care; Joanna writing; dinner spread). Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 16** + RETRIEVAL 28. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→117 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `advice`. Do not add an advice→brand dictionary. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-25 — P34 what-kind like-list leftover covering (118/180)
+
+**Landed:** product SHA `763a90a` on `pr/locomo-180-p34-1e9e` (PR #150). Skip-ingest pin [locomo-s0-diag-mh-135-p34-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p34-20260825.md) (`locomo-s0-diag-mh-135-p34b-product-recall-s1-187c30`). P33 is already on dest and main (`f61fdac` / `097c6eb`). First P34 180 (`cd644b`, **116/180**) is **not** a pin.
+
+Product change: what-kind leftover covering prefers `like A, B, and C` leftover over spread/kind restatement. Search admits those leftover neighbors from leftover-covering candidate sessions via a bounded session-id fetch (seed must cover ≥2 leftover tokens ignoring restatement tokens), then floors zero-token leftover so fusion cannot drop it before the like-list boost. What-kind queries keep leftover like-list episode primitives even when fact-primary coverage looks complete. Crowded hop-dump skip excepts kind-list leftover **only on what-kind queries** so when-event covering still skips comma activity dumps. Destress, advice, host, and what-made are not what-kind queries. Does not drop `spread`. Does not add a food/salad dictionary. Does not name LoCoMo.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; last pin. Not re-run this increment. |
+| Marketing vertical | **17/17** | Merge gate; last pin. Not re-run this increment. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P33 | **117/180 (0.650)** | MH **18/33** · OD **4/11** · SH **65/98** · temporal **30/38**. SHA `097c6eb`. |
+| LoCoMo S0 product hybrid **on** P34 | **118/180 (0.656)** | MH **18/33** · OD **4/11** · SH **66/98** · temporal **30/38**. SHA `763a90a`. Ledger: **RETRIEVAL 27 / PROOF 22 / READER 7 / WRITE 4 / HARNESS 2**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** 90%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 118/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. Item flips vs P33: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 118 vs 11, or 118 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | --- | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **117** P33 → **118** P34 | **no same-n pin** (fair 180 429) | Product 19→118 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P33 **18/33** → P34 **18/33** | no 33-item freeze | Held P21 high. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P34 product local (search; hybrid recall is separate) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (18/33).** Held P21 high. Destress pottery **held**. Yoga locations **held**. Childhood items **held**. Still missing: Phuket diving (`conv-48-q77`) — write split. Do not treat 18/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. James girlfriend April 2022 **held**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **65→66/98**. Industry **27/98**. Named recovery: Maria dinner spread (`conv-41-q94`). Remaining mass is SH **PROOF 16**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment. Turtle-care and camping-peaceful still miss (no turtle/care tokens; peaceful not stored). Do not drop `spread`. Do not add a food/salad dictionary.
+
+**Temporal.** **Held 30/38**. Joanna letter 7 August 2022 **held** (first P34 180 dipped this item; the what-kind-only hop-dump gate recovered it). Paint Saturday, health start year, community-center, August teammates, art-show April, Jon banker, Ned, McGee's, Toronto, Caroline biking, Gina internship **held**. Jolene yoga year still MISS (2020 start year is not a stored fact). Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+The gold leftover (`It had lots of great things like salads, sandwiches, and homemade desserts`) is stored and active in session_13, but live `/recall` never admitted it. FTS ANDs `spread` against kindness speech (`spreading kindness…`). Gold has no food/dinner/spread tokens. Kindness restatement is session_5. Generic neighbor cap 16 cannot see the salad line. What-kind leftover covering then cannot prefer a line that is not in the packet. Fetch bounded rows from sessions whose seed covers ≥2 leftover tokens ignoring restatement tokens, admit like-A,-B,-and-C leftover, floor zero-token leftover so fusion cannot drop IDF-0 rows, and keep leftover like-list episode primitives. A global hop-dump exception for every like-list let when-event covering pick a comma activity dump (first 180 **116/180**). Gate that exception on `looksWhatKindQuery`. Do not drop `spread`. Do not add salads/sandwiches as query tokens. WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** ranking so gold enters the leftover packet without a category dictionary (turtle-care; Joanna writing). Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 16** + RETRIEVAL 27. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→118 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `spread`. Do not add a food/salad dictionary. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
