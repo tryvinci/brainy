@@ -746,8 +746,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		out.AnswerStatus = AnswerSupported
 		out.Explain["co_participant_visit_destination"] = true
 	}
-	if next := preferUnwindPacketActivities(req.Query, out.Answer, pkt, hopResults); next != "" && next != strings.TrimSpace(out.Answer) {
+	if next, extra := preferUnwindPacketActivities(req.Query, out.Answer, pkt, hopResults); next != "" && next != strings.TrimSpace(out.Answer) {
 		out.Answer = next
+		out.Items = appendUniqueRecallItems(out.Items, extra)
 		out.Abstained = false
 		out.AnswerStatus = AnswerSupported
 		out.Explain["unwind_packet_activities"] = true
@@ -4545,13 +4546,13 @@ func leftoverCoveringCalendarName(tok string) bool {
 // preferUnwindPacketActivities appends unwind-evidenced packet activities the
 // current answer omitted. Lines without unwind evidence (plain participates-in)
 // stay out so camping dumps cannot crowd the list.
-func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket, hops []HopResult) string {
+func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket, hops []HopResult) (string, []string) {
 	if !looksUnwindQuery(query) {
-		return ""
+		return "", nil
 	}
 	answer = strings.TrimSpace(answer)
 	if answer == "" || strings.EqualFold(answer, "not in memory") {
-		return ""
+		return "", nil
 	}
 	bind := len(hopQueryEntities(query)) > 0
 	lines := packetContentLines(pkt)
@@ -4597,9 +4598,41 @@ func preferUnwindPacketActivities(query, answer string, pkt EvidencePacket, hops
 		}
 	}
 	if len(extra) == 0 {
-		return ""
+		return "", nil
 	}
-	return answer + ", " + strings.Join(extra, ", ")
+	return answer + ", " + strings.Join(extra, ", "), extra
+}
+
+func appendUniqueRecallItems(items []RecallItem, extra []string) []RecallItem {
+	seen := map[string]struct{}{}
+	for _, it := range items {
+		if k := strings.ToLower(strings.TrimSpace(it.Value)); k != "" {
+			seen[k] = struct{}{}
+		}
+	}
+	for _, slot := range extra {
+		slot = strings.TrimSpace(slot)
+		if slot == "" {
+			continue
+		}
+		key := strings.ToLower(slot)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		covered := false
+		for _, it := range items {
+			if contentCoversQueryToken(it.Value, key) {
+				covered = true
+				break
+			}
+		}
+		if covered {
+			continue
+		}
+		seen[key] = struct{}{}
+		items = append(items, RecallItem{Value: slot})
+	}
+	return items
 }
 
 func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {

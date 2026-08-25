@@ -3906,7 +3906,7 @@ func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 		},
 	}
 	q := "What does Riley do to unwind?"
-	got := preferUnwindPacketActivities(q, "runs, running", pkt, nil)
+	got, extra := preferUnwindPacketActivities(q, "runs, running", pkt, nil)
 	lower := strings.ToLower(got)
 	if !strings.Contains(lower, "run") || !strings.Contains(lower, "potter") {
 		t.Fatalf("unwind packet join must add calming pottery, got %q", got)
@@ -3914,10 +3914,18 @@ func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	if strings.Contains(lower, "camp") || strings.Contains(lower, "nurse") || strings.Contains(lower, "jewel") {
 		t.Fatalf("unwind packet join must not dump camping or another person's calming slot, got %q", got)
 	}
-	if preferUnwindPacketActivities("When did Riley run?", "19 January 2023", pkt, nil) != "" {
+	items := appendUniqueRecallItems([]RecallItem{{Value: "runs"}, {Value: "running"}}, extra)
+	itemBlob := ""
+	for _, it := range items {
+		itemBlob += " " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(itemBlob, "potter") {
+		t.Fatalf("enumerate items must receive joined unwind slots, got %#v", items)
+	}
+	if next, _ := preferUnwindPacketActivities("When did Riley run?", "19 January 2023", pkt, nil); next != "" {
 		t.Fatal("non-unwind queries must not take unwind packet join")
 	}
-	hopOnly := preferUnwindPacketActivities(q, "runs, running", EvidencePacket{}, []HopResult{
+	hopOnly, hopExtra := preferUnwindPacketActivities(q, "runs, running", EvidencePacket{}, []HopResult{
 		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity,
 			Value: "pottery", Contents: []string{"Riley finds making pottery calming"}},
 		{Kind: "follow_relation", Entity: "Riley", Predicate: PredicateActivity,
@@ -3929,6 +3937,14 @@ func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	}
 	if strings.Contains(hopLower, "camp") {
 		t.Fatalf("hop participates-in camping must not join, got %q", hopOnly)
+	}
+	hopItems := appendUniqueRecallItems([]RecallItem{{Value: "runs"}, {Value: "running"}}, hopExtra)
+	hopBlob := ""
+	for _, it := range hopItems {
+		hopBlob += " " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(hopBlob, "potter") {
+		t.Fatalf("hop-content unwind extras must land on enumerate items, got %#v", hopItems)
 	}
 }
 
