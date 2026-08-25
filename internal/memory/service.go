@@ -603,7 +603,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	relatedToks := queryTokens
 	admitToks := queryTokens
 	coverToks := queryTokens
-	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) {
+	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) || looksWhatProjectWorkingQuery(query) || looksWhatNewHobbyQuery(query) || looksHowPlanDreamQuery(query) {
 		relatedToks = contentQueryTokens
 		admitToks = contentQueryTokens
 		coverToks = contentQueryTokens
@@ -972,6 +972,31 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// How-plan-dream leftover covering needs first-person
+	// gathering/watching/guide leftover that omits "plan"/"learning".
+	// Rank those sessions over foreign-person "learning their stories".
+	if looksHowPlanDreamQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(memories)+len(candidates))
+		seeds = append(seeds, memories...)
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsForHowPlanDreamQuery(query, seeds, allMemories)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		prepAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
+				prepAll = listed
+			}
+		}
+		if len(prepAll) > 0 && len(idSeeds) > 0 {
+			expandPrepPlanSessionNeighbors(candidates, query, idSeeds, prepAll, 32)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -1091,6 +1116,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "become_interested_floor"
 		}
+		if score <= 0 && looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "prep_plan_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
@@ -1173,6 +1202,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		applyCadenceRankBoost(&score, explain, query, record)
 		applyCurrentProjectRankBoost(&score, explain, query, record)
 		applyBecomeInterestedRankBoost(&score, explain, query, record)
+		applyPrepPlanRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1250,6 +1280,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 	if looksWhatNewHobbyQuery(query) {
 		ranked = keepBecomeInterestedInCap(fullRanked, ranked, query, limit)
+	}
+	if looksHowPlanDreamQuery(query) {
+		ranked = keepPrepPlanInCap(fullRanked, ranked, query, limit)
 	}
 
 	results := make([]SearchResult, len(ranked))
@@ -1385,6 +1418,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, ep.Content) {
 				continue
 			}
+			if looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -1482,6 +1518,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksWhatNewHobbyQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringBecomeInterestedLine(query, ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksHowPlanDreamQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringPrepPlanLine(query, ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -2749,6 +2792,17 @@ func applyBecomeInterestedRankBoost(score *float64, explain map[string]any, quer
 	}
 }
 
+func applyPrepPlanRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksHowPlanDreamQuery(query) || !leftoverCoveringPrepPlanLine(query, record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["prep_plan_boost"] = bonus
+	}
+}
+
 func hasResponseKeyword(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
@@ -3284,6 +3338,12 @@ func searchLexicalQueryTokens(query string, queryTokens []string) []string {
 			queryTokens = tokenize(strings.Join(raw, " "))
 		}
 	}
+	if looksHowPlanDreamQuery(query) {
+		raw := dropHowPlanDreamStructureTokens(strings.Fields(query))
+		if len(raw) > 0 {
+			queryTokens = tokenize(strings.Join(raw, " "))
+		}
+	}
 	if len(queryTokens) == 0 && strings.TrimSpace(query) != "" {
 		queryTokens = tokenize(query)
 	}
@@ -3320,6 +3380,11 @@ func searchLexicalQueryTokens(query string, queryTokens []string) []string {
 	}
 	if looksWhatNewHobbyQuery(query) {
 		if trimmed := dropWhatNewHobbyStructureTokens(toks); len(trimmed) > 0 {
+			toks = trimmed
+		}
+	}
+	if looksHowPlanDreamQuery(query) {
+		if trimmed := dropHowPlanDreamStructureTokens(toks); len(trimmed) > 0 {
 			toks = trimmed
 		}
 	}
@@ -3485,6 +3550,17 @@ func dropWhatNewHobbyStructureTokens(bearing []string) []string {
 	out := make([]string, 0, len(bearing))
 	for _, tok := range bearing {
 		if leftoverCoveringBecomeInterestedStructureToken(tok) {
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func dropHowPlanDreamStructureTokens(bearing []string) []string {
+	out := make([]string, 0, len(bearing))
+	for _, tok := range bearing {
+		if leftoverCoveringPrepPlanStructureToken(tok) {
 			continue
 		}
 		out = append(out, tok)
@@ -4361,6 +4437,125 @@ func keepBecomeInterestedInCap(full, capped []rankedSearchResult, query string, 
 	extra := make([]rankedSearchResult, 0, 8)
 	for _, item := range full {
 		if !leftoverCoveringBecomeInterestedLine(query, item.result.Content) {
+			continue
+		}
+		extra = append(extra, item)
+		if len(extra) >= 8 {
+			break
+		}
+	}
+	if len(extra) == 0 {
+		return capped
+	}
+	seen := map[string]struct{}{}
+	out := make([]rankedSearchResult, 0, limit)
+	for _, item := range extra {
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	for _, item := range capped {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	return out
+}
+
+func sessionIDsForHowPlanDreamQuery(query string, seeds, all []MemoryRecord) []string {
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	add := func(sid string, n int) {
+		if sid == "" {
+			return
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	for _, rec := range all {
+		if leftoverCoveringPrepPlanLine(query, rec.Content) {
+			add(sessionIDOf(rec), 100)
+		}
+	}
+	for _, rec := range seeds {
+		if leftoverCoveringPrepPlanLine(query, rec.Content) {
+			add(sessionIDOf(rec), 100)
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return order[i] < order[j]
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	if len(order) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	return order
+}
+
+func expandPrepPlanSessionNeighbors(candidates map[string]MemoryRecord, query string, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringPrepPlanLine(query, record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+func keepPrepPlanInCap(full, capped []rankedSearchResult, query string, limit int) []rankedSearchResult {
+	if !looksHowPlanDreamQuery(query) {
+		return capped
+	}
+	extra := make([]rankedSearchResult, 0, 8)
+	for _, item := range full {
+		if !leftoverCoveringPrepPlanLine(query, item.result.Content) {
 			continue
 		}
 		extra = append(extra, item)

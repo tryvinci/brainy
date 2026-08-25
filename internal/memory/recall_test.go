@@ -6312,6 +6312,159 @@ func TestLeftoverCoveringWhatNewHobbyStaysEmptyWithoutInterest(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringHowPlanDreamPrefersPrepPlan(t *testing.T) {
+	gold := "I've been gathering information, watching videos, and I even got a beginners' guide to surfing"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Deborah: Exploring historical places and learning their stories is so fun"},
+			{Content: "Deborah enjoys exploring historical places and learning their stories."},
+			{Content: "Jolene plans to learn to surf."},
+			{Content: "Jolene has been gathering information about surfing."},
+			{Content: gold},
+		},
+	}
+	q := "How does Jolene plan to pursue her dream of learning to surf?"
+	if !looksHowPlanDreamQuery(q) {
+		t.Fatal("how-plan-dream + learning must count as how-plan-dream")
+	}
+	if looksHowPlanDreamQuery("What new hobby did James become interested in on 9 July, 2022?") {
+		t.Fatal("dated what-new-hobby must not count as how-plan-dream")
+	}
+	if looksHowPlanDreamQuery("How often does Audrey meet up with other dog owners for tips and playdates?") {
+		t.Fatal("how-often must not count as how-plan-dream")
+	}
+	if looksHowPlanDreamQuery("What project is James working on in his game design course?") {
+		t.Fatal("what-project-working must not count as how-plan-dream")
+	}
+	if looksHowPlanDreamQuery("How does Jolene plan her week?") {
+		t.Fatal("plan without dream+learning must not count as how-plan-dream")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "gathering information") || !strings.Contains(lower, "watching videos") {
+		t.Fatalf("how-plan-dream leftover covering must pick gathering/watching leftover, got %q", got)
+	}
+	if strings.Contains(lower, "deborah") || strings.Contains(lower, "historical") || strings.Contains(lower, "exploring") {
+		t.Fatalf("foreign-person exploring leftover must not cover how-plan-dream, got %q", got)
+	}
+	if leftoverCoveringPrepPlanLine(q, "Deborah: Exploring historical places and learning their stories is so fun") {
+		t.Fatal("foreign exploring leftover must not count as prep-plan covering")
+	}
+	if leftoverCoveringPrepPlanLine(q, "Jolene plans to learn to surf.") {
+		t.Fatal("thin plans-to-learn leftover must not count as prep-plan covering")
+	}
+	if !leftoverCoveringPrepPlanLine(q, gold) {
+		t.Fatal("first-person gathering/watching/guide leftover must count as how-plan-dream covering")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "Deborah: Exploring historical places and learning their stories is so fun") {
+		t.Fatal("empty covering and foreign exploring must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("What new hobby did James become interested in on 9 July, 2022?", gold) {
+		t.Fatal("what-new-hobby must not skip hybrid via prep-plan leftover")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("prep-plan leftover must skip hybrid")
+	}
+	if !leftoverCoveringPrepPlanMissesPrep(q, got, "Deborah: Exploring historical places and learning their stories is so fun") {
+		t.Fatal("foreign exploring answer must miss prep-plan leftover")
+	}
+	dumpItems := []RecallItem{{Value: "Deborah: Exploring historical places and learning their stories is so fun"}}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || !strings.Contains(strings.ToLower(synced[0].Value), "gathering information") {
+		t.Fatalf("how-plan-dream covering must replace enumerate dump items, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringHowPlanDreamStaysEmptyWithoutPrep(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Deborah: Exploring historical places and learning their stories is so fun"},
+			{Content: "Jolene plans to learn to surf."},
+			{Content: "Jolene wants to solidify her workshop plan before reaching out to schools or centers."},
+		},
+	}
+	q := "How does Jolene plan to pursue her dream of learning to surf?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("how-plan-dream leftover covering must stay empty without gathering/watching/guide leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsPrepPlanEpisode(t *testing.T) {
+	q := "How does Jolene plan to pursue her dream of learning to surf?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Deborah: Exploring historical places and learning their stories is so fun"},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "I've been gathering information, watching videos, and I even got a beginners' guide to surfing",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("how-plan-dream query must keep prep-plan episode leftover")
+	}
+}
+
+func TestExpandPrepPlanSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_10"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Jolene plans to learn to surf.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about workshop plans",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I've been gathering information, watching videos, and I even got a beginners' guide to surfing",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the prep-plan leftover can miss")
+	}
+	expandPrepPlanSessionNeighbors(candidates, "How does Jolene plan to pursue her dream of learning to surf?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("how-plan-dream session expand must admit prep-plan leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForHowPlanDreamPrefersPrepSessions(t *testing.T) {
+	q := "How does Jolene plan to pursue her dream of learning to surf?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "Deborah: Exploring historical places and learning their stories is so fun",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	explore := MemoryRecord{
+		MemoryID: "explore",
+		Content:  "Deborah: Exploring historical places and learning their stories is so fun",
+		Metadata: map[string]any{"session_id": "session_23"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I've been gathering information, watching videos, and I even got a beginners' guide to surfing",
+		Metadata: map[string]any{"session_id": "session_10"},
+	}
+	seeds := append(recent, explore)
+	ids := sessionIDsForHowPlanDreamQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_10" {
+		t.Fatalf("how-plan-dream session rank must prefer prep-plan leftover session over recency exploring, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsBecomeInterestedEpisode(t *testing.T) {
 	q := "What new hobby did James become interested in on 9 July, 2022?"
 	candidates := map[string]MemoryRecord{

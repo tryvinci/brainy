@@ -1423,6 +1423,58 @@ func TestKeepBecomeInterestedInCapSurvivesListFill(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalQueryTokensDropsHowPlanDreamStructure(t *testing.T) {
+	q := "How does Jolene plan to pursue her dream of learning to surf?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	if strings.Contains(joined, "plan") || strings.Contains(joined, "pursue") || strings.Contains(joined, "dream") || strings.Contains(joined, "learning") {
+		t.Fatalf("how-plan-dream lexical tokens must drop plan/pursue/dream/learning, got %v", got)
+	}
+	if !strings.Contains(joined, "surf") {
+		t.Fatalf("how-plan-dream lexical tokens must keep surf, got %v", got)
+	}
+	hobby := searchLexicalQueryTokens("What new hobby did James become interested in on 9 July, 2022?", tokenize("What new hobby did James become interested in on 9 July, 2022?"))
+	joinedHobby := strings.Join(hobby, " ")
+	if strings.Contains(joinedHobby, "surf") {
+		t.Fatalf("what-new-hobby must not be rewritten as how-plan-dream tokens, got %v", hobby)
+	}
+	if !strings.Contains(joinedHobby, "interested") {
+		t.Fatalf("what-new-hobby must keep interested, got %v", hobby)
+	}
+}
+
+func TestKeepPrepPlanInCapSurvivesListFill(t *testing.T) {
+	q := "How does Jolene plan to pursue her dream of learning to surf?"
+	obs := rankedSearchResult{result: SearchResult{
+		MemoryID: "obs",
+		Content:  "I've been gathering information, watching videos, and I even got a beginners' guide to surfing",
+		Score:    0.4,
+	}}
+	full := []rankedSearchResult{obs}
+	capped := make([]rankedSearchResult, 0, 30)
+	for i := 0; i < 30; i++ {
+		capped = append(capped, rankedSearchResult{result: SearchResult{
+			MemoryID: fmt.Sprintf("fill%02d", i),
+			Content:  "Deborah: Exploring historical places and learning their stories is so fun",
+			Score:    1.5,
+		}})
+	}
+	got := keepPrepPlanInCap(full, capped, q, 30)
+	found := false
+	for _, item := range got {
+		if strings.Contains(strings.ToLower(item.result.Content), "gathering information") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("how-plan-dream evidence-set cap must keep prep-plan leftover, n=%d", len(got))
+	}
+	if len(got) > 30 {
+		t.Fatalf("how-plan-dream prep-plan keep must stay within limit, n=%d", len(got))
+	}
+}
+
 func TestKeepDurationInCapSurvivesListFill(t *testing.T) {
 	q := "How long have Mel and her husband been married?"
 	obs := rankedSearchResult{result: SearchResult{
