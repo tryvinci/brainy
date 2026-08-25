@@ -11,8 +11,8 @@ This file is the live start doc. Older research notes stay useful as history. If
 
 ## 0. First 30 minutes
 
-1. Confirm you are on `dev` (staging) at P32 pin docs (or later). `main` is production and fast-forwards only with explicit owner approval (this cycle: owner asked to keep FF'ing both).
-2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-25 — P32 host leftover covering + session admit (116/180)**.
+1. Confirm you are on `dev` (staging) at P33 pin docs (or later). `main` is production and fast-forwards only with explicit owner approval (this cycle: owner asked to keep FF'ing both).
+2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-25 — P33 advice leftover covering + session admit (117/180)**.
 3. Skim [sota-execution-plan.md](./sota-execution-plan.md) but **do not** treat its “expected S1 compiler first” as live. S0 ledger **outranks** that expectation.
 4. Do **not** re-queue R0–R10. Substrate is merged.
 5. Do **not** merge [PR #133](https://github.com/tryvinci/brainy/pull/133) (compiler S1–S5 fishing) or revive [PR #131](https://github.com/tryvinci/brainy/pull/131).
@@ -36,7 +36,7 @@ Path docs (do not invent a new program):
 - [locomo-dual-path-freeze.md](./locomo-dual-path-freeze.md) — product `/recall` vs industry search+harness.
 - [sota-representation-path.md](./sota-representation-path.md) — compile facts; episodes are provenance.
 
-**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b / **73/180** P3 / **79/180** P4 / **84/180** P5 / **87/180** P6 / **88/180** P7 / **93/180** P8 / **94/180** P9 / **96/180** P10 / **97/180** P11 / **101/180** P12 / **102/180** P13 / **103/180** P14 / **104/180** P17 / **105/180** P18 / **106/180** P20 / **107/180** P21 / **108/180** P22 / **109/180** P23 / **110/180** P24 / **111/180** P25 / **112/180** P26 / **113/180** P28 / **114/180** P30 / **115/180** P31 / **116/180** P32 hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **17/33** P5 / **13/33** P6 / **14/33** P7 / **15/33** P8–P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14–P18 / **17/33** P20 / **18/33** P21–P32 hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR. 90% on this 180 is **162/180**.
+**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b / **73/180** P3 / **79/180** P4 / **84/180** P5 / **87/180** P6 / **88/180** P7 / **93/180** P8 / **94/180** P9 / **96/180** P10 / **97/180** P11 / **101/180** P12 / **102/180** P13 / **103/180** P14 / **104/180** P17 / **105/180** P18 / **106/180** P20 / **107/180** P21 / **108/180** P22 / **109/180** P23 / **110/180** P24 / **111/180** P25 / **112/180** P26 / **113/180** P28 / **114/180** P30 / **115/180** P31 / **116/180** P32 / **117/180** P33 hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **17/33** P5 / **13/33** P6 / **14/33** P7 / **15/33** P8–P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14–P18 / **17/33** P20 / **18/33** P21–P33 hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR. 90% on this 180 is **162/180**.
 
 ---
 
@@ -48,7 +48,8 @@ Path docs (do not invent a new program):
 | --- | --- |
 | `dev` **now** | `453a929` — #135 merge (MH slot-aligned dest-subject). Staging. |
 | `main` | `6d05e1b` — #134 packet/proof. Production. **Do not FF** unless the owner asks. |
-| PR **#148** `pr/locomo-180-p32-1e9e` | P32 host leftover covering + session admit. Product **116/180** (`cd77a74`). First P32 180 115/180 hold is not a pin. |
+| PR **#149** `pr/locomo-180-p33-1e9e` | P33 advice leftover covering + session admit. Product **117/180** (`097c6eb`). |
+| PR **#148** `pr/locomo-180-p32-1e9e` | Merged. P32 host leftover covering + session admit. Product **116/180** (`cd77a74`). First P32 180 115/180 hold is not a pin. |
 | PR **#147** `pr/locomo-180-p31-1e9e` | Merged. P31 how-describe lexical admit. Product **115/180** (`98d8931`). First P31 180 114/180 flake is not a pin. |
 | PR **#146** `pr/locomo-180-p30-1e9e` | Merged. P30 what-made leftover covering + lexical admit. Product **114/180** (`dbc33d1`). P29 111/180 dip is not a pin. |
 | PR **#144** `pr/locomo-180-p28-1e9e` | Merged. P28 instrument leftover covering + enumerate items. Product **113/180** (`454fbb3`). P27 112/180 hold is not a pin. |
@@ -120,6 +121,7 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | S0 product P30 what-made leftover covering + lexical admit | **114/180 (0.633)** | SHA `dbc33d1`. MH **18/33** · OD **4/11** · SH **62/98** · temporal **30/38**. Ledger: **RETRIEVAL 28 / PROOF 24 / READER 8 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p30-20260825.md). Running-group push recovered. P29 111/180 dip is not a pin. |
 | S0 product P31 how-describe lexical admit | **115/180 (0.639)** | SHA `98d8931`. MH **18/33** · OD **4/11** · SH **63/98** · temporal **30/38**. Ledger: **RETRIEVAL 28 / PROOF 23 / READER 8 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p31-20260825.md). Stuffed-animal good vibes recovered. First P31 180 114/180 flake is not a pin. |
 | S0 product P32 host leftover covering + session admit | **116/180 (0.644)** | SHA `cd77a74`. MH **18/33** · OD **4/11** · SH **64/98** · temporal **30/38**. Ledger: **RETRIEVAL 28 / PROOF 22 / READER 8 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p32-20260825.md). Veterans party + share-stories recovered. First P32 180 115/180 hold is not a pin. |
+| S0 product P33 advice leftover covering + session admit | **117/180 (0.650)** | SHA `097c6eb`. MH **18/33** · OD **4/11** · SH **65/98** · temporal **30/38**. Ledger: **RETRIEVAL 28 / PROOF 22 / READER 7 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p33-20260825.md). Gina advice recovered. |
 | S0 MH product (post-#134) | **2/33** | Was **1/33**. Attributed win: turtles. Second hit (soda/candy) is a crowded-list judge accept. [pin](../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
 | S0 MH product diagnostic ingest | **7/33** | WRITE+PROOF mixed on `diag-mh-135`. Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-20260821.md) |
 | S0 MH product diagnostic skip-ingest | **12/33** | PROOF-only on frozen `diag-mh-135`. Kinship dest `9d8dbeb` was **10/33**; slot-aligned recovery `2e84435` is **12/33** (`conv-44-q26` work, `conv-26-q60` clarinet/violin). Does not replace 2/33. [pin](../benchmarks/artifacts/locomo-mh-diag-135-skip-ingest-slot-recover-20260821.md) |
@@ -133,12 +135,12 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 
 **Invalidated:** Aug-19 S0 17/180 / 52/180 (no pgvector, silent extract degrade). Never cite those as quality.
 
-**Bottleneck on this VM is split:** product S0 WRITE_MISS is **4/180** on P32 (P31 was **4/180**; integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **116/180** P32 hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **17/33** P5 / **15/33** P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14–P18 / **17/33** P20 / **18/33** P21–P32 vs integrity **2/33**. SH 5→64 is the hybrid+admit+dump-skip path. Remaining mass is SH **PROOF 16**. Isolated leftover covering is saturating. MH **18/33** is held from P21.
+**Bottleneck on this VM is split:** product S0 WRITE_MISS is **4/180** on P33 (P32 was **4/180**; integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **117/180** P33 hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **17/33** P5 / **15/33** P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14–P18 / **17/33** P20 / **18/33** P21–P33 vs integrity **2/33**. SH 5→65 is the hybrid+admit+dump-skip path. Remaining mass is SH **PROOF 16**. Isolated leftover covering is saturating. MH **18/33** is held from P21.
 
 ### Competitor stand (honest)
 
 - **1×30 freeze:** Brainy 21/30 vs Mem0 Platform 11/30 is a prior **lead on a handicapped Mem0 protocol**. It is not full LoCoMo and not permission to write “we beat Mem0.”
-- **S0 / n=1540:** no same-n Mem0 pin yet (fair 180 429 quota until 2026-09-01). Do not trail/lead 32/180, 19/180, 61/180, 73/180, 79/180, 84/180, 87/180, 88/180, 93/180, 94/180, 96/180, 97/180, 101/180, 102/180, 103/180, 104/180, 105/180, 106/180, 107/180, 108/180, 109/180, 110/180, 111/180, 112/180, 113/180, 114/180, 115/180, 116/180, or 11.4% vs 11/30 or vs published 92.5%.
+- **S0 / n=1540:** no same-n Mem0 pin yet (fair 180 429 quota until 2026-09-01). Do not trail/lead 32/180, 19/180, 61/180, 73/180, 79/180, 84/180, 87/180, 88/180, 93/180, 94/180, 96/180, 97/180, 101/180, 102/180, 103/180, 104/180, 105/180, 106/180, 107/180, 108/180, 109/180, 110/180, 111/180, 112/180, 113/180, 114/180, 115/180, 116/180, 117/180, or 11.4% vs 11/30 or vs published 92.5%.
 - **Ops / marketing:** Brainy lead (Mem0 pins stale). Must not regress. Not the next cycle.
 - **Graphiti / Zep / SuperMemory:** no same-pin. Published headlines are context.
 - **Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
@@ -185,13 +187,16 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 | P30 | What-made leftover covering + lexical admit | **Done.** Product **114/180**. SH **61→62**. Running-group push recovered. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p30-20260825.md) |
 | P31 | How-describe lexical admit | **Done.** Product **115/180**. SH **62→63**. Stuffed-animal good vibes recovered. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p31-20260825.md) |
 | P32 | Host leftover covering + session admit | **Done.** Product **116/180**. SH **63→64**. Veterans party + share-stories recovered. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p32-20260825.md) |
+| P33 | Advice leftover covering + session admit | **Done.** Product **117/180**. SH **64→65**. Gina advice recovered. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p33-20260825.md) |
 | S1 compiler | Provider-extract / named-subject mass | **No** until the ledger says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
-| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19→116. Full n=1540 only at S6. |
+| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19→117. Full n=1540 only at S6. |
 
-**Suggested first remasure:** ranking where gold is in the subject corpus but not top-30 (Gina advice — do not drop `advice` from FTS AND; turtle-care; Voyageurs; Joanna writing). Remaining isolated READER is thin. Do **not** join all `participates in`. `"destress"` stays denylisted. Remaining SH **PROOF 16**. Isolated leftover covering is saturating. MH **18/33** is held from P21. Fair Mem0 180 is quota-blocked until 2026-09-01. Do not start n=1540 yet. Do not merge #133. Do not special-case German vs Spanish. Do not revive P29. Do not add a host→party dictionary.
+**Suggested first remasure:** ranking where gold is in the subject corpus but not top-30 (turtle-care; Joanna writing; dinner spread). Remaining isolated READER is thin. Do **not** join all `participates in`. `"destress"` stays denylisted. Remaining SH **PROOF 16**. Isolated leftover covering is saturating. MH **18/33** is held from P21. Fair Mem0 180 is quota-blocked until 2026-09-01. Do not start n=1540 yet. Do not merge #133. Do not special-case German vs Spanish. Do not revive P29. Do not drop `advice`. Do not add an advice→brand dictionary. Do not add a host→party dictionary.
 
-**Shipped this increment (P32):** what-did/does/has-X-host leftover covering prefers hosted-event lines over realize speech; bounded session-id fetch for leftover-covering candidate sessions; hosted-event rank boost; host queries keep leftover hosted-event episode primitives and join two covering lines. First P32 180 115/180 hold is not a pin.
+**Shipped this increment (P33):** what-advice leftover covering prefers hortative / first-person-gerund directive leftover over speech-act restatement; bounded session-id fetch for advice-echo sessions; search floor for leftover with no query tokens; advice queries keep leftover hortative episode primitives and join up to three directive lines. Does not drop `advice`.
+
+**Prior (P32):** what-did/does/has-X-host leftover covering prefers hosted-event lines over realize speech; bounded session-id fetch for leftover-covering candidate sessions; hosted-event rank boost; host queries keep leftover hosted-event episode primitives and join two covering lines. First P32 180 115/180 hold is not a pin.
 
 **Prior (P31):** how-does/did/do-X-describe-Y lexical search drops `describe*`, queried persons when object tokens remain, and `got` after person filtering so first-person leftover enters the packet. First P31 180 114/180 flake is not a pin.
 
@@ -399,7 +404,7 @@ Auth: if `BRAINY_API_KEYS` / `BRAINY_REQUIRE_API_KEY` are set, unauthenticated c
 ## 7. Docs the next agent should trust (in order)
 
 1. **This file**
-2. [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) — **2026-08-25 P32 116/180**, then P31 115/180, then P30 114/180, then P28 113/180, then P26 112/180, then P25 111/180, then P24 110/180, then P23 109/180, then P22 108/180, then 2026-08-22 this-VM S0
+2. [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) — **2026-08-25 P33 117/180**, then P32 116/180, then P31 115/180, then P30 114/180, then P28 113/180, then P26 112/180, then P25 111/180, then P24 110/180, then P23 109/180, then P22 108/180, then 2026-08-22 this-VM S0
 3. [sota-execution-plan.md](./sota-execution-plan.md) — gates, not the S1-first guess
 4. [locomo-full-70-80-path.md](./locomo-full-70-80-path.md)
 5. [codebase-graph.md](./codebase-graph.md) — topology (dated 2026-08-04; planes are mid-migration)
