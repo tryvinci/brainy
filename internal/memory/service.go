@@ -1043,10 +1043,14 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	if limit <= 0 {
 		limit = 32
 	}
+	fullRanked := ranked
 	if listQuery || looksMultiHopQuery(queryTokens) {
 		ranked = selectEvidenceSetCovering(ranked, limit, coverToks)
 	} else if len(ranked) > limit {
 		ranked = coverQueryTokensThenCap(ranked, limit, coverToks)
+	}
+	if looksHowReactQuery(query) {
+		ranked = keepReactionObservationInCap(fullRanked, ranked, query, limit)
 	}
 
 	results := make([]SearchResult, len(ranked))
@@ -3231,6 +3235,56 @@ func expandReactionObservationSessionNeighbors(candidates map[string]MemoryRecor
 		candidates[record.MemoryID] = record
 		added++
 	}
+}
+
+func keepReactionObservationInCap(full, capped []rankedSearchResult, query string, limit int) []rankedSearchResult {
+	if !looksHowReactQuery(query) {
+		return capped
+	}
+	extra := make([]rankedSearchResult, 0, 8)
+	for _, item := range full {
+		if !leftoverCoveringReactionObservationLine(item.result.Content) {
+			continue
+		}
+		if !leftoverCoveringReactLineHasObject(query, item.result.Content) {
+			continue
+		}
+		extra = append(extra, item)
+		if len(extra) >= 8 {
+			break
+		}
+	}
+	if len(extra) == 0 {
+		return capped
+	}
+	seen := map[string]struct{}{}
+	out := make([]rankedSearchResult, 0, limit)
+	for _, item := range extra {
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	for _, item := range capped {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func sessionIDsForWhatSayAboutQuery(query string, seeds, all []MemoryRecord) []string {

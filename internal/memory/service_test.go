@@ -1101,6 +1101,38 @@ func TestSearchHowReactAdmitsObservationPastSessionWindow(t *testing.T) {
 	}
 }
 
+func TestKeepReactionObservationInCapSurvivesListFill(t *testing.T) {
+	q := "How do Audrey's dogs react to snow?"
+	obs := rankedSearchResult{result: SearchResult{
+		MemoryID: "obs",
+		Content:  "Audrey took her dogs to a snowy park last winter and they were confused.",
+		Score:    0.4,
+	}}
+	full := []rankedSearchResult{obs}
+	capped := make([]rankedSearchResult, 0, 30)
+	for i := 0; i < 30; i++ {
+		capped = append(capped, rankedSearchResult{result: SearchResult{
+			MemoryID: fmt.Sprintf("fill%02d", i),
+			Content:  "Audrey walked the dogs in the park last week.",
+			Score:    1.5,
+		}})
+	}
+	got := keepReactionObservationInCap(full, capped, q, 30)
+	found := false
+	for _, item := range got {
+		if strings.Contains(strings.ToLower(item.result.Content), "confused") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("how-react evidence-set cap must keep they-were observation leftover, n=%d", len(got))
+	}
+	if len(got) > 30 {
+		t.Fatalf("how-react observation keep must stay within limit, n=%d", len(got))
+	}
+}
+
 func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))
