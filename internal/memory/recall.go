@@ -3914,7 +3914,7 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 	if looksCrowdedHopDump(line) && !(looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)) &&
 		!(looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line)) &&
 		!(looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line)) &&
-		!(looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(line)) {
+		!(looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line)) {
 		return true
 	}
 	body := line
@@ -4104,7 +4104,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			}
 		}
 		if looksWhatSayAboutQuery(query) {
-			if leftoverCoveringEvaluativeTheyLine(line) {
+			if leftoverCoveringSayAboutTargetLine(line) {
 				score += 4
 			}
 			if leftoverCoveringSayAboutCompanionLine(query, line) {
@@ -4174,10 +4174,19 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		}
 	}
 	if looksWhatSayAboutQuery(query) {
+		hasObj := leftoverCoveringSayAboutHasObjectEvidence(query, lines)
 		if next := leftoverCoveringPreferEvaluativeThey(query, scored, best); next != "" {
 			best = next
+		} else if hasObj {
+			if next := leftoverCoveringPreferFirstPersonGot(query, scored, best); next != "" {
+				best = next
+			}
 		}
-		if !leftoverCoveringEvaluativeTheyLine(best) {
+		if leftoverCoveringEvaluativeTheyLine(best) {
+			// they-evaluative leftover does not need object tokens on the line.
+		} else if leftoverCoveringFirstPersonGotLine(best) && hasObj {
+			// first-person got leftover omits the object; another packet line must cover it.
+		} else {
 			return ""
 		}
 	}
@@ -4986,7 +4995,7 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 	if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line) {
 		return true
 	}
-	if looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(line) {
+	if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5606,7 +5615,7 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 	if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, covering) {
 		return true
 	}
-	return looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(covering)
+	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
 }
 
 func leftoverCoveringSayAboutStructureToken(tok string) bool {
@@ -5640,8 +5649,82 @@ func leftoverCoveringEvaluativeTheyLine(line string) bool {
 	return false
 }
 
-func leftoverCoveringSayAboutCompanionLine(query, line string) bool {
+// leftoverCoveringFirstPersonGotLine is first-person possessive/abundance
+// leftover ("It's got so much to check out"). It is not they-evaluative, not
+// "it's gotta", and not reported doctor speech.
+func leftoverCoveringFirstPersonGotLine(line string) bool {
 	if leftoverCoveringEvaluativeTheyLine(line) {
+		return false
+	}
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	body = strings.Trim(body, `"'`)
+	body = strings.TrimRight(body, ".!")
+	if strings.HasPrefix(body, "the doctor") {
+		return false
+	}
+	if strings.HasPrefix(body, "it's gotta") || strings.HasPrefix(body, "its gotta") {
+		return false
+	}
+	if strings.HasPrefix(body, "it's got to") || strings.HasPrefix(body, "it has got to") {
+		return false
+	}
+	words := strings.Fields(body)
+	if len(words) < 4 || len(words) > 40 {
+		return false
+	}
+	gotQuant := func(i int) bool {
+		if i >= len(words) {
+			return false
+		}
+		switch words[i] {
+		case "so", "a", "an", "the", "lots", "plenty", "many":
+			return true
+		}
+		return false
+	}
+	if (words[0] == "it's" || words[0] == "its") && words[1] == "got" && gotQuant(2) {
+		return true
+	}
+	if words[0] == "it" && words[1] == "has" && words[2] == "got" && gotQuant(3) {
+		return true
+	}
+	if words[0] == "it" && words[1] == "has" && words[2] == "so" {
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringSayAboutTargetLine(line string) bool {
+	return leftoverCoveringEvaluativeTheyLine(line) || leftoverCoveringFirstPersonGotLine(line)
+}
+
+func leftoverCoveringSayAboutHasObjectEvidence(query string, lines []string) bool {
+	toks := leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query)))
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	for _, line := range lines {
+		for _, tok := range toks {
+			if leftoverCoveringSayAboutStructureToken(tok) || leftoverCoveringSayAboutFrameParticiple(tok) {
+				continue
+			}
+			if _, ok := people[strings.ToLower(tok)]; ok {
+				continue
+			}
+			if contentCoversQueryToken(line, tok) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func leftoverCoveringSayAboutCompanionLine(query, line string) bool {
+	if leftoverCoveringSayAboutTargetLine(line) {
 		return false
 	}
 	for _, tok := range leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query))) {
@@ -5679,6 +5762,30 @@ func leftoverCoveringPreferEvaluativeThey(query string, scored []leftoverCoverSc
 	return pick
 }
 
+func leftoverCoveringPreferFirstPersonGot(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringFirstPersonGotLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
 func leftoverCoveringSayAboutMissesEvaluative(query, covering, answer string) bool {
 	if !looksWhatSayAboutQuery(query) {
 		return false
@@ -5688,10 +5795,10 @@ func leftoverCoveringSayAboutMissesEvaluative(query, covering, answer string) bo
 	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
 		return false
 	}
-	if leftoverCoveringEvaluativeTheyLine(answer) {
+	if leftoverCoveringSayAboutTargetLine(answer) {
 		return false
 	}
-	if !leftoverCoveringEvaluativeTheyLine(covering) {
+	if !leftoverCoveringSayAboutTargetLine(covering) {
 		return false
 	}
 	return true
@@ -5836,7 +5943,7 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 	if looksInstrumentPurposeQuery(query) {
 		return []RecallItem{{Value: covering}}
 	}
-	if looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(covering) {
+	if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items

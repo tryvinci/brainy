@@ -603,7 +603,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	relatedToks := queryTokens
 	admitToks := queryTokens
 	coverToks := queryTokens
-	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) {
+	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) {
 		relatedToks = contentQueryTokens
 		admitToks = contentQueryTokens
 		coverToks = contentQueryTokens
@@ -773,9 +773,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
-	// What-say-about leftover covering needs short they-evaluative leftover
-	// ("They're so graceful") that omits the object tokens. FTS ANDs
-	// dancers/photo against captions and compiler performance facts.
+	// What-say-about leftover covering needs they-evaluative leftover
+	// ("They're so graceful") or first-person got leftover ("It's got so
+	// much to check out") that omits the object tokens. FTS ANDs
+	// dancers/photo or nyc/visit against captions and compiler facts.
 	if looksWhatSayAboutQuery(query) {
 		seeds := make([]MemoryRecord, 0, len(candidates))
 		for _, rec := range candidates {
@@ -884,7 +885,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "motivate_cause_floor"
 		}
-		if score <= 0 && looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(record.Content) {
+		if score <= 0 && looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(record.Content) {
 			score = 0.9
 			explain["ranking_basis"] = "evaluative_they_floor"
 		}
@@ -1129,7 +1130,7 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, ep.Content) {
 				continue
 			}
-			if looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(ep.Content) {
+			if looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(ep.Content) {
 				continue
 			}
 			delete(candidates, ep.MemoryID)
@@ -1179,7 +1180,7 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	}
 	if looksWhatSayAboutQuery(query) {
 		for _, ep := range episodes {
-			if leftoverCoveringEvaluativeTheyLine(ep.Content) {
+			if leftoverCoveringSayAboutTargetLine(ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -2360,7 +2361,7 @@ func applyMotivateCauseRankBoost(score *float64, explain map[string]any, query s
 }
 
 func applyEvaluativeTheyRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
-	if score == nil || !looksWhatSayAboutQuery(query) || !leftoverCoveringEvaluativeTheyLine(record.Content) {
+	if score == nil || !looksWhatSayAboutQuery(query) || !leftoverCoveringSayAboutTargetLine(record.Content) {
 		return
 	}
 	const bonus = 0.75
@@ -3057,7 +3058,28 @@ func dropWhatSayAboutStructureTokens(bearing []string) []string {
 		}
 		out = append(out, tok)
 	}
-	return out
+	trimmed := make([]string, 0, len(out))
+	for _, tok := range out {
+		if leftoverCoveringSayAboutFrameParticiple(tok) {
+			continue
+		}
+		trimmed = append(trimmed, tok)
+	}
+	if len(trimmed) < 2 {
+		return out
+	}
+	return trimmed
+}
+
+func leftoverCoveringSayAboutFrameParticiple(tok string) bool {
+	t := strings.ToLower(strings.TrimSpace(tok))
+	if leftoverCoveringSayAboutStructureToken(t) {
+		return false
+	}
+	if len(t) < 6 {
+		return false
+	}
+	return strings.HasSuffix(t, "ing")
 }
 
 func expandEvaluativeTheySessionNeighbors(candidates map[string]MemoryRecord, seeds, all []MemoryRecord, limit int) {
@@ -3085,7 +3107,7 @@ func expandEvaluativeTheySessionNeighbors(candidates map[string]MemoryRecord, se
 		if _, exists := candidates[record.MemoryID]; exists {
 			continue
 		}
-		if !leftoverCoveringEvaluativeTheyLine(record.Content) {
+		if !leftoverCoveringSayAboutTargetLine(record.Content) {
 			continue
 		}
 		candidates[record.MemoryID] = record
@@ -3101,7 +3123,7 @@ func sessionIDsForWhatSayAboutQuery(query string, seeds, all []MemoryRecord) []s
 	}
 	eval := map[string]struct{}{}
 	for _, rec := range all {
-		if !leftoverCoveringEvaluativeTheyLine(rec.Content) {
+		if !leftoverCoveringSayAboutTargetLine(rec.Content) {
 			continue
 		}
 		if sid := sessionIDOf(rec); sid != "" {
@@ -3109,7 +3131,7 @@ func sessionIDsForWhatSayAboutQuery(query string, seeds, all []MemoryRecord) []s
 		}
 	}
 	for _, rec := range seeds {
-		if !leftoverCoveringEvaluativeTheyLine(rec.Content) {
+		if !leftoverCoveringSayAboutTargetLine(rec.Content) {
 			continue
 		}
 		if sid := sessionIDOf(rec); sid != "" {
@@ -3222,10 +3244,17 @@ func filterFirstPersonLeftoverPersonTokens(query string, tokens []string) []stri
 		}
 		out = append(out, tok)
 	}
-	if len(out) < 3 {
+	if len(out) < minFirstPersonLeftoverKeep(query) {
 		return tokens
 	}
 	return out
+}
+
+func minFirstPersonLeftoverKeep(query string) int {
+	if looksWhatSayAboutQuery(query) {
+		return 2
+	}
+	return 3
 }
 
 func searchDropsWeakEventTokens(queryTokens []string) bool {

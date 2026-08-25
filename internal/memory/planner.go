@@ -354,6 +354,16 @@ func looksHopPerson(w string) bool {
 	if len(r) < 3 || !unicode.IsUpper(r[0]) {
 		return false
 	}
+	allUpper := true
+	for _, ch := range r {
+		if unicode.IsLetter(ch) && !unicode.IsUpper(ch) {
+			allUpper = false
+			break
+		}
+	}
+	if allUpper {
+		return false
+	}
 	switch strings.ToLower(w) {
 	case "what", "which", "who", "where", "when", "why", "how":
 		return false

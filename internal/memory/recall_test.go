@@ -4285,6 +4285,12 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if !leftoverCoveringEvaluativeTheyLine("They look graceful") {
 		t.Fatal("they-look leftover must count as they-evaluative")
 	}
+	if looksHopPerson("NYC") || looksHopPerson("UK") {
+		t.Fatal("all-caps place acronyms are not hop people")
+	}
+	if !looksHopPerson("John") || !looksHopPerson("Gina") {
+		t.Fatal("title-case names must stay hop people")
+	}
 }
 
 func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
@@ -5116,7 +5122,51 @@ func TestLeftoverCoveringSayAboutEmptyLeavesHybrid(t *testing.T) {
 	}
 }
 
-func TestLeftoverCoveringSayAboutDoesNotCoverNYCGotLine(t *testing.T) {
+func TestLeftoverCoveringSayAboutCoversFirstPersonGotLine(t *testing.T) {
+	gold := "It's got so much to check out - the culture, food - you won't regret it."
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "John visited New York City."},
+			{Content: gold},
+			{Content: "It's gotta be a rush having all these options"},
+			{Content: "The doctor said it's not too serious"},
+		},
+	}
+	q := "What did John say about NYC, enticing Tim to visit?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if !strings.Contains(strings.ToLower(got), "got so much") {
+		t.Fatalf("NYC what-say-about leftover covering must pick first-person got leftover, got %q", got)
+	}
+	if leftoverCoveringEvaluativeTheyLine(gold) {
+		t.Fatal("it's-got leftover is not they-evaluative")
+	}
+	if !leftoverCoveringFirstPersonGotLine(gold) {
+		t.Fatal("it's-got leftover must count as first-person got covering")
+	}
+	if leftoverCoveringFirstPersonGotLine("It's gotta be a rush having all these options") {
+		t.Fatal("it's-gotta leftover is not first-person got covering")
+	}
+	if leftoverCoveringFirstPersonGotLine("The doctor said it's not too serious") {
+		t.Fatal("doctor-said leftover is not first-person got covering")
+	}
+	injuryPkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Tim experienced a setback on 14 November 2023."},
+			{Content: "The doctor said it's not too serious"},
+			{Content: "John focused on recovery and worked hard to strengthen his body after the ankle injury."},
+		},
+	}
+	injury := leftoverCoveringSpecificAnswer("What did Tim say about his injury on 16 November, 2023?", nil, injuryPkt)
+	if injury != "" {
+		t.Fatalf("injury what-say-about must stay empty without they-evaluative or first-person got leftover, got %q", injury)
+	}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, []RecallItem{{Value: "John visited New York City."}})
+	if len(synced) != 1 || synced[0].Value != got {
+		t.Fatalf("what-say-about enumerate items must follow first-person got covering, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringSayAboutGotRequiresObjectEvidence(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
 			{Content: "It's got so much to check out - the culture, food - you won't regret it."},
@@ -5125,10 +5175,22 @@ func TestLeftoverCoveringSayAboutDoesNotCoverNYCGotLine(t *testing.T) {
 	q := "What did John say about NYC, enticing Tim to visit?"
 	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
 	if got != "" {
-		t.Fatalf("NYC what-say-about must stay empty without they-evaluative leftover, got %q", got)
+		t.Fatalf("first-person got leftover must not cover without object-token evidence in the packet, got %q", got)
 	}
-	if leftoverCoveringEvaluativeTheyLine("It's got so much to check out - the culture, food - you won't regret it.") {
-		t.Fatal("it's-got leftover is not they-evaluative")
+}
+
+func TestLeftoverCoveringSayAboutPrefersTheyOverGot(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "It's got so much to check out - the culture, food - you won't regret it."},
+			{Content: "They're so graceful"},
+		},
+	}
+	q := "What does Gina say about the dancers in the photo?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "graceful") || strings.Contains(lower, "check out") {
+		t.Fatalf("they-evaluative leftover must beat first-person got leftover, got %q", got)
 	}
 }
 
@@ -5161,6 +5223,38 @@ func TestExpandEvaluativeTheySessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 	expandEvaluativeTheySessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
 	if _, ok := candidates["gold"]; !ok {
 		t.Fatal("what-say-about session expand must admit they-evaluative leftover past the generic cap")
+	}
+}
+
+func TestExpandSayAboutSessionNeighborsAdmitsFirstPersonGot(t *testing.T) {
+	session := "session_9"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "That skyline looks amazing - I've been wanting to visit NYC",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about travel",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "It's got so much to check out - the culture, food - you won't regret it.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the first-person got leftover can miss")
+	}
+	expandEvaluativeTheySessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("what-say-about session expand must admit first-person got leftover past the generic cap")
 	}
 }
 

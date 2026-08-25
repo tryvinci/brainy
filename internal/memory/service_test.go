@@ -869,6 +869,18 @@ func TestSearchLexicalTokensDropsWhatSayAboutStructureAndPerson(t *testing.T) {
 			t.Fatalf("what-say-about lexical tokens must keep %q, got %v", keep, got)
 		}
 	}
+	nyc := searchLexicalQueryTokens("What did John say about NYC, enticing Tim to visit?", tokenize("What did John say about NYC, enticing Tim to visit?"))
+	nycJoined := strings.Join(nyc, " ")
+	for _, banned := range []string{"say", "about", "enticing", "john", "tim"} {
+		if strings.Contains(nycJoined, banned) {
+			t.Fatalf("NYC what-say-about lexical tokens must drop %q, got %v", banned, nyc)
+		}
+	}
+	for _, keep := range []string{"nyc", "visit"} {
+		if !strings.Contains(nycJoined, keep) {
+			t.Fatalf("NYC what-say-about lexical tokens must keep %q, got %v", keep, nyc)
+		}
+	}
 	advice := searchLexicalQueryTokens("What advice does Gina give to Jon about running a successful business?", tokenize("What advice does Gina give to Jon about running a successful business?"))
 	if !strings.Contains(strings.Join(advice, " "), "advice") {
 		t.Fatalf("advice queries must keep the speech-act token, got %v", advice)
@@ -919,6 +931,53 @@ func TestSearchWhatSayAboutAdmitsTheyEvaluativePastSessionWindow(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("what-say-about search must admit they-evaluative leftover past an 80-row session window, got %+v", out.Results)
+	}
+}
+
+func TestSearchWhatSayAboutAdmitsFirstPersonGotPastSessionWindow(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	const session = "session_9"
+	nyc := MemoryRecord{
+		MemoryID: "mem_nyc", TenantID: "t-got", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "That skyline looks amazing - I've been wanting to visit NYC",
+		DedupeKey: "nyc", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"session_id": session},
+	}
+	store.records["nyc"] = nyc
+	store.searchOnlyIDs = map[string]struct{}{nyc.MemoryID: {}}
+	for i := 0; i < 90; i++ {
+		key := fmt.Sprintf("early%02d", i)
+		store.records[key] = MemoryRecord{
+			MemoryID: "mem_" + key, TenantID: "t-got", SubjectID: "u1",
+			Kind: KindFact, Content: "John plans to let Tim know his thoughts after reading the material.",
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"session_id": session},
+		}
+	}
+	store.records["gold"] = MemoryRecord{
+		MemoryID: "mem_zz_gold", TenantID: "t-got", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "It's got so much to check out - the culture, food - you won't regret it.",
+		DedupeKey: "gold", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"session_id": session},
+	}
+	out, err := svc.SearchOpt(context.Background(), "t-got", "u1", "", "",
+		"What did John say about NYC, enticing Tim to visit?", SearchOptions{Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range out.Results {
+		if strings.Contains(strings.ToLower(r.Content), "got so much") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("what-say-about search must admit first-person got leftover past an 80-row session window, got %+v", out.Results)
 	}
 }
 
