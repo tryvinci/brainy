@@ -4245,6 +4245,79 @@ The gold leftover (`They're so graceful`) is stored and active in session_1, but
 
 ---
 
+## 2026-08-25 — P46 become-interested leftover covering (130/180)
+
+**Landed:** product SHA `0f2c0bf` on `pr/locomo-180-p46-1e9e` (PR #162). Skip-ingest pin [locomo-s0-diag-mh-135-p46-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p46-20260825.md) (`locomo-s0-diag-mh-135-p46-product-recall-s1-57e6e9`). P45 is already on dest and main (`9128a61` / `9513039`).
+
+Product change: dated what-new-hobby leftover covering admits **become-interested leftover** (`become interested` / `became interested`) on `what` + `hobby` + token `interested`/`become` plus a calendar date. Covering requires first-person `I`/`I've`/`I'm`/` my ` or a named/nickname actor. Foreign-person `new hobby` / `taken up` restatements lose to become-interested leftover. Lexical search drops `hobby` only on that query shape. Session rank prefers become-interested leftover sessions because `ListMemoriesBySessionIDs` truncates to 8 and recency ILIKE fills metal-detecting chatter. Does not add an extreme-sports / metal-detecting dictionary. Does not drop `hobby` globally. Does not match undated hobby questions. Does not name LoCoMo.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; last pin. Not re-run this increment. |
+| Marketing vertical | **17/17** | Merge gate; last pin. Not re-run this increment. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P45 | **129/180 (0.717)** | MH **18/33** · OD **4/11** · SH **77/98** · temporal **30/38**. SHA `9513039`. |
+| LoCoMo S0 product hybrid **on** P46 | **130/180 (0.722)** | MH **18/33** · OD **4/11** · SH **78/98** · temporal **30/38**. SHA `0f2c0bf`. Ledger: **RETRIEVAL 18 / PROOF 20 / READER 7 / WRITE 4 / HARNESS 1**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** 90%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 130/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. Item flips vs P45: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 130 vs 11, or 130 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **129** P45 → **130** P46 | **no same-n pin** (fair 180 429) | Product 19→130 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P45 **18/33** → P46 **18/33** | no 33-item freeze | Held P21 high. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P46 harness overall latency_p50 **215.0 ms** (P45 194.9 ms; P44 194.0 ms) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (18/33).** Held P21 high. Destress pottery **held**. Yoga locations **held**. Childhood items **held**. Still missing: Phuket diving (`conv-48-q77`) — write split. Do not treat 18/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. James girlfriend April 2022 **held**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **77→78/98**. Industry **27/98**. Named recovery: become-interested leftover (`conv-47-q103`). Remaining mass is SH **PROOF 14**. Write-missing golds (Wolves, Wheel of Time, Monster Hunter) are not this increment. Jolene surf plan still miss (gold stored; packet currently ranks Deborah exploring). Camping-peaceful still miss (not stored). Do not add an extreme-sports dictionary. Do not steal John's metal detecting. Do not drop `hobby` globally. Do not add a football / comic-sketch dictionary. Do not drop `game` globally. Do not add a how-often / playdate dictionary. Do not drop `often` globally. Do not add a marriage dictionary. Do not drop `long` globally. Do not drop `say` globally. Do not steal NYC `It's got`. Do not drop `motivate` globally. Do not drop `turtles`/`care`.
+
+**Temporal.** **Held 30/38**. Joanna letter 7 August 2022 **held**. Paint Saturday, health start year, community-center, August teammates, art-show April, Jon banker, Ned, McGee's, Toronto, Caroline biking, Gina internship **held**. Jolene yoga year still MISS (2020 start year is not a stored fact). Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+The gold leftover (`Lately I've become interested in extreme sports`) and preference (`James is interested in extreme sports.`) are stored and active in session_16, but P45 packets ranked John's metal-detecting `new hobby` because leftover covering scored `hobby` as the rarest token onto a foreign-person restatement, FTS ANDed `hobby`, and recency ILIKE filled session_2. `sessionIDsOf(memories)[:8]` never fetched session_16 become-interested leftover first. Dated what-new-hobby now requires become-interested plus a first-person/named actor, drops `hobby` only on that query shape, ranks become-interested leftover sessions ahead of recency chatter, and lets become-interested leftover beat foreign-person metal detecting. WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** ranking miss with gold in store that is not a steal-slot — Jolene surf plan (`conv-48-q124`, gold `I've been gathering information, watching videos, and I even got a beginners' guide to surfing` stored; current hybrid steals Deborah exploring historical places). Do not chase camping-peaceful (`conv-41-q145`, peaceful not stored). Do not steal Deborah’s “connected to my body” for Jolene (`conv-48-q116` harness timeout). Do not special-case German vs Spanish. Do not add an extreme-sports dictionary. Do not steal John's metal detecting. Do not drop `hobby` globally. Do not add a football / comic-sketch dictionary. Do not drop `game` globally. Do not add a how-often / playdate dictionary. Do not drop `often` globally. Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 14** + RETRIEVAL 18. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→130 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `say` globally. Do not drop `motivate` globally. Do not drop `turtles`/`care`. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
 ## 2026-08-25 — P45 currently-working leftover covering (129/180)
 
 **Landed:** product SHA `9513039` on `pr/locomo-180-p45-1e9e` (PR #161). Skip-ingest pin [locomo-s0-diag-mh-135-p45-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p45-20260825.md) (`locomo-s0-diag-mh-135-p45-product-recall-s1-323b12`). P44 is already on dest and main (`62b21f1` / `962f057`).
