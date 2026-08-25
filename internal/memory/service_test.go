@@ -798,6 +798,26 @@ func TestSearchLexicalTokensDropsWhatMotivatesStructureAndPerson(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalTokensDropsWhatSayAboutStructureAndPerson(t *testing.T) {
+	q := "What does Gina say about the dancers in the photo?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"say", "about"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("what-say-about lexical tokens must drop structure %q, got %v", banned, got)
+		}
+	}
+	for _, keep := range []string{"dancers", "photo"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("what-say-about lexical tokens must keep %q, got %v", keep, got)
+		}
+	}
+	advice := searchLexicalQueryTokens("What advice does Gina give to Jon about running a successful business?", tokenize("What advice does Gina give to Jon about running a successful business?"))
+	if !strings.Contains(strings.Join(advice, " "), "advice") {
+		t.Fatalf("advice queries must keep the speech-act token, got %v", advice)
+	}
+}
+
 func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))

@@ -773,6 +773,30 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// What-say-about leftover covering needs short they-evaluative leftover
+	// ("They're so graceful") that omits the object tokens. FTS ANDs
+	// dancers/photo against captions and compiler performance facts.
+	if looksWhatSayAboutQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(candidates))
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsForWhatSayAboutQuery(query, seeds, allMemories)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		sayAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+				sayAll = listed
+			}
+		}
+		if len(sayAll) > 0 && len(idSeeds) > 0 {
+			expandEvaluativeTheySessionNeighbors(candidates, idSeeds, sayAll, 8)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -860,6 +884,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "motivate_cause_floor"
 		}
+		if score <= 0 && looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "evaluative_they_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
@@ -934,6 +962,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		applyKindListRankBoost(&score, explain, query, record)
 		applyProcessHortativeRankBoost(&score, explain, query, record)
 		applyMotivateCauseRankBoost(&score, explain, query, record)
+		applyEvaluativeTheyRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1100,6 +1129,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, ep.Content) {
 				continue
 			}
+			if looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -1141,6 +1173,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksWhatMotivatesQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringMotivateCauseLine(query, ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksWhatSayAboutQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringEvaluativeTheyLine(ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -2314,6 +2353,17 @@ func applyMotivateCauseRankBoost(score *float64, explain map[string]any, query s
 	}
 }
 
+func applyEvaluativeTheyRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksWhatSayAboutQuery(query) || !leftoverCoveringEvaluativeTheyLine(record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["evaluative_they_boost"] = bonus
+	}
+}
+
 func hasResponseKeyword(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
@@ -2861,6 +2911,11 @@ func searchLexicalTokens(queryTokens []string) []string {
 			bearing = trimmed
 		}
 	}
+	if searchDropsWhatSayAboutStructureTokens(queryTokens) {
+		if trimmed := dropWhatSayAboutStructureTokens(bearing); len(trimmed) > 0 {
+			bearing = trimmed
+		}
+	}
 	if searchDropsDescribeStructureTokens(queryTokens) {
 		if trimmed := dropHowDescribeStructureTokens(bearing); len(trimmed) > 0 {
 			bearing = trimmed
@@ -2968,6 +3023,173 @@ func dropWhatMotivatesStructureTokens(bearing []string) []string {
 		out = append(out, tok)
 	}
 	return out
+}
+
+func searchDropsWhatSayAboutStructureTokens(queryTokens []string) bool {
+	hasWhatAsk, hasSay, hasAbout := false, false, false
+	for i := 0; i+1 < len(queryTokens); i++ {
+		if queryTokens[i] == "what" && (queryTokens[i+1] == "does" || queryTokens[i+1] == "did" || queryTokens[i+1] == "do") {
+			hasWhatAsk = true
+		}
+	}
+	for _, tok := range queryTokens {
+		switch tok {
+		case "say", "says", "said", "saying":
+			hasSay = true
+		case "about":
+			hasAbout = true
+		}
+	}
+	return hasWhatAsk && hasSay && hasAbout
+}
+
+func dropWhatSayAboutStructureTokens(bearing []string) []string {
+	out := make([]string, 0, len(bearing))
+	for _, tok := range bearing {
+		if leftoverCoveringSayAboutStructureToken(tok) {
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func expandEvaluativeTheySessionNeighbors(candidates map[string]MemoryRecord, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringEvaluativeTheyLine(record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+func sessionIDsForWhatSayAboutQuery(query string, seeds, all []MemoryRecord) []string {
+	toks := leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query)))
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	eval := map[string]struct{}{}
+	for _, rec := range all {
+		if !leftoverCoveringEvaluativeTheyLine(rec.Content) {
+			continue
+		}
+		if sid := sessionIDOf(rec); sid != "" {
+			eval[sid] = struct{}{}
+		}
+	}
+	for _, rec := range seeds {
+		if !leftoverCoveringEvaluativeTheyLine(rec.Content) {
+			continue
+		}
+		if sid := sessionIDOf(rec); sid != "" {
+			eval[sid] = struct{}{}
+		}
+	}
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	add := func(sid string, n int) {
+		if sid == "" {
+			return
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	objectHits := map[string]int{}
+	countObject := func(rec MemoryRecord) int {
+		n := 0
+		for _, tok := range toks {
+			if leftoverCoveringSayAboutStructureToken(tok) {
+				continue
+			}
+			if _, ok := people[strings.ToLower(tok)]; ok {
+				continue
+			}
+			if contentCoversQueryToken(rec.Content, tok) {
+				n++
+			}
+		}
+		return n
+	}
+	for _, rec := range append(append([]MemoryRecord{}, all...), seeds...) {
+		sid := sessionIDOf(rec)
+		if sid == "" {
+			continue
+		}
+		if n := countObject(rec); n > objectHits[sid] {
+			objectHits[sid] = n
+		}
+	}
+	for sid := range eval {
+		if objectHits[sid] >= 1 {
+			add(sid, 100)
+		}
+	}
+	if len(toks) == 0 && len(order) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	for _, rec := range seeds {
+		sid := sessionIDOf(rec)
+		if sid == "" {
+			continue
+		}
+		n := 0
+		for _, tok := range toks {
+			if leftoverCoveringSayAboutStructureToken(tok) {
+				continue
+			}
+			if _, ok := people[strings.ToLower(tok)]; ok {
+				continue
+			}
+			if contentCoversQueryToken(rec.Content, tok) {
+				n++
+			}
+		}
+		if n >= 1 {
+			add(sid, n)
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return order[i] < order[j]
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	if len(order) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	return order
 }
 
 func filterFirstPersonLeftoverPersonTokens(query string, tokens []string) []string {

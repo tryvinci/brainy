@@ -4267,6 +4267,24 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if leftoverCoveringMotivateCauseLine(qWrite, "Wish I had a vacation lined up, but right now my writing is consuming me") {
 		t.Fatal("occupation leftover with my writing is not a cause connective")
 	}
+	if looksWhatSayAboutQuery("What motivates Joanna to keep writing even on tough days?") || looksWhatSayAboutQuery("What advice does Gina give to Jon about running a successful business?") {
+		t.Fatal("what-motivates and what-advice are not what-say-about")
+	}
+	if !looksWhatSayAboutQuery("What does Gina say about the dancers in the photo?") {
+		t.Fatal("what-does-say-about must classify as what-say-about")
+	}
+	if leftoverCoveringEvaluativeTheyLine("Gina performed a contemporary dance piece titled \"Finding Freedom\".") {
+		t.Fatal("performance leftover is not they-evaluative")
+	}
+	if leftoverCoveringEvaluativeTheyLine("They've been practicing hard and will definitely impress with their grace and skill") {
+		t.Fatal("they've-been leftover is not a short they-evaluative copula")
+	}
+	if !leftoverCoveringEvaluativeTheyLine("They're so graceful") {
+		t.Fatal("they're-so leftover must count as they-evaluative")
+	}
+	if !leftoverCoveringEvaluativeTheyLine("They look graceful") {
+		t.Fatal("they-look leftover must count as they-evaluative")
+	}
 }
 
 func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
@@ -5037,6 +5055,150 @@ func TestApplyFactPrimaryRecallKeepsMotivateCauseEpisode(t *testing.T) {
 	applyFactPrimaryRecall(candidates, q, false)
 	if _, ok := candidates["ep"]; !ok {
 		t.Fatal("what-motivates query must keep first-person cause episode leftover")
+	}
+}
+
+func TestLeftoverCoveringSayAboutPrefersTheyEvaluative(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Gina", Value: "Gina", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Gina performed a contemporary dance piece titled \"Finding Freedom\"."},
+			{Content: "[group dancers performing on stage] [a photo of a group of dancers in white dresses on a stage]"},
+			{Content: "It's great having the freedom to create a space and help dancers of all ages and levels express themselves"},
+			{Content: "They're so graceful"},
+		},
+	}
+	q := "What does Gina say about the dancers in the photo?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "graceful") || !strings.Contains(lower, "they") {
+		t.Fatalf("what-say-about leftover covering must pick the they-evaluative leftover, got %q", got)
+	}
+	if strings.Contains(lower, "finding freedom") || strings.Contains(lower, "express themselves") {
+		t.Fatalf("performance leftover must not cover what-say-about, got %q", got)
+	}
+	if !leftoverCoveringSayAboutMissesEvaluative(q, got, "Gina performed a contemporary dance piece titled \"Finding Freedom\".") {
+		t.Fatal("what-say-about covering must replace a compiler performance restatement")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "Gina performed a contemporary dance piece titled \"Finding Freedom\".") {
+		t.Fatal("empty covering and performance restatement must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("What motivates Joanna to keep writing even on tough days?", "They're so graceful") {
+		t.Fatal("what-motivates must not skip hybrid via they-evaluative")
+	}
+}
+
+func TestLeftoverCoveringSayAboutEmptyLeavesHybrid(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Gina performed a contemporary dance piece titled \"Finding Freedom\"."},
+			{Content: "[group dancers performing on stage] [a photo of a group of dancers in white dresses on a stage]"},
+		},
+	}
+	q := "What does Gina say about the dancers in the photo?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("what-say-about leftover covering must stay empty without a they-evaluative line, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringSayAboutDoesNotCoverNYCGotLine(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "It's got so much to check out - the culture, food - you won't regret it."},
+		},
+	}
+	q := "What did John say about NYC, enticing Tim to visit?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("NYC what-say-about must stay empty without they-evaluative leftover, got %q", got)
+	}
+	if leftoverCoveringEvaluativeTheyLine("It's got so much to check out - the culture, food - you won't regret it.") {
+		t.Fatal("it's-got leftover is not they-evaluative")
+	}
+}
+
+func TestExpandEvaluativeTheySessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_1"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Gina performed a contemporary dance piece titled \"Finding Freedom\".",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about dance",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "They're so graceful",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the they-evaluative leftover can miss")
+	}
+	expandEvaluativeTheySessionNeighbors(candidates, []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("what-say-about session expand must admit they-evaluative leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForWhatSayAboutQueryPrefersObjectOverlap(t *testing.T) {
+	q := "What does Gina say about the dancers in the photo?"
+	photo := MemoryRecord{
+		MemoryID: "p",
+		Content:  "[group dancers performing on stage] [a photo of a group of dancers in white dresses on a stage]",
+		Metadata: map[string]any{"session_id": "session_1"},
+	}
+	other := MemoryRecord{
+		MemoryID: "o",
+		Content:  "They're so graceful",
+		Metadata: map[string]any{"session_id": "session_9"},
+	}
+	ids := sessionIDsForWhatSayAboutQuery(q, []MemoryRecord{photo}, []MemoryRecord{other, photo})
+	if len(ids) == 0 || ids[0] != "session_1" {
+		t.Fatalf("what-say-about session pick must prefer dancers/photo overlap, got %#v", ids)
+	}
+	for _, id := range ids {
+		if id == "session_9" {
+			t.Fatal("they-evaluative session without object overlap must not be fetched")
+		}
+	}
+}
+
+func TestApplyEvaluativeTheyRankBoostSkipsPerformance(t *testing.T) {
+	q := "What does Gina say about the dancers in the photo?"
+	gold := 1.0
+	perf := 1.0
+	applyEvaluativeTheyRankBoost(&gold, map[string]any{}, q, MemoryRecord{Content: "They're so graceful"})
+	applyEvaluativeTheyRankBoost(&perf, map[string]any{}, q, MemoryRecord{Content: "Gina performed a contemporary dance piece titled \"Finding Freedom\"."})
+	if gold <= perf {
+		t.Fatalf("what-say-about rank boost must lift they-evaluative over performance leftover, gold=%v perf=%v", gold, perf)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsEvaluativeTheyEpisode(t *testing.T) {
+	q := "What does Gina say about the dancers in the photo?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Gina performed a contemporary dance piece titled \"Finding Freedom\"."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "They're so graceful",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("what-say-about query must keep they-evaluative episode leftover")
 	}
 }
 

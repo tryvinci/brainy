@@ -766,6 +766,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringMotivateMissesCause(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringSayAboutMissesEvaluative(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3910,7 +3913,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 	}
 	if looksCrowdedHopDump(line) && !(looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)) &&
 		!(looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line)) &&
-		!(looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line)) {
+		!(looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line)) &&
+		!(looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(line)) {
 		return true
 	}
 	body := line
@@ -4099,6 +4103,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatSayAboutQuery(query) {
+			if leftoverCoveringEvaluativeTheyLine(line) {
+				score += 4
+			}
+			if leftoverCoveringSayAboutCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4158,6 +4170,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			best = next
 		}
 		if !leftoverCoveringMotivateCauseLine(query, best) {
+			return ""
+		}
+	}
+	if looksWhatSayAboutQuery(query) {
+		if next := leftoverCoveringPreferEvaluativeThey(query, scored, best); next != "" {
+			best = next
+		}
+		if !leftoverCoveringEvaluativeTheyLine(best) {
 			return ""
 		}
 	}
@@ -4467,6 +4487,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringMotivateMissesCause(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringSayAboutMissesEvaluative(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -4895,6 +4918,14 @@ func looksWhatMotivatesQuery(query string) bool {
 	return strings.Contains(q, "what motivates") || strings.Contains(q, "what motivated")
 }
 
+func looksWhatSayAboutQuery(query string) bool {
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "say about") && !strings.Contains(q, "says about") && !strings.Contains(q, "said about") {
+		return false
+	}
+	return strings.Contains(q, "what does") || strings.Contains(q, "what did") || strings.Contains(q, "what do ")
+}
+
 func looksHowDescribeQuery(query string) bool {
 	q := strings.ToLower(query)
 	if !strings.Contains(q, "describe") {
@@ -4908,7 +4939,7 @@ func looksHowDescribeProcessQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -4953,6 +4984,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line) {
+		return true
+	}
+	if looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5569,7 +5603,98 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 	if covering == "" {
 		return false
 	}
-	return looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, covering)
+	if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, covering) {
+		return true
+	}
+	return looksWhatSayAboutQuery(query) && leftoverCoveringEvaluativeTheyLine(covering)
+}
+
+func leftoverCoveringSayAboutStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "say", "says", "said", "saying", "about":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringEvaluativeTheyLine(line string) bool {
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	body = strings.Trim(body, `"'`)
+	body = strings.TrimRight(body, ".!")
+	words := strings.Fields(body)
+	if len(words) < 3 || len(words) > 6 {
+		return false
+	}
+	if words[0] == "they're" && words[1] == "so" {
+		return true
+	}
+	if words[0] == "they" && words[1] == "are" && words[2] == "so" {
+		return true
+	}
+	if words[0] == "they" && (words[1] == "look" || words[1] == "seem") {
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringSayAboutCompanionLine(query, line string) bool {
+	if leftoverCoveringEvaluativeTheyLine(line) {
+		return false
+	}
+	for _, tok := range leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query))) {
+		if leftoverCoveringSayAboutStructureToken(tok) {
+			continue
+		}
+		if contentCoversQueryToken(line, tok) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringPreferEvaluativeThey(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringEvaluativeTheyLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringSayAboutMissesEvaluative(query, covering, answer string) bool {
+	if !looksWhatSayAboutQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringEvaluativeTheyLine(answer) {
+		return false
+	}
+	if !leftoverCoveringEvaluativeTheyLine(covering) {
+		return false
+	}
+	return true
 }
 
 func leftoverCoveringRestatementToken(tok string) bool {
