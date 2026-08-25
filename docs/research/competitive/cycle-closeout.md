@@ -4245,6 +4245,81 @@ The gold leftover (`They're so graceful`) is stored and active in session_1, but
 
 ---
 
+## 2026-08-25 — P51 experiencing-feeling leftover covering (135/180)
+
+**Landed:** product SHA `ec49037` on `pr/locomo-180-p51-1e9e` (PR #167). Skip-ingest pin [locomo-s0-diag-mh-135-p51-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p51-20260825.md) (`locomo-s0-diag-mh-135-p51-product-recall-s1-119073`). P50 is already on dest and main (`01d7ae3` / `26731bf`).
+
+Product change: how-feel leftover covering admits **first-person experiencing leftover that names a new level of feeling** on `how` + `about` + feel/felt/feeling/feels. Covering requires `experiencing` + `new level` plus actor `I`/`my` or a named/nickname actor, including after a speaker prefix. Process restatements of practicing mindfulness, thin experiencing compiler facts without `new level`, and foreign-person mix-of-happiness leftover lose. Lexical search drops `feel`/`felt`/`feeling`/`feels`/`about`/`progress` only on that query shape and keeps `mindfulness`/`gratitude`. Fact-primary recall keeps experiencing-feeling episode leftover. Via-joined process answers are stripped before miss detection. Does not add a joy/happiness/mindfulness dictionary. Does not steal Deborah mix-of-happiness leftover. Does not match recently-at, what-new-series, focusing-besides, how-plan-dream, or how-react. Does not name LoCoMo.
+
+### Own pins
+
+| Suite | Brainy | Notes |
+| --- | ---: | --- |
+| OpMem | **13/13** | Merge gate; last pin. Not re-run this increment. |
+| Marketing vertical | **17/17** | Merge gate; last pin. Not re-run this increment. |
+| LoCoMo S0 product `/recall` this VM **reader off** | **19/180 (0.106)** | MH **12/33** · OD **0/11** · SH **5/98** · temporal **2/38**. SHA `453a929`. |
+| LoCoMo S0 product hybrid **on** P50 | **134/180 (0.744)** | MH **18/33** · OD **4/11** · SH **82/98** · temporal **30/38**. SHA `26731bf`. |
+| LoCoMo S0 product hybrid **on** P51 | **135/180 (0.750)** | MH **18/33** · OD **4/11** · SH **83/98** · temporal **30/38**. SHA `ec49037`. Ledger: **RETRIEVAL 17 / PROOF 16 / READER 7 / WRITE 4 / HARNESS 1**. |
+| LoCoMo S0 industry search+harness this VM | **62/180 (0.344)** | Unchanged vs reader-off pin. |
+| LoCoMo S0 product integrity VM | **32/180** | Different tenant. **Do not mix.** |
+| 1×30 conv-26 | **21/30** | Diagnostic; not overwritten. |
+| Full n=1540 product `/recall` | **175/1540 = 11.4%** | Old SHA `1b5ab3e`. Not re-run. |
+| LME-20 / BEAM | **not re-run** | |
+
+This is **not** 80%, **not** 90%, **not** n=1540, **not** a Mem0 same-pin, and **not** SOTA. 135/180 does not replace integrity 32/180 or the no-LLM 19/180 pin. Item flips vs P50: **+1 / −0 = net +1**.
+
+### Competitor compare (detailed)
+
+No new Mem0 / Graphiti / Zep **score** this cycle. Fair Mem0 Platform 180 (`locomo-s0-mem0-v3-s1-fair2`) died on **HTTP 429 usage quota** (SEARCH 1000/1000, reset **2026-09-01**). The 2026-08-15 Mem0 1×30 freeze remains **11/30** and **handicapped** — do not refresh lead/trail from 21 vs 11, 135 vs 11, or 135 vs unpublished Platform 180.
+
+#### 1. LoCoMo conversational QA
+
+| Axis | This cycle | Mem0 Platform | Stand |
+| --- | ---: | ---: | --- |
+| 1×30 overall | **not re-run** (prior Brainy **21/30**) | freeze **11/30**, protocol handicapped | Do **not** refresh lead/trail. |
+| S0 n=180 product this VM | **19** off → **134** P50 → **135** P51 | **no same-n pin** (fair 180 429) | Product 19→135 vs itself. Leads this-VM industry **62/180** on the **product** lane. Not a Mem0 same-pin. |
+| S0 n=180 industry this VM | **62/180** | **no same-n pin** | Same-pin lane vs Mem0 after quota reset. |
+| S0 MH product (this tenant) | reader-off **12/33** → P50 **18/33** → P51 **18/33** | no 33-item freeze | Held P21 high. Product MH still leads this-VM industry MH **10/33**. |
+| Search p50 | P51 harness overall latency_p50 **613.4 ms** (P50 393.5 ms; P49 295.1 ms) | freeze 492 ms platform | Harness observation, not a SLO |
+
+**Multi-hop (18/33).** Held P21 high. Destress pottery **held**. Yoga locations **held**. Childhood items **held**. Still missing: Phuket diving (`conv-48-q77`) — write split. Do not treat 18/33 as n=1540 MH.
+
+**Open-domain.** **Held 4/11**. Industry **3/11**. James girlfriend April 2022 **held**. Do not restore remaining OD by stuffing episodes.
+
+**Single-hop.** **82→83/98**. Industry **27/98**. Named recovery: experiencing-feeling leftover (`conv-48-q177`). Remaining mass is SH **PROOF 10**. Remaining SH RETRIEVAL is camping-peaceful (not stored). Calvin/Dave hard work vs dedication leftover still miss (`conv-50-q118`). Do not add a joy/happiness/mindfulness dictionary. Do not steal Deborah mix-of-happiness leftover. Do not drop `mindfulness`/`gratitude` globally. Do not add an album dictionary. Do not steal Dave congratulations leftover. Do not add a Wheel of Time / fantasy dictionary. Do not steal Name of the Wind or Game of Thrones. Do not add a relationship dictionary. Do not steal engineering leftover. Do not add a surf dictionary. Do not steal Deborah exploring. Do not drop `surf` globally. Do not add an extreme-sports dictionary. Do not steal John's metal detecting. Do not drop `hobby` globally. Do not add a football / comic-sketch dictionary. Do not drop `game` globally. Do not add a how-often / playdate dictionary. Do not drop `often` globally. Do not add a marriage dictionary. Do not drop `long` globally. Do not drop `say` globally. Do not steal NYC `It's got`. Do not drop `motivate` globally. Do not drop `turtles`/`care`.
+
+**Temporal.** **Held 30/38**. Joanna letter 7 August 2022 **held**. Paint Saturday, health start year, community-center, August teammates, art-show April, Jon banker, Ned, McGee's, Toronto, Caroline biking, Gina internship **held**. Jolene yoga year still MISS (2020 start year is not a stored fact). Do not add LoCoMo-named date rules.
+
+**Published Mem0 92.5%** stays context, never a scoreboard row.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+The gold leftover (`Jolene: I'm experiencing a new level of joy and happiness`) is stored and active in session_27, but P50 packets ranked the process restatement `Jolene is trying to be more mindful and grateful, practicing mindfulness and gratitude` because leftover covering scored mindfulness/gratitude overlap onto the process line, FTS ANDed those tokens against leftover that names neither, and evidence-packet composition attached the gold leftover as a `(via …)` bridge while keeping the process head. How-feel now requires first-person experiencing leftover with `new level`, drops `feel`/`about`/`progress` only on that query shape, keeps `mindfulness`/`gratitude` so the session can still be found, keeps the experiencing episode leftover, strips the via suffix before miss detection, and lets that leftover beat process restatements, thin experiencing compiler facts, and Deborah mix-of-happiness leftover. WRITE held 4; do not merge #133.
+
+### Next
+
+**One step:** ranking miss with gold in store that is not a steal-slot — Calvin/Dave hard work vs dedication (`conv-50-q118`). Alternate: Melanie charity-race realize (`conv-26-q83`). Do not chase camping-peaceful (`conv-41-q145`, peaceful not stored). Do not steal Deborah’s “connected to my body” for Jolene (`conv-48-q116` harness timeout). Do not special-case German vs Spanish (`conv-43-q163`). Do not add a joy/happiness/mindfulness dictionary. Do not steal Deborah mix-of-happiness leftover. Do not add an album dictionary. Do not steal Dave congratulations leftover. Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Isolated leftover covering is saturating. Remaining SH PROOF 10.
+
+---
+
 ## 2026-08-25 — P50 locative-purpose leftover covering (134/180)
 
 **Landed:** product SHA `26731bf` on `pr/locomo-180-p50-1e9e` (PR #166). Skip-ingest pin [locomo-s0-diag-mh-135-p50-20260825.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p50-20260825.md) (`locomo-s0-diag-mh-135-p50-product-recall-s1-3816d7`). P49 is already on dest and main (`80abff2` / `f658472`).
