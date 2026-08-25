@@ -782,7 +782,7 @@ func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))
 	joined := strings.Join(got, " ")
-	for _, banned := range []string{"describe", "nate", "joanna"} {
+	for _, banned := range []string{"describe", "nate", "joanna", "got"} {
 		if strings.Contains(joined, banned) {
 			t.Fatalf("how-describe lexical tokens must drop structure/person %q, got %v", banned, got)
 		}

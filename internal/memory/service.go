@@ -2067,7 +2067,13 @@ func searchLexicalQueryTokens(query string, queryTokens []string) []string {
 	if len(queryTokens) == 0 && strings.TrimSpace(query) != "" {
 		queryTokens = tokenize(query)
 	}
-	return filterFirstPersonLeftoverPersonTokens(query, searchLexicalTokens(queryTokens))
+	toks := filterFirstPersonLeftoverPersonTokens(query, searchLexicalTokens(queryTokens))
+	if looksHowDescribeQuery(query) {
+		if trimmed := dropHowDescribeAcquisitionTokens(toks); len(trimmed) > 0 {
+			toks = trimmed
+		}
+	}
+	return toks
 }
 
 // searchLexicalTokens are the tokens used for ILIKE patterns and lexical
@@ -2119,6 +2125,21 @@ func dropHowDescribeStructureTokens(bearing []string) []string {
 	for _, tok := range bearing {
 		switch strings.ToLower(strings.TrimSpace(tok)) {
 		case "describe", "describes", "described", "describing":
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+// dropHowDescribeAcquisitionTokens drops "got" after person filtering so
+// "he got for X" does not ILIKE-flood the stuffed/object pool. Applied after
+// person drop so stuffed+animal still remain as the object pair.
+func dropHowDescribeAcquisitionTokens(tokens []string) []string {
+	out := make([]string, 0, len(tokens))
+	for _, tok := range tokens {
+		switch strings.ToLower(strings.TrimSpace(tok)) {
+		case "got", "gets", "getting", "gotten":
 			continue
 		}
 		out = append(out, tok)
