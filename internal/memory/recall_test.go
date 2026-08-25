@@ -4202,6 +4202,12 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if looksWhatMadeQuery("What does Melanie do to destress?") || looksWhatMadeQuery("What does the smartwatch help Riley with?") {
 		t.Fatal("destress and instrument-purpose queries are not what-made")
 	}
+	if looksHowDescribeQuery("What does Melanie do to destress?") || looksHowDescribeQuery("What does the smartwatch help Riley with?") {
+		t.Fatal("destress and instrument-purpose queries are not how-describe")
+	}
+	if !looksHowDescribeQuery("How does Nate describe the stuffed animal he got for Joanna?") {
+		t.Fatal("how-does-describe must classify as how-describe")
+	}
 }
 
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {

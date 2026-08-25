@@ -778,6 +778,34 @@ func TestSearchLexicalTokensDropsWhatMadeStructureAndPerson(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
+	q := "How does Nate describe the stuffed animal he got for Joanna?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"describe", "nate", "joanna"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("how-describe lexical tokens must drop structure/person %q, got %v", banned, got)
+		}
+	}
+	for _, keep := range []string{"stuffed", "animal"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("how-describe lexical tokens must keep %q, got %v", keep, got)
+		}
+	}
+	destress := searchLexicalQueryTokens("What does Melanie do to destress?", tokenize("What does Melanie do to destress?"))
+	if !strings.Contains(strings.Join(destress, " "), "melanie") {
+		t.Fatalf("destress must keep the person token, got %v", destress)
+	}
+	smartwatch := searchLexicalQueryTokens("What does the smartwatch help Riley with?", tokenize("What does the smartwatch help Riley with?"))
+	if strings.Contains(strings.Join(smartwatch, " "), "describe") {
+		t.Fatalf("instrument-purpose must not be treated as how-describe, got %v", smartwatch)
+	}
+	island := searchLexicalQueryTokens("How does Evan describe the island he grew up on?", tokenize("How does Evan describe the island he grew up on?"))
+	if !strings.Contains(strings.Join(island, " "), "island") {
+		t.Fatalf("how-describe island must keep the object token, got %v", island)
+	}
+}
+
 func TestIngestRetainsDialogueAndRanksDatedFact(t *testing.T) {
 	store := newMemoryStoreStub()
 	service := NewService(store)

@@ -4766,6 +4766,18 @@ func looksWhatMadeQuery(query string) bool {
 	return strings.Contains(q, "what made") || strings.Contains(q, "what makes")
 }
 
+func looksHowDescribeQuery(query string) bool {
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "describe") {
+		return false
+	}
+	return strings.Contains(q, "how does") || strings.Contains(q, "how did") || strings.Contains(q, "how do ")
+}
+
+func looksFirstPersonLeftoverQuery(query string) bool {
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",

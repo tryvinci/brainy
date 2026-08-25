@@ -602,7 +602,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	relatedToks := queryTokens
 	admitToks := queryTokens
 	coverToks := queryTokens
-	if looksWhatMadeQuery(query) {
+	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) {
 		relatedToks = contentQueryTokens
 		admitToks = contentQueryTokens
 		coverToks = contentQueryTokens
@@ -2061,24 +2061,30 @@ func contentBearingTokens(tokens []string) []string {
 }
 
 // searchLexicalQueryTokens are ILIKE / FTS / scoring tokens for a query.
-// What-made questions also drop person names when other event tokens remain,
-// because causal leftover lines are often first-person and omit the name.
+// What-made and how-describe questions also drop person names when other
+// object tokens remain, because first-person leftover lines often omit the name.
 func searchLexicalQueryTokens(query string, queryTokens []string) []string {
 	if len(queryTokens) == 0 && strings.TrimSpace(query) != "" {
 		queryTokens = tokenize(query)
 	}
-	return filterWhatMadeLexicalTokens(query, searchLexicalTokens(queryTokens))
+	return filterFirstPersonLeftoverPersonTokens(query, searchLexicalTokens(queryTokens))
 }
 
 // searchLexicalTokens are the tokens used for ILIKE patterns and lexical
 // scoring. When/which-year queries drop leftover-weak speech-act and year
 // words when another event token remains, so "decide" / "year" do not flood
 // the candidate pool. What-made queries drop structure tokens ("made" /
-// "part") that FTS would AND against first-person cause lines.
+// "part") that FTS would AND against first-person cause lines. How-describe
+// queries drop "describe*" so compiler "X describes Y" stamps do not flood.
 func searchLexicalTokens(queryTokens []string) []string {
 	bearing := contentBearingTokens(queryTokens)
 	if searchDropsWhatMadeStructureTokens(queryTokens) {
 		if trimmed := dropWhatMadeStructureTokens(bearing); len(trimmed) > 0 {
+			bearing = trimmed
+		}
+	}
+	if searchDropsDescribeStructureTokens(queryTokens) {
+		if trimmed := dropHowDescribeStructureTokens(bearing); len(trimmed) > 0 {
 			bearing = trimmed
 		}
 	}
@@ -2090,6 +2096,34 @@ func searchLexicalTokens(queryTokens []string) []string {
 		return bearing
 	}
 	return strong
+}
+
+func searchDropsDescribeStructureTokens(queryTokens []string) bool {
+	hasHow, hasDescribe := false, false
+	for i := 0; i+1 < len(queryTokens); i++ {
+		if queryTokens[i] == "how" && (queryTokens[i+1] == "does" || queryTokens[i+1] == "did" || queryTokens[i+1] == "do") {
+			hasHow = true
+		}
+	}
+	for _, tok := range queryTokens {
+		switch tok {
+		case "describe", "describes", "described", "describing":
+			hasDescribe = true
+		}
+	}
+	return hasHow && hasDescribe
+}
+
+func dropHowDescribeStructureTokens(bearing []string) []string {
+	out := make([]string, 0, len(bearing))
+	for _, tok := range bearing {
+		switch strings.ToLower(strings.TrimSpace(tok)) {
+		case "describe", "describes", "described", "describing":
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
 }
 
 func searchDropsWhatMadeStructureTokens(queryTokens []string) bool {
@@ -2118,8 +2152,8 @@ func dropWhatMadeStructureTokens(bearing []string) []string {
 	return out
 }
 
-func filterWhatMadeLexicalTokens(query string, tokens []string) []string {
-	if !looksWhatMadeQuery(query) || len(tokens) < 4 {
+func filterFirstPersonLeftoverPersonTokens(query string, tokens []string) []string {
+	if !looksFirstPersonLeftoverQuery(query) || len(tokens) < 4 {
 		return tokens
 	}
 	drop := map[string]struct{}{}
