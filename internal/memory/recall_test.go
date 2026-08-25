@@ -5912,6 +5912,164 @@ func TestLeftoverCoveringHowLongBeenStaysEmptyWithoutDuration(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringHowOftenPrefersCadence(t *testing.T) {
+	gold := "I try to meet up with other dog owners once a week for tips from other parents and so they can all play together"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Four Dogs, Photo Of Lake, Behavior Tips, Buddy, Fourth Dog (unnamed), Birdwatching Guidebook"},
+			{Content: "Audrey's dogs meet other dog owners in the park and have doggie playdates."},
+			{Content: "Audrey takes her dogs on road trips once every couple of months."},
+			{Content: "I recently joined a dog owners group to learn how to better take care of them"},
+			{Content: "Here's a pic from the playdate"},
+			{Content: gold},
+		},
+	}
+	q := "How often does Audrey meet up with other dog owners for tips and playdates?"
+	if !looksHowOftenQuery(q) {
+		t.Fatal("how often + does must count as how-often")
+	}
+	if looksHowOftenQuery("How long have Mel and her husband been married?") {
+		t.Fatal("how-long-been must not count as how-often")
+	}
+	if looksHowOftenQuery("How did Evan start his transformation journey two years ago?") {
+		t.Fatal("how-did-start must not count as how-often")
+	}
+	if looksHowOftenQuery("How does Nate describe the process of taking care of turtles?") {
+		t.Fatal("how-describe must not count as how-often")
+	}
+	if looksHowOftenQuery("How do Audrey's dogs react to snow?") {
+		t.Fatal("how-react must not count as how-often")
+	}
+	if looksHowOftenQuery("How often have you been meeting other owners?") {
+		t.Fatal("how-often-have without does/did/do must not count as how-often")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "once a week") {
+		t.Fatalf("how-often leftover covering must pick cadence leftover, got %q", got)
+	}
+	if strings.Contains(lower, "four dogs") || strings.Contains(lower, "park") || strings.Contains(lower, "couple of months") || strings.Contains(lower, "joined a dog owners group") {
+		t.Fatalf("dump, park playdates, road-trip months, and purpose leftover must not cover how-often, got %q", got)
+	}
+	if leftoverCoveringCadenceLine(q, "Audrey's dogs meet other dog owners in the park and have doggie playdates.") {
+		t.Fatal("park playdates without cadence must not count as how-often covering")
+	}
+	if leftoverCoveringCadenceLine(q, "Audrey takes her dogs on road trips once every couple of months.") {
+		t.Fatal("road-trip cadence about a different activity must not cover meetup how-often")
+	}
+	if leftoverCoveringCadenceLine(q, "I recently joined a dog owners group to learn how to better take care of them") {
+		t.Fatal("purpose leftover without cadence must not count as how-often covering")
+	}
+	if leftoverCoveringCadenceLine(q, "Four Dogs, Photo Of Lake, Behavior Tips, Buddy, Fourth Dog (unnamed), Birdwatching Guidebook") {
+		t.Fatal("hop dump must not count as cadence covering")
+	}
+	if !leftoverCoveringCadenceLine(q, gold) {
+		t.Fatal("first-person once-a-week leftover must count as cadence covering")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "Audrey's dogs meet other dog owners in the park and have doggie playdates.") {
+		t.Fatal("empty covering and park playdates must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("How long have Mel and her husband been married?", gold) {
+		t.Fatal("how-long-been must not skip hybrid via how-often cadence")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("how-often cadence leftover must skip hybrid")
+	}
+	if !leftoverCoveringCadenceMissesCadence(q, got, "Four Dogs, Photo Of Lake, Behavior Tips") {
+		t.Fatal("hop-dump answer must miss cadence leftover")
+	}
+}
+
+func TestLeftoverCoveringHowOftenStaysEmptyWithoutCadence(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Audrey's dogs meet other dog owners in the park and have doggie playdates."},
+			{Content: "I recently joined a dog owners group to learn how to better take care of them"},
+			{Content: "Four Dogs, Photo Of Lake, Behavior Tips, Buddy"},
+		},
+	}
+	q := "How often does Audrey meet up with other dog owners for tips and playdates?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("how-often leftover covering must stay empty without cadence leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsCadenceEpisode(t *testing.T) {
+	q := "How often does Audrey meet up with other dog owners for tips and playdates?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Audrey's dogs meet other dog owners in the park and have doggie playdates."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "I try to meet up with other dog owners once a week for tips from other parents and so they can all play together",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("how-often query must keep once-a-week episode leftover")
+	}
+}
+
+func TestExpandCadenceSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_27"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Audrey's dogs meet other dog owners in the park and have doggie playdates.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about park playdates",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I try to meet up with other dog owners once a week for tips from other parents and so they can all play together",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the cadence leftover can miss")
+	}
+	expandCadenceSessionNeighbors(candidates, "How often does Audrey meet up with other dog owners for tips and playdates?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("how-often session expand must admit cadence leftover past the generic cap")
+	}
+}
+
+func TestSessionIDsForHowOftenPrefersCadenceSessions(t *testing.T) {
+	q := "How often does Audrey meet up with other dog owners for tips and playdates?"
+	recent := make([]MemoryRecord, 0, 12)
+	for i := 0; i < 8; i++ {
+		recent = append(recent, MemoryRecord{
+			MemoryID: "chat-" + itoa(i),
+			Content:  "Audrey's dogs meet other dog owners in the park and have doggie playdates.",
+			Metadata: map[string]any{"session_id": "session_recent_" + itoa(i)},
+		})
+	}
+	park := MemoryRecord{
+		MemoryID: "park",
+		Content:  "Audrey's dogs meet other dog owners in the park and have doggie playdates.",
+		Metadata: map[string]any{"session_id": "session_4"},
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "I try to meet up with other dog owners once a week for tips from other parents and so they can all play together",
+		Metadata: map[string]any{"session_id": "session_27"},
+	}
+	seeds := append(recent, park)
+	ids := sessionIDsForHowOftenQuery(q, seeds, []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_27" {
+		t.Fatalf("how-often session rank must prefer cadence leftover session over recency playdates, got %v", ids)
+	}
+}
+
 func TestApplyFactPrimaryRecallKeepsStartMethodEpisode(t *testing.T) {
 	q := "How did Evan start his transformation journey two years ago?"
 	candidates := map[string]MemoryRecord{

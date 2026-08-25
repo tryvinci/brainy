@@ -781,6 +781,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringDurationMissesDuration(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringCadenceMissesCadence(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3771,7 +3774,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3869,6 +3872,20 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 		}
 		rare = filtered
 	}
+	if looksHowOftenQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringCadenceStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		if objs := leftoverCoveringCadenceObjectTokens(query); len(objs) > 0 {
+			rare = objs
+		} else {
+			rare = filtered
+		}
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -3950,7 +3967,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) && leftoverCoveringReactLineHasObject(query, line)) &&
 		!(looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line)) &&
 		!(looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line)) &&
-		!(looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, line)) {
+		!(looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, line)) &&
+		!(looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4182,6 +4200,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksHowOftenQuery(query) {
+			if leftoverCoveringCadenceLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringCadenceCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4311,6 +4337,18 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringDurationLine(query, best) {
 			// how-long-been leftover must carry continuing years (already / for /
 			// duration is), not a copula status fact or a years-ago start.
+		} else {
+			return ""
+		}
+	}
+	if looksHowOftenQuery(query) {
+		if next := leftoverCoveringPreferCadence(query, scored, best); next != "" {
+			best = next
+		}
+		if leftoverCoveringCadenceLine(query, best) {
+			// how-often leftover must carry a cadence (once a week / every
+			// month / N times a day) plus object overlap, not a purpose
+			// join or a cadence about a different activity.
 		} else {
 			return ""
 		}
@@ -5135,6 +5173,23 @@ func looksHowLongBeenQuery(query string) bool {
 	return false
 }
 
+func looksHowOftenQuery(query string) bool {
+	if looksHowLongBeenQuery(query) || looksHowDidStartQuery(query) || looksHowDescribeQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "how often") {
+		return false
+	}
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "does", "did", "do":
+			return true
+		}
+	}
+	return false
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5163,7 +5218,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowOftenQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5223,6 +5278,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, line) {
+		return true
+	}
+	if looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5852,6 +5910,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 		return true
 	}
 	if looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, covering) {
+		return true
+	}
+	if looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, covering) {
 		return true
 	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
@@ -6756,6 +6817,158 @@ func leftoverCoveringDurationMissesDuration(query, covering, answer string) bool
 	return leftoverCoveringDurationLine(query, covering)
 }
 
+func leftoverCoveringCadenceStructureToken(tok string) bool {
+	return strings.ToLower(strings.TrimSpace(tok)) == "often"
+}
+
+func leftoverCoveringCadenceRareToken(tok string) bool {
+	low := strings.ToLower(strings.Trim(strings.TrimSpace(tok), "?,.!'\"’"))
+	if low == "" || leftoverCoveringCadenceStructureToken(low) || leftoverCoverWeakToken(low) || isQueryStopword(low) {
+		return false
+	}
+	return utf8.RuneCountInString(low) >= 4
+}
+
+func dropTrailingForAdjunct(toks []string) []string {
+	forIdx := -1
+	for i, tok := range toks {
+		if strings.EqualFold(strings.Trim(tok, "?,.!'\"’"), "for") {
+			forIdx = i
+			break
+		}
+	}
+	if forIdx <= 0 || forIdx >= len(toks)-1 {
+		return toks
+	}
+	rare := 0
+	for _, tok := range toks[:forIdx] {
+		if leftoverCoveringCadenceRareToken(tok) {
+			rare++
+		}
+	}
+	if rare < 2 {
+		return toks
+	}
+	return toks[:forIdx]
+}
+
+func leftoverCoveringCadenceObjectTokens(query string) []string {
+	fields := dropTrailingForAdjunct(dropHowOftenStructureTokens(strings.Fields(query)))
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	out := make([]string, 0, 4)
+	seen := map[string]struct{}{}
+	for _, tok := range tokenize(strings.Join(fields, " ")) {
+		low := strings.ToLower(strings.TrimSpace(tok))
+		if !leftoverCoveringCadenceRareToken(low) {
+			continue
+		}
+		if _, ok := people[low]; ok {
+			continue
+		}
+		if _, ok := seen[low]; ok {
+			continue
+		}
+		seen[low] = struct{}{}
+		out = append(out, low)
+	}
+	return out
+}
+
+func leftoverCoveringCadenceObjectHits(query, line string) int {
+	n := 0
+	for _, tok := range leftoverCoveringCadenceObjectTokens(query) {
+		if contentCoversQueryToken(line, tok) {
+			n++
+		}
+	}
+	return n
+}
+
+func parseCadence(s string) bool {
+	lower := strings.ToLower(s)
+	lower = strings.NewReplacer(",", " ", ".", " ", ";", " ", "?", " ", "!", " ", ":", " ").Replace(lower)
+	padded := " " + strings.Join(strings.Fields(lower), " ") + " "
+	if strings.Contains(padded, " once every ") {
+		return true
+	}
+	units := []string{"week", "month", "day", "year"}
+	for _, u := range units {
+		if strings.Contains(padded, " once a "+u+" ") || strings.Contains(padded, " twice a "+u+" ") {
+			return true
+		}
+		if strings.Contains(padded, " every "+u+" ") {
+			return true
+		}
+		for n := 1; n <= 20; n++ {
+			if strings.Contains(padded, " "+strconv.Itoa(n)+" times a "+u+" ") {
+				return true
+			}
+		}
+	}
+	for _, t := range []string{"morning", "evening", "night"} {
+		if strings.Contains(padded, " every "+t+" ") {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringCadenceLine(query, line string) bool {
+	if looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	if !parseCadence(hybridLineBody(line)) {
+		return false
+	}
+	if leftoverCoveringCadenceObjectHits(query, line) < 2 {
+		return false
+	}
+	return leftoverCoveringDurationActorLine(query, line)
+}
+
+func leftoverCoveringCadenceCompanionLine(query, line string) bool {
+	if leftoverCoveringCadenceLine(query, line) {
+		return false
+	}
+	return leftoverCoveringCadenceObjectHits(query, line) >= 1
+}
+
+func leftoverCoveringPreferCadence(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 {
+			continue
+		}
+		if !leftoverCoveringCadenceLine(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringCadenceMissesCadence(query, covering, answer string) bool {
+	if !looksHowOftenQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringCadenceLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringCadenceLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -6908,6 +7121,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items

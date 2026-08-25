@@ -603,7 +603,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	relatedToks := queryTokens
 	admitToks := queryTokens
 	coverToks := queryTokens
-	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) {
+	if looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatSayAboutQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) || looksHowLongBeenQuery(query) || looksHowOftenQuery(query) {
 		relatedToks = contentQueryTokens
 		admitToks = contentQueryTokens
 		coverToks = contentQueryTokens
@@ -896,6 +896,32 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 	}
 
+	// How-often leftover covering needs a cadence leftover ("once a week")
+	// that omits "often" / trailing for-adjuncts. Rank sessions by remaining
+	// object tokens so recency park-playdate chatter does not spend the
+	// 8-session list budget first.
+	if looksHowOftenQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(memories)+len(candidates))
+		seeds = append(seeds, memories...)
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsForHowOftenQuery(query, seeds, allMemories)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		cadAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
+				cadAll = listed
+			}
+		}
+		if len(cadAll) > 0 && len(idSeeds) > 0 {
+			expandCadenceSessionNeighbors(candidates, query, idSeeds, cadAll, 32)
+		}
+	}
+
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
 	// retrieval boost/recall-expander regressed conversational ranking in
@@ -1003,6 +1029,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "duration_floor"
 		}
+		if score <= 0 && looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "cadence_floor"
+		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
 		hub := 0.0
@@ -1082,6 +1112,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		applyPurposeActionRankBoost(&score, explain, query, record)
 		applyStartMethodRankBoost(&score, explain, query, record)
 		applyDurationRankBoost(&score, explain, query, record)
+		applyCadenceRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1150,6 +1181,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	}
 	if looksHowLongBeenQuery(query) {
 		ranked = keepDurationInCap(fullRanked, ranked, query, limit)
+	}
+	if looksHowOftenQuery(query) {
+		ranked = keepCadenceInCap(fullRanked, ranked, query, limit)
 	}
 
 	results := make([]SearchResult, len(ranked))
@@ -1276,6 +1310,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 			if looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, ep.Content) {
 				continue
 			}
+			if looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -1352,6 +1389,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	if looksHowLongBeenQuery(query) {
 		for _, ep := range episodes {
 			if leftoverCoveringDurationLine(query, ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
+	}
+	if looksHowOftenQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringCadenceLine(query, ep.Content) {
 				keepIDs[ep.MemoryID] = struct{}{}
 			}
 		}
@@ -2586,6 +2630,17 @@ func applyDurationRankBoost(score *float64, explain map[string]any, query string
 	}
 }
 
+func applyCadenceRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksHowOftenQuery(query) || !leftoverCoveringCadenceLine(query, record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["cadence_boost"] = bonus
+	}
+}
+
 func hasResponseKeyword(tokens []string) bool {
 	for _, token := range tokens {
 		switch token {
@@ -3103,6 +3158,12 @@ func contentBearingTokens(tokens []string) []string {
 // What-made and how-describe questions also drop person names when other
 // object tokens remain, because first-person leftover lines often omit the name.
 func searchLexicalQueryTokens(query string, queryTokens []string) []string {
+	if looksHowOftenQuery(query) {
+		raw := dropTrailingForAdjunct(dropHowOftenStructureTokens(strings.Fields(query)))
+		if len(raw) > 0 {
+			queryTokens = tokenize(strings.Join(raw, " "))
+		}
+	}
 	if len(queryTokens) == 0 && strings.TrimSpace(query) != "" {
 		queryTokens = tokenize(query)
 	}
@@ -3124,6 +3185,11 @@ func searchLexicalQueryTokens(query string, queryTokens []string) []string {
 	}
 	if looksHowLongBeenQuery(query) {
 		if trimmed := dropHowLongBeenStructureTokens(toks); len(trimmed) > 0 {
+			toks = trimmed
+		}
+	}
+	if looksHowOftenQuery(query) {
+		if trimmed := dropHowOftenStructureTokens(toks); len(trimmed) > 0 {
 			toks = trimmed
 		}
 	}
@@ -3256,6 +3322,17 @@ func dropHowLongBeenStructureTokens(bearing []string) []string {
 	out := make([]string, 0, len(bearing))
 	for _, tok := range bearing {
 		if leftoverCoveringDurationStructureToken(tok) {
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func dropHowOftenStructureTokens(bearing []string) []string {
+	out := make([]string, 0, len(bearing))
+	for _, tok := range bearing {
+		if leftoverCoveringCadenceStructureToken(tok) {
 			continue
 		}
 		out = append(out, tok)
@@ -3769,6 +3846,147 @@ func sessionIDsForHowLongBeenQuery(query string, seeds, all []MemoryRecord) []st
 		return sessionIDsOf(seeds)
 	}
 	return order
+}
+
+func sessionIDsForHowOftenQuery(query string, seeds, all []MemoryRecord) []string {
+	toks := leftoverCoverNonWeakTokens(leftoverCoveringCadenceObjectTokens(query))
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	best := map[string]int{}
+	order := make([]string, 0, 8)
+	add := func(sid string, n int) {
+		if sid == "" {
+			return
+		}
+		if _, ok := best[sid]; !ok {
+			order = append(order, sid)
+		}
+		if n > best[sid] {
+			best[sid] = n
+		}
+	}
+	for _, rec := range all {
+		if leftoverCoveringCadenceLine(query, rec.Content) {
+			add(sessionIDOf(rec), 100)
+		}
+	}
+	for _, rec := range seeds {
+		if leftoverCoveringCadenceLine(query, rec.Content) {
+			add(sessionIDOf(rec), 100)
+		}
+		if len(toks) == 0 {
+			continue
+		}
+		n := 0
+		for _, tok := range toks {
+			if !contentCoversQueryToken(rec.Content, tok) {
+				continue
+			}
+			if _, isPerson := people[strings.ToLower(tok)]; isPerson {
+				n++
+				continue
+			}
+			n += 3
+		}
+		if n >= 3 {
+			add(sessionIDOf(rec), n)
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool {
+		if best[order[i]] != best[order[j]] {
+			return best[order[i]] > best[order[j]]
+		}
+		return order[i] < order[j]
+	})
+	if len(order) > 6 {
+		order = order[:6]
+	}
+	if len(order) == 0 {
+		return sessionIDsOf(seeds)
+	}
+	return order
+}
+
+func expandCadenceSessionNeighbors(candidates map[string]MemoryRecord, query string, seeds, all []MemoryRecord, limit int) {
+	sessions := map[string]struct{}{}
+	for _, seed := range seeds {
+		if sid := sessionIDOf(seed); sid != "" {
+			sessions[sid] = struct{}{}
+		}
+	}
+	if len(sessions) == 0 {
+		return
+	}
+	added := 0
+	for _, record := range all {
+		if limit > 0 && added >= limit {
+			break
+		}
+		sid := sessionIDOf(record)
+		if sid == "" {
+			continue
+		}
+		if _, ok := sessions[sid]; !ok {
+			continue
+		}
+		if _, exists := candidates[record.MemoryID]; exists {
+			continue
+		}
+		if !leftoverCoveringCadenceLine(query, record.Content) {
+			continue
+		}
+		candidates[record.MemoryID] = record
+		added++
+	}
+}
+
+func keepCadenceInCap(full, capped []rankedSearchResult, query string, limit int) []rankedSearchResult {
+	if !looksHowOftenQuery(query) {
+		return capped
+	}
+	extra := make([]rankedSearchResult, 0, 8)
+	for _, item := range full {
+		if !leftoverCoveringCadenceLine(query, item.result.Content) {
+			continue
+		}
+		extra = append(extra, item)
+		if len(extra) >= 8 {
+			break
+		}
+	}
+	if len(extra) == 0 {
+		return capped
+	}
+	seen := map[string]struct{}{}
+	out := make([]rankedSearchResult, 0, limit)
+	for _, item := range extra {
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	for _, item := range capped {
+		if limit > 0 && len(out) >= limit {
+			break
+		}
+		id := item.result.MemoryID
+		if id == "" {
+			id = item.result.Content
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, item)
+	}
+	return out
 }
 
 func expandDurationSessionNeighbors(candidates map[string]MemoryRecord, query string, seeds, all []MemoryRecord, limit int) {

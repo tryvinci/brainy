@@ -1261,6 +1261,62 @@ func TestSearchLexicalQueryTokensDropsHowLongBeenStructure(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalQueryTokensDropsHowOftenStructure(t *testing.T) {
+	q := "How often does Audrey meet up with other dog owners for tips and playdates?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"often", "audrey", "tips", "playdates"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("how-often lexical tokens must drop %q, got %v", banned, got)
+		}
+	}
+	for _, keep := range []string{"meet", "dog", "owners"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("how-often lexical tokens must keep %q, got %v", keep, got)
+		}
+	}
+	married := searchLexicalQueryTokens("How long have Mel and her husband been married?", tokenize("How long have Mel and her husband been married?"))
+	joinedMarried := strings.Join(married, " ")
+	if strings.Contains(joinedMarried, "often") {
+		t.Fatalf("how-long-been must not be rewritten as how-often tokens, got %v", married)
+	}
+	if !strings.Contains(joinedMarried, "married") {
+		t.Fatalf("how-long-been must keep married, got %v", married)
+	}
+}
+
+func TestKeepCadenceInCapSurvivesListFill(t *testing.T) {
+	q := "How often does Audrey meet up with other dog owners for tips and playdates?"
+	obs := rankedSearchResult{result: SearchResult{
+		MemoryID: "obs",
+		Content:  "I try to meet up with other dog owners once a week for tips from other parents and so they can all play together",
+		Score:    0.4,
+	}}
+	full := []rankedSearchResult{obs}
+	capped := make([]rankedSearchResult, 0, 30)
+	for i := 0; i < 30; i++ {
+		capped = append(capped, rankedSearchResult{result: SearchResult{
+			MemoryID: fmt.Sprintf("fill%02d", i),
+			Content:  "Audrey's dogs meet other dog owners in the park and have doggie playdates.",
+			Score:    1.5,
+		}})
+	}
+	got := keepCadenceInCap(full, capped, q, 30)
+	found := false
+	for _, item := range got {
+		if strings.Contains(strings.ToLower(item.result.Content), "once a week") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("how-often evidence-set cap must keep cadence leftover, n=%d", len(got))
+	}
+	if len(got) > 30 {
+		t.Fatalf("how-often cadence keep must stay within limit, n=%d", len(got))
+	}
+}
+
 func TestKeepDurationInCapSurvivesListFill(t *testing.T) {
 	q := "How long have Mel and her husband been married?"
 	obs := rankedSearchResult{result: SearchResult{
