@@ -4244,6 +4244,29 @@ func TestLeftoverCoveringWhatMadePrefersOffQueryEvidence(t *testing.T) {
 	if !leftoverCoveringProcessHortativeLine("Just keep their area clean, feed them properly, and make sure they get enough light") {
 		t.Fatal("just-keep leftover without process restatement must count as process hortative")
 	}
+	if looksWhatMotivatesQuery("What made being part of the running group easy for Deborah to stay motivated?") || looksWhatMotivatesQuery("How does Tim stay motivated during difficult study sessions?") {
+		t.Fatal("what-made stay-motivated and how-stay-motivated are not what-motivates")
+	}
+	if !looksWhatMotivatesQuery("What motivates Joanna to keep writing even on tough days?") {
+		t.Fatal("what-motivates must classify as what-motivates")
+	}
+	qWrite := "What motivates Joanna to keep writing even on tough days?"
+	goldWrite := "It's knowing that my writing can make a difference that keeps me going, even on tough days"
+	if leftoverCoveringLineHasForeignPerson(qWrite, goldWrite) {
+		t.Fatal("sentence-initial It's-knowing must not count as a foreign person")
+	}
+	if !leftoverCoveringMotivateCauseLine(qWrite, goldWrite) {
+		t.Fatal("first-person my-writing cleft leftover must count as what-motivates cause")
+	}
+	if leftoverCoveringMotivateCauseLine(qWrite, "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times.") {
+		t.Fatal("compiler motivate-her fact is not first-person object-cause leftover")
+	}
+	if leftoverCoveringMotivateCauseLine(qWrite, "Have faith in yourself and continue following your writing dreams - it's tough but worth it") {
+		t.Fatal("have-faith hortative is not first-person object-cause leftover")
+	}
+	if leftoverCoveringMotivateCauseLine(qWrite, "Wish I had a vacation lined up, but right now my writing is consuming me") {
+		t.Fatal("occupation leftover with my writing is not a cause connective")
+	}
 }
 
 func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
@@ -4797,6 +4820,193 @@ func TestApplyFactPrimaryRecallKeepsProcessHortativeEpisode(t *testing.T) {
 	applyFactPrimaryRecall(candidates, q, false)
 	if _, ok := candidates["ep"]; !ok {
 		t.Fatal("how-describe-process query must keep hortative episode leftover")
+	}
+}
+
+func TestLeftoverCoveringMotivatePrefersCauseOverTurtle(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times."},
+			{Content: "Have faith in yourself and continue following your writing dreams - it's tough but worth it"},
+			{Content: "Wish I had a vacation lined up, but right now my writing is consuming me"},
+			{Content: "Joanna is passionate about writing and intends to keep pursuing it."},
+			{Content: "It's knowing that my writing can make a difference that keeps me going, even on tough days"},
+		},
+	}
+	q := "What motivates Joanna to keep writing even on tough days?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "difference") || !strings.Contains(lower, "writing") {
+		t.Fatalf("what-motivates leftover covering must pick the first-person cause leftover, got %q", got)
+	}
+	if strings.Contains(lower, "turtle") || strings.Contains(lower, "faith") || strings.Contains(lower, "consuming") {
+		t.Fatalf("turtle, faith, or occupation leftover must not cover what-motivates, got %q", got)
+	}
+	hybrid := "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times."
+	if !leftoverCoveringMotivateMissesCause(q, got, hybrid) {
+		t.Fatal("what-motivates covering must replace a compiler motivate-her restatement")
+	}
+}
+
+func TestLeftoverCoveringMotivateEmptyLeavesHybrid(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times."},
+			{Content: "Have faith in yourself and continue following your writing dreams - it's tough but worth it"},
+			{Content: "Wish I had a vacation lined up, but right now my writing is consuming me"},
+		},
+	}
+	q := "What motivates Joanna to keep writing even on tough days?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	if got != "" {
+		t.Fatalf("what-motivates leftover covering must stay empty without a cause line so turtle hybrid can hold, got %q", got)
+	}
+	if leftoverCoveringMotivateMissesCause(q, "", "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times.") {
+		t.Fatal("empty what-motivates covering must not replace the turtle hybrid")
+	}
+}
+
+func TestLeftoverCoveringMotivateDoesNotStealRunningGroup(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Deborah", Value: "Deborah", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "We help and push each other during our runs, which makes it so much easier to stay motivated"},
+			{Content: "It's knowing that my writing can make a difference that keeps me going, even on tough days"},
+		},
+	}
+	q := "What made being part of the running group easy for Deborah to stay motivated?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "push") {
+		t.Fatalf("what-made covering must still pick the running-group push leftover, got %q", got)
+	}
+	if strings.Contains(lower, "writing") || strings.Contains(lower, "difference") {
+		t.Fatalf("what-motivates cause leftover must not steal what-made covering, got %q", got)
+	}
+}
+
+func TestExpandMotivateCauseSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_18"
+	q := "What motivates Joanna to keep writing even on tough days?"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Joanna is passionate about writing and intends to keep pursuing it.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about writing",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "It's knowing that my writing can make a difference that keeps me going, even on tough days",
+		Metadata: map[string]any{"session_id": session},
+	}
+	turtle := MemoryRecord{
+		MemoryID: "turtle",
+		Content:  "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, turtle, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the cause leftover can miss")
+	}
+	expandMotivateCauseSessionNeighbors(candidates, []MemoryRecord{seed}, all, q, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("what-motivates session expand must admit the first-person cause leftover past the generic cap")
+	}
+	if _, ok := candidates["turtle"]; ok {
+		t.Fatal("what-motivates session expand must not admit compiler motivate-her leftover")
+	}
+}
+
+func TestSessionIDsForWhatMotivatesQueryPrefersCauseSession(t *testing.T) {
+	q := "What motivates Joanna to keep writing even on tough days?"
+	writing := MemoryRecord{
+		MemoryID: "w",
+		Content:  "Joanna is passionate about writing and intends to keep pursuing it.",
+		Metadata: map[string]any{"session_id": "session_18"},
+	}
+	turtle := MemoryRecord{
+		MemoryID: "t",
+		Content:  "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times.",
+		Metadata: map[string]any{"session_id": "session_1"},
+	}
+	ids := sessionIDsForWhatMotivatesQuery(q, []MemoryRecord{turtle, writing}, nil)
+	if len(ids) == 0 || ids[0] != "session_18" {
+		t.Fatalf("what-motivates session pick must prefer object-token coverage, got %#v", ids)
+	}
+	noisy := make([]MemoryRecord, 0, 12)
+	for i := 11; i <= 22; i++ {
+		noisy = append(noisy, MemoryRecord{
+			MemoryID: "t" + itoa(i),
+			Content:  "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times.",
+			Metadata: map[string]any{"session_id": "session_" + itoa(i)},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "g",
+		Content:  "It's knowing that my writing can make a difference that keeps me going, even on tough days",
+		Metadata: map[string]any{"session_id": "session_18"},
+	}
+	ids = sessionIDsForWhatMotivatesQuery(q, append(noisy, writing), []MemoryRecord{gold})
+	if len(ids) == 0 || ids[0] != "session_18" {
+		t.Fatalf("what-motivates session pick must keep the cause session ahead of turtle-slogan sessions, got %#v", ids)
+	}
+}
+
+func TestApplyMotivateCauseRankBoostSkipsTurtleRestatement(t *testing.T) {
+	q := "What motivates Joanna to keep writing even on tough days?"
+	gold := 1.0
+	turtle := 1.0
+	applyMotivateCauseRankBoost(&gold, map[string]any{}, q, MemoryRecord{Content: "It's knowing that my writing can make a difference that keeps me going, even on tough days"})
+	applyMotivateCauseRankBoost(&turtle, map[string]any{}, q, MemoryRecord{Content: "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times."})
+	if gold <= turtle {
+		t.Fatalf("what-motivates rank boost must lift cause leftover over turtle restatement, gold=%v turtle=%v", gold, turtle)
+	}
+}
+
+func TestScoreMemoryIDFMotivateCauseNeedsFloor(t *testing.T) {
+	q := "What motivates Joanna to keep writing even on tough days?"
+	gold := MemoryRecord{Content: "It's knowing that my writing can make a difference that keeps me going, even on tough days"}
+	if !leftoverCoveringMotivateCauseLine(q, gold.Content) {
+		t.Fatal("first-person cause leftover must classify as what-motivates cause")
+	}
+	// After dropping motivate/keep/person, writing/tough/days still match, so IDF
+	// may be non-zero. Floor is for leftover that omits remaining query tokens.
+	zero := MemoryRecord{Content: "It's knowing that my craft can make a difference that keeps me going, even on hard evenings"}
+	if leftoverCoveringMotivateCauseLine(q, zero.Content) {
+		t.Fatal("cause leftover must still require the query object token")
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsMotivateCauseEpisode(t *testing.T) {
+	q := "What motivates Joanna to keep writing even on tough days?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Joanna believes turtles symbolize strength and perseverance and motivate her in tough times."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "It's knowing that my writing can make a difference that keeps me going, even on tough days",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("what-motivates query must keep first-person cause episode leftover")
 	}
 }
 

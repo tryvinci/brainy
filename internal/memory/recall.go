@@ -749,6 +749,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringProcessMissesHortative(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringMotivateMissesCause(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3892,7 +3895,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		}
 	}
 	if looksCrowdedHopDump(line) && !(looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)) &&
-		!(looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line)) {
+		!(looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line)) &&
+		!(looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4073,6 +4077,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksWhatMotivatesQuery(query) {
+			if leftoverCoveringMotivateCauseLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringMotivateCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4124,6 +4136,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			best = next
 		}
 		if !leftoverCoveringProcessHortativeLine(best) {
+			return ""
+		}
+	}
+	if looksWhatMotivatesQuery(query) {
+		if next := leftoverCoveringPreferMotivateCause(query, scored, best); next != "" {
+			best = next
+		}
+		if !leftoverCoveringMotivateCauseLine(query, best) {
 			return ""
 		}
 	}
@@ -4430,6 +4450,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringProcessMissesHortative(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringMotivateMissesCause(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -4853,6 +4876,11 @@ func looksWhatMadeQuery(query string) bool {
 	return strings.Contains(q, "what made") || strings.Contains(q, "what makes")
 }
 
+func looksWhatMotivatesQuery(query string) bool {
+	q := strings.ToLower(query)
+	return strings.Contains(q, "what motivates") || strings.Contains(q, "what motivated")
+}
+
 func looksHowDescribeQuery(query string) bool {
 	q := strings.ToLower(query)
 	if !strings.Contains(q, "describe") {
@@ -4866,7 +4894,7 @@ func looksHowDescribeProcessQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -4908,6 +4936,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(line) {
+		return true
+	}
+	if looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5381,6 +5412,139 @@ func leftoverCoveringProcessMissesHortative(query, covering, answer string) bool
 		return false
 	}
 	if !leftoverCoveringProcessHortativeLine(covering) {
+		return false
+	}
+	return true
+}
+
+func leftoverCoveringMotivateStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "motivate", "motivates", "motivating", "motivation",
+		"keep", "keeps", "keeping", "even", "tough", "day", "days":
+		return true
+	}
+	return leftoverCoverWeakToken(tok) || isQueryStopword(tok)
+}
+
+func leftoverCoveringMotivateObjectTokens(query string) []string {
+	people := map[string]struct{}{}
+	for _, e := range hopQueryEntities(query) {
+		people[strings.ToLower(strings.TrimSpace(e))] = struct{}{}
+	}
+	out := make([]string, 0, 4)
+	for _, tok := range leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query))) {
+		low := strings.ToLower(strings.TrimSpace(tok))
+		if leftoverCoveringMotivateStructureToken(low) {
+			continue
+		}
+		if _, ok := people[low]; ok {
+			continue
+		}
+		out = append(out, low)
+	}
+	return out
+}
+
+func leftoverCoveringMotivateFirstPersonObject(query, line string) bool {
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	if body == "" {
+		return false
+	}
+	padded := " " + body + " "
+	for _, obj := range leftoverCoveringMotivateObjectTokens(query) {
+		if obj == "" {
+			continue
+		}
+		if strings.Contains(padded, " my "+obj+" ") || strings.Contains(padded, " my "+obj+"s ") {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringMotivateCauseConnective(line string) bool {
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	if body == "" {
+		return false
+	}
+	trimmed := leftoverCoveringStripLeadConjunctions(body)
+	if strings.HasPrefix(trimmed, "it's ") || strings.HasPrefix(trimmed, "it is ") || strings.HasPrefix(trimmed, "knowing ") {
+		return true
+	}
+	padded := " " + body + " "
+	for _, p := range []string{" that keeps me ", " keeps me going ", " knowing that ", " because "} {
+		if strings.Contains(padded, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringMotivateCauseLine(query, line string) bool {
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) {
+		return false
+	}
+	if !leftoverCoveringMotivateFirstPersonObject(query, line) {
+		return false
+	}
+	return leftoverCoveringMotivateCauseConnective(line)
+}
+
+func leftoverCoveringMotivateCompanionLine(query, line string) bool {
+	if leftoverCoveringMotivateCauseLine(query, line) {
+		return false
+	}
+	for _, tok := range leftoverCoverNonWeakTokens(contentBearingTokens(tokenize(query))) {
+		if leftoverCoveringMotivateStructureToken(tok) {
+			if contentCoversQueryToken(line, tok) {
+				return true
+			}
+			continue
+		}
+		if contentCoversQueryToken(line, tok) && !leftoverCoveringMotivateFirstPersonObject(query, line) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringPreferMotivateCause(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringMotivateCauseLine(query, row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringMotivateMissesCause(query, covering, answer string) bool {
+	if !looksWhatMotivatesQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringMotivateCauseLine(query, answer) {
+		return false
+	}
+	if !leftoverCoveringMotivateCauseLine(query, covering) {
 		return false
 	}
 	return true

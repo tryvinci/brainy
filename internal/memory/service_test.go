@@ -778,6 +778,26 @@ func TestSearchLexicalTokensDropsWhatMadeStructureAndPerson(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalTokensDropsWhatMotivatesStructureAndPerson(t *testing.T) {
+	q := "What motivates Joanna to keep writing even on tough days?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"motivates", "motivate", "joanna", "keep", "even"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("what-motivates lexical tokens must drop structure/person %q, got %v", banned, got)
+		}
+	}
+	for _, keep := range []string{"writing", "tough", "days"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("what-motivates lexical tokens must keep %q, got %v", keep, got)
+		}
+	}
+	made := searchLexicalQueryTokens("What made being part of the running group easy for Deborah to stay motivated?", tokenize("What made being part of the running group easy for Deborah to stay motivated?"))
+	if !strings.Contains(strings.Join(made, " "), "motivated") {
+		t.Fatalf("what-made queries must keep motivated, got %v", made)
+	}
+}
+
 func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))
