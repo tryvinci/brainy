@@ -4067,6 +4067,31 @@ func TestLeftoverCoveringWhenEventKeepsSentenceInitialVerbLine(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhichYearResolvesRelativeDuration(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Dana started practicing yoga in 2018."},
+			{Content: "Riley started practicing yoga in 2020."},
+			{Content: "Riley has been working on his health for two years as of August 7, 2023."},
+		},
+	}
+	q := "Which year did Riley start taking care of his health seriously?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	if got != "2021" {
+		t.Fatalf("which-year leftover covering must resolve for-N-years-as-of to the start year, got %q", got)
+	}
+	if !leftoverCoveringYearMissesEvent(q, got, "Riley has been working on his health for two years as of August 7, 2023.") {
+		t.Fatal("as-of duration must yield to the resolved start year")
+	}
+	yogaGot := leftoverCoveringSpecificAnswer("Which year did Riley start practicing yoga?", hops, pkt)
+	if !strings.Contains(yogaGot, "2020") || strings.Contains(yogaGot, "2018") || yogaGot == "2021" {
+		t.Fatalf("explicit start year must still cover which-year, got %q", yogaGot)
+	}
+}
+
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{

@@ -3765,7 +3765,8 @@ func leftoverCoverWeakToken(tok string) bool {
 		"which", "where", "what", "when", "their", "they", "them",
 		"have", "has", "had", "having", "been", "does", "did", "doing",
 		"cool", "find", "plan", "plans", "item", "items",
-		"activity", "activities", "support", "supports", "supporting":
+		"activity", "activities", "support", "supports", "supporting",
+		"year", "years":
 		return true
 	}
 	return false
@@ -4045,17 +4046,17 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	best = stripConflictingDateTail(query, best)
 	if whereQ {
 		if place := locativePlaceFromLine(best); place != "" {
-			return place
+			return leftoverCoveringFinish(query, place)
 		}
-		return best
+		return leftoverCoveringFinish(query, best)
 	}
 	if joined := leftoverCoveringJoinSchemaActivities(query, strong, scored, best); joined != "" {
-		return joined
+		return leftoverCoveringFinish(query, joined)
 	}
 	if joined := leftoverCoveringJoinPastPossessions(query, strong, scored, best); joined != "" {
-		return joined
+		return leftoverCoveringFinish(query, joined)
 	}
-	return best
+	return leftoverCoveringFinish(query, best)
 }
 
 func leftoverCoverRarestTokens(strong []string, df map[string]int) []string {
@@ -4612,6 +4613,84 @@ func leftoverCoveringLineHasYear(s string) bool {
 	return false
 }
 
+// leftoverCoveringFinish rewrites which-year covering of the form
+// "for N years as of DATE" to the start year. The as-of calendar year is
+// not the year the event started.
+func leftoverCoveringFinish(query, covering string) string {
+	covering = strings.TrimSpace(covering)
+	if covering == "" || !looksYearQuery(query) {
+		return covering
+	}
+	if y := leftoverCoveringRelativeStartYear(covering); y >= 1900 && y <= 2100 {
+		return strconv.Itoa(y)
+	}
+	return covering
+}
+
+func leftoverCoveringRelativeStartYear(line string) int {
+	body := hybridLineBody(line)
+	lower := strings.ToLower(body)
+	idx := strings.Index(lower, " as of ")
+	if idx < 0 {
+		return 0
+	}
+	n := leftoverCoveringForYears(lower[:idx])
+	if n <= 0 || n > 80 {
+		return 0
+	}
+	asOf := parseDateFromText(strings.TrimSpace(body[idx+len(" as of "):]))
+	if asOf == nil {
+		return 0
+	}
+	return asOf.Year() - n
+}
+
+func leftoverCoveringForYears(head string) int {
+	fields := strings.Fields(head)
+	for i := 0; i+2 < len(fields); i++ {
+		if fields[i] != "for" {
+			continue
+		}
+		if !strings.HasPrefix(fields[i+2], "year") {
+			continue
+		}
+		if n := leftoverCoveringYearWord(fields[i+1]); n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+func leftoverCoveringYearWord(tok string) int {
+	tok = strings.Trim(strings.ToLower(tok), ".,;:()[]\"'")
+	if n, err := strconv.Atoi(tok); err == nil && n > 0 && n < 100 {
+		return n
+	}
+	switch tok {
+	case "one", "a":
+		return 1
+	case "two":
+		return 2
+	case "three":
+		return 3
+	case "four":
+		return 4
+	case "five":
+		return 5
+	case "six":
+		return 6
+	case "seven":
+		return 7
+	case "eight":
+		return 8
+	case "nine":
+		return 9
+	case "ten":
+		return 10
+	}
+	return 0
+}
+
 // leftoverCoveringYearMissesEvent is true when a which/what-year answer has no
 // year token but a query-bound leftover line does.
 func leftoverCoveringYearMissesEvent(query, covering, answer string) bool {
@@ -4627,6 +4706,9 @@ func leftoverCoveringYearMissesEvent(query, covering, answer string) bool {
 		return false
 	}
 	if leftoverCoveringLineHasYear(answer) && leftoverCoveringMentionsQueryEntity(query, answer) {
+		if leftoverCoveringRelativeStartYear(answer) != 0 {
+			return leftoverCoveringMentionsQueryEntity(query, covering) || !leftoverCoveringLineHasForeignPerson(query, covering)
+		}
 		return false
 	}
 	if leftoverCoveringMentionsQueryEntity(query, covering) {
