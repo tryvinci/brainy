@@ -1,0 +1,56 @@
+{
+  "tenant_prefix": "diag-mh-135",
+  "runs": [
+    {
+      "lane": "product-recall",
+      "run_id": "locomo-s0-diag-mh-135-p30-product-recall-s1-1f2c6b",
+      "accuracy": 0.6333333333333333,
+      "correct": 114,
+      "total": 180,
+      "by_group": {
+        "temporal": {
+          "correct": 30,
+          "total": 38
+        },
+        "multi-hop": {
+          "correct": 18,
+          "total": 33
+        },
+        "open-domain": {
+          "correct": 4,
+          "total": 11
+        },
+        "single-hop": {
+          "correct": 62,
+          "total": 98
+        }
+      },
+      "failure_histogram": {
+        "total": 66,
+        "by_primary": {
+          "RETRIEVAL_MISS": 28,
+          "PROOF_MISS": 24,
+          "READER_MISS": 8,
+          "WRITE_MISS": 4,
+          "HARNESS_ERROR": 2
+        },
+        "by_group": {
+          "single-hop:PROOF_MISS": 18,
+          "single-hop:RETRIEVAL_MISS": 12,
+          "multi-hop:RETRIEVAL_MISS": 11,
+          "open-domain:PROOF_MISS": 5,
+          "multi-hop:READER_MISS": 3,
+          "single-hop:READER_MISS": 3,
+          "temporal:RETRIEVAL_MISS": 3,
+          "temporal:READER_MISS": 2,
+          "open-domain:RETRIEVAL_MISS": 2,
+          "single-hop:HARNESS_ERROR": 2,
+          "temporal:WRITE_MISS": 2,
+          "multi-hop:WRITE_MISS": 1,
+          "single-hop:WRITE_MISS": 1,
+          "temporal:PROOF_MISS": 1
+        }
+      }
+    }
+  ]
+}
