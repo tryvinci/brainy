@@ -641,29 +641,36 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			}
 		}
 	}
-	// Hosted-event lines often sit past the generic session-neighbor cap in a
-	// crowded same-timestamp session. Admit a bounded set of those lines from
-	// lexical-seed sessions without raising the global neighbor cap or adding
-	// event nouns as query tokens.
-	if looksHostQuery(query) {
-		hostAll := allMemories
-		ids := sessionIDsForHostQuery(query, memories)
-		if lister, ok := s.store.(SessionMemoryLister); ok {
-			if len(ids) > 0 {
-				if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
-					hostAll = listed
-				}
-			}
-		}
-		if len(hostAll) > 0 {
-			expandHostedEventSessionNeighbors(candidates, memories, hostAll, 8)
-		}
-	}
 
 	// Rare query tokens (filling, gym, series) lose the lexical pool when FTS
 	// ANDs every term or ILIKE is recency-capped on common names. Admit a
 	// bounded per-token hit set so compiled facts can rank.
 	trace.QueryTokenAdmitted = s.admitUncoveredQueryTokens(ctx, tenantID, subjectID, includeSuperseded, candidates, admitToks)
+
+	// Host leftover covering needs the hosted-event line in the packet. FTS
+	// overfetch often never includes that session; realize/photograph enter
+	// later via dense/related admits. Rank those candidate sessions by leftover
+	// coverage, then fetch bounded rows for those session_ids.
+	if looksHostQuery(query) {
+		seeds := make([]MemoryRecord, 0, len(candidates))
+		for _, rec := range candidates {
+			seeds = append(seeds, rec)
+		}
+		ids := sessionIDsForHostQuery(query, seeds)
+		idSeeds := make([]MemoryRecord, 0, len(ids))
+		for _, id := range ids {
+			idSeeds = append(idSeeds, MemoryRecord{Metadata: map[string]any{"session_id": id}})
+		}
+		hostAll := allMemories
+		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+				hostAll = listed
+			}
+		}
+		if len(hostAll) > 0 && len(idSeeds) > 0 {
+			expandHostedEventSessionNeighbors(candidates, idSeeds, hostAll, 8)
+		}
+	}
 
 	// Entity linking: entities are extracted and persisted on ingest (used for
 	// provenance and the planned graph layer). Applying entity overlap as a
@@ -805,6 +812,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			}
 		}
 		applySessionNeighborBoost(&score, explain, record, memories)
+		applyHostedEventRankBoost(&score, explain, query, record)
 		applyConvictionBoost(&score, explain, record)
 		applyTasteSignalBoost(&score, explain, record, queryTokens)
 		if mult := LifecycleRankMultiplier(s.packs, record); mult != 1 {
@@ -1167,7 +1175,7 @@ func sessionIDsForHostQuery(query string, seeds []MemoryRecord) []string {
 				n++
 			}
 		}
-		if n == 0 {
+		if n < 2 {
 			continue
 		}
 		if _, ok := best[sid]; !ok {
@@ -1669,6 +1677,17 @@ func applySessionNeighborBoost(score *float64, explain map[string]any, record Me
 			explain["session_neighbor_boost"] = 0.08
 			return
 		}
+	}
+}
+
+func applyHostedEventRankBoost(score *float64, explain map[string]any, query string, record MemoryRecord) {
+	if score == nil || !looksHostQuery(query) || !leftoverCoveringHostedEventLine(record.Content) {
+		return
+	}
+	const bonus = 0.75
+	*score += bonus
+	if explain != nil {
+		explain["hosted_event_boost"] = bonus
 	}
 }
 

@@ -4300,6 +4300,22 @@ func TestSessionIDsForHostQueryPrefersCoveringSession(t *testing.T) {
 	}
 }
 
+func TestApplyHostedEventRankBoostSkipsPhotograph(t *testing.T) {
+	q := "What did John host for the veterans in May 2023 as part of the project"
+	party := 1.0
+	photo := 1.0
+	applyHostedEventRankBoost(&party, map[string]any{}, q, MemoryRecord{Content: "John organized a small party for veterans."})
+	applyHostedEventRankBoost(&photo, map[string]any{}, q, MemoryRecord{Content: "John has a photograph of veterans taken on 19 May 2023."})
+	if party <= photo {
+		t.Fatalf("hosted-event rank boost must lift party over photograph, party=%v photo=%v", party, photo)
+	}
+	run := 1.0
+	applyHostedEventRankBoost(&run, map[string]any{}, q, MemoryRecord{Content: "John organized a 5K charity run in his neighborhood to support veterans."})
+	if run != 1.0 {
+		t.Fatalf("5K run must not receive hosted-event rank boost, got %v", run)
+	}
+}
+
 func TestPreferUnwindPacketActivitiesJoinsCalmingSlots(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
