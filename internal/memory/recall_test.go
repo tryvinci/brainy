@@ -5695,6 +5695,176 @@ func TestExpandPurposeActionSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringHowDidStartPrefersChangedStartedPair(t *testing.T) {
+	gold := "Changed my diet, started walking regularly, things like that"
+	diet := "Evan changed his diet around two years ago (approximately 2021-10-25). (25 October 2021; 2 years ago)"
+	walk := "Evan started walking regularly around two years ago (approximately 2021-10-25). (25 October 2021; 2 years ago)"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Evan: Yeah, what worked for me was finding a fitness routine I really enjoy"},
+			{Content: "Evan possesses a gym membership card."},
+			{Content: "I started lifting weights one year ago and it's been a journey (8 October 2022; 1 years ago)"},
+			{Content: "Evan started watercolor painting a few years ago."},
+			{Content: "Evan has been working on his health for two years as of August 7, 2023."},
+			{Content: "Sam started a new diet on 2023-08-21."},
+			{Content: diet},
+			{Content: walk},
+			{Content: gold},
+		},
+	}
+	q := "How did Evan start his transformation journey two years ago?"
+	if !looksHowDidStartQuery(q) {
+		t.Fatal("how-did-start N-years-ago must count as how-did-start")
+	}
+	if looksHowDidStartQuery("How does Nate describe the process of taking care of turtles?") {
+		t.Fatal("how-describe must not count as how-did-start")
+	}
+	if looksHowDidStartQuery("How do Audrey's dogs react to snow?") {
+		t.Fatal("how-react must not count as how-did-start")
+	}
+	if looksHowDidStartQuery("How did Joanna feel when someone wrote her a letter after reading her blog post?") {
+		t.Fatal("how-did-feel without start+ago must not count as how-did-start")
+	}
+	if looksHowDidStartQuery("What did Audrey do in November 2023 to better take care of her dogs?") {
+		t.Fatal("what-did-purpose must not count as how-did-start")
+	}
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "diet") || !strings.Contains(lower, "walking") {
+		t.Fatalf("how-did-start leftover covering must pick changed+started pair leftover, got %q", got)
+	}
+	if strings.Contains(lower, "gym") || strings.Contains(lower, "fitness routine") || strings.Contains(lower, "lifting weights") || strings.Contains(lower, "watercolor") {
+		t.Fatalf("gym restatement and duration-mismatch starts must not cover how-did-start, got %q", got)
+	}
+	if leftoverCoveringStartMethodLine(q, "Evan possesses a gym membership card.") {
+		t.Fatal("gym membership is not start-method leftover")
+	}
+	if leftoverCoveringStartMethodLine(q, "I started lifting weights one year ago and it's been a journey (8 October 2022; 1 years ago)") {
+		t.Fatal("one-year lifting leftover is duration-mismatch, not two-year start-method")
+	}
+	if leftoverCoveringStartMethodLine(q, "Evan started watercolor painting a few years ago.") {
+		t.Fatal("a few years ago is not two years ago")
+	}
+	if leftoverCoveringStartMethodLine(q, "Sam started a new diet on 2023-08-21.") {
+		t.Fatal("foreign dated diet start is not query-actor two-year start-method")
+	}
+	if leftoverCoveringStartMethodLine(q, "Evan has been working on his health for two years as of August 7, 2023.") {
+		t.Fatal("working-on-it continuation is not start-method leftover")
+	}
+	if leftoverCoveringStartMethodLine(q, "Two years ago Evan began his health transformation by joining a gym and starting a fitness routine.") {
+		t.Fatal("gym transformation restatement must not count as start-method leftover")
+	}
+	if !leftoverCoveringStartMethodLine(q, gold) {
+		t.Fatal("first-person changed+started leftover must count as start-method")
+	}
+	if leftoverCoveringSkipsHybrid(q, "") || leftoverCoveringSkipsHybrid(q, "Evan follows a fitness routine that he enjoys.") {
+		t.Fatal("empty covering and gym restatement must not skip hybrid")
+	}
+	if leftoverCoveringSkipsHybrid("What did Audrey do in November 2023 to better take care of her dogs?", gold) {
+		t.Fatal("what-did-purpose must not skip hybrid via how-did-start method")
+	}
+	if !leftoverCoveringSkipsHybrid(q, gold) {
+		t.Fatal("how-did-start pair leftover must skip hybrid")
+	}
+	hybrid := "Two years ago Evan began his health transformation by joining a gym and starting a fitness routine."
+	if !leftoverCoveringStartMissesMethod(q, got, hybrid) {
+		t.Fatal("gym hybrid must miss start-method leftover")
+	}
+	dumpItems := []RecallItem{
+		{Value: "gym membership"},
+		{Value: "fitness routine"},
+	}
+	synced := leftoverCoveringSyncEnumerateItems(q, got, dumpItems)
+	if len(synced) != 1 || synced[0].Value != got {
+		t.Fatalf("how-did-start enumerate items must follow start-method covering, got %#v", synced)
+	}
+}
+
+func TestLeftoverCoveringHowDidStartJoinsDurationFactsWithoutPair(t *testing.T) {
+	diet := "Evan changed his diet around two years ago (approximately 2021-10-25). (25 October 2021; 2 years ago)"
+	walk := "Evan started walking regularly around two years ago (approximately 2021-10-25). (25 October 2021; 2 years ago)"
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Evan possesses a gym membership card."},
+			{Content: "I started lifting weights one year ago and it's been a journey (8 October 2022; 1 years ago)"},
+			{Content: diet},
+			{Content: walk},
+		},
+	}
+	q := "How did Evan start his transformation journey two years ago?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "diet") || !strings.Contains(lower, "walking") {
+		t.Fatalf("how-did-start leftover covering must join duration-matched inception facts, got %q", got)
+	}
+	if strings.Contains(lower, "gym") || strings.Contains(lower, "lifting") {
+		t.Fatalf("gym/lifting must not join into how-did-start covering, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringHowDidStartStaysEmptyWithoutMethod(t *testing.T) {
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Evan possesses a gym membership card."},
+			{Content: "Evan: Yeah, what worked for me was finding a fitness routine I really enjoy"},
+			{Content: "I started lifting weights one year ago and it's been a journey (8 October 2022; 1 years ago)"},
+		},
+	}
+	q := "How did Evan start his transformation journey two years ago?"
+	got := leftoverCoveringSpecificAnswer(q, nil, pkt)
+	if got != "" {
+		t.Fatalf("how-did-start leftover covering must stay empty without duration-matched start-method leftover, got %q", got)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsStartMethodEpisode(t *testing.T) {
+	q := "How did Evan start his transformation journey two years ago?"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "Evan possesses a gym membership card."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "Changed my diet, started walking regularly, things like that",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("how-did-start query must keep changed+started episode leftover")
+	}
+}
+
+func TestExpandStartMethodSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
+	session := "session_15"
+	seed := MemoryRecord{
+		MemoryID: "seed",
+		Content:  "Evan went for a morning walk.",
+		Metadata: map[string]any{"session_id": session},
+	}
+	candidates := map[string]MemoryRecord{"seed": seed}
+	all := []MemoryRecord{seed}
+	for i := 0; i < 16; i++ {
+		all = append(all, MemoryRecord{
+			MemoryID: "noise-" + itoa(i),
+			Content:  "unrelated session chatter about morning walks",
+			Metadata: map[string]any{"session_id": session},
+		})
+	}
+	gold := MemoryRecord{
+		MemoryID: "gold",
+		Content:  "Changed my diet, started walking regularly, things like that",
+		Metadata: map[string]any{"session_id": session},
+	}
+	all = append(all, gold)
+	expandSessionNeighbors(candidates, []MemoryRecord{seed}, all, 16)
+	if _, ok := candidates["gold"]; ok {
+		t.Fatal("generic session expand must stay capped so the start-method leftover can miss")
+	}
+	expandStartMethodSessionNeighbors(candidates, "How did Evan start his transformation journey two years ago?", []MemoryRecord{seed}, all, 8)
+	if _, ok := candidates["gold"]; !ok {
+		t.Fatal("how-did-start session expand must admit changed+started leftover past the generic cap")
+	}
+}
+
 func TestExpandKindListSessionNeighborsAdmitsGoldPastCap(t *testing.T) {
 	session := "session_13"
 	seed := MemoryRecord{

@@ -775,6 +775,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringPurposeMissesAction(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringStartMissesMethod(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3765,7 +3768,7 @@ func leftoverNonEntityRareTokens(query string, hops []HopResult) []string {
 
 func leftoverCoverRareTokens(query string, hops []HopResult) []string {
 	minLen := 6
-	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) {
+	if querySpecificCalendarDate(query) != nil || looksWhenEventQuery(query) || looksYearQuery(query) || looksHowReactQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query) {
 		minLen = 4
 	}
 	leftover := leftoverNonEntityQueryTokens(query, hops)
@@ -3842,6 +3845,16 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 	rare := leftoverCoverRareTokens(query, nil)
 	if looksInstrumentPurposeQuery(query) {
 		rare = leftoverCoverAddTokens(rare, leftoverCoveringInstrumentTokens(query)...)
+	}
+	if looksHowDidStartQuery(query) {
+		filtered := make([]string, 0, len(rare))
+		for _, tok := range rare {
+			if leftoverCoveringStartStructureToken(tok) {
+				continue
+			}
+			filtered = append(filtered, tok)
+		}
+		rare = leftoverCoverAddTokens(filtered, leftoverCoveringAgoDurationTokens(query)...)
 	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
@@ -3922,7 +3935,8 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, line)) &&
 		!(looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(line)) &&
 		!(looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(line) && leftoverCoveringReactLineHasObject(query, line)) &&
-		!(looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line)) {
+		!(looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line)) &&
+		!(looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line)) {
 		return true
 	}
 	body := line
@@ -4135,6 +4149,14 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
+		if looksHowDidStartQuery(query) {
+			if leftoverCoveringStartMethodLine(query, line) {
+				score += 4
+			}
+			if leftoverCoveringStartCompanionLine(query, line) {
+				score -= 3
+			}
+		}
 		scored = append(scored, leftoverCoverScored{line: line, score: score})
 		if score > bestScore {
 			bestScore = score
@@ -4239,6 +4261,20 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringPurposeActionLine(query, best) {
 			// purpose-infinitive leftover must carry the adjacent purpose pair
 			// (take care), not comparative-better chat or a dated salon visit.
+		} else {
+			return ""
+		}
+	}
+	if looksHowDidStartQuery(query) {
+		if next := leftoverCoveringPreferStartMethod(query, scored, best); next != "" {
+			best = next
+		}
+		if joined := leftoverCoveringJoinStartMethods(query, scored); joined != "" {
+			return leftoverCoveringFinish(query, joined)
+		}
+		if leftoverCoveringStartMethodLine(query, best) {
+			// how-did-start leftover must be duration-matched inception or a
+			// first-person changed+started pair, not a gym restatement.
 		} else {
 			return ""
 		}
@@ -4555,6 +4591,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 		return true
 	}
 	if leftoverCoveringReactMissesObservation(query, covering, answer) {
+		return true
+	}
+	if leftoverCoveringStartMissesMethod(query, covering, answer) {
 		return true
 	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
@@ -5023,6 +5062,27 @@ func looksHowReactQuery(query string) bool {
 	return hasReact || hasRespondTo
 }
 
+func looksHowDidStartQuery(query string) bool {
+	if looksHowDescribeQuery(query) || looksHowReactQuery(query) {
+		return false
+	}
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "how did") {
+		return false
+	}
+	hasStart := false
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "start", "started", "starting":
+			hasStart = true
+		}
+	}
+	if !hasStart {
+		return false
+	}
+	return parseYearsAgo(q) > 0
+}
+
 func looksWhatDidPurposeQuery(query string) bool {
 	if looksWhatSayAboutQuery(query) || looksHostQuery(query) || looksAdviceQuery(query) || looksHowReactQuery(query) {
 		return false
@@ -5051,7 +5111,7 @@ func looksWhatDidPurposeQuery(query string) bool {
 }
 
 func looksFirstPersonLeftoverQuery(query string) bool {
-	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query)
+	return looksWhatMadeQuery(query) || looksHowDescribeQuery(query) || looksWhatMotivatesQuery(query) || looksWhatSayAboutQuery(query) || looksWhatDidPurposeQuery(query) || looksHowDidStartQuery(query)
 }
 
 func looksHostQuery(query string) bool {
@@ -5105,6 +5165,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line) {
+		return true
+	}
+	if looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -5730,6 +5793,9 @@ func leftoverCoveringSkipsHybrid(query, covering string) bool {
 	if looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, covering) {
 		return true
 	}
+	if looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, covering) {
+		return true
+	}
 	return looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(covering)
 }
 
@@ -6252,6 +6318,208 @@ func leftoverCoveringPurposeMissesAction(query, covering, answer string) bool {
 	return leftoverCoveringPurposeActionLine(query, covering)
 }
 
+func leftoverCoveringStartStructureToken(tok string) bool {
+	switch strings.ToLower(strings.TrimSpace(tok)) {
+	case "start", "started", "starting",
+		"transformation", "journey", "journeys":
+		return true
+	}
+	return false
+}
+
+func leftoverCoveringAgoDurationTokens(query string) []string {
+	if parseYearsAgo(strings.ToLower(query)) <= 0 {
+		return nil
+	}
+	toks := tokenize(query)
+	for i := 0; i+2 < len(toks); i++ {
+		if toks[i+2] != "ago" {
+			continue
+		}
+		if toks[i+1] != "year" && toks[i+1] != "years" {
+			continue
+		}
+		return []string{toks[i], toks[i+1], toks[i+2]}
+	}
+	return nil
+}
+
+func leftoverCoveringStartDurationMatch(query, line string) bool {
+	want := parseYearsAgo(strings.ToLower(query))
+	if want <= 0 {
+		return false
+	}
+	return parseYearsAgo(strings.ToLower(hybridLineBody(line))) == want
+}
+
+func leftoverCoveringStartInceptionCount(line string) int {
+	seen := map[string]struct{}{}
+	for _, tok := range tokenize(hybridLineBody(line)) {
+		switch tok {
+		case "started":
+			seen["start"] = struct{}{}
+		case "changed":
+			seen["change"] = struct{}{}
+		case "began", "begun":
+			seen["begin"] = struct{}{}
+		}
+	}
+	return len(seen)
+}
+
+func leftoverCoveringStartActorLine(query, line string) bool {
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	if body == "" {
+		return false
+	}
+	padded := " " + body + " "
+	if strings.Contains(padded, " i ") || strings.Contains(padded, " i've ") || strings.Contains(padded, " i'm ") ||
+		strings.HasPrefix(body, "i ") || strings.HasPrefix(body, "i've ") || strings.Contains(padded, " my ") {
+		return true
+	}
+	return leftoverCoveringQueryEntityHits(query, hybridLineBody(line)) > 0
+}
+
+func leftoverCoveringStartMethodPairLine(query, line string) bool {
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	if leftoverCoveringStartInceptionCount(line) < 2 {
+		return false
+	}
+	return leftoverCoveringStartActorLine(query, line)
+}
+
+func leftoverCoveringStartMethodDurationLine(query, line string) bool {
+	if looksChatTurnLine(line) || looksInterrogativeLine(line) || looksImageCaptionLine(line) {
+		return false
+	}
+	if leftoverCoveringStartInceptionCount(line) < 1 {
+		return false
+	}
+	if !leftoverCoveringStartDurationMatch(query, line) {
+		return false
+	}
+	if contentCoversQueryToken(line, "transformation") || contentCoversQueryToken(line, "journey") {
+		return false
+	}
+	return leftoverCoveringStartActorLine(query, line)
+}
+
+func leftoverCoveringStartMethodLine(query, line string) bool {
+	return leftoverCoveringStartMethodPairLine(query, line) || leftoverCoveringStartMethodDurationLine(query, line)
+}
+
+func leftoverCoveringStartCompanionLine(query, line string) bool {
+	if leftoverCoveringStartMethodLine(query, line) {
+		return false
+	}
+	for _, tok := range leftoverCoveringAgoDurationTokens(query) {
+		if contentCoversQueryToken(line, tok) {
+			return true
+		}
+	}
+	return contentCoversQueryToken(line, "journey") || contentCoversQueryToken(line, "transformation")
+}
+
+func leftoverCoveringPreferStartMethod(query string, scored []leftoverCoverScored, best string) string {
+	pick := ""
+	pickScore := -1
+	pair := false
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && leftoverCoveringQueryEntityHits(query, row.line) == 0 {
+			continue
+		}
+		isPair := leftoverCoveringStartMethodPairLine(query, row.line)
+		isDur := leftoverCoveringStartMethodDurationLine(query, row.line)
+		if !isPair && !isDur {
+			continue
+		}
+		if isPair && !pair {
+			pair = true
+			pickScore = row.score
+			pick = row.line
+			continue
+		}
+		if pair && !isPair {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
+}
+
+func leftoverCoveringJoinStartMethods(query string, scored []leftoverCoverScored) string {
+	if !looksHowDidStartQuery(query) {
+		return ""
+	}
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if leftoverCoveringStartMethodPairLine(query, row.line) {
+			if leftoverCoveringLineHasForeignPerson(query, row.line) && leftoverCoveringQueryEntityHits(query, row.line) == 0 {
+				continue
+			}
+			return row.line
+		}
+	}
+	parts := make([]string, 0, 4)
+	seen := map[string]struct{}{}
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringStartMethodDurationLine(query, row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && leftoverCoveringQueryEntityHits(query, row.line) == 0 {
+			continue
+		}
+		line := stripConflictingDateTail(query, row.line)
+		key := strings.ToLower(strings.TrimSpace(line))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		parts = append(parts, line)
+		if len(parts) >= 4 {
+			break
+		}
+	}
+	if len(parts) >= 2 {
+		return strings.Join(parts, "; ")
+	}
+	return ""
+}
+
+func leftoverCoveringStartMissesMethod(query, covering, answer string) bool {
+	if !looksHowDidStartQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if leftoverCoveringStartMethodLine(query, answer) {
+		return false
+	}
+	return leftoverCoveringStartMethodLine(query, covering)
+}
+
 func leftoverCoveringRestatementToken(tok string) bool {
 	switch strings.ToLower(strings.TrimSpace(tok)) {
 	case "enjoy", "enjoys", "enjoyed", "enjoying",
@@ -6398,6 +6666,9 @@ func leftoverCoveringSyncEnumerateItems(query, covering string, items []RecallIt
 		return []RecallItem{{Value: covering}}
 	}
 	if looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, covering) {
+		return []RecallItem{{Value: covering}}
+	}
+	if looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, covering) {
 		return []RecallItem{{Value: covering}}
 	}
 	return items

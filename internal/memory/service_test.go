@@ -1189,6 +1189,59 @@ func TestKeepPurposeActionInCapSurvivesListFill(t *testing.T) {
 	}
 }
 
+func TestSearchLexicalQueryTokensDropsHowDidStartStructure(t *testing.T) {
+	q := "How did Evan start his transformation journey two years ago?"
+	got := searchLexicalQueryTokens(q, tokenize(q))
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"start", "transformation", "journey", "evan"} {
+		if strings.Contains(joined, banned) {
+			t.Fatalf("how-did-start lexical tokens must drop wrapper/person %q, got %v", banned, got)
+		}
+	}
+	for _, keep := range []string{"two", "years", "ago"} {
+		if !strings.Contains(joined, keep) {
+			t.Fatalf("how-did-start lexical tokens must keep duration %q, got %v", keep, got)
+		}
+	}
+	purpose := searchLexicalQueryTokens("What did Audrey do in November 2023 to better take care of her dogs?", tokenize("What did Audrey do in November 2023 to better take care of her dogs?"))
+	joinedPurpose := strings.Join(purpose, " ")
+	if strings.Contains(joinedPurpose, "two") && strings.Contains(joinedPurpose, "ago") {
+		t.Fatalf("what-did-purpose must not be rewritten as how-did-start duration tokens, got %v", purpose)
+	}
+}
+
+func TestKeepStartMethodInCapSurvivesListFill(t *testing.T) {
+	q := "How did Evan start his transformation journey two years ago?"
+	obs := rankedSearchResult{result: SearchResult{
+		MemoryID: "obs",
+		Content:  "Changed my diet, started walking regularly, things like that",
+		Score:    0.4,
+	}}
+	full := []rankedSearchResult{obs}
+	capped := make([]rankedSearchResult, 0, 30)
+	for i := 0; i < 30; i++ {
+		capped = append(capped, rankedSearchResult{result: SearchResult{
+			MemoryID: fmt.Sprintf("fill%02d", i),
+			Content:  "Evan went to the gym on 16 October 2023.",
+			Score:    1.5,
+		}})
+	}
+	got := keepStartMethodInCap(full, capped, q, 30)
+	found := false
+	for _, item := range got {
+		if strings.Contains(strings.ToLower(item.result.Content), "diet") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("how-did-start evidence-set cap must keep changed+started leftover, n=%d", len(got))
+	}
+	if len(got) > 30 {
+		t.Fatalf("how-did-start method keep must stay within limit, n=%d", len(got))
+	}
+}
+
 func TestSearchLexicalTokensDropsHowDescribeStructureAndPerson(t *testing.T) {
 	q := "How does Nate describe the stuffed animal he got for Joanna?"
 	got := searchLexicalQueryTokens(q, tokenize(q))
