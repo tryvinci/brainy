@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -13,13 +14,14 @@ import (
 )
 
 type memoryStoreStub struct {
-	records      map[string]MemoryRecord
-	jobs         map[string]ExtractionJob
-	entityLinks  map[string][]string
-	relations    []MemoryRelation
-	atoms        []stubAtom
-	currentState map[string]currentStateRow
-	entities     []MemoryEntity
+	records       map[string]MemoryRecord
+	jobs          map[string]ExtractionJob
+	entityLinks   map[string][]string
+	relations     []MemoryRelation
+	atoms         []stubAtom
+	currentState  map[string]currentStateRow
+	entities      []MemoryEntity
+	searchOnlyIDs map[string]struct{}
 }
 
 type stubAtom struct {
@@ -107,7 +109,62 @@ func (s *memoryStoreStub) SearchActiveMemories(ctx context.Context, tenantID, su
 func (s *memoryStoreStub) SearchMemories(ctx context.Context, tenantID, subjectID string, patterns []string, limit int, includeSuperseded bool) ([]MemoryRecord, error) {
 	_ = patterns
 	_ = limit
-	return s.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+	out, err := s.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+	if err != nil || s.searchOnlyIDs == nil {
+		return out, err
+	}
+	filtered := make([]MemoryRecord, 0, len(s.searchOnlyIDs))
+	for _, rec := range out {
+		if _, ok := s.searchOnlyIDs[rec.MemoryID]; ok {
+			filtered = append(filtered, rec)
+		}
+	}
+	return filtered, nil
+}
+
+func (s *memoryStoreStub) ListMemoriesBySessionIDs(ctx context.Context, tenantID, subjectID string, sessionIDs []string, includeSuperseded bool, perSession int) ([]MemoryRecord, error) {
+	if len(sessionIDs) == 0 {
+		return nil, nil
+	}
+	if len(sessionIDs) > 8 {
+		sessionIDs = sessionIDs[:8]
+	}
+	if perSession <= 0 || perSession > LeftoverCoveringSessionListPer {
+		perSession = LeftoverCoveringSessionListPer
+	}
+	want := make(map[string]struct{}, len(sessionIDs))
+	for _, id := range sessionIDs {
+		if id != "" {
+			want[id] = struct{}{}
+		}
+	}
+	all, err := s.ListMemories(ctx, tenantID, subjectID, includeSuperseded)
+	if err != nil {
+		return nil, err
+	}
+	bySess := map[string][]MemoryRecord{}
+	for _, rec := range all {
+		sid := sessionIDOf(rec)
+		if _, ok := want[sid]; !ok {
+			continue
+		}
+		bySess[sid] = append(bySess[sid], rec)
+	}
+	var out []MemoryRecord
+	for _, sid := range sessionIDs {
+		rows := bySess[sid]
+		sort.SliceStable(rows, func(i, j int) bool {
+			if rows[i].UpdatedAt.Equal(rows[j].UpdatedAt) {
+				return rows[i].MemoryID < rows[j].MemoryID
+			}
+			return rows[i].UpdatedAt.After(rows[j].UpdatedAt)
+		})
+		if len(rows) > perSession {
+			rows = rows[:perSession]
+		}
+		out = append(out, rows...)
+	}
+	return out, nil
 }
 
 func (s *memoryStoreStub) GetMemory(_ context.Context, tenantID, subjectID, memoryID string) (MemoryRecord, error) {
@@ -815,6 +872,53 @@ func TestSearchLexicalTokensDropsWhatSayAboutStructureAndPerson(t *testing.T) {
 	advice := searchLexicalQueryTokens("What advice does Gina give to Jon about running a successful business?", tokenize("What advice does Gina give to Jon about running a successful business?"))
 	if !strings.Contains(strings.Join(advice, " "), "advice") {
 		t.Fatalf("advice queries must keep the speech-act token, got %v", advice)
+	}
+}
+
+func TestSearchWhatSayAboutAdmitsTheyEvaluativePastSessionWindow(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	const session = "session_1"
+	photo := MemoryRecord{
+		MemoryID: "mem_photo", TenantID: "t-say", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "[group dancers performing on stage] [a photo of a group of dancers in white dresses on a stage]",
+		DedupeKey: "photo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"session_id": session},
+	}
+	store.records["photo"] = photo
+	store.searchOnlyIDs = map[string]struct{}{photo.MemoryID: {}}
+	for i := 0; i < 90; i++ {
+		key := fmt.Sprintf("early%02d", i)
+		store.records[key] = MemoryRecord{
+			MemoryID: "mem_" + key, TenantID: "t-say", SubjectID: "u1",
+			Kind: KindFact, Content: "Jon lost his job as a banker on 19 January 2023.",
+			DedupeKey: key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"session_id": session},
+		}
+	}
+	store.records["gold"] = MemoryRecord{
+		MemoryID: "mem_zz_gold", TenantID: "t-say", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "They're so graceful",
+		DedupeKey: "gold", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"session_id": session},
+	}
+	out, err := svc.SearchOpt(context.Background(), "t-say", "u1", "", "",
+		"What does Gina say about the dancers in the photo?", SearchOptions{Limit: 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, r := range out.Results {
+		if strings.Contains(strings.ToLower(r.Content), "they're so graceful") || strings.Contains(strings.ToLower(r.Content), "they are so graceful") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("what-say-about search must admit they-evaluative leftover past an 80-row session window, got %+v", out.Results)
 	}
 }
 

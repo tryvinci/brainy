@@ -663,7 +663,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 		hostAll := allMemories
 		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
-			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
 				hostAll = listed
 			}
 		}
@@ -688,7 +688,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 		adviceAll := allMemories
 		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
-			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
 				adviceAll = listed
 			}
 		}
@@ -713,7 +713,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 		kindAll := allMemories
 		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
-			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
 				kindAll = listed
 			}
 		}
@@ -739,7 +739,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 		processAll := allMemories
 		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
-			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
 				processAll = listed
 			}
 		}
@@ -764,7 +764,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 		motivateAll := allMemories
 		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
-			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
 				motivateAll = listed
 			}
 		}
@@ -788,7 +788,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		}
 		sayAll := allMemories
 		if lister, ok := s.store.(SessionMemoryLister); ok && len(ids) > 0 {
-			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, 80); err == nil && len(listed) > 0 {
+			if listed, err := lister.ListMemoriesBySessionIDs(ctx, tenantID, subjectID, ids, includeSuperseded, LeftoverCoveringSessionListPer); err == nil && len(listed) > 0 {
 				sayAll = listed
 			}
 		}
@@ -1336,6 +1336,12 @@ func (s *Service) listSubjectCorpus(ctx context.Context, tenantID, subjectID str
 	}
 	return all, nil
 }
+
+// LeftoverCoveringSessionListPer is the bounded per-session fetch used when
+// leftover covering lists co-session rows. Conversational sessions in this
+// store routinely exceed 80 rows; a recency window of 80 drops late-session
+// leftover (short they-evaluative lines sit with the photo they describe).
+const LeftoverCoveringSessionListPer = 200
 
 // SessionMemoryLister fetches memories for known session_ids without a recency
 // subject scan. Host leftover covering needs this when the hosted event sits

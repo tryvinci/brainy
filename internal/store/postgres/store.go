@@ -352,8 +352,10 @@ func (s *Store) ListMemoriesBySessionIDs(ctx context.Context, tenantID, subjectI
 	if len(sessionIDs) > 8 {
 		sessionIDs = sessionIDs[:8]
 	}
-	if perSession <= 0 || perSession > 80 {
-		perSession = 80
+	// Conversational sessions exceed 80 rows; leftover covering needs the
+	// late-session line that sits with the object (photo/caption) FTS hit.
+	if perSession <= 0 || perSession > memory.LeftoverCoveringSessionListPer {
+		perSession = memory.LeftoverCoveringSessionListPer
 	}
 	var (
 		rows pgx.Rows
