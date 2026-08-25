@@ -3946,6 +3946,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if (looksYearQuery(query) || looksWhenEventQuery(query)) && !leftoverCoveringLineHasYear(line) {
 			continue
 		}
+		if leftoverCoveringSkipYearMismatch(query, line) {
+			continue
+		}
 		if looksLocationListQuery(query) {
 			focus := practiceObjectTokens(query)
 			if leftoverCoveringLineHasForeignPerson(query, line) && !leftoverCoveringMentionsQueryEntity(query, line) {
@@ -4520,6 +4523,9 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 	if leftoverCoveringSkipForeignWhenEvent(query, covering) {
 		return false
 	}
+	if leftoverCoveringSkipYearMismatch(query, covering) {
+		return false
+	}
 	if parseDateFromText(answer) == nil || !leftoverCoveringLineHasYear(covering) {
 		return false
 	}
@@ -4540,6 +4546,31 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 // name a hop person. Covering lines about a different person must not win.
 func leftoverCoveringRequiresQueryEntity(query string) bool {
 	return (looksWhenEventQuery(query) || looksYearQuery(query)) && len(hopQueryEntities(query)) > 0
+}
+
+func leftoverCoveringLineYear(s string) int {
+	if t := parseDateFromText(s); t != nil {
+		return t.Year()
+	}
+	return queryCalendarYear(s)
+}
+
+// leftoverCoveringSkipYearMismatch drops when-event covering lines whose year
+// disagrees with a year named in the query. Month-only datedContentConflicts
+// does not apply here; a 2022 game must not cover an August 2023 meetup.
+func leftoverCoveringSkipYearMismatch(query, line string) bool {
+	if !looksWhenEventQuery(query) && !looksYearQuery(query) {
+		return false
+	}
+	yq := queryCalendarYear(query)
+	if yq == 0 {
+		return false
+	}
+	yl := leftoverCoveringLineYear(line)
+	if yl == 0 {
+		return false
+	}
+	return yl != yq
 }
 
 func leftoverCoveringLineHasYear(s string) bool {

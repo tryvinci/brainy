@@ -3912,6 +3912,22 @@ func TestLeftoverCoveringWhenEventPrefersYearEventOverBareHopDate(t *testing.T) 
 	if !leftoverCoveringBareDateMissesEvent(q, hops, got, "17 July 2023") {
 		t.Fatal("bare hop date must yield to year-dated renovate covering")
 	}
+	augQ := "When did John meet back up with his teammates after his trip in August 2023?"
+	augPkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "John participated in a basketball game in 2022 where his team trailed big in the fourth quarter but came back to win at the final buzzer."},
+			{Content: "John met up with his teammates on 15 August 2023 after returning from a trip."},
+			{Content: "John celebrated with his teammates at a restaurant after a game, feeling exhausted but happy."},
+		},
+	}
+	augGot := leftoverCoveringSpecificAnswer(augQ, hops, augPkt)
+	augLower := strings.ToLower(augGot)
+	if !strings.Contains(augLower, "teammate") || !strings.Contains(augGot, "15 August") {
+		t.Fatalf("August 2023 meetup must cover, got %q", augGot)
+	}
+	if strings.Contains(augLower, "2022") || strings.Contains(augLower, "buzzer") {
+		t.Fatalf("different-year team game must not cover an August 2023 meetup, got %q", augGot)
+	}
 }
 
 func TestLeftoverCoveringBindsWhenEventToQueryEntity(t *testing.T) {
