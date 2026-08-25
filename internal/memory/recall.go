@@ -731,6 +731,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringBareDateMissesEvent(req.Query, hopResults, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringYearMissesEvent(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if useCovering {
 					out.Answer = covering
 					out.Abstained = false
@@ -3901,6 +3904,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringSkipForeignWhenEvent(query, line) {
 			continue
 		}
+		if looksYearQuery(query) && !leftoverCoveringLineHasYear(line) {
+			continue
+		}
 		if looksLocationListQuery(query) {
 			focus := practiceObjectTokens(query)
 			if leftoverCoveringLineHasForeignPerson(query, line) && !leftoverCoveringMentionsQueryEntity(query, line) {
@@ -4246,6 +4252,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 	if looksLocationListQuery(query) && !looksWhereQuery(query) {
 		return false
 	}
+	if leftoverCoveringYearMissesEvent(query, covering, answer) {
+		return true
+	}
 	if leftoverShortItemJoin(answer) && !looksWhereQuery(query) && !leftoverCoveringShouldJoin(query) {
 		return false
 	}
@@ -4490,6 +4499,45 @@ func leftoverCoveringRequiresQueryEntity(query string) bool {
 	return (looksWhenEventQuery(query) || looksYearQuery(query)) && len(hopQueryEntities(query)) > 0
 }
 
+func leftoverCoveringLineHasYear(s string) bool {
+	if parseDateFromText(s) != nil {
+		return true
+	}
+	for _, tok := range tokenize(s) {
+		if len(tok) != 4 {
+			continue
+		}
+		y, err := strconv.Atoi(tok)
+		if err == nil && y >= 1900 && y <= 2100 {
+			return true
+		}
+	}
+	return false
+}
+
+// leftoverCoveringYearMissesEvent is true when a which/what-year answer has no
+// year token but a query-bound leftover line does.
+func leftoverCoveringYearMissesEvent(query, covering, answer string) bool {
+	if !looksYearQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = strings.TrimSpace(answer)
+	if covering == "" || leftoverCoveringSkipForeignWhenEvent(query, covering) {
+		return false
+	}
+	if !leftoverCoveringLineHasYear(covering) {
+		return false
+	}
+	if leftoverCoveringLineHasYear(answer) && leftoverCoveringMentionsQueryEntity(query, answer) {
+		return false
+	}
+	if leftoverCoveringMentionsQueryEntity(query, covering) {
+		return true
+	}
+	return !leftoverCoveringLineHasForeignPerson(query, covering)
+}
+
 func leftoverCoveringMentionsQueryEntity(query, line string) bool {
 	ents := hopQueryEntities(query)
 	if len(ents) == 0 {
@@ -4651,7 +4699,7 @@ func preferPracticePacketPlaces(query, answer string, pkt EvidencePacket, hops [
 		if p == "" || utf8Len(p) > 48 {
 			return
 		}
-		if placeEqualsAny(p, focus) {
+		if placeEqualsAny(p, focus) || !keepPracticePlaceCandidate(p) {
 			return
 		}
 		key := strings.ToLower(p)
@@ -4665,7 +4713,7 @@ func preferPracticePacketPlaces(query, answer string, pkt EvidencePacket, hops [
 		extra = append(extra, p)
 	}
 	for _, line := range lines {
-		if !contentCoversAnyQueryToken(line, focus) {
+		if !contentCoversAnyQueryToken(line, focus) || !practicePlaceEvidenceLine(line, focus) {
 			continue
 		}
 		if bind && leftoverCoveringLineHasForeignPerson(query, line) && !leftoverCoveringMentionsQueryEntity(query, line) {
@@ -4691,6 +4739,42 @@ func preferPracticePacketPlaces(query, answer string, pkt EvidencePacket, hops [
 		return answer + ", " + strings.Join(extra, ", "), extra
 	}
 	return strings.Join(extra, ", "), extra
+}
+
+func practicePlaceEvidenceLine(line string, focus []string) bool {
+	if compositionalPracticePlace(line, focus) != "" {
+		return true
+	}
+	low := strings.ToLower(hybridLineBody(line))
+	for _, n := range []string{"park", "beach", "studio", "gym", "school", "library", "hospital", "cottage"} {
+		if strings.Contains(low, n) {
+			return true
+		}
+	}
+	for _, role := range []string{"mother", "father", "mom", "dad", "parent"} {
+		if strings.Contains(low, role) && (strings.Contains(low, "home") || strings.Contains(low, "house") || strings.Contains(low, "cottage")) {
+			return true
+		}
+	}
+	return false
+}
+
+func keepPracticePlaceCandidate(p string) bool {
+	low := strings.ToLower(strings.TrimSpace(p))
+	if low == "" {
+		return false
+	}
+	for _, n := range []string{"park", "beach", "studio", "gym", "school", "library", "hospital", "cottage", "home", "house"} {
+		if strings.Contains(low, n) {
+			return true
+		}
+	}
+	for _, role := range []string{"mother", "father", "mom", "dad", "parent"} {
+		if strings.Contains(low, role) {
+			return true
+		}
+	}
+	return false
 }
 
 func locationListAnswerKeepsHead(answer string, focus []string) bool {

@@ -3944,6 +3944,7 @@ func TestLeftoverCoveringBindsWhenEventToQueryEntity(t *testing.T) {
 	yearPkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
 			{Content: "Dana started practicing yoga in 2018."},
+			{Content: "Jolene feels that large stacks of tasks can be overwhelming and make it hard to know where to start."},
 			{Content: "Riley started practicing yoga in 2020."},
 		},
 	}
@@ -3952,14 +3953,33 @@ func TestLeftoverCoveringBindsWhenEventToQueryEntity(t *testing.T) {
 	if !strings.Contains(yearLower, "2020") || !strings.Contains(yearLower, "riley") {
 		t.Fatalf("which-year leftover covering must bind to the query person, got %q", yearGot)
 	}
-	if strings.Contains(yearLower, "dana") || strings.Contains(yearGot, "2018") {
-		t.Fatalf("another person's yoga start year must not cover a named which-year query, got %q", yearGot)
+	if strings.Contains(yearLower, "dana") || strings.Contains(yearGot, "2018") || strings.Contains(yearLower, "overwhelm") {
+		t.Fatalf("undated or foreign leftover must not cover a named which-year query, got %q", yearGot)
 	}
 	if leftoverCoveringSkipForeignWhenEvent(yearQ, "Dana started practicing yoga in 2018.") != true {
 		t.Fatal("which-year covering must skip a foreign-person start year")
 	}
 	if leftoverCoveringSkipForeignWhenEvent(yearQ, "I started practicing yoga in 2020.") {
 		t.Fatal("first-person unnamed year lines must still compete")
+	}
+	if leftoverCoveringYearMissesEvent(yearQ, yearGot, "Riley feels that large stacks of tasks can be overwhelming.") != true {
+		t.Fatal("which-year leftover with a year must replace an undated hybrid")
+	}
+	if leftoverCoveringYearMissesEvent(yearQ, "Riley feels overwhelmed.", "Riley started practicing yoga in 2020.") {
+		t.Fatal("undated leftover must not replace a year answer")
+	}
+	joleneQ := "Which year did Jolene start practicing yoga?"
+	jolenePkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Deborah enjoys practicing yoga on the beach in Bali."},
+			{Content: "Jolene feels that large stacks of tasks can be overwhelming and make it hard to know where to start."},
+			{Content: "Jolene started practicing yoga in 2020."},
+		},
+	}
+	joleneGot := leftoverCoveringSpecificAnswer(joleneQ, []HopResult{{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene"}}, jolenePkt)
+	joleneLower := strings.ToLower(joleneGot)
+	if !strings.Contains(joleneLower, "2020") || strings.Contains(joleneLower, "deborah") || strings.Contains(joleneLower, "overwhelm") {
+		t.Fatalf("which-year covering must pick the dated start year, got %q", joleneGot)
 	}
 }
 
@@ -4021,6 +4041,8 @@ func TestPreferPracticePacketPlacesJoinsLeftoverLocatives(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
 			{Content: "Riley bought a scented candle for her yoga practice on 28 March 2023."},
+			{Content: "Riley does yoga in pajamas in the living room by the window."},
+			{Content: "Riley reminisced with friends and reconnected after yoga."},
 			{Content: "Riley does yoga on the beach."},
 			{Content: "Riley recommends the yoga studio nearby."},
 			{Content: "Riley practices yoga at her mother's old home."},
@@ -4032,8 +4054,8 @@ func TestPreferPracticePacketPlacesJoinsLeftoverLocatives(t *testing.T) {
 	if !strings.Contains(lower, "park") || !strings.Contains(lower, "beach") || !strings.Contains(lower, "studio") || !strings.Contains(lower, "mother") {
 		t.Fatalf("practice packet join must keep the park and add leftover places, got %q", got)
 	}
-	if strings.Contains(lower, "candle") || strings.Contains(lower, "denver") {
-		t.Fatalf("practice packet join must not dump purchases or another person's place, got %q", got)
+	if strings.Contains(lower, "candle") || strings.Contains(lower, "denver") || strings.Contains(lower, "pajama") || strings.Contains(lower, "living") || strings.Contains(lower, "reminisc") {
+		t.Fatalf("practice packet join must not dump purchases, rooms, or another person's place, got %q", got)
 	}
 	items := appendUniqueRecallItems([]RecallItem{{Value: "the park"}}, extra)
 	itemBlob := ""
