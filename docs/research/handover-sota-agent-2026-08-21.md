@@ -11,8 +11,8 @@ This file is the live start doc. Older research notes stay useful as history. If
 
 ## 0. First 30 minutes
 
-1. Confirm you are on `dev` (staging) at P36 pin docs (or later). `main` is production and fast-forwards only with explicit owner approval (this cycle: owner asked to keep FF'ing both).
-2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-25 — P36 what-motivates first-person object-cause leftover covering (120/180)**.
+1. Confirm you are on `dev` (staging) at P37 pin docs (or later). `main` is production and fast-forwards only with explicit owner approval (this cycle: owner asked to keep FF'ing both).
+2. Read this file, then [cycle-closeout.md](./competitive/cycle-closeout.md) section **2026-08-25 — P37 what-say-about they-evaluative leftover covering (121/180)**.
 3. Skim [sota-execution-plan.md](./sota-execution-plan.md) but **do not** treat its “expected S1 compiler first” as live. S0 ledger **outranks** that expectation.
 4. Do **not** re-queue R0–R10. Substrate is merged.
 5. Do **not** merge [PR #133](https://github.com/tryvinci/brainy/pull/133) (compiler S1–S5 fishing) or revive [PR #131](https://github.com/tryvinci/brainy/pull/131).
@@ -36,7 +36,7 @@ Path docs (do not invent a new program):
 - [locomo-dual-path-freeze.md](./locomo-dual-path-freeze.md) — product `/recall` vs industry search+harness.
 - [sota-representation-path.md](./sota-representation-path.md) — compile facts; episodes are provenance.
 
-**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b / **73/180** P3 / **79/180** P4 / **84/180** P5 / **87/180** P6 / **88/180** P7 / **93/180** P8 / **94/180** P9 / **96/180** P10 / **97/180** P11 / **101/180** P12 / **102/180** P13 / **103/180** P14 / **104/180** P17 / **105/180** P18 / **106/180** P20 / **107/180** P21 / **108/180** P22 / **109/180** P23 / **110/180** P24 / **111/180** P25 / **112/180** P26 / **113/180** P28 / **114/180** P30 / **115/180** P31 / **116/180** P32 / **117/180** P33 / **118/180** P34 / **119/180** P35 / **120/180** P36 hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **17/33** P5 / **13/33** P6 / **14/33** P7 / **15/33** P8–P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14–P18 / **17/33** P20 / **18/33** P21–P36 hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR. 90% on this 180 is **162/180**.
+**Honest distance:** product `/recall` full n=1540 is **11.4%** on SHA `1b5ab3e`. Fail-closed S0 product is **32/180** on the integrity tenant, **19/180** hybrid-off / **37/180** P1 / **56/180** P2 / **61/180** P2b / **73/180** P3 / **79/180** P4 / **84/180** P5 / **87/180** P6 / **88/180** P7 / **93/180** P8 / **94/180** P9 / **96/180** P10 / **97/180** P11 / **101/180** P12 / **102/180** P13 / **103/180** P14 / **104/180** P17 / **105/180** P18 / **106/180** P20 / **107/180** P21 / **108/180** P22 / **109/180** P23 / **110/180** P24 / **111/180** P25 / **112/180** P26 / **113/180** P28 / **114/180** P30 / **115/180** P31 / **116/180** P32 / **117/180** P33 / **118/180** P34 / **119/180** P35 / **120/180** P36 / **121/180** P37 hybrid-on on this-VM `diag-mh-135`. Industry S0 is **62/180** on both. MH product after #135 is **2/33** integrity / **12/33** this tenant reader-off / **17/33** P5 / **13/33** P6 / **14/33** P7 / **15/33** P8–P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14–P18 / **17/33** P20 / **18/33** P21–P37 hybrid-on. Getting to 80% on n=1540 is a multi-increment proof/reader (then compiler if the ledger flips), not one PR. 90% on this 180 is **162/180**.
 
 ---
 
@@ -48,7 +48,8 @@ Path docs (do not invent a new program):
 | --- | --- |
 | `dev` **now** | `453a929` — #135 merge (MH slot-aligned dest-subject). Staging. |
 | `main` | `6d05e1b` — #134 packet/proof. Production. **Do not FF** unless the owner asks. |
-| PR **#152** `pr/locomo-180-p36-1e9e` | P36 what-motivates first-person object-cause leftover covering. Product **120/180** (`5dbc350`). |
+| PR **#153** `pr/locomo-180-p37-1e9e` | P37 what-say-about they-evaluative leftover covering. Product **121/180** (`582716a`). First P37 180 120/180 hold is not a pin. |
+| PR **#152** `pr/locomo-180-p36-1e9e` | Merged. P36 what-motivates first-person object-cause leftover covering. Product **120/180** (`5dbc350`). |
 | PR **#151** `pr/locomo-180-p35-1e9e` | Merged. P35 how-describe-process prefix hortative leftover covering. Product **119/180** (`a7d8bfb`). |
 | PR **#150** `pr/locomo-180-p34-1e9e` | Merged. P34 what-kind like-list leftover covering. Product **118/180** (`763a90a`). First P34 180 116/180 dip is not a pin. |
 | PR **#149** `pr/locomo-180-p33-1e9e` | Merged. P33 advice leftover covering + session admit. Product **117/180** (`097c6eb`). |
@@ -126,6 +127,7 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 | S0 product P32 host leftover covering + session admit | **116/180 (0.644)** | SHA `cd77a74`. MH **18/33** · OD **4/11** · SH **64/98** · temporal **30/38**. Ledger: **RETRIEVAL 28 / PROOF 22 / READER 8 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p32-20260825.md). Veterans party + share-stories recovered. First P32 180 115/180 hold is not a pin. |
 | S0 product P33 advice leftover covering + session admit | **117/180 (0.650)** | SHA `097c6eb`. MH **18/33** · OD **4/11** · SH **65/98** · temporal **30/38**. Ledger: **RETRIEVAL 28 / PROOF 22 / READER 7 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p33-20260825.md). Gina advice recovered. |
 | S0 product P34 what-kind like-list leftover covering | **118/180 (0.656)** | SHA `763a90a`. MH **18/33** · OD **4/11** · SH **66/98** · temporal **30/38**. Ledger: **RETRIEVAL 27 / PROOF 22 / READER 7 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p34-20260825.md). Dinner-spread like-list recovered. First P34 180 116/180 dip is not a pin. |
+| S0 product P37 what-say-about they-evaluative leftover covering | **121/180 (0.672)** | SHA `582716a`. MH **18/33** · OD **4/11** · SH **69/98** · temporal **30/38**. Ledger: **RETRIEVAL 27 / PROOF 20 / READER 7 / WRITE 4 / HARNESS 1**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p37-20260825.md). Dancers graceful recovered. First P37 180 120/180 hold is not a pin. |
 | S0 product P36 what-motivates first-person object-cause leftover covering | **120/180 (0.667)** | SHA `5dbc350`. MH **18/33** · OD **4/11** · SH **68/98** · temporal **30/38**. Ledger: **RETRIEVAL 27 / PROOF 21 / READER 7 / WRITE 4 / HARNESS 1**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p36-20260825.md). Joanna writing recovered. |
 | S0 product P35 how-describe-process prefix hortative leftover covering | **119/180 (0.661)** | SHA `a7d8bfb`. MH **18/33** · OD **4/11** · SH **67/98** · temporal **30/38**. Ledger: **RETRIEVAL 27 / PROOF 21 / READER 7 / WRITE 4 / HARNESS 2**. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p35-20260825.md). Turtle-care recovered. |
 | S0 MH product (post-#134) | **2/33** | Was **1/33**. Attributed win: turtles. Second hit (soda/candy) is a crowded-list judge accept. [pin](../benchmarks/artifacts/locomo-mh-packet-proof-20260820.md) |
@@ -141,12 +143,12 @@ Dataset SHA: `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`
 
 **Invalidated:** Aug-19 S0 17/180 / 52/180 (no pgvector, silent extract degrade). Never cite those as quality.
 
-**Bottleneck on this VM is split:** product S0 WRITE_MISS is **4/180** on P36 (P35 was **4/180**; integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **120/180** P36 hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **17/33** P5 / **15/33** P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14–P18 / **17/33** P20 / **18/33** P21–P36 vs integrity **2/33**. SH 5→68 is the hybrid+admit+dump-skip path. Remaining mass is SH **PROOF 15**. Isolated leftover covering is saturating. MH **18/33** is held from P21.
+**Bottleneck on this VM is split:** product S0 WRITE_MISS is **4/180** on P37 (P36 was **4/180**; integrity was **3/180**). Coverage is not the 80% hole — QA is **19/180** reader-off / **121/180** P37 hybrid-on vs industry **62/180**. This-VM product MH is **12/33** reader-off / **17/33** P5 / **15/33** P10 / **13/33** P11 / **15/33** P12–P13 / **16/33** P14–P18 / **17/33** P20 / **18/33** P21–P37 vs integrity **2/33**. SH 5→69 is the hybrid+admit+dump-skip path. Remaining mass is SH **PROOF 14**. Isolated leftover covering is saturating. MH **18/33** is held from P21.
 
 ### Competitor stand (honest)
 
 - **1×30 freeze:** Brainy 21/30 vs Mem0 Platform 11/30 is a prior **lead on a handicapped Mem0 protocol**. It is not full LoCoMo and not permission to write “we beat Mem0.”
-- **S0 / n=1540:** no same-n Mem0 pin yet (fair 180 429 quota until 2026-09-01). Do not trail/lead 32/180, 19/180, 61/180, 73/180, 79/180, 84/180, 87/180, 88/180, 93/180, 94/180, 96/180, 97/180, 101/180, 102/180, 103/180, 104/180, 105/180, 106/180, 107/180, 108/180, 109/180, 110/180, 111/180, 112/180, 113/180, 114/180, 115/180, 116/180, 117/180, 118/180, 119/180, 120/180, or 11.4% vs 11/30 or vs published 92.5%.
+- **S0 / n=1540:** no same-n Mem0 pin yet (fair 180 429 quota until 2026-09-01). Do not trail/lead 32/180, 19/180, 61/180, 73/180, 79/180, 84/180, 87/180, 88/180, 93/180, 94/180, 96/180, 97/180, 101/180, 102/180, 103/180, 104/180, 105/180, 106/180, 107/180, 108/180, 109/180, 110/180, 111/180, 112/180, 113/180, 114/180, 115/180, 116/180, 117/180, 118/180, 119/180, 120/180, 121/180, or 11.4% vs 11/30 or vs published 92.5%.
 - **Ops / marketing:** Brainy lead (Mem0 pins stale). Must not regress. Not the next cycle.
 - **Graphiti / Zep / SuperMemory:** no same-pin. Published headlines are context.
 - **Mem0 OSS** was not re-measured. Do not treat Platform 11/30 as OSS-reproducible.
@@ -197,13 +199,16 @@ S0 said: spend the next increment on the **largest earliest-stage bucket**. That
 | P34 | What-kind like-list leftover covering | **Done.** Product **118/180**. SH **65→66**. Dinner-spread like-list recovered. First P34 180 116/180 dip is not a pin. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p34-20260825.md) |
 | P35 | How-describe-process prefix hortative leftover covering | **Done.** Product **119/180**. SH **66→67**. Turtle-care recovered. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p35-20260825.md) |
 | P36 | What-motivates first-person object-cause leftover covering | **Done.** Product **120/180**. SH **67→68**. Joanna writing recovered. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p36-20260825.md) |
+| P37 | What-say-about they-evaluative leftover covering | **Done.** Product **121/180**. SH **68→69**. Dancers graceful recovered. First P37 180 120/180 hold is not a pin. [pin](../benchmarks/artifacts/locomo-s0-diag-mh-135-p37-20260825.md) |
 | S1 compiler | Provider-extract / named-subject mass | **No** until the ledger says WRITE is the bucket again. #133 stays closed. |
 | Embedder swap | OpenAI vs BGE | **Done / pinned.** Do not re-run. |
-| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19→120. Full n=1540 only at S6. |
+| S6 freeze | n=1540 + Mem0 same-pin | After a stratified **delta**, not after 19→121. Full n=1540 only at S6. |
 
-**Suggested first remasure:** ranking where gold is in the subject corpus but not top-30 (dancers graceful — `They're so graceful` stored; do not add a dance dictionary). Remaining isolated READER is thin. Do **not** join all `participates in`. `"destress"` stays denylisted. Remaining SH **PROOF 15**. Isolated leftover covering is saturating. MH **18/33** is held from P21. Fair Mem0 180 is quota-blocked until 2026-09-01. Do not start n=1540 yet. Do not merge #133. Do not special-case German vs Spanish. Do not revive P29. Do not drop `turtles`/`care`. Do not drop `motivate`. Do not drop `spread`. Do not drop `advice`. Do not add a care dictionary. Do not add a food/salad dictionary. Do not add an advice→brand dictionary. Do not add a host→party dictionary. Do not steal Deborah’s “connected to my body” for Jolene.
+**Suggested first remasure:** first-person `it's got` / cleft leftover for what-say-about that is **not** they-evaluative (`conv-43-q102` NYC — `It's got so much to check out` stored; do not add an NYC dictionary; do not reuse they-copula; do not steal Tim injury doctor-said). Remaining isolated READER is thin. Do **not** join all `participates in`. `"destress"` stays denylisted. Remaining SH **PROOF 14**. Isolated leftover covering is saturating. MH **18/33** is held from P21. Fair Mem0 180 is quota-blocked until 2026-09-01. Do not start n=1540 yet. Do not merge #133. Do not special-case German vs Spanish. Do not revive P29. Do not drop `say` globally. Do not drop `turtles`/`care`. Do not drop `motivate`. Do not drop `spread`. Do not drop `advice`. Do not add a dance dictionary. Do not add a care dictionary. Do not add a food/salad dictionary. Do not add an advice→brand dictionary. Do not add a host→party dictionary. Do not steal Deborah’s “connected to my body” for Jolene.
 
-**Shipped this increment (P36):** what-motivates leftover covering prefers first-person object-cause leftover over turtle/have-faith/occupation companions; lexical search drops `motivate*`/`keep`/`even` only on `what motivates` queries; skip hops and hybrid when the search packet already has a cause leftover. Does not drop `motivate` globally. Does not treat stay-motivated as what-motivates.
+**Shipped this increment (P37):** what-say-about leftover covering prefers short they-evaluative leftover over dance-photo flood; lexical search drops `say*`/`about` only on `what does/did/do … say about` queries; leftover-covering session fetch is 200 rows; enumerate `items` copy that covering sentence; skip hops and hybrid when the search packet already has they-evaluative leftover. Does not drop `say` globally. Does not add a dance dictionary. First P37 180 120/180 hold is not a pin.
+
+**Prior (P36):** what-motivates leftover covering prefers first-person object-cause leftover over turtle/have-faith/occupation companions; lexical search drops `motivate*`/`keep`/`even` only on `what motivates` queries; skip hops and hybrid when the search packet already has a cause leftover. Does not drop `motivate` globally. Does not treat stay-motivated as what-motivates.
 
 **Prior (P35):** how-describe-process leftover covering prefers prefix hortative leftover (`just keep`) over companion slogans; sentence-initial `just` is hortative, not a person; process covering empty unless hortative and not process-restatement; hortative leftover sessions seed neighbors first. Does not drop `turtles`/`care`. Does not steal Calvin electronic.
 
@@ -419,7 +424,7 @@ Auth: if `BRAINY_API_KEYS` / `BRAINY_REQUIRE_API_KEY` are set, unauthenticated c
 ## 7. Docs the next agent should trust (in order)
 
 1. **This file**
-2. [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) — **2026-08-25 P36 120/180**, then P35 119/180, then P34 118/180, then P33 117/180, then P32 116/180, then P31 115/180, then P30 114/180, then P28 113/180, then P26 112/180, then P25 111/180, then P24 110/180, then P23 109/180, then P22 108/180, then 2026-08-22 this-VM S0
+2. [competitive/cycle-closeout.md](./competitive/cycle-closeout.md) — **2026-08-25 P37 121/180**, then P36 120/180, then P35 119/180, then P34 118/180, then P33 117/180, then P32 116/180, then P31 115/180, then P30 114/180, then P28 113/180, then P26 112/180, then P25 111/180, then P24 110/180, then P23 109/180, then P22 108/180, then 2026-08-22 this-VM S0
 3. [sota-execution-plan.md](./sota-execution-plan.md) — gates, not the S1-first guess
 4. [locomo-full-70-80-path.md](./locomo-full-70-80-path.md)
 5. [codebase-graph.md](./codebase-graph.md) — topology (dated 2026-08-04; planes are mid-migration)
