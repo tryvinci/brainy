@@ -4223,6 +4223,7 @@ func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
 			{Content: "John has a photograph of veterans taken on 19 May 2023."},
 			{Content: "John organized a small party for veterans."},
 			{Content: "We had a great time throwing a small party and inviting some veterans to share their stories"},
+			{Content: "Maria and her mother cooked dinner together at home on 3 May 2023."},
 			{Content: "John organized a 5K charity run in his neighborhood to support veterans and their families."},
 		},
 	}
@@ -4232,8 +4233,11 @@ func TestLeftoverCoveringHostPrefersPartyOverRealize(t *testing.T) {
 	if !strings.Contains(lower, "party") {
 		t.Fatalf("host leftover covering must pick the hosted event, got %q", got)
 	}
-	if strings.Contains(lower, "realized") || strings.Contains(lower, "photograph") || strings.Contains(lower, "5k") || strings.Contains(lower, "charity run") {
-		t.Fatalf("realize, photograph, or later race must not cover host, got %q", got)
+	if !strings.Contains(lower, "stor") {
+		t.Fatalf("host leftover covering must join the share-stories leftover, got %q", got)
+	}
+	if strings.Contains(lower, "realized") || strings.Contains(lower, "photograph") || strings.Contains(lower, "5k") || strings.Contains(lower, "charity run") || strings.Contains(lower, "dinner") {
+		t.Fatalf("realize, photograph, dinner, or later race must not cover host, got %q", got)
 	}
 	hybrid := "John realized on 13 May 2023 that veterans have done a lot for us."
 	if leftoverCoveringHostedEventLine(hybrid) {
@@ -4313,6 +4317,22 @@ func TestApplyHostedEventRankBoostSkipsPhotograph(t *testing.T) {
 	applyHostedEventRankBoost(&run, map[string]any{}, q, MemoryRecord{Content: "John organized a 5K charity run in his neighborhood to support veterans."})
 	if run != 1.0 {
 		t.Fatalf("5K run must not receive hosted-event rank boost, got %v", run)
+	}
+}
+
+func TestApplyFactPrimaryRecallKeepsHostedEventEpisode(t *testing.T) {
+	q := "What did John host for the veterans in May 2023 as part of the project"
+	candidates := map[string]MemoryRecord{
+		"fact": {MemoryID: "fact", Content: "John organized a small party for veterans."},
+		"ep": {
+			MemoryID:  "ep",
+			Content:   "We had a great time throwing a small party and inviting some veterans to share their stories",
+			Primitive: PrimitiveEpisode,
+		},
+	}
+	applyFactPrimaryRecall(candidates, q, false)
+	if _, ok := candidates["ep"]; !ok {
+		t.Fatal("host query must keep hosted-event episode leftover")
 	}
 }
 

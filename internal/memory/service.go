@@ -964,6 +964,9 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	}
 	if status == RepresentationComplete {
 		for _, ep := range episodes {
+			if looksHostQuery(query) && leftoverCoveringHostedEventLine(ep.Content) {
+				continue
+			}
 			delete(candidates, ep.MemoryID)
 			dropped++
 		}
@@ -973,6 +976,13 @@ func applyFactPrimaryRecall(candidates map[string]MemoryRecord, query string, in
 	keepIDs := make(map[string]struct{}, len(keep))
 	for _, ep := range keep {
 		keepIDs[ep.MemoryID] = struct{}{}
+	}
+	if looksHostQuery(query) {
+		for _, ep := range episodes {
+			if leftoverCoveringHostedEventLine(ep.Content) {
+				keepIDs[ep.MemoryID] = struct{}{}
+			}
+		}
 	}
 	for _, ep := range episodes {
 		if _, ok := keepIDs[ep.MemoryID]; ok {

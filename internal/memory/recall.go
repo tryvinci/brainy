@@ -4067,6 +4067,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if next := leftoverCoveringPreferHostedEvent(query, scored, best); next != "" {
 			best = next
 		}
+		if joined := leftoverCoveringJoinHostedEvents(query, scored); joined != "" {
+			return leftoverCoveringFinish(query, joined)
+		}
 	}
 	if leftoverCoveringShouldJoin(query) {
 		parts := make([]string, 0, 4)
@@ -4852,6 +4855,58 @@ func leftoverCoveringPreferHostedEvent(query string, scored []leftoverCoverScore
 		return ""
 	}
 	return pick
+}
+
+func leftoverCoveringJoinHostedEvents(query string, scored []leftoverCoverScored) string {
+	if !looksHostQuery(query) {
+		return ""
+	}
+	rows := make([]leftoverCoverScored, 0, 4)
+	for _, row := range scored {
+		if row.score < 2 || looksChatTurnLine(row.line) {
+			continue
+		}
+		if !leftoverCoveringHostedEventLine(row.line) {
+			continue
+		}
+		if leftoverCoveringSkipForeignWhenEvent(query, row.line) {
+			continue
+		}
+		if leftoverCoveringLineHasForeignPerson(query, row.line) && !leftoverCoveringMentionsQueryEntity(query, row.line) {
+			continue
+		}
+		rows = append(rows, row)
+	}
+	if len(rows) < 2 {
+		return ""
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].score != rows[j].score {
+			return rows[i].score > rows[j].score
+		}
+		return false
+	})
+	parts := make([]string, 0, 2)
+	seen := map[string]struct{}{}
+	for _, row := range rows {
+		line := stripConflictingDateTail(query, row.line)
+		key := strings.ToLower(strings.TrimSpace(line))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		parts = append(parts, line)
+		if len(parts) >= 2 {
+			break
+		}
+	}
+	if len(parts) < 2 {
+		return ""
+	}
+	return strings.Join(parts, "; ")
 }
 
 func leftoverCoveringHostMissesEvent(query, covering, answer string) bool {
