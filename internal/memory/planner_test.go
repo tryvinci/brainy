@@ -496,6 +496,9 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if !looksLocationListQuery("Where does Riley practice yoga?") {
 		t.Fatal("where+practice must be a location list")
 	}
+	if looksLocationListQuery("What specific location in Tokyo does Calvin mention being excited to explore?") {
+		t.Fatal("singular point-location must not be a location list")
+	}
 	if hopComposeAllowed("Which locations does Riley practice her yoga at?") {
 		t.Fatal("location lists must not dump hop values")
 	}

@@ -1487,8 +1487,12 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 
 func looksLocationListQuery(query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
-	if strings.Contains(q, "location") {
+	if queryHasToken(query, "locations") {
 		return true
+	}
+	// Singular "location" is a point fact (Shinjuku), not a practice-place set.
+	if queryHasToken(query, "location") {
+		return false
 	}
 	if !strings.Contains(q, "practice") {
 		return false

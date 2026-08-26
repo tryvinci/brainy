@@ -3519,6 +3519,9 @@ func TestHopScanLimitEnumeratesPastSearchTopK(t *testing.T) {
 	if got := hopScanLimit("What kind of unhealthy snacks does Sam enjoy eating?", plan, 30); got != 30 {
 		t.Fatalf("what-kind snacks leftover must not widen hop scan, got %d", got)
 	}
+	if got := hopScanLimit("What specific location in Tokyo does Calvin mention being excited to explore?", plan, 30); got != 30 {
+		t.Fatalf("point-location leftover must not widen hop scan, got %d", got)
+	}
 	if got := hopScanLimit("What activity did Caroline used to do with her dad?", plan, 30); got != 30 {
 		t.Fatalf("singular what-activity leftover must not widen hop scan, got %d", got)
 	}
