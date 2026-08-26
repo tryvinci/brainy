@@ -8833,6 +8833,17 @@ func TestLeftoverCoveringKeepsTypedItemJoins(t *testing.T) {
 	if leftoverCoveringBeatsAnswer(snackQ, snackHops, "Sam bought unhealthy snacks.", "soda and candy") {
 		t.Fatal("list-head leftover covering must not beat a snack join")
 	}
+	foodQ := "What kind of healthy food suggestions has Evan given to Sam?"
+	foodHops := []HopResult{{Kind: "fetch_predicate", Predicate: PredicatePreference, Entity: "Evan", Source: "typed_store", ProofKind: "typed_exact",
+		Values: []string{"flavored seltzer water", "dark chocolate", "air-popped popcorn", "fruit", "energy balls", "salad with chicken, avocado"}}}
+	foodJoin := "flavored seltzer water, dark chocolate, air-popped popcorn, fruit, energy balls, salad with chicken, avocado"
+	if !leftoverCoveringKeepTypedAnswer(foodQ, foodHops, foodJoin) {
+		t.Fatal("typed food-set join must be kept against leftover covering")
+	}
+	thanks := "Sam: Thanks for the suggestion, Evan"
+	if leftoverCoveringKeepTypedAnswer(foodQ, foodHops, thanks) {
+		t.Fatal("suggestion thanks-line must not count as a typed food-set join")
+	}
 }
 
 func TestLeftoverCoveringWhereIgnoresHopSlotStarvation(t *testing.T) {

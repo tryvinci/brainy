@@ -10429,8 +10429,22 @@ func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer stri
 	if !hopsKeepTypedJoin(hops) {
 		return false
 	}
-	if leftoverShortItemJoin(answer) {
+	if leftoverShortItemJoin(answer) && !looksFoodSetQuery(query) {
 		return true
+	}
+	if looksFoodSetQuery(query) {
+		vals := hopPredicateValues(hops, PredicatePreference, "")
+		if len(vals) < 2 {
+			return false
+		}
+		al := strings.ToLower(strings.TrimSpace(answer))
+		hits := 0
+		for _, v := range vals {
+			if utf8.RuneCountInString(v) >= 4 && strings.Contains(al, strings.ToLower(v)) {
+				hits++
+			}
+		}
+		return hits >= 2 && utf8Len(answer) <= 240
 	}
 	if !wantsHistoricalAtomScan(query) {
 		return false

@@ -1742,6 +1742,9 @@ func clipFoodObjectRest(rest string) string {
 			break
 		}
 		acc = next
+		if strings.Count(acc, ",") >= 1 {
+			break
+		}
 	}
 	return acc
 }
