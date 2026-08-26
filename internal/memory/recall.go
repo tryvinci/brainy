@@ -2052,7 +2052,7 @@ func (s *Service) languageAnswerFromHops(ctx context.Context, req RecallRequest,
 		if obj == "" || score < 3 {
 			return
 		}
-		if score > bestScore || (score == bestScore && bestObj == "") {
+		if languageObjectBetter(obj, score, bestObj, bestScore) {
 			bestObj = obj
 			bestScore = score
 		}
@@ -2142,7 +2142,7 @@ func languageLearnObjectFromText(text string) (string, int) {
 		if languagePurposeAdjunct(toks, i) && score > 1 {
 			score = 1
 		}
-		if score > bestScore || (score == bestScore && bestObj == "") {
+		if languageObjectBetter(obj, score, bestObj, bestScore) {
 			bestObj = obj
 			bestScore = score
 		}
@@ -2194,7 +2194,7 @@ func languageObjectStop(t string) bool {
 		"and", "or", "how", "that", "which", "who", "when", "while",
 		"app", "apps",
 		"during", "after", "before", "until", "since", "throughout",
-		"about", "over":
+		"about", "over", "into", "onto":
 		return true
 	}
 	return false
@@ -2247,21 +2247,41 @@ func languageObjectGrounded(content, obj string) bool {
 	if len(fields) == 0 {
 		return false
 	}
-	if len(fields) >= 2 {
+	for _, f := range fields {
+		if languageObjectStop(f) || languageObjectSkip(f) || looksThinLanguageObject(f) {
+			return false
+		}
+		found := false
+		for _, w := range strings.Fields(content) {
+			w = strings.Trim(w, ".,;:!?\"'()[]")
+			if w == "" || !strings.EqualFold(w, f) {
+				continue
+			}
+			r, _ := utf8.DecodeRuneInString(w)
+			if unicode.IsUpper(r) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+func languageObjectBetter(obj string, score int, bestObj string, bestScore int) bool {
+	if score > bestScore {
 		return true
 	}
-	want := fields[0]
-	for _, w := range strings.Fields(content) {
-		w = strings.Trim(w, ".,;:!?\"'()[]")
-		if w == "" || !strings.EqualFold(w, want) {
-			continue
-		}
-		r, _ := utf8.DecodeRuneInString(w)
-		if unicode.IsUpper(r) {
-			return true
-		}
+	if bestObj == "" {
+		return score >= 3
 	}
-	return false
+	if score < bestScore {
+		return false
+	}
+	on, bn := len(strings.Fields(obj)), len(strings.Fields(bestObj))
+	return on == 1 && bn > 1
 }
 
 func filterBesides(query string, items []RecallItem) []RecallItem {

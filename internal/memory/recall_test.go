@@ -1296,6 +1296,13 @@ func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "studying", "subject": "Tim"},
 		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "studying", "subject": "Tim"},
 	}
+	store.records["t-intv"] = MemoryRecord{
+		MemoryID: "mem_tintv", TenantID: "t-lang", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim breaks up his studying into intervals of 25 minutes of work followed by 5 minutes of fun break.",
+		DedupeKey: "tintv", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "studying intervals", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "studying intervals", "subject": "Tim"},
+	}
 	store.records["j-es"] = MemoryRecord{
 		MemoryID: "mem_jes", TenantID: "t-lang", SubjectID: "u1",
 		Kind: KindFact, Content: "John is learning Spanish",
@@ -1309,6 +1316,7 @@ func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 		stubAtom{pred: PredicateActivity, val: "spanish", memID: "mem_tint"},
 		stubAtom{pred: PredicateActivity, val: "studying hard", memID: "mem_thard"},
 		stubAtom{pred: PredicateActivity, val: "studying", memID: "mem_tweek"},
+		stubAtom{pred: PredicateActivity, val: "studying intervals", memID: "mem_tintv"},
 		stubAtom{pred: PredicateActivity, val: "learning spanish", memID: "mem_jes"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
@@ -1322,8 +1330,8 @@ func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 	if got != "german" {
 		t.Fatalf("matrix learning must beat purpose adjunct, studying-hard, and other-person Spanish, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
 	}
-	if strings.Contains(got, "spanish") || strings.Contains(got, "hard") || strings.Contains(got, "week") || strings.Contains(got, "during") {
-		t.Fatalf("must not steal Spanish, studying-hard, or week-of adjunct: %q", out.Answer)
+	if strings.Contains(got, "spanish") || strings.Contains(got, "hard") || strings.Contains(got, "week") || strings.Contains(got, "during") || strings.Contains(got, "interval") {
+		t.Fatalf("must not steal Spanish, studying-hard, week-of, or interval adjunct: %q", out.Answer)
 	}
 }
 
