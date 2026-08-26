@@ -5858,3 +5858,78 @@ Last Brainy pin **4/20**. Not re-run.
 
 **One step:** generic **S2 list completeness remainder** — who-told lists (`conv-49-q78`) whose gold objects are partly in the frozen store (work friends + extended family; do not invent Sam-as-told from in-dialogue). Do not fish food-set completeness against WRITE-missing sandwich snacks / Beef Merlot. Then **S2b OD** (still 4/11; 0/4 diagnostic). Then **S1 WRITE** with re-ingest. Then **S5 industry** (62/180 on this tenant). Do **not** queue leftover covering from this 180. Do not chase camping-peaceful. Do not invent Sunday. Do not steal across speakers. Do not special-case Scout. Do not add companionship covering. Isolated leftover covering is saturating. Remaining 35: RETRIEVAL 9, PROOF 14, READER 7, WRITE 4, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-26 — P63 polar has-tried from love (146/180; not leftover covering)
+
+Pin: [locomo-s0-diag-mh-135-p63-20260826.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p63-20260826.md).
+Run `locomo-s0-diag-mh-135-p63-product-recall-s1-8a49cb`. Product SHA **`b430eab`**.
+Honesty stop **`0c33eb8`** stays on `dev`; this increment is **S2 polar**, not covering.
+
+**90% honesty:** 90% on this 180 is **162/180**. 90% on public LoCoMo is **n=1540**, last pin **11.4%**.
+This row is **146/180**. It is **not** 90%. It is **not** beating Mem0.
+
+### Landed
+
+Product: has-tried polar (`has`/`did`/`have` + `tried`/`try`) hops preference as well as activity. Love / discovered-love / tried of the **named person's claim activity** proves typed Yes and sets `polar_answer` so hybrid cannot rewrite it to No. Plan / learn / guide atoms do not prove Yes. Experience and claim must share the same slot or content — the comma-joined hop Value is not scored (it paired unrelated `tried making daily schedule` / `loved ones` with `surfing`). `loved ones` is not an experience cue. Recover is subject-bound. **No** LoCoMo-named rules. **No** leftover-covering detector. **No** surf dictionary.
+
+Pin docs: this section; [docs/benchmarks/README.md](../../benchmarks/README.md) P63 row.
+
+**Do not merge** leftover-covering PRs **#133**, **#131**, **#143**, **#145**.
+
+### Own pins
+
+Same 180, seed 1, 10 convos, fail-closed skip-ingest, tenant `diag-mh-135`. Hybrid on. Dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`.
+
+| Pin | SHA | Overall | MH | OD | SH | temporal |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Product reader off | `453a929` | **19/180** | **12/33** | 0/11 | 5/98 | 2/38 |
+| P28 | `454fbb3` | **113/180** | 18/33 | 4/11 | 61/98 | 30/38 |
+| P53 (covering) | `ae15e40` | **137/180** | 18/33 | 4/11 | 85/98 | 30/38 |
+| P54 (entity-scoped counts) | `7653135` | **140/180 (0.778)** | **20/33** | **4/11** | **85/98** | **31/38** |
+| P58 (historical typed-set lists) | `4817e11` | **141/180 (0.783)** | **21/33** | **4/11** | **85/98** | **31/38** |
+| P59 (dest-class lists) | `2111b3b` | **143/180 (0.794)** | **23/33** | **4/11** | **85/98** | **31/38** |
+| P61 (beneficiary org sets) | `ee2baa6` | **144/180 (0.800)** | **24/33** | **4/11** | **85/98** | **31/38** |
+| P62 (community participation sets) | `c02d70a` | **145/180 (0.806)** | **25/33** | **4/11** | **85/98** | **31/38** |
+| **P63 (polar has-tried from love)** | **`b430eab`** | **146/180 (0.811)** | **26/33** | **4/11** | **85/98** | **31/38** |
+| Industry search+harness | same tenant | **62/180** | 10/33 | 3/11 | 27/98 | 22/38 |
+| Full n=1540 product `/recall` | `1b5ab3e` | **175/1540 = 11.4%** | 7.4% MH | 5.2% OD | 10.5% SH | 19.0% temporal |
+| 1×30 conv-26 | `1b5ab3e` | **21/30 (70%)** | 10/10 | **0/4** | — | 11/16 |
+| LME-20 | `1b5ab3e` | **4/20** | | | | |
+
+Unique losses vs P62: **none**. Gain: Deborah has-tried surfing (`conv-48-q79`). Industry **62/180**. n=1540 and 1×30 **not** re-run; do not replace README 11.4% / 70%.
+
+### Competitor compare (detailed)
+
+#### 1. LoCoMo — trail (open-domain); this 180 is not public LoCoMo
+
+Public LoCoMo is **n=1540 / 11.4%**. This 180 is a stratified diagnostic. **OD 4/11** (0/4 diagnostic still). Do **not** write lead from 146/180 vs Mem0 11/30 (handicapped, different pin). Published Mem0 **92.5%** (their harness, top-k 200, n=1540) is **context**, never a scoreboard row. Fair Mem0 180 waits on quota **2026-09-01**.
+
+**Trailing axis (open-domain):** product mechanism still missing is **S2b** membership/hypothesis + **S1** write coverage (Xenoblade, yoga 2020, Phuket, Wolves). PoR: compiler coverage then re-ingest; not leftover covering.
+
+**Leading axes (must not regress):** OpMem 13/13, marketing 17/17, 1×30 MH 10/10. P62 participation join, P61 beneficiary join, P59 dest-class lists, P54 counts, and P53 covering holds held on live `/recall`.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+`"Has Deborah tried surfing?"` recovered hybrid No from a plan-to-try leftover because has-tried polar only hopped activity/event. The frozen store already had preference love / discovered-love of surfing for Deborah. Hopping preference, recovering love/tried contents onto that hop, and requiring claim+experience on the **same** slot/content (not the comma-joined hop Value) is the product mechanism. Jolene's learn-to-surf / beginners'-guide leftovers stay non-Yes.
+
+### Next
+
+**One step:** generic **S2 who-told** (`conv-49-q78`) — first-person empty-subject tell-about-marriage lines (work friends, extended family). Do not invent Sam-as-told from in-dialogue. Do not steal across speakers. Then **S2b OD** (still 4/11; 0/4 diagnostic). Then **S1 WRITE** with re-ingest. Then **S5 industry** (62/180 on this tenant). Do **not** queue leftover covering from this 180. Do not chase camping-peaceful. Do not invent Sunday. Do not special-case Scout. Do not add companionship covering. Isolated leftover covering is saturating. Food-set on this 180 is saturating against completeness+WRITE. Remaining 34: RETRIEVAL 8, PROOF 14, READER 7, WRITE 4, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
