@@ -3388,6 +3388,127 @@ func TestRecallItemsForClauseKeepsMatchingPossessions(t *testing.T) {
 	}
 }
 
+func TestRecallItemsForClauseReadsFullTypedSetNotCurrentState(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, val, content string
+	}{
+		{"beds", "new dog beds", "Audrey bought new dog beds for her dogs last week"},
+		{"toys", "dog toys", "Audrey visited a pet store to buy toys for her dogs"},
+		{"collars", "new collars and tags for her dogs", "Audrey acquired new collars and tags for her dogs"},
+		{"buddy", "dog named Buddy", "Audrey has a dog named Buddy"},
+		{"four", "four dogs", "Audrey has four dogs"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-ifor2", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "Audrey"},
+			Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "Audrey"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicatePossession, val: f.val, memID: id})
+	}
+	// Latest current-state row is beds only — list hops must still scan atoms.
+	if err := store.UpsertCurrentState(context.Background(), "t-ifor2", "u1",
+		statePredicateKey("Audrey", PredicatePossession), "mem_beds", "new dog beds", "replace"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.UpsertCurrentState(context.Background(), "t-ifor2", "u1",
+		statePredicateKey(CanonicalEntityID("t-ifor2", "u1", "Audrey"), PredicatePossession),
+		"mem_beds", "new dog beds", "replace"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-ifor2", SubjectID: "u1",
+		Query: "What items has Audrey bought or made for her dogs?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "collar") || !strings.Contains(got, "tag") || !strings.Contains(got, "toy") || !strings.Contains(got, "bed") {
+		t.Fatalf("expected full item set from atoms, answer=%q items=%#v hist=%v hops=%v", out.Answer, out.Items, out.Explain["include_historical"], out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "buddy") || strings.Contains(got, "four dogs") {
+		t.Fatalf("for-clause class referents crowded item list: %q", out.Answer)
+	}
+}
+
+func TestRecallOutdoorWithColleaguesKeepsWorkmates(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, val, content string
+	}{
+		{"hike", "being outdoors - going for hikes", "John enjoys being outdoors - going for hikes"},
+		{"mtn", "mountaineering", "John went mountaineering with workmates during the week of June 5-11, 2023"},
+		{"yoga", "weekend yoga class", "John started a weekend yoga class with a colleague"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-out", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": f.val, "subject": "John"},
+			Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": f.val, "subject": "John"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicateActivity, val: f.val, memID: id})
+	}
+	if err := store.UpsertCurrentState(context.Background(), "t-out", "u1",
+		statePredicateKey("John", PredicateActivity), "mem_hike", "being outdoors - going for hikes", "replace"); err != nil {
+		t.Fatal(err)
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-out", SubjectID: "u1",
+		Query: "What outdoor activities has John done with his colleagues?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "hike") || !strings.Contains(got, "mountaineering") {
+		t.Fatalf("expected hiking and mountaineering, answer=%q items=%#v", out.Answer, out.Items)
+	}
+}
+
+func TestKindListCoveredByAnswer(t *testing.T) {
+	covering := "They can do tricks like sit, stay, paw, and rollover"
+	if !kindListCoveredByAnswer(covering, "sit, stay, paw, rollover, catching frisbees") {
+		t.Fatal("typed trick list that already has the like-list slots must count as covered")
+	}
+	if kindListCoveredByAnswer(covering, "energy balls") {
+		t.Fatal("unrelated singleton must not cover a like-list leftover")
+	}
+	q := "What kind of tricks do James's pets know?"
+	if leftoverCoveringKindMissesList(q, covering, "sit, stay, paw, rollover") {
+		t.Fatal("what-kind covering must not replace a typed list that already has the slots")
+	}
+}
+
+func TestHopScanLimitEnumeratesPastSearchTopK(t *testing.T) {
+	plan := QueryPlan{NeedsEnumeration: true}
+	if got := hopScanLimit("What items has Audrey bought or made for her dogs?", plan, 30); got != 128 {
+		t.Fatalf("enumerate hop scan want 128, got %d", got)
+	}
+	if got := hopScanLimit("Where does Riley live?", QueryPlan{}, 30); got != 30 {
+		t.Fatalf("non-list hop scan must stay at topK, got %d", got)
+	}
+}
+
 func TestRecallWhoToldAboutFromTypedHop(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
