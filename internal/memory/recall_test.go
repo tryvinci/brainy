@@ -2700,6 +2700,132 @@ func TestRecallCountSkipsPreferenceJunk(t *testing.T) {
 	}
 }
 
+func TestRecallCountNumberedFamilyPhrase(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-dau"] = MemoryRecord{
+		MemoryID: "mem_mdau", TenantID: "t-kids-n", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie has a daughter.",
+		DedupeKey: "mdau", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "daughter", "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "daughter", "subject": "Melanie"},
+	}
+	store.records["m-two"] = MemoryRecord{
+		MemoryID: "mem_mtwo", TenantID: "t-kids-n", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie's family includes a man and two children.",
+		DedupeKey: "mtwo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "man and two children", "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "man and two children", "subject": "Melanie"},
+	}
+	store.records["m-kids"] = MemoryRecord{
+		MemoryID: "mem_mkids", TenantID: "t-kids-n", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie has kids.",
+		DedupeKey: "mkids", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "kids", "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "kids", "subject": "Melanie"},
+	}
+	store.records["m-hus"] = MemoryRecord{
+		MemoryID: "mem_mhus", TenantID: "t-kids-n", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie has a husband.",
+		DedupeKey: "mhus", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "husband", "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "husband", "subject": "Melanie"},
+	}
+	store.records["m-nat"] = MemoryRecord{
+		MemoryID: "mem_mnat", TenantID: "t-kids-n", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie's kids like nature",
+		DedupeKey: "mnat", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "nature", "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "nature", "subject": "Melanie"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "daughter", memID: "mem_mdau"},
+		stubAtom{pred: PredicateFamilyMember, val: "man and two children", memID: "mem_mtwo"},
+		stubAtom{pred: PredicateFamilyMember, val: "kids", memID: "mem_mkids"},
+		stubAtom{pred: PredicateFamilyMember, val: "husband", memID: "mem_mhus"},
+		stubAtom{pred: PredicateFamilyMember, val: "nature", memID: "mem_mnat"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-kids-n", SubjectID: "u1",
+		Query: "How many children does Melanie have?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.Answer) != "3" {
+		t.Fatalf("expected 3 from daughter + two children, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+}
+
+func TestFilterCountItemsKeepsNumberedChildren(t *testing.T) {
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-two"] = MemoryRecord{
+		MemoryID: "mem_mtwo", TenantID: "t-kids-n", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie's family includes a man and two children.",
+		DedupeKey: "mtwo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "man and two children", "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "man and two children", "subject": "Melanie"},
+	}
+	items := []RecallItem{{
+		Value: "man and two children", Predicate: PredicateFamilyMember, Evidence: []string{"mem_mtwo"},
+	}}
+	got := svc.filterCountItems(context.Background(), RecallRequest{
+		TenantID: "t-kids-n", SubjectID: "u1",
+		Query: "How many children does Melanie have?",
+	}, items, nil)
+	if len(got) != 1 {
+		t.Fatalf("filter dropped numbered children: %#v", got)
+	}
+}
+
+func TestCountHelpersKeepNumberedChildren(t *testing.T) {
+	v := "man and two children"
+	blob := "man and two children Melanie's family includes a man and two children."
+	if !valueHasChildCue(v, blob) {
+		t.Fatalf("valueHasChildCue=false")
+	}
+	if valueIsPreferenceComplement(v, blob) {
+		t.Fatalf("valueIsPreferenceComplement=true")
+	}
+	if countItemIsZero(v) {
+		t.Fatalf("countItemIsZero")
+	}
+	if n := countItemQuantity(v, "children"); n != 2 {
+		t.Fatalf("quantity=%d", n)
+	}
+	if splitCoordinatedCountNames(v) != nil {
+		t.Fatalf("split=%v", splitCoordinatedCountNames(v))
+	}
+	if countValueIsBareClassNoun(v, "children") {
+		t.Fatalf("quantified class phrase treated as bare noun")
+	}
+	if !countValueIsBareClassNoun("kids", "children") {
+		t.Fatalf("kids should be a bare class noun")
+	}
+}
+
+func TestCollapseCountKeepsQuantifiedClassPhrase(t *testing.T) {
+	got := collapseCountClassNouns([]RecallItem{
+		{Value: "daughter"},
+		{Value: "man and two children"},
+		{Value: "kids"},
+		{Value: "children"},
+	}, "children")
+	want := map[string]bool{"daughter": true, "man and two children": true}
+	if len(got) != 2 {
+		t.Fatalf("got %#v", got)
+	}
+	for _, it := range got {
+		if !want[it.Value] {
+			t.Fatalf("unexpected %q in %#v", it.Value, got)
+		}
+	}
+}
+
 func TestRecallCountPossessionsEntityScoped(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
