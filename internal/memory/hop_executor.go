@@ -837,7 +837,7 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 		}
 		slots := recoverFoodSetSlots(giver, listed, query)
 		if len(slots) >= 2 {
-			replaceHopSlots(hops, PredicatePreference, slots)
+			replaceHopSlotsOn(hops, hopIndexForPredicateEntity(hops, PredicatePreference, giver), slots)
 		}
 	}
 }
@@ -919,11 +919,11 @@ func prependHopSlots(hops []HopResult, pred string, slots []recoveredSlot) {
 }
 
 func replaceHopSlots(hops []HopResult, pred string, slots []recoveredSlot) {
-	if len(hops) == 0 || len(slots) == 0 {
-		return
-	}
-	idx := hopIndexForPredicate(hops, pred)
-	if idx < 0 {
+	replaceHopSlotsOn(hops, hopIndexForPredicate(hops, pred), slots)
+}
+
+func replaceHopSlotsOn(hops []HopResult, idx int, slots []recoveredSlot) {
+	if len(hops) == 0 || len(slots) == 0 || idx < 0 || idx >= len(hops) {
 		return
 	}
 	h := &hops[idx]
@@ -996,6 +996,20 @@ func filterHopSlotsByTransferCue(hops []HopResult, pred string) {
 	h.Contents = contents
 	h.MemoryIDs = ids
 	h.Value = strings.Join(vals, ", ")
+}
+
+func hopIndexForPredicateEntity(hops []HopResult, pred, person string) int {
+	if pred != "" && strings.TrimSpace(person) != "" {
+		for i, h := range hops {
+			if h.Kind == "resolve_entity" {
+				continue
+			}
+			if h.Predicate == pred && strings.EqualFold(strings.TrimSpace(h.Entity), person) {
+				return i
+			}
+		}
+	}
+	return hopIndexForPredicate(hops, pred)
 }
 
 func hopIndexForPredicate(hops []HopResult, pred string) int {

@@ -1302,6 +1302,11 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 
 	counting := looksCountQuery(req.Query)
 	join := len(hopQueryEntities(req.Query)) >= 2
+	// Meal/suggestion sets are one person's preference slots, not the
+	// intersection of giver and recipient (or eater and clause entity).
+	if looksFoodSetQuery(req.Query) {
+		join = false
+	}
 	if join {
 		shared := hopSharedSlotValues(hops)
 		if looksCommunityQuery(req.Query) {
@@ -1350,6 +1355,14 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			}
 			if counting && entity != "" && strings.TrimSpace(h.Entity) != "" && !strings.EqualFold(h.Entity, entity) {
 				continue
+			}
+			if looksFoodSetQuery(req.Query) {
+				if !strings.EqualFold(h.Predicate, PredicatePreference) {
+					continue
+				}
+				if person := foodSetRecoverPerson(req.Query); person != "" && strings.TrimSpace(h.Entity) != "" && !strings.EqualFold(h.Entity, person) {
+					continue
+				}
 			}
 			if !hopUsefulForEnumerate(h.Predicate, pred, counting) {
 				continue
@@ -2026,6 +2039,11 @@ func capEnumerateItems(items []RecallItem) []RecallItem {
 func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
 	items = filterBesides(req.Query, items)
 	items = s.filterHopEvidence(ctx, req, items, hops)
+	if looksFoodSetQuery(req.Query) {
+		if kept := itemsOnPredicateHop(items, hops, PredicatePreference, foodSetRecoverPerson(req.Query)); len(kept) >= 2 {
+			return capEnumerateItems(kept)
+		}
+	}
 	if !looksCountQuery(req.Query) {
 		if toks := forClauseTokens(req.Query); len(toks) > 0 && predicateFromListQuery(tokenize(req.Query)) != PredicateFamilyMember {
 			items = dropForClauseClassReferents(items, toks)
@@ -2264,6 +2282,94 @@ func (s *Service) filterTrickDestItems(ctx context.Context, req RecallRequest, i
 		return keep
 	}
 	return items
+}
+
+func hopPredicateValues(hops []HopResult, pred, person string) []string {
+	out := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		if !strings.EqualFold(strings.TrimSpace(h.Predicate), pred) {
+			continue
+		}
+		if person != "" && strings.TrimSpace(h.Entity) != "" && !strings.EqualFold(h.Entity, person) {
+			continue
+		}
+		if len(h.Values) > 0 {
+			for _, v := range h.Values {
+				add(v)
+			}
+			continue
+		}
+		add(h.Value)
+	}
+	return out
+}
+
+func itemValueOnHop(itemVal, hopVal string) bool {
+	a := strings.ToLower(strings.TrimSpace(itemVal))
+	b := strings.ToLower(strings.TrimSpace(hopVal))
+	if a == "" || b == "" {
+		return false
+	}
+	if a == b {
+		return true
+	}
+	if utf8.RuneCountInString(a) >= 4 && strings.Contains(b, a) {
+		return true
+	}
+	if utf8.RuneCountInString(b) >= 4 && strings.Contains(a, b) {
+		return true
+	}
+	return false
+}
+
+func itemsOnPredicateHop(items []RecallItem, hops []HopResult, pred, person string) []RecallItem {
+	vals := hopPredicateValues(hops, pred, person)
+	if len(vals) < 2 && person != "" {
+		vals = hopPredicateValues(hops, pred, "")
+	}
+	if len(vals) < 2 {
+		return nil
+	}
+	kept := make([]RecallItem, 0, len(items))
+	seen := map[string]struct{}{}
+	for _, it := range items {
+		key := strings.ToLower(strings.TrimSpace(it.Value))
+		if key == "" {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		hit := false
+		for _, v := range vals {
+			if itemValueOnHop(it.Value, v) {
+				hit = true
+				break
+			}
+		}
+		if !hit {
+			continue
+		}
+		seen[key] = struct{}{}
+		kept = append(kept, it)
+	}
+	return kept
 }
 
 func hopContentForValue(hops []HopResult, value string) string {

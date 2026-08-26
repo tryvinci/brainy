@@ -1697,6 +1697,36 @@ func TestLooksFoodSetQueryTypedMealsNotSnacks(t *testing.T) {
 	}
 }
 
+func TestItemsOnPredicateHopKeepsFoodSlots(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "fetch_predicate", Predicate: PredicatePreference, Entity: "Evan", Source: "typed_store",
+			Values: []string{"flavored seltzer", "air-popped popcorn", "fruit"}},
+		{Kind: "fetch_predicate", Predicate: PredicateActivity, Entity: "Evan", Source: "typed_store",
+			Values: []string{"trying new healthy snacks", "hiked with dad"}},
+		{Kind: "fetch_predicate", Predicate: PredicatePreference, Entity: "Sam", Source: "typed_store",
+			Values: []string{"candy"}},
+	}
+	items := []RecallItem{
+		{Value: "flavored seltzer"},
+		{Value: "trying new healthy snacks"},
+		{Value: "air-popped popcorn"},
+		{Value: "fruit"},
+		{Value: "hiked with dad"},
+		{Value: "candy"},
+	}
+	got := itemsOnPredicateHop(items, hops, PredicatePreference, "Evan")
+	blob := ""
+	for _, it := range got {
+		blob += strings.ToLower(it.Value) + " "
+	}
+	if !strings.Contains(blob, "seltzer") || !strings.Contains(blob, "popcorn") || !strings.Contains(blob, "fruit") {
+		t.Fatalf("missing food slots: %q", blob)
+	}
+	if strings.Contains(blob, "hiked") || strings.Contains(blob, "healthy snacks") || strings.Contains(blob, "candy") {
+		t.Fatalf("off-predicate leaked: %q", blob)
+	}
+}
+
 func TestFoodObjectsFromContentSuggestionAndMealCues(t *testing.T) {
 	got := strings.Join(foodObjectsFromContent("Evan: Definitely, how about some flavored seltzer with some air-popped popcorn or fruit"), ",")
 	low := strings.ToLower(got)
