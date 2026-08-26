@@ -6013,7 +6013,87 @@ Last Brainy pin **4/20**. Not re-run.
 
 **One step:** generic **S2b OD** (still 4/11; 0/4 diagnostic) — membership/hypothesis that the frozen store can prove without leftover covering. Who-told saturates against Sam WRITE. Food-set saturates against completeness+WRITE. Then **S1 WRITE** with re-ingest (Sam-as-told, sandwich snacks, Phuket on the dive-spot line — do not fuse meditation-Phuket). Then **S5 industry** (62/180 on this tenant). Do **not** queue leftover covering from this 180. Do not chase camping-peaceful. Do not invent Sunday. Do not steal across speakers. Do not special-case Scout. Do not add companionship covering. Isolated leftover covering is saturating. Remaining 33: RETRIEVAL 8, PROOF 14, READER 7, WRITE 3, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
-## 2026-08-26 — P65 caption observed_at when-event dating (148/180; not leftover covering)
+## 2026-08-26 — P66 entity-scoped language ranking (149/180; not leftover covering)
+
+Pin: [locomo-s0-diag-mh-135-p66-20260826.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p66-20260826.md).
+Run `locomo-s0-diag-mh-135-p68-product-recall-s1-fa453c`. Product SHA **`205c47d`**.
+Honesty stop **`0c33eb8`** stays on `dev`; this increment is **S2 structured answer**, not covering.
+
+**90% honesty:** 90% on this 180 is **162/180**. 90% on public LoCoMo is **n=1540**, last pin **11.4%**.
+This row is **149/180**. It is **not** 90%. It is **not** beating Mem0.
+
+A first 180 that skipped leftover covering on `date_focus` was **143/180 unique 1/6**. That skip is **not** in this pin.
+
+### Landed
+
+Product: which/what language+learn/study `/recall` binds to the query person and ranks matrix “is learning X” over purpose adjuncts (“to learn X”, app-for, interested-in) and other-person slots. One-token objects must appear capitalized next to a learn/study verb so studying-hard / week-of / interval adjuncts cannot beat German. Hybrid and leftover covering cannot replace a typed `language_answer`. **No** LoCoMo-named rules. **No** leftover-covering detector. **No** language dictionary.
+
+Pin docs: this section; [docs/benchmarks/README.md](../../benchmarks/README.md) P66 row.
+
+**Do not merge** leftover-covering PRs **#133**, **#131**, **#143**, **#145**.
+
+### Own pins
+
+Same 180, seed 1, 10 convos, fail-closed skip-ingest, tenant `diag-mh-135`. Hybrid on. Dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`.
+
+| Pin | SHA | Overall | MH | OD | SH | temporal |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Product reader off | `453a929` | **19/180** | **12/33** | 0/11 | 5/98 | 2/38 |
+| P28 | `454fbb3` | **113/180** | 18/33 | 4/11 | 61/98 | 30/38 |
+| P53 (covering) | `ae15e40` | **137/180** | 18/33 | 4/11 | 85/98 | 30/38 |
+| P54 (entity-scoped counts) | `7653135` | **140/180 (0.778)** | **20/33** | **4/11** | **85/98** | **31/38** |
+| P58 (historical typed-set lists) | `4817e11` | **141/180 (0.783)** | **21/33** | **4/11** | **85/98** | **31/38** |
+| P59 (dest-class lists) | `2111b3b` | **143/180 (0.794)** | **23/33** | **4/11** | **85/98** | **31/38** |
+| P61 (beneficiary org sets) | `ee2baa6` | **144/180 (0.800)** | **24/33** | **4/11** | **85/98** | **31/38** |
+| P62 (community participation sets) | `c02d70a` | **145/180 (0.806)** | **25/33** | **4/11** | **85/98** | **31/38** |
+| P63 (polar has-tried from love) | `b430eab` | **146/180 (0.811)** | **26/33** | **4/11** | **85/98** | **31/38** |
+| P64 (journey-change historical facets) | `1d021af` | **147/180 (0.817)** | **27/33** | **4/11** | **85/98** | **31/38** |
+| P65 (caption observed_at when-event dating) | `fa56186` | **148/180 (0.822)** | **28/33** | **4/11** | **85/98** | **31/38** |
+| **P66 (entity-scoped language ranking)** | **`205c47d`** | **149/180 (0.828)** | **28/33** | **4/11** | **86/98** | **31/38** |
+| Industry search+harness | same tenant | **62/180** | 10/33 | 3/11 | 27/98 | 22/38 |
+| Full n=1540 product `/recall` | `1b5ab3e` | **175/1540 = 11.4%** | 7.4% MH | 5.2% OD | 10.5% SH | 19.0% temporal |
+| 1×30 conv-26 | `1b5ab3e` | **21/30 (70%)** | 10/10 | **0/4** | — | 11/16 |
+| LME-20 | `1b5ab3e` | **4/20** | | | | |
+
+Unique losses vs P65: **none**. Gain: Tim learning language (`conv-43-q163` German). Industry **62/180**. n=1540 and 1×30 **not** re-run; do not replace README 11.4% / 70%.
+
+### Competitor compare (detailed)
+
+#### 1. LoCoMo — trail (open-domain); this 180 is not public LoCoMo
+
+Public LoCoMo is **n=1540 / 11.4%**. This 180 is a stratified diagnostic. **OD 4/11** (0/4 diagnostic still). Do **not** write lead from 149/180 vs Mem0 11/30 (handicapped, different pin). Published Mem0 **92.5%** (their harness, top-k 200, n=1540) is **context**, never a scoreboard row. Fair Mem0 180 waits on quota **2026-09-01**.
+
+**Trailing axis (open-domain):** product mechanism still missing is **S2b** membership/hypothesis + **S1** write coverage (Xenoblade, yoga 2020, Phuket, Wolves). PoR: compiler coverage then re-ingest on a **new** tenant; not leftover covering. This increment closed a **which-language ranking** READER miss, not OD.
+
+**Leading axes (must not regress):** OpMem 13/13, marketing 17/17, 1×30 MH 10/10. P65 caption dating, P64 journey-change, P63 polar Yes, P62 participation join, P61 beneficiary join, P59 dest-class lists, P54 counts, and P53 covering holds held on live `/recall`.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+`"Which language is Tim learning?"` returned Spanish because compiler-misbound purpose adjuncts (`app to learn Spanish`, `interested in learning Spanish`) and John’s Spanish crowded Tim’s matrix fact `Tim is learning German`. Ranking matrix “is learning X” over “to learn X” / app-for / interested-in, entity-bound, with capitalized name-like objects, is the product mechanism.
+
+### Next
+
+**One step:** skip-ingest in-store product for this cell is saturating. Remaining mass is **S1 WRITE** — re-ingest on a **new** tenant (not `diag-mh-135`): Sam-as-told, sandwich snacks, Phuket on the dive-spot line (do not fuse meditation-Phuket), Xenoblade, yoga 2020, study-together. Then remaining **S2b OD**. Then **S5 industry** (62/180 on this tenant). Do **not** queue leftover covering from this 180. Do not skip leftover covering on all `date_answer`. Do not chase camping-peaceful. Do not invent Sunday. Do not steal across speakers. Do not special-case Scout. Do not add companionship covering. Isolated leftover covering is saturating. Who-told saturates against Sam WRITE. Food-set saturates against completeness+WRITE. Remaining 31: RETRIEVAL 8, PROOF 13, READER 6, WRITE 3, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
+
 
 Pin: [locomo-s0-diag-mh-135-p65-20260826.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p65-20260826.md).
 Run `locomo-s0-diag-mh-135-p66-product-recall-s1-418a3e`. Product SHA **`fa56186`**.
