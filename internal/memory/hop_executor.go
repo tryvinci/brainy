@@ -2107,7 +2107,7 @@ func recoverLanguageLearningSlots(query, person string, listed []MemoryRecord) [
 		if obj == "" || score < 3 {
 			continue
 		}
-		if score > bestScore || (score == bestScore && (best.value == "" || utf8Len(obj) < utf8Len(best.value))) {
+		if score > bestScore || (score == bestScore && best.value == "") {
 			bestScore = score
 			best = recoveredSlot{value: titleCaseWords(obj), content: content, memID: rec.MemoryID}
 		}

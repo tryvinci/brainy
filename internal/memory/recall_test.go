@@ -1282,6 +1282,13 @@ func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "spanish", "subject": "Tim"},
 		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "spanish", "subject": "Tim"},
 	}
+	store.records["t-hard"] = MemoryRecord{
+		MemoryID: "mem_thard", TenantID: "t-lang", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim is studying hard for his next exam",
+		DedupeKey: "thard", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "studying hard", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "studying hard", "subject": "Tim"},
+	}
 	store.records["j-es"] = MemoryRecord{
 		MemoryID: "mem_jes", TenantID: "t-lang", SubjectID: "u1",
 		Kind: KindFact, Content: "John is learning Spanish",
@@ -1293,6 +1300,7 @@ func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 		stubAtom{pred: PredicateActivity, val: "learning german", memID: "mem_tde"},
 		stubAtom{pred: PredicateActivity, val: "learning spanish", memID: "mem_tes"},
 		stubAtom{pred: PredicateActivity, val: "spanish", memID: "mem_tint"},
+		stubAtom{pred: PredicateActivity, val: "studying hard", memID: "mem_thard"},
 		stubAtom{pred: PredicateActivity, val: "learning spanish", memID: "mem_jes"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
@@ -1304,10 +1312,10 @@ func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 	}
 	got := strings.ToLower(strings.TrimSpace(out.Answer))
 	if got != "german" {
-		t.Fatalf("matrix learning must beat purpose adjunct and other-person Spanish, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+		t.Fatalf("matrix learning must beat purpose adjunct, studying-hard, and other-person Spanish, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
 	}
-	if strings.Contains(got, "spanish") {
-		t.Fatalf("must not steal Spanish from adjunct or John: %q", out.Answer)
+	if strings.Contains(got, "spanish") || strings.Contains(got, "hard") {
+		t.Fatalf("must not steal Spanish or studying-hard: %q", out.Answer)
 	}
 }
 

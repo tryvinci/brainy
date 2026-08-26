@@ -2052,7 +2052,7 @@ func (s *Service) languageAnswerFromHops(ctx context.Context, req RecallRequest,
 		if obj == "" || score < 3 {
 			return
 		}
-		if score > bestScore || (score == bestScore && bestObj != "" && utf8Len(obj) < utf8Len(bestObj)) || bestObj == "" {
+		if score > bestScore || (score == bestScore && bestObj == "") {
 			bestObj = obj
 			bestScore = score
 		}
@@ -2132,7 +2132,7 @@ func languageLearnObjectFromText(text string) (string, int) {
 			continue
 		}
 		obj := languageObjectAfter(toks, i+1)
-		if obj == "" || looksThinLanguageObject(obj) {
+		if obj == "" || looksThinLanguageObject(obj) || !languageObjectGrounded(text, obj) {
 			continue
 		}
 		score := 3
@@ -2142,7 +2142,7 @@ func languageLearnObjectFromText(text string) (string, int) {
 		if languagePurposeAdjunct(toks, i) && score > 1 {
 			score = 1
 		}
-		if score > bestScore || (score == bestScore && (bestObj == "" || utf8Len(obj) < utf8Len(bestObj))) {
+		if score > bestScore || (score == bestScore && bestObj == "") {
 			bestObj = obj
 			bestScore = score
 		}
@@ -2226,8 +2226,38 @@ func looksThinLanguageObject(obj string) bool {
 	switch strings.Join(rest, " ") {
 	case "language", "languages", "app", "apps", "stories", "story",
 		"it", "them", "this", "that", "stuff", "things", "thing",
-		"group", "class", "school", "their stories":
+		"group", "class", "school", "their stories",
+		"hard", "well", "better", "fast", "quickly", "together",
+		"online", "now", "currently", "still", "also", "just", "really",
+		"much", "lot", "lots", "something", "anything", "everything",
+		"nothing", "reading", "playing", "finding":
 		return true
+	}
+	return false
+}
+
+func languageObjectGrounded(content, obj string) bool {
+	if !queryHasToken(content, "learn", "learning", "learns", "learned", "learnt",
+		"study", "studying", "studies", "studied") {
+		return false
+	}
+	fields := strings.Fields(strings.ToLower(strings.TrimSpace(obj)))
+	if len(fields) == 0 {
+		return false
+	}
+	if len(fields) >= 2 {
+		return true
+	}
+	want := fields[0]
+	for _, w := range strings.Fields(content) {
+		w = strings.Trim(w, ".,;:!?\"'()[]")
+		if w == "" || !strings.EqualFold(w, want) {
+			continue
+		}
+		r, _ := utf8.DecodeRuneInString(w)
+		if unicode.IsUpper(r) {
+			return true
+		}
 	}
 	return false
 }
