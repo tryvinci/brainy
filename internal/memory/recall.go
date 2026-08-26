@@ -1190,7 +1190,7 @@ func wantsTypedSetScan(query string) bool {
 // current-state for possession/skill/place sets. Activity/community/snack
 // leftover questions enumerate at search top-k without this widening.
 func wantsHistoricalAtomScan(query string) bool {
-	if looksBeneficiarySetQuery(query) {
+	if looksBeneficiarySetQuery(query) || looksParticipationSetQuery(query) {
 		return true
 	}
 	q := strings.ToLower(strings.TrimSpace(query))
@@ -1311,7 +1311,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	// Meal/suggestion sets are one person's preference slots, not the
 	// intersection of giver and recipient (or eater and clause entity).
 	// Beneficiary org lists stay on the named person's affiliations.
-	if looksFoodSetQuery(req.Query) || looksBeneficiarySetQuery(req.Query) {
+	if looksFoodSetQuery(req.Query) || looksBeneficiarySetQuery(req.Query) || looksParticipationSetQuery(req.Query) {
 		join = false
 	}
 	if join {
@@ -1376,13 +1376,21 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 					continue
 				}
 			}
+			if looksParticipationSetQuery(req.Query) {
+				if !strings.EqualFold(h.Predicate, PredicateActivity) {
+					continue
+				}
+			}
 			if !hopUsefulForEnumerate(h.Predicate, pred, counting) {
 				continue
 			}
 			slotPred := firstNonEmpty(h.Predicate, pred)
 			if len(h.Values) > 0 {
 				for i, v := range h.Values {
-					if hopValueIsAttendedEvent(v) || hopValueHasForeignPossessive(v, h.Entity, hops) {
+					if !looksParticipationSetQuery(req.Query) && hopValueIsAttendedEvent(v) {
+						continue
+					}
+					if hopValueHasForeignPossessive(v, h.Entity, hops) {
 						continue
 					}
 					id := hopMemoryIDForExtractedValue(h, v)
@@ -2062,6 +2070,15 @@ func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, 
 			person = ents[0]
 		}
 		if kept := itemsOnPredicateHop(items, hops, PredicateAffiliation, person); len(kept) >= 2 {
+			return capEnumerateItems(kept)
+		}
+	}
+	if looksParticipationSetQuery(req.Query) {
+		person := ""
+		if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+			person = ents[0]
+		}
+		if kept := itemsOnPredicateHop(items, hops, PredicateActivity, person); len(kept) >= 2 {
 			return capEnumerateItems(kept)
 		}
 	}
@@ -10471,11 +10488,39 @@ func leftoverCoveringKeepBeneficiarySet(query string, hops []HopResult, answer s
 	return hits >= 2 && utf8Len(answer) <= 240
 }
 
+func leftoverCoveringKeepParticipationSet(query string, hops []HopResult, answer string) bool {
+	if !looksParticipationSetQuery(query) {
+		return false
+	}
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") {
+		return false
+	}
+	if leftoverThinMissAnswer(query, hops, answer) || leftoverQueryEchoAnswer(query, answer) {
+		return false
+	}
+	vals := hopPredicateValues(hops, PredicateActivity, "")
+	if len(vals) < 2 {
+		return false
+	}
+	al := strings.ToLower(answer)
+	hits := 0
+	for _, v := range vals {
+		if utf8.RuneCountInString(v) >= 4 && strings.Contains(al, strings.ToLower(v)) {
+			hits++
+		}
+	}
+	return hits >= 2 && utf8Len(answer) <= 400
+}
+
 func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {
 	if looksWhereQuery(query) || leftoverCoveringShouldJoin(query) {
 		return false
 	}
 	if leftoverCoveringKeepBeneficiarySet(query, hops, answer) {
+		return true
+	}
+	if leftoverCoveringKeepParticipationSet(query, hops, answer) {
 		return true
 	}
 	if !hopsKeepTypedJoin(hops) {

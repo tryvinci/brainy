@@ -2483,6 +2483,132 @@ func TestLooksBeneficiarySetQueryAndObjects(t *testing.T) {
 	}
 }
 
+func TestRecallParticipationSetFromJoinedActivities(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["c-act"] = MemoryRecord{
+		MemoryID: "mem_cact", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline joined an LGBTQ activist group on 2023-07-18.",
+		DedupeKey: "cact", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateAffiliation, "value_norm": "lgbtq activist group", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateAffiliation, "value_norm": "lgbtq activist group", "subject": "Caroline"},
+	}
+	store.records["c-pride"] = MemoryRecord{
+		MemoryID: "mem_cpride", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline attended an LGBTQ+ pride parade on 2023-06-30.",
+		DedupeKey: "cpride", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateEvent, "value_norm": "pride parade", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateEvent, "value_norm": "pride parade", "subject": "Caroline"},
+	}
+	store.records["c-art"] = MemoryRecord{
+		MemoryID: "mem_cart", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline is organizing an LGBTQ art show scheduled for September 2023.",
+		DedupeKey: "cart", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "organizing lgbtq art show", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "organizing lgbtq art show", "subject": "Caroline"},
+	}
+	store.records["c-ment"] = MemoryRecord{
+		MemoryID: "mem_cment", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline joined a mentorship program for LGBTQ youth on the weekend of 15–16 July 2023.",
+		DedupeKey: "cment", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "joined lgbtq youth mentorship program", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "joined lgbtq youth mentorship program", "subject": "Caroline"},
+	}
+	store.records["c-hike"] = MemoryRecord{
+		MemoryID: "mem_chike", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline participates in hiking",
+		DedupeKey: "chike", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "hiking", "subject": "Caroline"},
+	}
+	store.records["c-job"] = MemoryRecord{
+		MemoryID: "mem_cjob", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline works as a nurse",
+		DedupeKey: "cjob", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Caroline"},
+	}
+	store.records["c-adv"] = MemoryRecord{
+		MemoryID: "mem_cadv", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline contacted her mentor for adoption advice.",
+		DedupeKey: "cadv", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "contacted mentor for adoption advice", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "contacted mentor for adoption advice", "subject": "Caroline"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateAffiliation, val: "lgbtq activist group", memID: "mem_cact"},
+		stubAtom{pred: PredicateEvent, val: "pride parade", memID: "mem_cpride"},
+		stubAtom{pred: PredicateActivity, val: "organizing lgbtq art show", memID: "mem_cart"},
+		stubAtom{pred: PredicateActivity, val: "joined lgbtq youth mentorship program", memID: "mem_cment"},
+		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_chike"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_cjob"},
+		stubAtom{pred: PredicateActivity, val: "contacted mentor for adoption advice", memID: "mem_cadv"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-part", SubjectID: "u1",
+		Query: "In what ways is Caroline participating in the LGBTQ community?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "activist") || !strings.Contains(got, "pride") || !strings.Contains(got, "art") || !strings.Contains(got, "mentor") {
+		t.Fatalf("expected joined/attended/organizing/mentorship set, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded participation answer: %q", out.Answer)
+	}
+	if strings.Contains(got, "hiking") {
+		t.Fatalf("hobby leftover crowded participation answer: %q", out.Answer)
+	}
+	if strings.Contains(got, "courage") || strings.Contains(got, "transition") {
+		t.Fatalf("transition leftover crowded participation answer: %q", out.Answer)
+	}
+	if strings.Contains(got, "adoption") {
+		t.Fatalf("mentor-contact leftover crowded participation answer: %q", out.Answer)
+	}
+}
+
+func TestLooksParticipationSetQueryAndObjects(t *testing.T) {
+	q := "In what ways is Caroline participating in the LGBTQ community?"
+	if !looksParticipationSetQuery(q) {
+		t.Fatal("expected participation set")
+	}
+	if looksParticipationSetQuery("Which community activities have Riley and Casey participated in?") {
+		t.Fatal("dual community activity list must not use participation recover")
+	}
+	if looksParticipationSetQuery("What events is Maria planning for the homeless shelter funraiser?") {
+		t.Fatal("event leftover must not look like participation sets")
+	}
+	if looksParticipationSetQuery("In what ways did Caroline's life change after she started her transition?") {
+		t.Fatal("transition leftover must not look like participation sets")
+	}
+	got := strings.ToLower(strings.Join(participationObjectsFromContent("Caroline joined an LGBTQ activist group on 2023-07-18."), " "))
+	if !strings.Contains(got, "activist") {
+		t.Fatalf("activist group=%q", got)
+	}
+	pride := strings.ToLower(strings.Join(participationObjectsFromContent("Caroline attended an LGBTQ+ pride parade on 2023-06-30."), " "))
+	if !strings.Contains(pride, "pride") {
+		t.Fatalf("pride parade=%q", pride)
+	}
+	art := strings.ToLower(strings.Join(participationObjectsFromContent("Caroline is organizing an LGBTQ art show scheduled for September 2023."), " "))
+	if !strings.Contains(art, "art") {
+		t.Fatalf("art show=%q", art)
+	}
+	ment := strings.ToLower(strings.Join(participationObjectsFromContent("Caroline joined a mentorship program for LGBTQ youth on the weekend of 15–16 July 2023."), " "))
+	if !strings.Contains(ment, "mentorship") {
+		t.Fatalf("mentorship=%q", ment)
+	}
+	if got := participationObjectsFromContent("Caroline participates in hiking"); len(got) != 0 {
+		t.Fatalf("hobby participate-in leaked=%#v", got)
+	}
+	if got := participationObjectsFromContent("Caroline contacted her mentor for adoption advice."); len(got) != 0 {
+		t.Fatalf("mentor-contact leaked=%#v", got)
+	}
+}
+
 func TestRecallWhereKinshipPlaceNotActivityDump(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -8910,6 +9036,17 @@ func TestLeftoverCoveringKeepsTypedItemJoins(t *testing.T) {
 	csgo := "John raised money for charity through the CS:GO tournament on 7 May 2022."
 	if leftoverCoveringKeepTypedAnswer(benQ, benHops, csgo) {
 		t.Fatal("CS:GO leftover must not count as a typed beneficiary join")
+	}
+	partQ := "In what ways is Caroline participating in the LGBTQ community?"
+	partHops := []HopResult{{Kind: "fetch_predicate", Predicate: PredicateActivity, Entity: "Caroline", Source: "typed_store", ProofKind: "typed_exact",
+		Values: []string{"LGBTQ activist group", "LGBTQ+ pride parade", "LGBTQ art show", "mentorship program"}}}
+	partJoin := "LGBTQ activist group, LGBTQ+ pride parade, LGBTQ art show, mentorship program"
+	if !leftoverCoveringKeepTypedAnswer(partQ, partHops, partJoin) {
+		t.Fatal("typed participation join must be kept against leftover covering")
+	}
+	courage := "You've come a long way since your transition - keep on inspiring people with your strength and courage"
+	if leftoverCoveringKeepTypedAnswer(partQ, partHops, courage) {
+		t.Fatal("transition leftover must not count as a typed participation join")
 	}
 }
 

@@ -790,7 +790,8 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needNames := looksNameListQuery(query)
 	needFood := looksFoodSetQuery(query)
 	needBeneficiaries := looksBeneficiarySetQuery(query)
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries {
+	needParticipation := looksParticipationSetQuery(query)
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -848,6 +849,19 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 			replaceHopSlotsOn(hops, idx, slots)
 			if idx >= 0 && idx < len(hops) && len(hops[idx].Values) >= 2 {
 				hops[idx].Predicate = PredicateAffiliation
+				if person != "" {
+					hops[idx].Entity = person
+				}
+			}
+		}
+	}
+	if needParticipation {
+		slots := recoverParticipationSlots(person, listed)
+		if len(slots) >= 2 {
+			idx := hopIndexForPredicateEntity(hops, PredicateActivity, person)
+			replaceHopSlotsOn(hops, idx, slots)
+			if idx >= 0 && idx < len(hops) && len(hops[idx].Values) >= 2 {
+				hops[idx].Predicate = PredicateActivity
 				if person != "" {
 					hops[idx].Entity = person
 				}
@@ -1545,6 +1559,127 @@ func looksBeneficiarySetQuery(query string) bool {
 		return false
 	}
 	return strings.HasPrefix(q, "who") || strings.HasPrefix(q, "which") || strings.HasPrefix(q, "what")
+}
+
+func looksParticipationSetQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" || !strings.Contains(q, "community") {
+		return false
+	}
+	return strings.Contains(q, "ways") || strings.HasPrefix(q, "in what")
+}
+
+func looksThinParticipation(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if v == "" {
+		return true
+	}
+	switch v {
+	case "community", "rights", "difference", "painting", "sidewalk", "month",
+		"city", "neighborhood", "students", "folks", "adoption", "freedom",
+		"pride", "work", "people", "group", "events", "campaigns", "meetings":
+		return true
+	}
+	if strings.HasPrefix(v, "community ") && !strings.Contains(v, "garden") {
+		return true
+	}
+	return false
+}
+
+func recoverParticipationSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		val := strings.TrimSpace(sl.value)
+		val = strings.Trim(val, ".,;: ")
+		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || utf8Len(val) > 48 || looksThinParticipation(val) {
+			return
+		}
+		key := strings.ToLower(val)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || strings.HasPrefix(content, "[") {
+			continue
+		}
+		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) &&
+			!strings.HasPrefix(strings.ToLower(content), strings.ToLower(person)+":") {
+			continue
+		}
+		for _, v := range participationObjectsFromContent(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+	}
+	if len(out) > 8 {
+		out = out[:8]
+	}
+	return out
+}
+
+func participationObjectsFromContent(content string) []string {
+	lower := strings.ToLower(content)
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		v = strings.Trim(v, ".,;: ")
+		if j := strings.IndexAny(v, ".!?"); j >= 0 {
+			v = strings.TrimSpace(v[:j])
+		}
+		for _, tail := range []string{" which ", " during ", " on ", " last ", " after ", " and we ", " for ", " since ", " scheduled "} {
+			if k := strings.Index(strings.ToLower(v), tail); k >= 3 {
+				v = strings.TrimSpace(v[:k])
+			}
+		}
+		if low := strings.ToLower(v); strings.HasSuffix(low, " scheduled") {
+			v = strings.TrimSpace(v[:len(v)-len(" scheduled")])
+		}
+		v = strings.TrimPrefix(v, "a ")
+		v = strings.TrimPrefix(v, "an ")
+		v = strings.TrimPrefix(v, "the ")
+		v = strings.TrimPrefix(v, "new ")
+		if v == "" || utf8Len(v) < 4 || utf8Len(v) > 48 || looksThinParticipation(v) {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, cue := range []string{
+		" joined a ", " joined an ", " joined the ", " joined ",
+		" attended a ", " attended an ", " attended the ", " attended ",
+		" organizing an ", " organizing a ", " host an ", " host a ", " hosting an ", " hosting a ",
+		"mentorship program",
+	} {
+		start := 0
+		for {
+			i := strings.Index(lower[start:], cue)
+			if i < 0 {
+				break
+			}
+			i += start
+			if cue == "mentorship program" {
+				add("mentorship program")
+				start = i + len(cue)
+				continue
+			}
+			rest := strings.TrimSpace(content[i+len(cue):])
+			add(rest)
+			start = i + len(cue)
+		}
+	}
+	return out
 }
 
 func looksThinBeneficiary(v string) bool {
