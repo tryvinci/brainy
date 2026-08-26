@@ -5709,3 +5709,78 @@ Skill hops returned dest-adjacent identity dumps (`great host`, `perseverance`) 
 
 **One step:** generic **S2 list completeness remainder** — food/meal suggestion lists (`conv-49-q18` Evan given-to food, `conv-49-q37` Sam post-scare meals) without P56b soda/candy hop dumps. Then **S2b OD** (still 4/11; 0/4 diagnostic). Then **S1 WRITE** with re-ingest. Then **S5 industry** (62/180 on this tenant). Do **not** queue leftover covering from this 180. Do not chase camping-peaceful. Do not invent Sunday. Do not steal across speakers. Do not special-case Scout. Isolated leftover covering is saturating. Remaining 37: RETRIEVAL 13, PROOF 14, READER 5, WRITE 4, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-26 — P61 charity beneficiary org sets (144/180; not leftover covering)
+
+Pin: [locomo-s0-diag-mh-135-p61-20260826.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p61-20260826.md).
+Run `locomo-s0-diag-mh-135-p61-product-recall-s1-02435b`. Product SHA **`ee2baa6`**.
+Honesty stop **`0c33eb8`** stays on `dev`; this increment is **S2 enumerate**, not covering.
+
+**90% honesty:** 90% on this 180 is **162/180**. 90% on public LoCoMo is **n=1540**, last pin **11.4%**.
+This row is **144/180**. It is **not** 90%. It is **not** beating Mem0.
+
+Not-pins on the same branch: p60 / p60b **143/180** (food-set recover; unique CORRECT 0 vs P59). Do not mix those scores into this pin.
+
+### Landed
+
+Product: who/which beneficiary questions enumerate affiliation objects recovered from listed memories with raise/for-cues (`for a dog shelter`, `for the leftover money … for the homeless`, `for a children's hospital`). Tournament/CS:GO/charity slogans are thin-stopped. Dual-entity join stays off. Leftover covering keeps a ≥2 affiliation join. **No** LoCoMo-named rules. **No** leftover-covering detector. **No** animal-shelter synonym map (store says dog shelter; judge accepted the paraphrase).
+
+Pin docs: this section; [docs/benchmarks/README.md](../../benchmarks/README.md) P61 row.
+
+**Do not merge** leftover-covering PRs **#133**, **#131**, **#143**, **#145**.
+
+### Own pins
+
+Same 180, seed 1, 10 convos, fail-closed skip-ingest, tenant `diag-mh-135`. Hybrid on. Dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`.
+
+| Pin | SHA | Overall | MH | OD | SH | temporal |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Product reader off | `453a929` | **19/180** | **12/33** | 0/11 | 5/98 | 2/38 |
+| P28 | `454fbb3` | **113/180** | 18/33 | 4/11 | 61/98 | 30/38 |
+| P53 (covering) | `ae15e40` | **137/180** | 18/33 | 4/11 | 85/98 | 30/38 |
+| P54 (entity-scoped counts) | `7653135` | **140/180 (0.778)** | **20/33** | **4/11** | **85/98** | **31/38** |
+| P58 (historical typed-set lists) | `4817e11` | **141/180 (0.783)** | **21/33** | **4/11** | **85/98** | **31/38** |
+| P59 (dest-class lists) | `2111b3b` | **143/180 (0.794)** | **23/33** | **4/11** | **85/98** | **31/38** |
+| **P61 (beneficiary org sets)** | **`ee2baa6`** | **144/180 (0.800)** | **24/33** | **4/11** | **85/98** | **31/38** |
+| Industry search+harness | same tenant | **62/180** | 10/33 | 3/11 | 27/98 | 22/38 |
+| Full n=1540 product `/recall` | `1b5ab3e` | **175/1540 = 11.4%** | 7.4% MH | 5.2% OD | 10.5% SH | 19.0% temporal |
+| 1×30 conv-26 | `1b5ab3e` | **21/30 (70%)** | 10/10 | **0/4** | — | 11/16 |
+| LME-20 | `1b5ab3e` | **4/20** | | | | |
+
+Unique losses vs P59: **none**. Gain: John charity beneficiaries (`conv-47-q22`). Industry **62/180**. n=1540 and 1×30 **not** re-run; do not replace README 11.4% / 70%.
+
+### Competitor compare (detailed)
+
+#### 1. LoCoMo — trail (open-domain); this 180 is not public LoCoMo
+
+Public LoCoMo is **n=1540 / 11.4%**. This 180 is a stratified diagnostic. **OD 4/11** (0/4 diagnostic still). Do **not** write lead from 144/180 vs Mem0 11/30 (handicapped, different pin). Published Mem0 **92.5%** (their harness, top-k 200, n=1540) is **context**, never a scoreboard row. Fair Mem0 180 waits on quota **2026-09-01**.
+
+**Trailing axis (open-domain):** product mechanism still missing is **S2b** membership/hypothesis + **S1** write coverage (Xenoblade, yoga 2020, Phuket, Wolves). PoR: compiler coverage then re-ingest; not leftover covering.
+
+**Leading axes (must not regress):** OpMem 13/13, marketing 17/17, 1×30 MH 10/10. P59 dest-class lists, P54 counts, and P53 covering holds held on live `/recall`.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+`"Who or which organizations…beneficiaries"` starts with `who `, so typed-set scan never ran; leftover covering answered with the recency-top CS:GO tournament slogan. The three recipient objects were already in listed memories as raise/for-cues. Recovering those objects onto an affiliation hop, enumerating that hop, and keeping the join against leftover covering is the product mechanism. Food-set recover on this branch recovered real meal/suggestion objects but did not flip the 180 (completeness-fail-closed + WRITE-missing gold).
+
+### Next
+
+**One step:** generic **S2 list completeness remainder** — community participation lists (`conv-26-q39`) and who-told lists (`conv-49-q78`) whose gold objects are in the frozen store. Do not fish food-set completeness against WRITE-missing sandwich snacks / Beef Merlot. Then **S2b OD** (still 4/11; 0/4 diagnostic). Then **S1 WRITE** with re-ingest. Then **S5 industry** (62/180 on this tenant). Do **not** queue leftover covering from this 180. Do not chase camping-peaceful. Do not invent Sunday. Do not steal across speakers. Do not special-case Scout. Do not add companionship covering. Isolated leftover covering is saturating. Remaining 36: RETRIEVAL 10, PROOF 14, READER 7, WRITE 4, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
