@@ -3276,9 +3276,19 @@ func countValueIsBareClassNoun(value, head string) bool {
 	if countItemQuantity(value, head) > 1 {
 		return false
 	}
+	if namingReferent(value) != "" {
+		return false
+	}
 	v := strings.ToLower(strings.TrimSpace(value))
 	if countValueIsClassNoun(v, head) {
 		return true
+	}
+	if countHeadIsPossessedClass(head) {
+		core := v
+		if i := strings.Index(core, "("); i >= 0 {
+			core = strings.TrimSpace(core[:i])
+		}
+		return countValueIsClassNoun(core, head) || countValueIsClassNoun(valueLexicalHead(core), head)
 	}
 	v = strings.Map(func(r rune) rune {
 		if r == '(' || r == ')' {
