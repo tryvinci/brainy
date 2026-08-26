@@ -2812,6 +2812,12 @@ func TestCountHelpersKeepNumberedChildren(t *testing.T) {
 	if !countValueIsBareClassNoun("ferrari", "ferraris") {
 		t.Fatalf("bare ferrari should be a class noun")
 	}
+	if !countValueIsBareClassNoun("dog (shelter adoption)", "pets") {
+		t.Fatalf("class noun with provenance paren should be bare for pets")
+	}
+	if countValueIsBareClassNoun("puppy named Toby", "pets") {
+		t.Fatalf("named pet treated as bare class noun")
+	}
 }
 
 func TestCollapseCountKeepsQuantifiedClassPhrase(t *testing.T) {
