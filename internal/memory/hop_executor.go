@@ -1529,6 +1529,7 @@ func itemHasSuggestionCue(s string) bool {
 		" recommend ", " recommended ", " recommends ",
 		" how about ", " swap ", " replace ", " instead of ",
 		" given to ", " gave to ",
+		" check out ", " recipe for ", " prepared ",
 	} {
 		if strings.Contains(body, cue) {
 			return true
@@ -1541,7 +1542,7 @@ func itemHasMealCue(s string) bool {
 	body := " " + strings.ToLower(s) + " "
 	for _, cue := range []string{
 		" prepared ", " started eating ", " recipe is ", " recipe for ",
-		" made this ", " made a ", " ate ", " eaten ",
+		" made this ", " made a ",
 	} {
 		if strings.Contains(body, cue) {
 			return true
@@ -1586,6 +1587,22 @@ func recoverFoodSetSlots(person string, listed []MemoryRecord, query string) []r
 		if _, ok := seen[key]; ok {
 			return
 		}
+		for i, existing := range out {
+			ex := strings.ToLower(strings.TrimSpace(existing.value))
+			if utf8Len(ex) < 4 || utf8Len(key) < 4 {
+				continue
+			}
+			if !strings.Contains(ex, key) && !strings.Contains(key, ex) {
+				continue
+			}
+			if utf8Len(key) <= utf8Len(ex) {
+				return
+			}
+			delete(seen, ex)
+			out[i] = sl
+			seen[key] = struct{}{}
+			return
+		}
 		seen[key] = struct{}{}
 		out = append(out, sl)
 	}
@@ -1598,7 +1615,8 @@ func recoverFoodSetSlots(person string, listed []MemoryRecord, query string) []r
 			!strings.HasPrefix(strings.ToLower(content), strings.ToLower(person)+":") {
 			continue
 		}
-		cueOK := (wantSuggest && itemHasSuggestionCue(content)) || (wantMeal && itemHasMealCue(content))
+		cueOK := (wantSuggest && (itemHasSuggestionCue(content) || itemHasMealCue(content))) ||
+			(wantMeal && itemHasMealCue(content))
 		if !cueOK {
 			continue
 		}
@@ -1627,6 +1645,7 @@ func foodObjectsFromContent(content string) []string {
 		}
 		rest := strings.TrimSpace(content[i+len(cue):])
 		rest = trimFoodObjectTail(rest)
+		rest = clipFoodObjectRest(rest)
 		if rest == "" {
 			return nil
 		}
@@ -1674,6 +1693,11 @@ func foodObjectsFromContent(content string) []string {
 			return parts
 		}
 	}
+	if strings.Contains(lower, "recipe") {
+		if parts := takeAfter(" for these ", false); len(parts) > 0 {
+			return parts
+		}
+	}
 	return nil
 }
 
@@ -1703,6 +1727,23 @@ func trimFoodObjectTail(rest string) string {
 	rest = strings.TrimPrefix(rest, "these ")
 	rest = strings.TrimPrefix(rest, "some ")
 	return strings.TrimSpace(rest)
+}
+
+func clipFoodObjectRest(rest string) string {
+	rest = strings.TrimSpace(rest)
+	if rest == "" || utf8Len(rest) <= 60 {
+		return rest
+	}
+	parts := strings.Split(rest, ",")
+	acc := strings.TrimSpace(parts[0])
+	for _, p := range parts[1:] {
+		next := acc + ", " + strings.TrimSpace(p)
+		if utf8Len(next) > 60 {
+			break
+		}
+		acc = next
+	}
+	return acc
 }
 
 func splitFoodListParts(rest string) []string {

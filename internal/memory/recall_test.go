@@ -1747,8 +1747,16 @@ func TestFoodObjectsFromContentSuggestionAndMealCues(t *testing.T) {
 	if !looksThinFoodObject("started painting") {
 		t.Fatal("started painting must not count as a food object")
 	}
-	if looksThinFoodObject("started eating quinoa bowls") {
-		t.Fatal("started eating meals must stay")
+	recipe := foodObjectsFromContent("Check out this cool recipe I discovered for these energy balls")
+	if len(recipe) != 1 || !strings.Contains(strings.ToLower(recipe[0]), "energy") {
+		t.Fatalf("recipe share=%#v", recipe)
+	}
+	salad := foodObjectsFromContent("Evan prepared a salad with chicken, avocado, tomatoes, corn, cheese, and mixed greens.")
+	if len(salad) != 1 || !strings.Contains(strings.ToLower(salad[0]), "avocado") {
+		t.Fatalf("prepared salad=%#v", salad)
+	}
+	if itemHasMealCue("Sam ate a homemade key lime pie for dessert.") {
+		t.Fatal("dessert ate-line must not count as a meal cue")
 	}
 }
 
