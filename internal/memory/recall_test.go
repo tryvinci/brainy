@@ -4645,6 +4645,83 @@ func TestRecallJourneyChangesDoNotDumpOccupation(t *testing.T) {
 	}
 }
 
+func TestRecallJourneyChangesFromBodyAndFriends(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["c-body"] = MemoryRecord{
+		MemoryID: "mem_cbody", TenantID: "t-jny2", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline uses art to explore her transition and changing body.",
+		DedupeKey: "cbody", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": "activity_purpose", "value_norm": "explore transition and changing body", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": "activity_purpose", "value_norm": "explore transition and changing body", "subject": "Caroline"},
+	}
+	store.records["c-fr"] = MemoryRecord{
+		MemoryID: "mem_cfr", TenantID: "t-jny2", SubjectID: "u1",
+		Kind: KindFact, Content: "A few of Caroline's close friends were unable to handle her transition.",
+		DedupeKey: "cfr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateRelationshipStatus, "value_norm": "unsupportive friends", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateRelationshipStatus, "value_norm": "unsupportive friends", "subject": "Caroline"},
+	}
+	store.records["c-talk"] = MemoryRecord{
+		MemoryID: "mem_ctalk", TenantID: "t-jny2", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline gave a talk about her transgender journey at a school event on 2023-05-30.",
+		DedupeKey: "ctalk", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "school talk", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "school talk", "subject": "Caroline"},
+	}
+	store.records["c-job"] = MemoryRecord{
+		MemoryID: "mem_cjob", TenantID: "t-jny2", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline works as a nurse",
+		DedupeKey: "cjob", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Caroline"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "school talk", memID: "mem_ctalk"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_cjob"},
+		stubAtom{pred: PredicateRelationshipStatus, val: "unsupportive friends", memID: "mem_cfr"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-jny2", SubjectID: "u1",
+		Query: "What are some changes Caroline has faced during her transition journey?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "body") || !strings.Contains(got, "unsupport") {
+		t.Fatalf("expected body + unsupportive friends, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "school") || strings.Contains(got, "2023-05-30") {
+		t.Fatalf("school-talk leftover crowded journey changes: %q", out.Answer)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded journey changes: %q", out.Answer)
+	}
+}
+
+func TestLooksJourneyChangeQuery(t *testing.T) {
+	if !looksJourneyChangeQuery("What are some changes Caroline has faced during her transition journey?") {
+		t.Fatal("expected journey change set")
+	}
+	if looksJourneyChangeQuery("How did Evan start his transformation journey two years ago?") {
+		t.Fatal("how-start leftover must not look like journey change sets")
+	}
+	if looksJourneyChangeQuery("In what ways is Caroline participating in the LGBTQ community?") {
+		t.Fatal("participation leftover must not look like journey change sets")
+	}
+	got := strings.ToLower(strings.Join(journeyChangeObjectsFromContent("Caroline uses art to explore her transition and changing body."), " "))
+	if !strings.Contains(got, "changing body") {
+		t.Fatalf("changing body=%q", got)
+	}
+	faced := strings.ToLower(strings.Join(journeyChangeObjectsFromContent("Riley faced voice changes during her journey"), " "))
+	if !strings.Contains(faced, "voice") {
+		t.Fatalf("faced voice=%q", faced)
+	}
+}
+
 func TestRecallNamedJourneyFiltersUnrelatedIdentity(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

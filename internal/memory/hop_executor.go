@@ -792,8 +792,9 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needBeneficiaries := looksBeneficiarySetQuery(query)
 	needParticipation := looksParticipationSetQuery(query)
 	needToldAbout := looksToldAboutQuery(query)
+	needJourney := looksJourneyChangeQuery(query)
 	needTried := looksTriedPolarQuery(query)
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation && !needToldAbout && !needTried {
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation && !needToldAbout && !needJourney && !needTried {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -886,6 +887,26 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 			idx := hopIndexForPredicateEntity(hops, PredicateFamilyMember, person)
 			if idx >= 0 && idx < len(hops) && person != "" {
 				hops[idx].Predicate = PredicateFamilyMember
+				hops[idx].Entity = person
+			}
+		}
+	}
+	if needJourney {
+		slots := recoverJourneyChangeSlots(query, person, listed)
+		if len(slots) >= 2 {
+			idx := hopIndexForPredicateEntity(hops, PredicateIdentity, person)
+			replaceHopSlotsOn(hops, idx, slots)
+			if idx >= 0 && idx < len(hops) && len(hops[idx].Values) >= 2 {
+				hops[idx].Predicate = PredicateIdentity
+				if person != "" {
+					hops[idx].Entity = person
+				}
+			}
+		} else if len(slots) > 0 {
+			prependHopSlots(hops, PredicateIdentity, slots)
+			idx := hopIndexForPredicateEntity(hops, PredicateIdentity, person)
+			if idx >= 0 && idx < len(hops) && person != "" {
+				hops[idx].Predicate = PredicateIdentity
 				hops[idx].Entity = person
 			}
 		}
@@ -1619,6 +1640,148 @@ func looksToldAboutQuery(query string) bool {
 		return false
 	}
 	return strings.HasPrefix(q, "who ") || strings.HasPrefix(q, "whom ")
+}
+
+func looksJourneyChangeQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" || !strings.Contains(q, "journey") {
+		return false
+	}
+	if !queryHasToken(query, "change", "changes") {
+		return false
+	}
+	if strings.HasPrefix(q, "how ") || strings.HasPrefix(q, "why ") || strings.HasPrefix(q, "when ") {
+		return false
+	}
+	return strings.HasPrefix(q, "what ") || strings.HasPrefix(q, "which ")
+}
+
+func recoverJourneyChangeSlots(query, person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" || !looksJourneyChangeQuery(query) {
+		return nil
+	}
+	during := duringClauseTokens(query)
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		val := strings.TrimSpace(sl.value)
+		val = strings.Trim(val, ".,;: ")
+		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || looksThinJourneyChange(val) || utf8Len(val) > 48 {
+			return
+		}
+		if !looksJourneyChangeEvidence(val, sl.content) {
+			return
+		}
+		key := strings.ToLower(val)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		for k := range seen {
+			if strings.Contains(key, k) || strings.Contains(k, key) {
+				if len(key) >= len(k) {
+					return
+				}
+			}
+		}
+		seen[key] = struct{}{}
+		sl.value = val
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || strings.HasPrefix(content, "[") {
+			continue
+		}
+		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) &&
+			!strings.HasPrefix(strings.ToLower(content), strings.ToLower(person)+":") {
+			continue
+		}
+		blob := content + " " + recordValueNorm(rec)
+		if len(during) > 0 && !itemHitsExclusion(blob, during) {
+			continue
+		}
+		for _, v := range journeyChangeObjectsFromContent(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+		if vn := recordValueNorm(rec); vn != "" && looksJourneyChangeEvidence(vn, content) {
+			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
+		}
+	}
+	if len(out) > 6 {
+		out = out[:6]
+	}
+	return out
+}
+
+func looksThinJourneyChange(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if v == "" {
+		return true
+	}
+	switch v {
+	case "journey", "transition", "identity", "art", "talk", "school", "courage",
+		"womanhood", "transgender", "trans woman", "woman":
+		return true
+	}
+	return false
+}
+
+func looksJourneyChangeEvidence(val, content string) bool {
+	low := " " + strings.ToLower(strings.TrimSpace(val+" "+content)) + " "
+	for _, cue := range []string{
+		" chang", "change ", "changes ", "changing ",
+		"unsupport", "unable to handle", " faced ", " losing ", " lost ",
+	} {
+		if strings.Contains(low, cue) {
+			return true
+		}
+	}
+	return false
+}
+
+func journeyChangeObjectsFromContent(content string) []string {
+	lower := strings.ToLower(content)
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		v = strings.Trim(v, ".,;: ")
+		if j := strings.IndexAny(v, ".!?"); j >= 0 {
+			v = strings.TrimSpace(v[:j])
+		}
+		if v == "" || utf8Len(v) < 4 || utf8Len(v) > 48 || looksThinJourneyChange(v) {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	if i := strings.Index(lower, "changing "); i >= 0 {
+		rest := strings.TrimSpace(content[i:])
+		if j := strings.IndexAny(rest, ".,;:?!"); j >= 0 {
+			rest = strings.TrimSpace(rest[:j])
+		}
+		for _, tail := range []string{" during ", " and ", " with ", " through "} {
+			if k := strings.Index(strings.ToLower(rest), tail); k >= 8 {
+				rest = strings.TrimSpace(rest[:k])
+			}
+		}
+		add(rest)
+	}
+	if i := strings.Index(lower, " faced "); i >= 0 {
+		rest := strings.TrimSpace(content[i+len(" faced "):])
+		if j := strings.Index(strings.ToLower(rest), " during "); j >= 0 {
+			rest = strings.TrimSpace(rest[:j])
+		}
+		if j := strings.IndexAny(rest, ".,;:?!"); j >= 0 {
+			rest = strings.TrimSpace(rest[:j])
+		}
+		add(rest)
+	}
+	return out
 }
 
 func recoverToldAboutSlots(query, person string, listed []MemoryRecord) []recoveredSlot {

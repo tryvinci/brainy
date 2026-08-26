@@ -1154,7 +1154,7 @@ func lockTypedListQuery(query string, enumerated bool, typedN int, echoSlogan bo
 // Singular "what activity did" / "how do dogs react" / "would X enjoy books"
 // are leftover or OD questions that happen to mention a list noun.
 func wantsTypedSetScan(query string) bool {
-	if looksBeneficiarySetQuery(query) || looksToldAboutQuery(query) {
+	if looksBeneficiarySetQuery(query) || looksToldAboutQuery(query) || looksJourneyChangeQuery(query) {
 		return true
 	}
 	q := strings.ToLower(strings.TrimSpace(query))
@@ -1190,7 +1190,7 @@ func wantsTypedSetScan(query string) bool {
 // current-state for possession/skill/place sets. Activity/community/snack
 // leftover questions enumerate at search top-k without this widening.
 func wantsHistoricalAtomScan(query string) bool {
-	if looksBeneficiarySetQuery(query) || looksParticipationSetQuery(query) || looksTriedPolarQuery(query) || looksToldAboutQuery(query) {
+	if looksBeneficiarySetQuery(query) || looksParticipationSetQuery(query) || looksTriedPolarQuery(query) || looksToldAboutQuery(query) || looksJourneyChangeQuery(query) {
 		return true
 	}
 	q := strings.ToLower(strings.TrimSpace(query))
@@ -1311,7 +1311,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	// Meal/suggestion sets are one person's preference slots, not the
 	// intersection of giver and recipient (or eater and clause entity).
 	// Beneficiary org lists stay on the named person's affiliations.
-	if looksFoodSetQuery(req.Query) || looksBeneficiarySetQuery(req.Query) || looksParticipationSetQuery(req.Query) || looksToldAboutQuery(req.Query) {
+	if looksFoodSetQuery(req.Query) || looksBeneficiarySetQuery(req.Query) || looksParticipationSetQuery(req.Query) || looksToldAboutQuery(req.Query) || looksJourneyChangeQuery(req.Query) {
 		join = false
 	}
 	if join {
@@ -1383,6 +1383,11 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			}
 			if looksToldAboutQuery(req.Query) {
 				if !strings.EqualFold(h.Predicate, PredicateFamilyMember) {
+					continue
+				}
+			}
+			if looksJourneyChangeQuery(req.Query) {
+				if !strings.EqualFold(h.Predicate, PredicateIdentity) {
 					continue
 				}
 			}
@@ -2161,6 +2166,15 @@ func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, 
 			person = ents[0]
 		}
 		if kept := itemsOnPredicateHop(items, hops, PredicateFamilyMember, person); len(kept) >= 2 {
+			return capEnumerateItems(kept)
+		}
+	}
+	if looksJourneyChangeQuery(req.Query) {
+		person := ""
+		if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+			person = ents[0]
+		}
+		if kept := itemsOnPredicateHop(items, hops, PredicateIdentity, person); len(kept) >= 2 {
 			return capEnumerateItems(kept)
 		}
 	}
@@ -10620,6 +10634,31 @@ func leftoverCoveringKeepToldAboutSet(query string, hops []HopResult, answer str
 	return hits >= 2 && utf8Len(answer) <= 240
 }
 
+func leftoverCoveringKeepJourneyChangeSet(query string, hops []HopResult, answer string) bool {
+	if !looksJourneyChangeQuery(query) {
+		return false
+	}
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") {
+		return false
+	}
+	if leftoverThinMissAnswer(query, hops, answer) || leftoverQueryEchoAnswer(query, answer) {
+		return false
+	}
+	vals := hopPredicateValues(hops, PredicateIdentity, "")
+	if len(vals) < 2 {
+		return false
+	}
+	al := strings.ToLower(answer)
+	hits := 0
+	for _, v := range vals {
+		if utf8.RuneCountInString(v) >= 4 && strings.Contains(al, strings.ToLower(v)) {
+			hits++
+		}
+	}
+	return hits >= 2 && utf8Len(answer) <= 240
+}
+
 func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {
 	if looksWhereQuery(query) || leftoverCoveringShouldJoin(query) {
 		return false
@@ -10631,6 +10670,9 @@ func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer stri
 		return true
 	}
 	if leftoverCoveringKeepToldAboutSet(query, hops, answer) {
+		return true
+	}
+	if leftoverCoveringKeepJourneyChangeSet(query, hops, answer) {
 		return true
 	}
 	if !hopsKeepTypedJoin(hops) {
