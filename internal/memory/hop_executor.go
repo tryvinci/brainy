@@ -1162,7 +1162,6 @@ func recoverTrickSlots(person string, listed []MemoryRecord) []recoveredSlot {
 		}
 		if vn := recordValueNorm(rec); vn != "" && !looksCodedSlotValue(vn) {
 			if destCapabilityLine(content) || queryHasToken(content, "trick", "tricks") || len(trickObjectSlots(content)) > 0 {
-				add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
 				if strings.Contains(vn, ",") {
 					rest := strings.ReplaceAll(vn, " and ", ",")
 					for _, part := range strings.Split(rest, ",") {
@@ -1171,6 +1170,8 @@ func recoverTrickSlots(person string, listed []MemoryRecord) []recoveredSlot {
 							add(recoveredSlot{value: part, content: content, memID: rec.MemoryID})
 						}
 					}
+				} else {
+					add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
 				}
 			}
 		}
@@ -1323,7 +1324,7 @@ func destCapabilityLine(content string) bool {
 	if queryHasToken(content, "trick", "tricks", "taught", "teach", "skilled", "perform") {
 		return true
 	}
-	return queryHasToken(content, "swim", "swimming", "catch", "catching", "balance")
+	return queryHasToken(content, "swim", "swimming", "catch", "catching", "balance", "skateboard")
 }
 
 func recoverItemTransferSlots(person string, listed []MemoryRecord, query string) []recoveredSlot {

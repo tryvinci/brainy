@@ -2246,7 +2246,7 @@ func (s *Service) filterTrickDestItems(ctx context.Context, req RecallRequest, i
 		}
 		taught := owner != "" && queryHasToken(hay, owner) && queryHasToken(hay, "taught", "teach")
 		trickObj := queryHasToken(it.Value, "trick", "tricks") || len(trickObjectSlots(it.Value+" "+blob)) > 0
-		if destHit || taught || (trickObj && destCapabilityLine(hay)) {
+		if taught || (destHit && (destCapabilityLine(hay) || trickObj)) {
 			keep = append(keep, it)
 		}
 	}
