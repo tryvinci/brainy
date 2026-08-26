@@ -17,7 +17,9 @@ import (
 const representationBlobBudget = 400000
 
 // maxEnumerateAnswerItems bounds list answers. Counts keep the full typed set.
-const maxEnumerateAnswerItems = 8
+// 16 is still bounded (kill list: no unbounded top-k) so older class items
+// (collars, mountaineering) are not recency-starved after a for-clause filter.
+const maxEnumerateAnswerItems = 16
 
 // RecallRequest is the product synthesis surface (master-plan W4 / program §14).
 type RecallRequest struct {
@@ -80,7 +82,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 
 	intents := AnalyzeQueryIntents(req.Query)
 	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all") || WantsHistoricalRetrieval(intents)
-	if looksCountQuery(req.Query) {
+	if looksCountQuery(req.Query) || looksListQuery(tokenize(req.Query)) || hasIntent(intents, IntentEnumeration) {
 		hist = true
 	}
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
@@ -144,7 +146,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	// Typed hop executor: bind packet from hop joins when hops exist.
 	if !skipHopsForCovering && (plan.NeedsMultiHop || plan.NeedsEnumeration) && len(plan.Hops) > 0 {
 		var byKey map[string]HopResult
-		hopResults, byKey = s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK, req.Query)
+		hopResults, byKey = s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, hopScanLimit(req.Query, plan, topK), req.Query)
 		bindPacketFromHopResults(&pkt, hopResults, byKey)
 		out.Explain["hop_results"] = hopResults
 		out.Explain["hop_join_proven"] = hopJoinProven(hopResults)
@@ -186,7 +188,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 						merged := mergePreferQueryCoverage(search.Results, second.Results, req.Query, topK)
 						search.Results = merged
 						out.Memories = merged
-						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, topK, req.Query)
+						hopResults2, byKey2 := s.executeTypedHops(ctx, req.TenantID, req.SubjectID, req.Vertical, hist, plan, hopScanLimit(req.Query, plan, topK), req.Query)
 						pkt = BuildEvidencePacket(plan, merged, out.Explain)
 						bindPacketFromHopResults(&pkt, hopResults2, byKey2)
 						hopResults = hopResults2
@@ -738,6 +740,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				// Short typed item joins stay locked except where hop-dumps,
 				// which starve locative leftover covering with activity lists.
 				typedJoin := leftoverCoveringKeepTypedAnswer(req.Query, hopResults, cur)
+				// Typed enumerate of 2+ items stays unless covering is a
+				// like-A,-B,-and-C leftover the typed list does not already cover.
+				if enumerated && typedN >= 2 && !leftoverCoveringKindMissesList(req.Query, covering, cur) {
+					typedJoin = true
+				}
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
 					leftoverThinMissAnswer(req.Query, hopResults, cur))
 				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
@@ -1110,6 +1117,17 @@ func (s *Service) applyCurrentStateOnly(ctx context.Context, req RecallRequest, 
 		out.Explain["temporal_applied"] = true
 		out.Explain["temporal_answer"] = strings.Join(parts, "; ")
 	}
+}
+
+func hopScanLimit(query string, plan QueryPlan, topK int) int {
+	const cap = 128
+	if topK >= cap {
+		return topK
+	}
+	if looksCountQuery(query) || looksListQuery(tokenize(query)) || plan.NeedsEnumeration {
+		return cap
+	}
+	return topK
 }
 
 func hasIntent(intents []string, want string) bool {
@@ -1820,7 +1838,7 @@ func itemHitsExclusion(value string, excl []string) bool {
 		vstems[exclusionStem(vt)] = struct{}{}
 		vstems[vt] = struct{}{}
 	}
-	for _, t := range excl {
+	for _, t := range expandModifierTokens(excl) {
 		if len(t) < 4 {
 			continue
 		}
@@ -1837,6 +1855,38 @@ func itemHitsExclusion(value string, excl []string) bool {
 		}
 	}
 	return false
+}
+
+func expandModifierTokens(toks []string) []string {
+	outdoor := []string{"outdoor", "outdoors", "hike", "hiking", "mountaineering", "mountaineer"}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(toks)+len(outdoor))
+	add := func(t string) {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t == "" {
+			return
+		}
+		if _, ok := seen[t]; ok {
+			return
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	hit := false
+	for _, t := range toks {
+		add(t)
+		for _, o := range outdoor {
+			if strings.EqualFold(t, o) {
+				hit = true
+			}
+		}
+	}
+	if hit {
+		for _, o := range outdoor {
+			add(o)
+		}
+	}
+	return out
 }
 
 func exclusionStem(t string) string {
@@ -1867,6 +1917,9 @@ func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, 
 	items = filterBesides(req.Query, items)
 	items = s.filterHopEvidence(ctx, req, items, hops)
 	if !looksCountQuery(req.Query) {
+		if toks := forClauseTokens(req.Query); len(toks) > 0 && predicateFromListQuery(tokenize(req.Query)) != PredicateFamilyMember {
+			items = dropForClauseClassReferents(items, toks)
+		}
 		items = s.rankItemsByQuery(ctx, req, items, hops)
 		items = capEnumerateItems(items)
 	}
@@ -2451,6 +2504,7 @@ func groupCompanionTokens(query string) []string {
 	group := map[string]struct{}{
 		"colleagues": {}, "colleague": {},
 		"coworkers": {}, "coworker": {},
+		"workmates": {}, "workmate": {},
 		"teammates": {}, "teammate": {},
 		"classmates": {}, "classmate": {},
 		"friends": {}, "friend": {},
@@ -2471,10 +2525,21 @@ func groupCompanionTokens(query string) []string {
 			next = strings.ToLower(strings.Trim(fields[j], "?,.!\"'"))
 		}
 		if _, ok := group[next]; ok {
-			return []string{next}
+			return expandGroupCompanionEvidence(next)
 		}
 	}
 	return nil
+}
+
+func expandGroupCompanionEvidence(tok string) []string {
+	tok = strings.ToLower(strings.TrimSpace(tok))
+	work := []string{"colleagues", "colleague", "coworkers", "coworker", "workmates", "workmate"}
+	for _, w := range work {
+		if w == tok {
+			return append([]string{}, work...)
+		}
+	}
+	return []string{tok}
 }
 
 func forClauseTokens(query string) []string {
@@ -2492,6 +2557,102 @@ func forClauseTokens(query string) []string {
 		return nil
 	}
 	return toks
+}
+
+// dropForClauseClassReferents drops values that are the for-clause class
+// itself (bare "dogs", "dog named Buddy") when the list asked for items of
+// that class. Specific objects ("new collars and tags for her dogs") stay.
+func dropForClauseClassReferents(items []RecallItem, classToks []string) []RecallItem {
+	if len(items) < 2 || len(classToks) == 0 {
+		return items
+	}
+	heads := make([]string, 0, 8)
+	seen := map[string]struct{}{}
+	for _, t := range classToks {
+		for _, h := range countClassFamily("", t) {
+			if _, ok := seen[h]; ok {
+				continue
+			}
+			seen[h] = struct{}{}
+			heads = append(heads, h)
+		}
+	}
+	if len(heads) == 0 {
+		return items
+	}
+	keep := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		if enumerateValueIsForClassReferent(it.Value, heads) {
+			continue
+		}
+		keep = append(keep, it)
+	}
+	if len(keep) == 0 {
+		return items
+	}
+	return keep
+}
+
+func enumerateValueIsForClassReferent(value string, heads []string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return false
+	}
+	if namingReferent(value) != "" {
+		for _, head := range heads {
+			if strings.Contains(v, strings.ToLower(head)) || countValueIsClassNoun(valueLexicalHead(v), head) {
+				return true
+			}
+		}
+	}
+	fields := strings.Fields(strings.TrimSpace(value))
+	if len(fields) == 1 && looksHopPerson(fields[0]) {
+		return true
+	}
+	for _, head := range heads {
+		if classOnlyEnumerateValue(v, head) {
+			return true
+		}
+	}
+	return false
+}
+
+func classOnlyEnumerateValue(value, head string) bool {
+	if countValueIsClassNoun(value, head) {
+		return true
+	}
+	v := strings.Map(func(r rune) rune {
+		if r == '(' || r == ')' {
+			return ' '
+		}
+		return r
+	}, strings.ToLower(strings.TrimSpace(value)))
+	skip := map[string]struct{}{
+		"a": {}, "an": {}, "the": {}, "my": {}, "his": {}, "her": {},
+		"their": {}, "our": {}, "and": {}, "or": {},
+		"one": {}, "two": {}, "three": {}, "four": {}, "five": {},
+		"six": {}, "seven": {}, "eight": {}, "nine": {}, "ten": {},
+		"named": {}, "called": {},
+	}
+	classish, extra := 0, 0
+	for _, f := range strings.Fields(strings.ReplaceAll(v, "-", " ")) {
+		f = strings.Trim(f, ".,;:'\"()")
+		if f == "" {
+			continue
+		}
+		if _, ok := skip[f]; ok {
+			continue
+		}
+		if countValueIsClassNoun(f, head) {
+			classish++
+			continue
+		}
+		if looksHopPerson(f) {
+			continue
+		}
+		extra++
+	}
+	return classish > 0 && extra == 0
 }
 
 // inCommunityTokens pulls a named group from "in the X community".
@@ -3734,7 +3895,23 @@ func (s *Service) filterItemsByTokenGroupsPreferIntersect(ctx context.Context, r
 		}
 	}
 	if len(both) > 0 {
-		return both
+		seen := map[string]struct{}{}
+		out := make([]RecallItem, 0, len(both)+len(headHits))
+		add := func(it RecallItem) {
+			key := strings.ToLower(strings.TrimSpace(it.Value))
+			if _, ok := seen[key]; ok {
+				return
+			}
+			seen[key] = struct{}{}
+			out = append(out, it)
+		}
+		for _, it := range both {
+			add(it)
+		}
+		for _, it := range headHits {
+			add(it)
+		}
+		return out
 	}
 	if len(headHits) > 0 {
 		return headHits
@@ -3885,7 +4062,7 @@ func slotValueFromMemoryContent(content string) (string, bool) {
 		" participates in ", " participated in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ", " is ",
-		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
+		" owns ", " owned ", " bought ", " acquired ", " named ", " is named ", " plays ", " played ",
 		" tried ", " injured ", " practices ", " practiced ",
 		" supports ", " told ", " visited ", " given ", " gave ", " suggested ",
 	} {
@@ -3923,7 +4100,7 @@ func hasSlotTemplate(v string) bool {
 		" participates in ", " participated in ", " enjoys ", " likes ", " liked ", " loves ", " moved from ", " is from ", " lives in ", " kids like ",
 		" read \"", " has done ", " plans career in ", " plans career for ",
 		" researched ", " unwinds via ", " works as ", " realized that ", " is a ",
-		" owns ", " owned ", " bought ", " named ", " is named ", " plays ", " played ",
+		" owns ", " owned ", " bought ", " acquired ", " named ", " is named ", " plays ", " played ",
 		" tried ", " injured ", " practices ", " practiced ",
 		" supports ", " told ", " visited ", " given ", " gave ", " suggested ",
 	} {
@@ -6842,6 +7019,53 @@ func leftoverCoveringKindListLine(line string) bool {
 	return strings.Contains(rest, ",") && strings.Contains(rest, " and ")
 }
 
+func kindListSlots(line string) []string {
+	if !leftoverCoveringKindListLine(line) {
+		return nil
+	}
+	body := strings.ToLower(strings.TrimSpace(hybridLineBody(line)))
+	idx := strings.Index(body, " like ")
+	if idx < 0 {
+		return nil
+	}
+	rest := body[idx+6:]
+	if j := strings.IndexAny(rest, ".!?"); j >= 0 {
+		rest = rest[:j]
+	}
+	rest = strings.ReplaceAll(rest, " and ", ",")
+	out := make([]string, 0, 4)
+	seen := map[string]struct{}{}
+	for _, part := range strings.Split(rest, ",") {
+		part = strings.TrimSpace(strings.Trim(part, " .,"))
+		if part == "" || utf8Len(part) < 3 {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		out = append(out, part)
+	}
+	return out
+}
+
+func kindListCoveredByAnswer(covering, answer string) bool {
+	slots := kindListSlots(covering)
+	if len(slots) < 2 {
+		return false
+	}
+	al := strings.ToLower(strings.TrimSpace(answer))
+	if al == "" {
+		return false
+	}
+	for _, s := range slots {
+		if !strings.Contains(al, s) {
+			return false
+		}
+	}
+	return true
+}
+
 func leftoverCoveringPreferKindList(query string, scored []leftoverCoverScored, best string) string {
 	pick := ""
 	pickScore := -1
@@ -6882,6 +7106,9 @@ func leftoverCoveringKindMissesList(query, covering, answer string) bool {
 		return false
 	}
 	if !leftoverCoveringKindListLine(covering) {
+		return false
+	}
+	if kindListCoveredByAnswer(covering, answer) {
 		return false
 	}
 	return true
