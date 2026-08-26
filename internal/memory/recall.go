@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -79,6 +80,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 
 	intents := AnalyzeQueryIntents(req.Query)
 	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all") || WantsHistoricalRetrieval(intents)
+	if looksCountQuery(req.Query) && countAsOfBound(req.Query) != nil {
+		hist = true
+	}
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
 		IncludeHistorical: hist,
 		IncludeEpisodes:   strings.EqualFold(req.View, "all"),
@@ -1232,11 +1236,13 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 					if hopValueIsAttendedEvent(v) || hopValueHasForeignPossessive(v, h.Entity, hops) {
 						continue
 					}
-					id := ""
-					if i < len(h.MemoryIDs) {
-						id = h.MemoryIDs[i]
-					} else if len(h.MemoryIDs) > 0 {
-						id = h.MemoryIDs[0]
+					id := hopMemoryIDForExtractedValue(h, v)
+					if id == "" {
+						if i < len(h.MemoryIDs) {
+							id = h.MemoryIDs[i]
+						} else if len(h.MemoryIDs) > 0 {
+							id = h.MemoryIDs[0]
+						}
 					}
 					add(v, slotPred, id, "")
 				}
@@ -1529,6 +1535,30 @@ func (s *Service) locationItemsFromEvidence(ctx context.Context, req RecallReque
 	return out
 }
 
+func hopMemoryIDForExtractedValue(h HopResult, value string) string {
+	want := strings.ToLower(strings.TrimSpace(value))
+	if want == "" {
+		return ""
+	}
+	for i, c := range h.Contents {
+		extracted, ok := slotValueFromMemoryContent(c)
+		if ok && strings.EqualFold(strings.TrimSpace(extracted), strings.TrimSpace(value)) {
+			if i < len(h.MemoryIDs) {
+				return h.MemoryIDs[i]
+			}
+		}
+	}
+	for i, c := range h.Contents {
+		if !strings.Contains(strings.ToLower(c), want) {
+			continue
+		}
+		if i < len(h.MemoryIDs) {
+			return h.MemoryIDs[i]
+		}
+	}
+	return ""
+}
+
 func hopMemoryIDForValue(hops []HopResult, value string) string {
 	want := strings.ToLower(strings.TrimSpace(value))
 	if want == "" {
@@ -1537,6 +1567,9 @@ func hopMemoryIDForValue(hops []HopResult, value string) string {
 	for _, h := range hops {
 		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
 			continue
+		}
+		if id := hopMemoryIDForExtractedValue(h, value); id != "" {
+			return id
 		}
 		for i, v := range h.Values {
 			if strings.ToLower(strings.TrimSpace(v)) != want {
@@ -2912,6 +2945,7 @@ func (s *Service) filterCountItems(ctx context.Context, req RecallRequest, items
 		}
 	}
 	out := make([]RecallItem, 0, len(items))
+	items = expandCountNameLists(items)
 	for _, it := range items {
 		recs := s.itemEvidenceRecords(ctx, req, it)
 		if entity != "" && !countItemMatchesEntity(it, recs, entity) {
@@ -2926,14 +2960,21 @@ func (s *Service) filterCountItems(ctx context.Context, req RecallRequest, items
 		if wantPred != "" && strings.TrimSpace(it.Predicate) != "" && !strings.EqualFold(it.Predicate, wantPred) {
 			continue
 		}
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
 		switch head {
 		case "children", "kids", "child":
-			blob := s.itemEvidenceBlob(ctx, req, it, hops)
+			if valueIsPreferenceComplement(it.Value, blob) {
+				continue
+			}
 			if !valueHasChildCue(it.Value, blob) {
 				continue
 			}
 		case "times", "time":
 			if object != "" && !countItemMentionsObject(it.Value, object) {
+				continue
+			}
+		default:
+			if countHeadIsPossessedClass(head) && !countItemIsClassInstance(it.Value, blob, head, req.Query) {
 				continue
 			}
 		}
@@ -2998,18 +3039,28 @@ func countItemWithinAsOf(it RecallItem, recs []MemoryRecord, asOf time.Time) boo
 }
 
 func countItemObserved(it RecallItem, recs []MemoryRecord) *time.Time {
+	want := strings.ToLower(strings.TrimSpace(it.Value))
+	var fallback *time.Time
+	for _, rec := range recs {
+		if rec.ObservedAt == nil || rec.ObservedAt.IsZero() {
+			continue
+		}
+		t := rec.ObservedAt.UTC()
+		if fallback == nil {
+			cp := t
+			fallback = &cp
+		}
+		if want != "" && (strings.Contains(strings.ToLower(rec.Content), want) ||
+			strings.EqualFold(recordValueNorm(rec), it.Value)) {
+			return &t
+		}
+	}
 	if strings.TrimSpace(it.ObservedAt) != "" {
 		if t := parseFlexibleTime(it.ObservedAt); t != nil {
 			return t
 		}
 	}
-	for _, rec := range recs {
-		if rec.ObservedAt != nil && !rec.ObservedAt.IsZero() {
-			t := rec.ObservedAt.UTC()
-			return &t
-		}
-	}
-	return nil
+	return fallback
 }
 
 func countAsOfBound(query string) *time.Time {
@@ -3146,7 +3197,8 @@ func countValueIsClassNoun(value, head string) bool {
 		}
 	}
 	switch v {
-	case "children", "child", "kids", "kid", "pets", "pet", "dogs", "dog":
+	case "children", "child", "kids", "kid",
+		"pets", "pet", "dogs", "dog", "pups", "pup", "puppy":
 		return true
 	}
 	return false
@@ -3155,7 +3207,7 @@ func countValueIsClassNoun(value, head string) bool {
 func collapseCountClassNouns(items []RecallItem, head string) []RecallItem {
 	hasIndividual := false
 	for _, it := range items {
-		if !countValueIsClassNoun(it.Value, head) {
+		if !countValueIsClassNoun(it.Value, head) && !countValueIsClassNoun(valueLexicalHead(it.Value), head) {
 			hasIndividual = true
 			break
 		}
@@ -3165,7 +3217,7 @@ func collapseCountClassNouns(items []RecallItem, head string) []RecallItem {
 	}
 	out := make([]RecallItem, 0, len(items))
 	for _, it := range items {
-		if countValueIsClassNoun(it.Value, head) {
+		if countValueIsClassNoun(it.Value, head) || countValueIsClassNoun(valueLexicalHead(it.Value), head) {
 			continue
 		}
 		out = append(out, it)
@@ -3212,6 +3264,202 @@ func namingReferent(value string) string {
 		return strings.Trim(fields[0], ".,;:'\"")
 	}
 	return ""
+}
+
+func valueIsPreferenceComplement(value, blob string) bool {
+	v := strings.ToLower(strings.TrimSpace(value))
+	b := strings.ToLower(blob)
+	if v == "" || b == "" {
+		return false
+	}
+	for _, verb := range []string{" like ", " likes ", " enjoy ", " enjoys ", " love ", " loves "} {
+		for _, subj := range []string{"kids", "kid", "children", "child"} {
+			if !strings.Contains(b, subj+verb) && !strings.Contains(b, subj+"s"+verb) {
+				continue
+			}
+			if strings.Contains(b, verb+v) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func countHeadIsPossessedClass(head string) bool {
+	switch strings.ToLower(strings.TrimSpace(head)) {
+	case "pets", "pet", "dogs", "dog", "pups", "pup", "puppy":
+		return true
+	}
+	return false
+}
+
+func countClassFamily(query, head string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, 8)
+	add := func(t string) {
+		t = strings.ToLower(strings.TrimSpace(t))
+		if t == "" {
+			return
+		}
+		if _, ok := seen[t]; ok {
+			return
+		}
+		seen[t] = struct{}{}
+		out = append(out, t)
+	}
+	add(head)
+	add(strings.TrimSuffix(head, "s"))
+	if queryHasToken(query, "pet", "pets") || strings.EqualFold(head, "pets") || strings.EqualFold(head, "pet") {
+		add("pet")
+		add("pets")
+		add("dog")
+		add("dogs")
+		add("pup")
+		add("pups")
+		add("puppy")
+	}
+	if queryHasToken(query, "dog", "dogs") || strings.EqualFold(head, "dogs") || strings.EqualFold(head, "dog") {
+		add("dog")
+		add("dogs")
+		add("pup")
+		add("pups")
+		add("puppy")
+		add("pet")
+		add("pets")
+	}
+	return out
+}
+
+func countTokenInFamily(tok string, family []string) bool {
+	tok = strings.ToLower(strings.TrimSpace(tok))
+	tok = strings.Trim(tok, ".,;:'\"()")
+	if tok == "" {
+		return false
+	}
+	for _, f := range family {
+		if tok == f {
+			return true
+		}
+	}
+	return false
+}
+
+func valueLexicalHead(value string) string {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return ""
+	}
+	if i := strings.Index(v, "("); i >= 0 {
+		v = strings.TrimSpace(v[:i])
+	}
+	if i := strings.Index(v, " named "); i >= 0 {
+		v = strings.TrimSpace(v[:i])
+	}
+	if i := strings.Index(v, " called "); i >= 0 {
+		v = strings.TrimSpace(v[:i])
+	}
+	fields := strings.Fields(strings.ReplaceAll(v, "-", " "))
+	if len(fields) == 0 {
+		return ""
+	}
+	return strings.Trim(fields[len(fields)-1], ".,;:'\"")
+}
+
+func countItemIsClassInstance(value, blob, head, query string) bool {
+	family := countClassFamily(query, head)
+	if len(family) == 0 {
+		return true
+	}
+	if namingReferent(value) != "" {
+		return countTokenInFamily(valueLexicalHead(value), family) || blobHasCountClass(value+" "+blob, family)
+	}
+	if countTokenInFamily(valueLexicalHead(value), family) {
+		return true
+	}
+	if countValueIsClassNoun(value, head) {
+		return true
+	}
+	if isCountProperName(value) {
+		return true
+	}
+	return blobHasCountClass(value, family) && !countItemLooksLikeAccessory(value, family)
+}
+
+func blobHasCountClass(blob string, family []string) bool {
+	for _, f := range family {
+		if queryHasToken(blob, f) {
+			return true
+		}
+	}
+	return false
+}
+
+func countItemLooksLikeAccessory(value string, family []string) bool {
+	head := valueLexicalHead(value)
+	if head == "" || countTokenInFamily(head, family) {
+		return false
+	}
+	return queryHasToken(value, family...)
+}
+
+func isCountProperName(value string) bool {
+	v := strings.TrimSpace(value)
+	if v == "" || strings.ContainsAny(v, " ,;/") {
+		return false
+	}
+	r := []rune(v)
+	if len(r) < 3 || len(r) > 24 {
+		return false
+	}
+	return unicode.IsUpper(r[0])
+}
+
+func expandCountNameLists(items []RecallItem) []RecallItem {
+	out := make([]RecallItem, 0, len(items)+2)
+	for _, it := range items {
+		names := splitCoordinatedCountNames(it.Value)
+		if len(names) < 2 {
+			out = append(out, it)
+			continue
+		}
+		for _, n := range names {
+			cp := it
+			cp.Value = n
+			out = append(out, cp)
+		}
+	}
+	return out
+}
+
+func splitCoordinatedCountNames(value string) []string {
+	lower := strings.ToLower(value)
+	rest := value
+	if i := strings.Index(lower, " named "); i >= 0 {
+		rest = strings.TrimSpace(value[i+len(" named "):])
+	} else if strings.Contains(value, ",") {
+		rest = value
+	} else {
+		return nil
+	}
+	rest = strings.ReplaceAll(rest, " and ", ",")
+	rest = strings.ReplaceAll(rest, " & ", ",")
+	parts := strings.Split(rest, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		p = strings.Trim(p, ".,;:'\"")
+		if p == "" || strings.Contains(p, " ") {
+			return nil
+		}
+		if countValueIsClassNoun(p, "") {
+			return nil
+		}
+		out = append(out, p)
+	}
+	if len(out) < 2 {
+		return nil
+	}
+	return out
 }
 
 func valueHasChildCue(value, blob string) bool {
