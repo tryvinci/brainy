@@ -3219,7 +3219,7 @@ func countValueIsClassNoun(value, head string) bool {
 func collapseCountClassNouns(items []RecallItem, head string) []RecallItem {
 	hasIndividual := false
 	for _, it := range items {
-		if !countValueIsClassNoun(it.Value, head) && !countValueIsClassNoun(valueLexicalHead(it.Value), head) {
+		if !countValueIsBareClassNoun(it.Value, head) {
 			hasIndividual = true
 			break
 		}
@@ -3229,12 +3229,22 @@ func collapseCountClassNouns(items []RecallItem, head string) []RecallItem {
 	}
 	out := make([]RecallItem, 0, len(items))
 	for _, it := range items {
-		if countValueIsClassNoun(it.Value, head) || countValueIsClassNoun(valueLexicalHead(it.Value), head) {
+		if countValueIsBareClassNoun(it.Value, head) {
 			continue
 		}
 		out = append(out, it)
 	}
 	return out
+}
+
+// countValueIsBareClassNoun is a duplicate class label ("kids", "pets") that
+// should yield when named or quantified instances exist. Quantified phrases
+// ("two children") are the counted set, not a duplicate label.
+func countValueIsBareClassNoun(value, head string) bool {
+	if countItemQuantity(value, head) > 1 {
+		return false
+	}
+	return countValueIsClassNoun(value, head) || countValueIsClassNoun(valueLexicalHead(value), head)
 }
 
 func collapseNamedCountDuplicates(items []RecallItem) []RecallItem {
