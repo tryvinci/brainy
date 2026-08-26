@@ -6129,13 +6129,13 @@ func queryAttributeIntentBoost(queryTokens []string, record MemoryRecord) float6
 	case (rule == "attribute_activity" || rule == "attribute_place_activity") &&
 		has("activities", "activity", "hobbies", "hobby", "camping", "camped", "stress"):
 		return 0.45
-	case rule == "attribute_titled_work" && has("books", "book", "read", "reading"):
+	case rule == "attribute_titled_work" && has("books", "book", "read", "reading", "game", "games", "play", "played", "playing"):
 		return 0.5
 	case rule == "attribute_preference" && has("kids", "children", "like", "likes"):
 		return 0.5
 	case rule == "attribute_possession" && has("book", "books", "collect", "bookshelf"):
 		return 0.45
-	case rule == "attribute_duration" && has("long", "years", "how"):
+	case rule == "attribute_duration" && has("long", "years", "months", "how"):
 		return 0.5
 	}
 	// Content fallback when explain.rule missing (older rows / provider atoms).

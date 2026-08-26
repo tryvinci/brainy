@@ -319,14 +319,14 @@ CRITICAL RULES:
    - origin / originally from / moved from <place> (include country/city names literally)
    - when the speaker says "home country" and Prior context already has a country, bind that country
    - activities, hobbies, ways people unwind, and places tied to those activities (one memory per place)
-   - book/movie titles in quotes OR capitalized titles after read/reading (verbatim spans)
+   - book/movie/game titles in quotes OR capitalized titles after read/reading/play/playing/game (verbatim spans)
    - visible text in [visible text: ...] after "this book I read" / "this novel"
    - family members' preferences (e.g. "Sam's kids like astronomy")
    - after a kids/children mention, bind later "they were excited/stoked for X" / "they love X" to those kids
    - career plans, fields of study, certifications
    - topics a speaker researched or is researching (the topic, not the motive)
    - collections / possessions ("collects classic children's books")
-   - durations ("for 4 years")
+   - durations ("for 4 years", "for six months") and season+year starts ("summer of 2022")
 6. Resolve relative time against Observation Date (yesterday, last Fri, last week, this month).
    Put the absolute date in "when" AND in content. Also include the session-relative phrase
    when the utterance is last-<weekday> or last week (e.g. "the Monday before 3 March 2024").

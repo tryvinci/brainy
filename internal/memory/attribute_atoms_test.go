@@ -387,6 +387,38 @@ func TestUnquotedTitleRunAndOneWordQuote(t *testing.T) {
 	}
 }
 
+func TestPlayGameTitleAndDurationCompile(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: Xenoblade Chronicles is my favorite game."},
+			{Role: "user", Content: "Riley: I started working on a 2D Adventure project in summer of 2022."},
+			{Role: "user", Content: "Riley: That Witcher-inspired game took six months."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "xenoblade chronicles") {
+		t.Fatalf("expected capitalized game title, got %q", joined)
+	}
+	if !strings.Contains(joined, "summer 2022") && !strings.Contains(joined, "summer of 2022") {
+		t.Fatalf("expected season+year start, got %q", joined)
+	}
+	if !strings.Contains(joined, "6-month") && !strings.Contains(joined, "six-month") {
+		t.Fatalf("expected month duration, got %q", joined)
+	}
+}
+
 func TestDeicticVisibleTextCompilesTitledWork(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{

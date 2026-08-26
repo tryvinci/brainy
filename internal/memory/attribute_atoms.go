@@ -56,6 +56,8 @@ var (
 	workshopRE         = regexp.MustCompile(`(?i)\b([a-z][a-z-]{2,30})\s+(?:workshop|class|lesson)s?\b`)
 	goGerundRE         = regexp.MustCompile(`(?i)\b(?:go|going|went|off to go)\s+([a-z]+ing)\b`)
 	durationYearsRE    = regexp.MustCompile(`(?i)\bfor\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+years\b`)
+	durationMonthsRE   = regexp.MustCompile(`(?i)\b(?:for|took)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+months\b`)
+	seasonYearRE       = regexp.MustCompile(`(?i)\b(summer|winter|spring|fall|autumn)\s+(?:of\s+)?(20\d{2})\b`)
 	collectsRE         = regexp.MustCompile(`(?i)\b(?:collect(?:s|ing)?|collection of)\s+([^,.!?]{3,50})`)
 	educationRE        = regexp.MustCompile(`(?i)\b(?:studying|degree in|certification in|certified in)\s+([^,.!?]{3,50})`)
 	readUnquotedRE     = regexp.MustCompile(`(?i)\b(?:read|reading|loved reading)\s+([A-Z][^"“”'.]{2,60})`)
@@ -361,13 +363,19 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		bookCue := strings.Contains(lexicalLower, "read") || strings.Contains(lexicalLower, "reading") ||
 			strings.Contains(lexicalLower, "book") || strings.Contains(lexicalLower, "title") ||
 			strings.Contains(lexicalLower, "novel") || strings.Contains(lexicalLower, "story")
-		if !bookCue {
+		mediaCue := strings.Contains(lexicalLower, "play") || strings.Contains(lexicalLower, "game") ||
+			strings.Contains(lexicalLower, "watch") || strings.Contains(lexicalLower, "movie")
+		if !bookCue && !mediaCue {
 			continue
 		}
 		if len(strings.Fields(title)) < 2 {
 			continue
 		}
-		emitOn(lexicalBody, hit.start, true, 0.86, "attribute_titled_work", "%s read \"%s\"", title)
+		format := "%s read \"%s\""
+		if !bookCue && mediaCue {
+			format = "%s plays \"%s\""
+		}
+		emitOn(lexicalBody, hit.start, true, 0.86, "attribute_titled_work", format, title)
 	}
 	if hit, ok := reFind(readUnquotedRE, lexicalBody); ok {
 		title := NormalizeText(strings.TrimSpace(hit.groups[1]))
@@ -377,7 +385,9 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			emitOn(lexicalBody, hit.start, true, 0.84, "attribute_titled_work", "%s read \"%s\"", title)
 		}
 	}
-	if strings.Contains(lexicalLower, "book") || strings.Contains(lexicalLower, "read") {
+	if strings.Contains(lexicalLower, "book") || strings.Contains(lexicalLower, "read") ||
+		strings.Contains(lexicalLower, "game") || strings.Contains(lexicalLower, "play") {
+		bookCue := strings.Contains(lexicalLower, "book") || strings.Contains(lexicalLower, "read")
 		for _, hit := range reFindAll(bookTitleRunRE, lexicalBody, 4) {
 			title := NormalizeText(strings.TrimSpace(hit.groups[1]))
 			if titleLeadStopped(title) || !looksLikeWorkTitle(title) || looksBrokenQuotedTitle(title) {
@@ -386,7 +396,11 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			if utf8.RuneCountInString(title) < 8 {
 				continue
 			}
-			emitOn(lexicalBody, hit.start, true, 0.82, "attribute_titled_work", "%s read \"%s\"", title)
+			format := "%s read \"%s\""
+			if !bookCue {
+				format = "%s plays \"%s\""
+			}
+			emitOn(lexicalBody, hit.start, true, 0.82, "attribute_titled_work", format, title)
 		}
 	}
 	if title, ok := deicticVisibleWorkTitle(body); ok {
@@ -534,6 +548,20 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 			emitOn(body, hit.start, true, 0.9, "attribute_duration", "%s has known friends for %s years", n)
 		} else {
 			emitOn(body, hit.start, true, 0.82, "attribute_duration", "%s has a %s-year duration", n)
+		}
+	}
+	if hit, ok := reFind(durationMonthsRE, body); ok {
+		n := numberWord(hit.groups[1])
+		emitOn(body, hit.start, true, 0.82, "attribute_duration", "%s has a %s-month duration", n)
+	}
+	if strings.Contains(lexicalLower, "start") || strings.Contains(lexicalLower, "began") ||
+		strings.Contains(lexicalLower, "working on") {
+		if hit, ok := reFind(seasonYearRE, body); ok {
+			season := strings.ToLower(NormalizeText(hit.groups[1]))
+			year := NormalizeText(hit.groups[2])
+			if season != "" && year != "" {
+				emitOn(body, hit.start, true, 0.84, "attribute_event", "%s started in %s %s", season, year)
+			}
 		}
 	}
 	if hit, ok := reFind(collectsRE, body); ok {
