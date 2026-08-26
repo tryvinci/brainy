@@ -3510,8 +3510,14 @@ func TestHopScanLimitEnumeratesPastSearchTopK(t *testing.T) {
 	if got := hopScanLimit("Where does Riley live?", QueryPlan{}, 30); got != 30 {
 		t.Fatalf("non-list hop scan must stay at topK, got %d", got)
 	}
-	if got := hopScanLimit("How do Audrey's dogs react to snow?", plan, 30); got != 30 {
-		t.Fatalf("leftover how-react must not widen hop scan, got %d", got)
+	if got := hopScanLimit("What outdoor activities has John done with his colleagues?", plan, 30); got != 128 {
+		t.Fatalf("activities-done set must scan past topK, got %d", got)
+	}
+	if got := hopScanLimit("What activities have been helping Jolene stay distracted during tough times?", plan, 30); got != 30 {
+		t.Fatalf("helping-activities leftover must not widen hop scan, got %d", got)
+	}
+	if got := hopScanLimit("What kind of unhealthy snacks does Sam enjoy eating?", plan, 30); got != 30 {
+		t.Fatalf("what-kind snacks leftover must not widen hop scan, got %d", got)
 	}
 	if got := hopScanLimit("What activity did Caroline used to do with her dad?", plan, 30); got != 30 {
 		t.Fatalf("singular what-activity leftover must not widen hop scan, got %d", got)

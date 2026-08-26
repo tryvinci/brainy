@@ -85,7 +85,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	// Full atom history is for how-many and typed-set enumerations
 	// ("what items", "what activities has"). Incidental list nouns in
 	// how/why leftover questions must not scan every possession/activity.
-	if looksCountQuery(req.Query) || wantsTypedSetScan(req.Query) {
+	if looksCountQuery(req.Query) || wantsHistoricalAtomScan(req.Query) {
 		hist = true
 	}
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
@@ -1131,7 +1131,7 @@ func hopScanLimit(query string, plan QueryPlan, topK int) int {
 	if looksCountQuery(query) {
 		return topK
 	}
-	if wantsTypedSetScan(query) {
+	if wantsHistoricalAtomScan(query) {
 		return cap
 	}
 	return topK
@@ -1141,7 +1141,7 @@ func lockTypedListQuery(query string, enumerated bool, typedN int, echoSlogan bo
 	if typedDump || !enumerated || typedN < 2 || echoSlogan || looksCountQuery(query) {
 		return false
 	}
-	return wantsTypedSetScan(query)
+	return wantsHistoricalAtomScan(query)
 }
 
 // wantsTypedSetScan is true when the question asks for the full typed set of
@@ -1176,6 +1176,42 @@ func wantsTypedSetScan(query string) bool {
 		return false
 	}
 	return queryHasTypedSetNoun(query)
+}
+
+// wantsHistoricalAtomScan is the recency-starvation path: scan past
+// current-state for possession/skill/place sets. Activity/community/snack
+// leftover questions enumerate at search top-k without this widening.
+func wantsHistoricalAtomScan(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" || looksCountQuery(query) {
+		return false
+	}
+	for _, p := range []string{"how ", "why ", "when ", "where ", "would ", "what did ", "what does ", "what do "} {
+		if strings.HasPrefix(q, p) {
+			return false
+		}
+	}
+	if strings.HasPrefix(q, "list ") || strings.HasPrefix(q, "what are ") || looksLocationListQuery(query) {
+		return true
+	}
+	if queryHasToken(query, "activities") && strings.Contains(q, " done ") {
+		return true
+	}
+	if looksWhatKindQuery(query) {
+		return queryHasToken(query, "tricks", "trick", "instruments", "instrument", "items", "item")
+	}
+	if !strings.HasPrefix(q, "what ") && !strings.HasPrefix(q, "which ") {
+		return false
+	}
+	for _, tok := range tokenize(query) {
+		tok = strings.Trim(tok, "'\"")
+		tok = strings.TrimSuffix(tok, "'s")
+		switch tok {
+		case "items", "names", "locations", "tricks", "instruments", "instrument":
+			return true
+		}
+	}
+	return false
 }
 
 func queryHasTypedSetNoun(query string) bool {
