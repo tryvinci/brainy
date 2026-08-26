@@ -10257,7 +10257,19 @@ func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer stri
 	if !hopsKeepTypedJoin(hops) {
 		return false
 	}
-	return leftoverShortItemJoin(answer)
+	if leftoverShortItemJoin(answer) {
+		return true
+	}
+	if !wantsHistoricalAtomScan(query) {
+		return false
+	}
+	n := 0
+	for _, p := range strings.Split(answer, ",") {
+		if strings.TrimSpace(p) != "" {
+			n++
+		}
+	}
+	return n >= 2 && n <= 8 && utf8Len(answer) <= 200
 }
 
 func leftoverThinMissAnswer(query string, hops []HopResult, answer string) bool {

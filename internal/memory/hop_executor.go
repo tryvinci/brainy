@@ -785,8 +785,9 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needUnwind := looksUnwindQuery(query)
 	needPlay := looksInstrumentQuery(query)
 	needTrick := looksTrickQuery(query)
+	needItems := looksItemTransferQuery(query)
 	needBesides := looksBesidesQuery(query) && itemHitsExclusion(query, []string{"stress", "stressor", "stressors"})
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needBesides {
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -808,6 +809,9 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	}
 	if needTrick {
 		prependHopSlots(hops, PredicateSkill, recoverTrickSlots(person, listed))
+	}
+	if needItems {
+		prependHopSlots(hops, PredicatePossession, recoverItemTransferSlots(person, listed, query))
 	}
 	if needBesides {
 		prependHopSlots(hops, PredicateActivity, recoverBesidesStressorSlots(person, listed))
@@ -1059,13 +1063,8 @@ func recoverTrickSlots(person string, listed []MemoryRecord) []recoveredSlot {
 			}
 		}
 		if destHit && !trickLine && !taughtLine {
-			pred := recordPredicateOf(rec)
-			switch pred {
-			case PredicateSkill, PredicateActivity, PredicatePreference:
-			default:
-				if pred != "" {
-					continue
-				}
+			if recordPredicateOf(rec) != PredicateSkill && !destCapabilityLine(content) {
+				continue
 			}
 		}
 		add(recoveredSlot{content: content, memID: rec.MemoryID})
@@ -1229,6 +1228,48 @@ func destFromPossessiveClassLine(content, person string) string {
 	return ""
 }
 
+func destCapabilityLine(content string) bool {
+	if queryHasToken(content, "trick", "tricks", "taught", "teach", "skilled", "perform") {
+		return true
+	}
+	return queryHasToken(content, "swim", "swimming", "catch", "catching", "balance")
+}
+
+func recoverItemTransferSlots(person string, listed []MemoryRecord, query string) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	classToks := forClauseTokens(query)
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		key := strings.ToLower(strings.TrimSpace(sl.value + "\n" + sl.content + "\n" + sl.memID))
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || !itemHasTransferCue(content) {
+			continue
+		}
+		subj := entitySubjectOf(rec)
+		if !strings.EqualFold(subj, person) && !queryHasToken(content, person) {
+			continue
+		}
+		if len(classToks) > 0 && !itemHitsExclusion(content, classToks) {
+			continue
+		}
+		add(recoveredSlot{content: content, memID: rec.MemoryID})
+		if vn := recordValueNorm(rec); vn != "" {
+			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
+}
+
 func recoverBesidesStressorSlots(person string, listed []MemoryRecord) []recoveredSlot {
 	if person == "" {
 		return nil
@@ -1372,6 +1413,9 @@ func trickObjectSlots(content string) []string {
 	seen := map[string]struct{}{}
 	add := func(v string) {
 		v = strings.TrimSpace(strings.Trim(v, " .,"))
+		v = strings.TrimPrefix(strings.ToLower(v), "like ")
+		v = strings.TrimPrefix(v, "such as ")
+		v = strings.TrimSpace(v)
 		if v == "" || utf8Len(v) < 3 || utf8Len(v) > 40 || anaphoricSlotValue(v) {
 			return
 		}

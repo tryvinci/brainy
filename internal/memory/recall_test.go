@@ -3498,16 +3498,16 @@ func TestRecallItemTransferDropsUnrelatedPossessions(t *testing.T) {
 	svc := NewService(store)
 	now := svc.now()
 	facts := []struct {
-		key, val, content string
+		key, pred, val, content string
 	}{
-		{"beds", "new dog beds", "Audrey bought new dog beds for her dogs last week"},
-		{"toys", "dog toys", "Audrey visited a pet store to buy toys for her dogs"},
-		{"collars", "new collars and tags for her dogs", "Audrey acquired new collars and tags for her dogs"},
-		{"hats", "hats for her dogs", "Audrey's dogs wear hats for fun and receive treats"},
-		{"guide", "birdwatching guidebook", "Audrey possesses a birdwatching guidebook"},
-		{"tattoo", "arm tattoo of four dogs", "Audrey has a tattoo on her arm that depicts her four dogs"},
-		{"four", "four dogs", "Audrey has four dogs"},
-		{"tips", "behavior tips", "Audrey received behavior tips from an animal behaviorist for her dogs"},
+		{"beds", PredicatePossession, "new dog beds", "Audrey bought new dog beds for her dogs last week"},
+		{"toys", PredicateEvent, "dog toys", "Audrey visited a pet store to buy toys for her dogs"},
+		{"collars", PredicatePossession, "new collars and tags for her dogs", "Audrey acquired new collars and tags for her dogs"},
+		{"hats", PredicatePossession, "hats for her dogs", "Audrey's dogs wear hats for fun and receive treats"},
+		{"guide", PredicatePossession, "birdwatching guidebook", "Audrey possesses a birdwatching guidebook"},
+		{"tattoo", PredicatePossession, "arm tattoo of four dogs", "Audrey has a tattoo on her arm that depicts her four dogs"},
+		{"four", PredicatePossession, "four dogs", "Audrey has four dogs"},
+		{"tips", PredicatePossession, "behavior tips", "Audrey received behavior tips from an animal behaviorist for her dogs"},
 	}
 	for _, f := range facts {
 		id := "mem_" + f.key
@@ -3515,10 +3515,10 @@ func TestRecallItemTransferDropsUnrelatedPossessions(t *testing.T) {
 			MemoryID: id, TenantID: "t-xfer", SubjectID: "u1",
 			Kind: KindFact, Content: f.content,
 			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
-			Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "Audrey"},
-			Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "Audrey"},
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Audrey"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Audrey"},
 		}
-		store.atoms = append(store.atoms, stubAtom{pred: PredicatePossession, val: f.val, memID: id})
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
 	}
 	out, err := svc.Recall(context.Background(), RecallRequest{
 		TenantID: "t-xfer", SubjectID: "u1",
@@ -8539,6 +8539,16 @@ func TestLeftoverCoveringKeepsTypedItemJoins(t *testing.T) {
 	}
 	if leftoverCoveringBeatsAnswer(q, hops, chat, join) {
 		t.Fatal("leftover covering must not beat a typed possession join")
+	}
+	trickQ := "What kind of tricks do James's pets know?"
+	trickHops := []HopResult{{Kind: "fetch_predicate", Predicate: PredicateSkill, Source: "typed_store", ProofKind: "typed_exact", Value: "sit"}}
+	trickJoin := "sit, stay, paw, rollover, swimming, catching frisbees"
+	if !leftoverCoveringKeepTypedAnswer(trickQ, trickHops, trickJoin) {
+		t.Fatal("typed dest-skill list must be kept against leftover covering")
+	}
+	john := "John and his friends helped each other learn new skateboarding tricks."
+	if leftoverCoveringKeepTypedAnswer(trickQ, trickHops, john) {
+		t.Fatal("foreign trick leftover must not count as a typed item join")
 	}
 	snackQ := "What kind of unhealthy snacks does Sam enjoy eating?"
 	snackHops := []HopResult{
