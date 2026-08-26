@@ -5492,3 +5492,73 @@ The gold leftover (`It's got so much to check out - the culture, food - you won'
 
 **One step:** reported-speech leftover for what-say-about that is **not** they-evaluative and **not** first-person got (`conv-43-q136` Tim injury — `The doctor said it's not too serious` still `not in memory`). Do not reuse they-copula. Do not steal NYC `It's got`. Do not drop `say` globally. Do not add a doctor/injury dictionary. Remaining gold often is not a stored fact (Jolene yoga 2020, Phuket diving, Wolves, Wheel of Time, camping peaceful) or is a count dump / invent-Sunday / steal-slot reader. Remaining harness timeout is Jolene exercise feel (`conv-48-q116`) — do not steal Deborah’s “connected to my body”. Isolated leftover covering is saturating. Remaining mass is SH **PROOF 14** + RETRIEVAL 26. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6 — 19→122 is a stratified delta but not permission to burn full LoCoMo yet. Do not merge #133. Do not revive P29. Do not drop `say` globally. Do not drop `motivate` globally. Do not drop `turtles`/`care`. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-26 — P54 entity-scoped how-many (140/180; not leftover covering)
+
+Pin: [locomo-s0-diag-mh-135-p54-20260826.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p54-20260826.md).
+Run `locomo-s0-diag-mh-135-p54-product-recall-s1-a44eea`. Product/tests SHA **`7653135`**.
+Honesty stop **`0c33eb8`** stays on `dev`; this increment is **S2 enumerate/count**, not covering.
+
+**90% honesty:** 90% on this 180 is **162/180**. 90% on public LoCoMo is **n=1540**, last pin **11.4%**.
+This row is **140/180**. It is **not** 90%. It is **not** beating Mem0.
+
+### Landed
+
+Product: count queries hop **only the counted predicate**; `filterCountItems` entity-scopes via metadata `subject`, drops sibling predicates / child like-complements / owner accessories, treats `MONTH YEAR` as-of as **end of month**, sums small English number phrases, binds hop Values to the content row that extracted them, and uses **earliest** matching `ObservedAt`. Class-noun collapse keeps quantity phrases (`two children`) and naming referents (`puppy named Toby`); possessed-class labels with provenance parens (`dog (shelter adoption)`) stay bare. Specific-head intersect (`Ferraris`) counts only items that mention the head; generic class (`cars`) keeps the typed set. **No** car/Ferrari dictionary. **No** Scout/September gold special-case. **No** leftover-covering detector.
+
+Pin docs: this section; [docs/benchmarks/README.md](../../benchmarks/README.md) P54 row.
+
+**Do not merge** leftover-covering PRs **#133**, **#131**, **#143**, **#145**.
+
+### Own pins
+
+Same 180, seed 1, 10 convos, fail-closed skip-ingest, tenant `diag-mh-135`. Hybrid on. Dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`.
+
+| Pin | SHA | Overall | MH | OD | SH | temporal |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Product reader off | `453a929` | **19/180** | **12/33** | 0/11 | 5/98 | 2/38 |
+| P28 | `454fbb3` | **113/180** | 18/33 | 4/11 | 61/98 | 30/38 |
+| P53 (covering) | `ae15e40` | **137/180** | 18/33 | 4/11 | 85/98 | 30/38 |
+| **P54 (entity-scoped counts)** | **`7653135`** | **140/180 (0.778)** | **20/33** | **4/11** | **85/98** | **31/38** |
+| Industry search+harness | same tenant | **62/180** | 10/33 | 3/11 | 27/98 | 22/38 |
+| Full n=1540 product `/recall` | `1b5ab3e` | **175/1540 = 11.4%** | 7.4% MH | 5.2% OD | 10.5% SH | 19.0% temporal |
+| 1×30 conv-26 | `1b5ab3e` | **21/30 (70%)** | 10/10 | **0/4** | — | 11/16 |
+| LME-20 | `1b5ab3e` | **4/20** | | | | |
+
+Unique losses vs P53: **none**. Gains: Melanie children 7→3, Andrew Sep pets 13→1, John ankle 38→2. Andrew Dec pets is honest **4** (Scout stored as Andrew) vs gold 3. Industry **62/180**. n=1540 and 1×30 **not** re-run; do not replace README 11.4% / 70%.
+
+### Competitor compare (detailed)
+
+#### 1. LoCoMo — trail (open-domain); this 180 is not public LoCoMo
+
+Public LoCoMo is **n=1540 / 11.4%**. This 180 is a stratified diagnostic. **OD 4/11** (0/4 diagnostic still). Do **not** write lead from 140/180 vs Mem0 11/30 (handicapped, different pin). Published Mem0 **92.5%** (their harness, top-k 200, n=1540) is **context**, never a scoreboard row. Fair Mem0 180 waits on quota **2026-09-01**.
+
+**Trailing axis (open-domain):** product mechanism still missing is **S2b** membership/hypothesis + **S1** write coverage (Xenoblade, yoga 2020, Phuket, Wolves). PoR: compiler coverage then re-ingest; not leftover covering.
+
+**Leading axes (must not regress):** OpMem 13/13, marketing 17/17, 1×30 MH 10/10. P53 covering hold (Melanie realize after charity race) held on live `/recall`.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+Count answers were dumping the typed hop set (all children-adjacent rows, all pets, all times) because hop collected sibling predicates and `collapseCountClassNouns` treated quantity phrases as bare class nouns. Entity-scoping the count set to the queried subject, requiring the counted predicate, summing quantity phrases, and intersecting a specific head only when items mention it, recovers the three how-many golds without a category dictionary. Scout-as-Andrew is a store fact, not a reader cheat.
+
+### Next
+
+**One step:** generic **S2 list completeness** (entity-scoped enumerate that does not truncate tags/collars / extra tricks) — `conv-44-q51` Audrey dog items, `conv-47-q40` James pet tricks, `conv-49` food lists. Then S2b OD, then S1 WRITE with re-ingest, then S5 industry. Do **not** queue leftover covering from this 180. Do not chase camping-peaceful. Do not invent Sunday. Do not steal across speakers. Do not special-case Scout. Isolated leftover covering is saturating. Remaining 40: RETRIEVAL 16, PROOF 14, READER 5, WRITE 4, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
