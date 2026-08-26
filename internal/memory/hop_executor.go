@@ -1335,10 +1335,20 @@ func possessedClassFollowNames(content string) []string {
 		}
 		next := strings.Trim(fields[i+1], ".,;:'\"")
 		if strings.EqualFold(next, "named") || strings.EqualFold(next, "called") {
-			if i+2 >= len(fields) {
-				continue
+			rest := fields[i+2:]
+			blob := strings.Join(rest, " ")
+			if j := strings.IndexAny(blob, ".!?"); j >= 0 {
+				blob = blob[:j]
 			}
-			next = strings.Trim(fields[i+2], ".,;:'\"")
+			blob = strings.ReplaceAll(blob, " and ", ", ")
+			for _, part := range strings.Split(blob, ",") {
+				toks := strings.Fields(strings.TrimSpace(part))
+				if len(toks) == 0 {
+					continue
+				}
+				add(toks[0])
+			}
+			continue
 		}
 		add(next)
 	}
@@ -1490,9 +1500,6 @@ func recoverNamedBeingSlots(person string, listed []MemoryRecord) []recoveredSlo
 		}
 		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) {
 			continue
-		}
-		for _, n := range namedBeings(content + " " + recordValueNorm(rec)) {
-			add(recoveredSlot{value: n, content: content, memID: rec.MemoryID})
 		}
 		if n := destFromPossessiveClassLine(content, person); n != "" {
 			add(recoveredSlot{value: n, content: content, memID: rec.MemoryID})
