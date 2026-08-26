@@ -2668,12 +2668,12 @@ func TestRecallCountSkipsPreferenceJunk(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Riley"},
 		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Riley"},
 	}
-	store.records["r-nat"] = MemoryRecord{
-		MemoryID: "mem_rn", TenantID: "t-kids-pref", SubjectID: "u1",
+	store.records["r-nat-fam"] = MemoryRecord{
+		MemoryID: "mem_rnf", TenantID: "t-kids-pref", SubjectID: "u1",
 		Kind: KindFact, Content: "Riley's kids like nature",
-		DedupeKey: "rn", Status: StatusActive, UpdatedAt: now,
-		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "nature", "subject": "Riley"},
-		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "nature", "subject": "Riley"},
+		DedupeKey: "rnf", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "nature", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "nature", "subject": "Riley"},
 	}
 	store.records["r-hap"] = MemoryRecord{
 		MemoryID: "mem_rhp", TenantID: "t-kids-pref", SubjectID: "u1",
@@ -2685,7 +2685,7 @@ func TestRecallCountSkipsPreferenceJunk(t *testing.T) {
 	store.atoms = append(store.atoms,
 		stubAtom{pred: PredicateFamilyMember, val: "sam", memID: "mem_rs2"},
 		stubAtom{pred: PredicateFamilyMember, val: "dana", memID: "mem_rd2"},
-		stubAtom{pred: PredicatePreference, val: "nature", memID: "mem_rn"},
+		stubAtom{pred: PredicateFamilyMember, val: "nature", memID: "mem_rnf"},
 		stubAtom{pred: PredicatePreference, val: "happiness", memID: "mem_rhp"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
@@ -2729,6 +2729,13 @@ func TestRecallCountPossessionsEntityScoped(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "Buddy", "subject": "Andrew"},
 		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "Buddy", "subject": "Andrew"},
 	}
+	store.records["a-toys"] = MemoryRecord{
+		MemoryID: "mem_atoys", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Andrew possesses dog toys for his dogs",
+		DedupeKey: "atoys", Status: StatusActive, UpdatedAt: now, ObservedAt: &oct,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "dog toys", "subject": "Andrew"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "dog toys", "subject": "Andrew"},
+	}
 	store.records["a-none"] = MemoryRecord{
 		MemoryID: "mem_anone", TenantID: "t-pets", SubjectID: "u1",
 		Kind: KindFact, Content: "Andrew currently has no pets",
@@ -2754,6 +2761,7 @@ func TestRecallCountPossessionsEntityScoped(t *testing.T) {
 		stubAtom{pred: PredicatePossession, val: "puppy named Toby", memID: "mem_atoby"},
 		stubAtom{pred: PredicatePossession, val: "Precious", memID: "mem_aprec"},
 		stubAtom{pred: PredicatePossession, val: "Buddy", memID: "mem_abud"},
+		stubAtom{pred: PredicatePossession, val: "dog toys", memID: "mem_atoys"},
 		stubAtom{pred: PredicatePossession, val: "currently has no pets", memID: "mem_anone"},
 		stubAtom{pred: PredicatePossession, val: "Scout", memID: "mem_uscout"},
 		stubAtom{pred: PredicatePossession, val: "toys", memID: "mem_utoy"},
