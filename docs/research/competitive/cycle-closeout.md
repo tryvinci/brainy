@@ -5562,3 +5562,76 @@ Count answers were dumping the typed hop set (all children-adjacent rows, all pe
 
 **One step:** generic **S2 list completeness** (entity-scoped enumerate that does not truncate tags/collars / extra tricks) — `conv-44-q51` Audrey dog items, `conv-47-q40` James pet tricks, `conv-49` food lists. Then S2b OD, then S1 WRITE with re-ingest, then S5 industry. Do **not** queue leftover covering from this 180. Do not chase camping-peaceful. Do not invent Sunday. Do not steal across speakers. Do not special-case Scout. Isolated leftover covering is saturating. Remaining 40: RETRIEVAL 16, PROOF 14, READER 5, WRITE 4, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
 
+## 2026-08-26 — P58 historical typed-set lists (141/180; not leftover covering)
+
+Pin: [locomo-s0-diag-mh-135-p58-20260826.md](../../benchmarks/artifacts/locomo-s0-diag-mh-135-p58-20260826.md).
+Run `locomo-s0-diag-mh-135-p58-product-recall-s1-61eaf8`. Product SHA **`4817e11`**.
+Honesty stop **`0c33eb8`** stays on `dev`; this increment is **S2 enumerate**, not covering.
+
+**90% honesty:** 90% on this 180 is **162/180**. 90% on public LoCoMo is **n=1540**, last pin **11.4%**.
+This row is **141/180**. It is **not** 90%. It is **not** beating Mem0.
+
+Not-pins on the same branch: P55 **122/180**, P56b **135/180**, P57 **140/180** (Shinjuku loss). Do not mix those scores into this pin.
+
+### Landed
+
+Product: list hops that ask for a typed **set** (`what items`, `what are the names`, plural `locations`, tricks, `activities` X has **done**) set `includeHistorical` and scan atoms (cap **128**). Counts stay at search top-k. How/why leftover, singular `what activity did`, and singular `location` (Shinjuku) do not widen. For-clause lists drop class referents (`dog named Buddy`); outdoor family includes mountaineering; `colleagues`/`workmates`/`coworkers` are one workplace cluster; `acquired` is a possession cue. Covering is not locked off by enumerate item-count. Hop dumps do not lock hybrid. **No** LoCoMo-named rules. **No** leftover-covering detector.
+
+Pin docs: this section; [docs/benchmarks/README.md](../../benchmarks/README.md) P58 row.
+
+**Do not merge** leftover-covering PRs **#133**, **#131**, **#143**, **#145**.
+
+### Own pins
+
+Same 180, seed 1, 10 convos, fail-closed skip-ingest, tenant `diag-mh-135`. Hybrid on. Dataset SHA `79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4`.
+
+| Pin | SHA | Overall | MH | OD | SH | temporal |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| Product reader off | `453a929` | **19/180** | **12/33** | 0/11 | 5/98 | 2/38 |
+| P28 | `454fbb3` | **113/180** | 18/33 | 4/11 | 61/98 | 30/38 |
+| P53 (covering) | `ae15e40` | **137/180** | 18/33 | 4/11 | 85/98 | 30/38 |
+| P54 (entity-scoped counts) | `7653135` | **140/180 (0.778)** | **20/33** | **4/11** | **85/98** | **31/38** |
+| **P58 (historical typed-set lists)** | **`4817e11`** | **141/180 (0.783)** | **21/33** | **4/11** | **85/98** | **31/38** |
+| Industry search+harness | same tenant | **62/180** | 10/33 | 3/11 | 27/98 | 22/38 |
+| Full n=1540 product `/recall` | `1b5ab3e` | **175/1540 = 11.4%** | 7.4% MH | 5.2% OD | 10.5% SH | 19.0% temporal |
+| 1×30 conv-26 | `1b5ab3e` | **21/30 (70%)** | 10/10 | **0/4** | — | 11/16 |
+| LME-20 | `1b5ab3e` | **4/20** | | | | |
+
+Unique losses vs P54: **none**. Gain: John outdoor hiking+mountaineering (`conv-41-q32`). Industry **62/180**. n=1540 and 1×30 **not** re-run; do not replace README 11.4% / 70%.
+
+### Competitor compare (detailed)
+
+#### 1. LoCoMo — trail (open-domain); this 180 is not public LoCoMo
+
+Public LoCoMo is **n=1540 / 11.4%**. This 180 is a stratified diagnostic. **OD 4/11** (0/4 diagnostic still). Do **not** write lead from 141/180 vs Mem0 11/30 (handicapped, different pin). Published Mem0 **92.5%** (their harness, top-k 200, n=1540) is **context**, never a scoreboard row. Fair Mem0 180 waits on quota **2026-09-01**.
+
+**Trailing axis (open-domain):** product mechanism still missing is **S2b** membership/hypothesis + **S1** write coverage (Xenoblade, yoga 2020, Phuket, Wolves). PoR: compiler coverage then re-ingest; not leftover covering.
+
+**Leading axes (must not regress):** OpMem 13/13, marketing 17/17, 1×30 MH 10/10. P54 counts and P53 covering holds held on live `/recall`.
+
+#### 2. OpMem — lead (stale pin)
+
+Last **13/13**. Last Mem0 Platform ops pin **10/13**. **Lead ops.** Not re-run this increment.
+
+#### 3. Marketing vertical — lead (stale pin)
+
+Last **17/17** vs Mem0 empirical **4/17**. **Lead governed vertical.**
+
+#### 4. LME-20 — no pin this cycle
+
+Last Brainy pin **4/20**. Not re-run.
+
+#### 5. Graphiti / Zep — no pin
+
+**No same-pin.**
+
+**Mem0 OSS** was not re-measured. Platform fair 180 is **quota-blocked** until 2026-09-01.
+
+### Why
+
+`fetchPredicateHop` returned the latest current-state row unless `includeHistorical`. Count queries already set hist; list queries did not, so outdoor activities stopped at the latest hike and missed mountaineering. Widening hist/hop-scan for every `looksListQuery` noun (`dogs`, singular `activity`, `location`) dumped leftover covering (P55 122/180). Gating the wide scan to typed **sets**, and treating singular `location` as a point fact, recovers mountaineering without replacing Shinjuku with Shibuya.
+
+### Next
+
+**One step:** generic **S2 list completeness remainder** — `conv-44-q51` Audrey dog items (collars/tags still missing; covering still prefers beds), `conv-47-q40` James pet tricks (entity-scoped pet→skill hop for swimming/frisbee, no Max/James dictionary), food lists. Then S2b OD, then S1 WRITE with re-ingest, then S5 industry. Do **not** queue leftover covering from this 180. Do not chase camping-peaceful. Do not invent Sunday. Do not steal across speakers. Do not special-case Scout. Isolated leftover covering is saturating. Remaining 39: RETRIEVAL 14, PROOF 14, READER 6, WRITE 4, HARNESS 1. Fair Mem0 180 waits on quota reset 2026-09-01. n=1540 only at S6. Do not merge #133. Do not write SOTA. Kill list unchanged. Start: [handover-sota-agent-2026-08-21.md](../handover-sota-agent-2026-08-21.md).
+
