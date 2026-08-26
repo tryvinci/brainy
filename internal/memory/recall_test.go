@@ -2393,12 +2393,33 @@ func TestRecallOrgBeneficiariesFromAffiliation(t *testing.T) {
 	store := newMemoryStoreStub()
 	svc := NewService(store)
 	now := svc.now()
-	store.records["j-aff"] = MemoryRecord{
-		MemoryID: "mem_jaff", TenantID: "t-org", SubjectID: "u1",
-		Kind: KindFact, Content: "John's charity tournaments benefit Lakeside Shelter",
-		DedupeKey: "jaff", Status: StatusActive, UpdatedAt: now,
-		Metadata: map[string]any{"predicate": PredicateAffiliation, "value_norm": "Lakeside Shelter", "subject": "John"},
-		Explain:  map[string]any{"predicate": PredicateAffiliation, "value_norm": "Lakeside Shelter", "subject": "John"},
+	store.records["j-shel"] = MemoryRecord{
+		MemoryID: "mem_jshel", TenantID: "t-org", SubjectID: "u1",
+		Kind: KindFact, Content: "John's main goal was to raise money for a dog shelter.",
+		DedupeKey: "jshel", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateEvent, "value_norm": "charity tournament", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateEvent, "value_norm": "charity tournament", "subject": "John"},
+	}
+	store.records["j-home"] = MemoryRecord{
+		MemoryID: "mem_jhome", TenantID: "t-org", SubjectID: "u1",
+		Kind: KindFact, Content: "John decided to use leftover money to buy groceries for the homeless.",
+		DedupeKey: "jhome", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "buy groceries", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "buy groceries", "subject": "John"},
+	}
+	store.records["j-hosp"] = MemoryRecord{
+		MemoryID: "mem_jhosp", TenantID: "t-org", SubjectID: "u1",
+		Kind: KindFact, Content: "John raised money for a children's hospital during the gaming tournament on 30 October 2022.",
+		DedupeKey: "jhosp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateEvent, "value_norm": "gaming tournament", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateEvent, "value_norm": "gaming tournament", "subject": "John"},
+	}
+	store.records["j-csgo"] = MemoryRecord{
+		MemoryID: "mem_jcsgo", TenantID: "t-org", SubjectID: "u1",
+		Kind: KindFact, Content: "John raised money for charity through the CS:GO tournament on 7 May 2022.",
+		DedupeKey: "jcsgo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateEvent, "value_norm": "CS:GO tournament", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateEvent, "value_norm": "CS:GO tournament", "subject": "John"},
 	}
 	store.records["j-job4"] = MemoryRecord{
 		MemoryID: "mem_jj4", TenantID: "t-org", SubjectID: "u1",
@@ -2408,7 +2429,7 @@ func TestRecallOrgBeneficiariesFromAffiliation(t *testing.T) {
 		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
 	}
 	store.atoms = append(store.atoms,
-		stubAtom{pred: PredicateAffiliation, val: "Lakeside Shelter", memID: "mem_jaff"},
+		stubAtom{pred: PredicateEvent, val: "CS:GO tournament", memID: "mem_jcsgo"},
 		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_jj4"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
@@ -2419,11 +2440,46 @@ func TestRecallOrgBeneficiariesFromAffiliation(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := strings.ToLower(out.Answer)
-	if !strings.Contains(got, "lakeside") {
-		t.Fatalf("expected beneficiary org, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	if !strings.Contains(got, "shelter") || !strings.Contains(got, "homeless") || !strings.Contains(got, "hospital") {
+		t.Fatalf("expected beneficiary orgs, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
 	}
 	if strings.Contains(got, "nurse") {
 		t.Fatalf("occupation crowded beneficiary answer: %q", out.Answer)
+	}
+	if strings.Contains(got, "cs:go") {
+		t.Fatalf("tournament leftover crowded beneficiary answer: %q", out.Answer)
+	}
+}
+
+func TestLooksBeneficiarySetQueryAndObjects(t *testing.T) {
+	q := "Who or which organizations have been the beneficiaries of John's charity tournaments?"
+	if !looksBeneficiarySetQuery(q) {
+		t.Fatal("expected beneficiary set")
+	}
+	if looksBeneficiarySetQuery("Who is John's organization?") {
+		t.Fatal("bare organization who-query must not hist-scan")
+	}
+	if looksBeneficiarySetQuery("What kind of unhealthy snacks does Sam enjoy eating?") {
+		t.Fatal("snack leftover must not look like beneficiaries")
+	}
+	got := strings.ToLower(strings.Join(beneficiaryObjectsFromContent("John's main goal was to raise money for a dog shelter."), " "))
+	if !strings.Contains(got, "dog shelter") {
+		t.Fatalf("dog shelter=%q", got)
+	}
+	home := strings.ToLower(strings.Join(beneficiaryObjectsFromContent("John decided to use leftover money to buy groceries for the homeless."), " "))
+	if !strings.Contains(home, "homeless") {
+		t.Fatalf("homeless=%q", home)
+	}
+	hosp := strings.ToLower(strings.Join(beneficiaryObjectsFromContent("John raised money for a children's hospital during the gaming tournament on 30 October 2022."), " "))
+	if !strings.Contains(hosp, "hospital") {
+		t.Fatalf("hospital=%q", hosp)
+	}
+	thin := beneficiaryObjectsFromContent("John raised money for charity through the CS:GO tournament on 7 May 2022.")
+	for _, v := range thin {
+		low := strings.ToLower(v)
+		if looksThinBeneficiary(v) || strings.Contains(low, "cs:go") || strings.Contains(low, "tournament") || low == "charity" {
+			t.Fatalf("tournament leftover leaked=%#v", thin)
+		}
 	}
 }
 
@@ -8843,6 +8899,17 @@ func TestLeftoverCoveringKeepsTypedItemJoins(t *testing.T) {
 	thanks := "Sam: Thanks for the suggestion, Evan"
 	if leftoverCoveringKeepTypedAnswer(foodQ, foodHops, thanks) {
 		t.Fatal("suggestion thanks-line must not count as a typed food-set join")
+	}
+	benQ := "Who or which organizations have been the beneficiaries of John's charity tournaments?"
+	benHops := []HopResult{{Kind: "fetch_predicate", Predicate: PredicateAffiliation, Entity: "John", Source: "typed_store", ProofKind: "typed_exact",
+		Values: []string{"dog shelter", "homeless", "children's hospital"}}}
+	benJoin := "dog shelter, homeless, children's hospital"
+	if !leftoverCoveringKeepTypedAnswer(benQ, benHops, benJoin) {
+		t.Fatal("typed beneficiary join must be kept against leftover covering")
+	}
+	csgo := "John raised money for charity through the CS:GO tournament on 7 May 2022."
+	if leftoverCoveringKeepTypedAnswer(benQ, benHops, csgo) {
+		t.Fatal("CS:GO leftover must not count as a typed beneficiary join")
 	}
 }
 

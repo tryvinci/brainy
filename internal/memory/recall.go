@@ -1154,6 +1154,9 @@ func lockTypedListQuery(query string, enumerated bool, typedN int, echoSlogan bo
 // Singular "what activity did" / "how do dogs react" / "would X enjoy books"
 // are leftover or OD questions that happen to mention a list noun.
 func wantsTypedSetScan(query string) bool {
+	if looksBeneficiarySetQuery(query) {
+		return true
+	}
 	q := strings.ToLower(strings.TrimSpace(query))
 	if q == "" || looksCountQuery(query) {
 		return false
@@ -1187,6 +1190,9 @@ func wantsTypedSetScan(query string) bool {
 // current-state for possession/skill/place sets. Activity/community/snack
 // leftover questions enumerate at search top-k without this widening.
 func wantsHistoricalAtomScan(query string) bool {
+	if looksBeneficiarySetQuery(query) {
+		return true
+	}
 	q := strings.ToLower(strings.TrimSpace(query))
 	if q == "" || looksCountQuery(query) {
 		return false
@@ -1304,7 +1310,8 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	join := len(hopQueryEntities(req.Query)) >= 2
 	// Meal/suggestion sets are one person's preference slots, not the
 	// intersection of giver and recipient (or eater and clause entity).
-	if looksFoodSetQuery(req.Query) {
+	// Beneficiary org lists stay on the named person's affiliations.
+	if looksFoodSetQuery(req.Query) || looksBeneficiarySetQuery(req.Query) {
 		join = false
 	}
 	if join {
@@ -1361,6 +1368,11 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 					continue
 				}
 				if person := foodSetRecoverPerson(req.Query); person != "" && strings.TrimSpace(h.Entity) != "" && !strings.EqualFold(h.Entity, person) {
+					continue
+				}
+			}
+			if looksBeneficiarySetQuery(req.Query) {
+				if !strings.EqualFold(h.Predicate, PredicateAffiliation) {
 					continue
 				}
 			}
@@ -2041,6 +2053,15 @@ func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, 
 	items = s.filterHopEvidence(ctx, req, items, hops)
 	if looksFoodSetQuery(req.Query) {
 		if kept := itemsOnPredicateHop(items, hops, PredicatePreference, foodSetRecoverPerson(req.Query)); len(kept) >= 2 {
+			return capEnumerateItems(kept)
+		}
+	}
+	if looksBeneficiarySetQuery(req.Query) {
+		person := ""
+		if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+			person = ents[0]
+		}
+		if kept := itemsOnPredicateHop(items, hops, PredicateAffiliation, person); len(kept) >= 2 {
 			return capEnumerateItems(kept)
 		}
 	}
@@ -2772,6 +2793,9 @@ func focusHitScore(blob string, focus []string) int {
 }
 
 func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	if looksBeneficiarySetQuery(req.Query) {
+		return items
+	}
 	if recip := transferRecipient(req.Query); recip != "" && !looksFoodSetQuery(req.Query) {
 		items = s.filterItemsByMention(ctx, req, items, hops, strings.ToLower(recip))
 		for i := range items {
@@ -10422,9 +10446,37 @@ func appendUniqueRecallItems(items []RecallItem, extra []string) []RecallItem {
 	return items
 }
 
+func leftoverCoveringKeepBeneficiarySet(query string, hops []HopResult, answer string) bool {
+	if !looksBeneficiarySetQuery(query) {
+		return false
+	}
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") {
+		return false
+	}
+	if leftoverThinMissAnswer(query, hops, answer) || leftoverQueryEchoAnswer(query, answer) {
+		return false
+	}
+	vals := hopPredicateValues(hops, PredicateAffiliation, "")
+	if len(vals) < 2 {
+		return false
+	}
+	al := strings.ToLower(answer)
+	hits := 0
+	for _, v := range vals {
+		if utf8.RuneCountInString(v) >= 4 && strings.Contains(al, strings.ToLower(v)) {
+			hits++
+		}
+	}
+	return hits >= 2 && utf8Len(answer) <= 240
+}
+
 func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {
 	if looksWhereQuery(query) || leftoverCoveringShouldJoin(query) {
 		return false
+	}
+	if leftoverCoveringKeepBeneficiarySet(query, hops, answer) {
+		return true
 	}
 	if !hopsKeepTypedJoin(hops) {
 		return false

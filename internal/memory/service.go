@@ -2582,6 +2582,8 @@ func predicateFromListQuery(tokens []string) string {
 			return PredicateEvent
 		case "meals", "meal", "suggestions", "suggestion", "food", "snacks", "snack":
 			return PredicatePreference
+		case "organizations", "organization", "beneficiaries", "beneficiary":
+			return PredicateAffiliation
 		case "community", "participating", "participate":
 			return PredicateActivity
 		case "changes", "change", "journey":

@@ -789,7 +789,8 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needBesides := looksBesidesQuery(query) && itemHitsExclusion(query, []string{"stress", "stressor", "stressors"})
 	needNames := looksNameListQuery(query)
 	needFood := looksFoodSetQuery(query)
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood {
+	needBeneficiaries := looksBeneficiarySetQuery(query)
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -838,6 +839,19 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 		slots := recoverFoodSetSlots(giver, listed, query)
 		if len(slots) >= 2 {
 			replaceHopSlotsOn(hops, hopIndexForPredicateEntity(hops, PredicatePreference, giver), slots)
+		}
+	}
+	if needBeneficiaries {
+		slots := recoverBeneficiarySlots(person, listed)
+		if len(slots) >= 2 {
+			idx := hopIndexForPredicateEntity(hops, PredicateAffiliation, person)
+			replaceHopSlotsOn(hops, idx, slots)
+			if idx >= 0 && idx < len(hops) && len(hops[idx].Values) >= 2 {
+				hops[idx].Predicate = PredicateAffiliation
+				if person != "" {
+					hops[idx].Entity = person
+				}
+			}
 		}
 	}
 }
@@ -1520,6 +1534,125 @@ func looksFoodSetQuery(query string) bool {
 		return false
 	}
 	return queryHasToken(query, "meals", "meal", "suggestions", "suggestion")
+}
+
+func looksBeneficiarySetQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return false
+	}
+	if !queryHasToken(query, "beneficiaries", "beneficiary") {
+		return false
+	}
+	return strings.HasPrefix(q, "who") || strings.HasPrefix(q, "which") || strings.HasPrefix(q, "what")
+}
+
+func looksThinBeneficiary(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if v == "" {
+		return true
+	}
+	switch v {
+	case "charity", "fun", "game", "cs:go", "csgo", "kids", "money", "leftover money",
+		"the game", "the tournament", "charity events", "charity event":
+		return true
+	}
+	if strings.Contains(v, "cs:go") || strings.Contains(v, "csgo") || strings.Contains(v, "tournament") {
+		return true
+	}
+	if strings.HasPrefix(v, "the game") || strings.HasPrefix(v, "game ") || strings.HasPrefix(v, "charity") {
+		return true
+	}
+	return false
+}
+
+func recoverBeneficiarySlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		val := strings.TrimSpace(sl.value)
+		val = strings.Trim(val, ".,;: ")
+		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || utf8Len(val) > 40 || looksThinBeneficiary(val) {
+			return
+		}
+		key := strings.ToLower(val)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || strings.HasPrefix(content, "[") {
+			continue
+		}
+		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) &&
+			!strings.HasPrefix(strings.ToLower(content), strings.ToLower(person)+":") {
+			continue
+		}
+		body := " " + strings.ToLower(content) + " "
+		if !strings.Contains(body, " charity ") && !strings.Contains(body, " raise ") &&
+			!strings.Contains(body, " raised ") && !strings.Contains(body, " leftover money ") &&
+			!strings.Contains(body, " shelter ") && !strings.Contains(body, " homeless ") &&
+			!strings.Contains(body, " hospital ") {
+			continue
+		}
+		for _, v := range beneficiaryObjectsFromContent(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+	}
+	if len(out) > 6 {
+		out = out[:6]
+	}
+	return out
+}
+
+func beneficiaryObjectsFromContent(content string) []string {
+	lower := strings.ToLower(content)
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		v = strings.Trim(v, ".,;: ")
+		if j := strings.IndexAny(v, ".!?"); j >= 0 {
+			v = strings.TrimSpace(v[:j])
+		}
+		for _, tail := range []string{" which ", " during ", " on ", " last ", " after ", " and we "} {
+			if k := strings.Index(strings.ToLower(v), tail); k >= 3 {
+				v = strings.TrimSpace(v[:k])
+			}
+		}
+		v = strings.TrimPrefix(v, "a ")
+		v = strings.TrimPrefix(v, "an ")
+		v = strings.TrimPrefix(v, "the ")
+		if v == "" || utf8Len(v) < 4 || utf8Len(v) > 40 || looksThinBeneficiary(v) {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, cue := range []string{" for a ", " for an ", " for the ", " for "} {
+		start := 0
+		for {
+			i := strings.Index(lower[start:], cue)
+			if i < 0 {
+				break
+			}
+			i += start
+			rest := strings.TrimSpace(content[i+len(cue):])
+			add(rest)
+			start = i + len(cue)
+		}
+	}
+	return out
 }
 
 func itemHasSuggestionCue(s string) bool {
