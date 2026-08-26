@@ -1028,6 +1028,7 @@ func recoverTrickSlots(person string, listed []MemoryRecord) []recoveredSlot {
 	if person == "" {
 		return nil
 	}
+	pets := possessedBeingMentions(person, listed)
 	var out []recoveredSlot
 	seen := map[string]struct{}{}
 	add := func(sl recoveredSlot) {
@@ -1043,18 +1044,189 @@ func recoverTrickSlots(person string, listed []MemoryRecord) []recoveredSlot {
 		if content == "" {
 			continue
 		}
-		if !queryHasToken(content, "trick", "tricks") {
+		subj := entitySubjectOf(rec)
+		trickLine := queryHasToken(content, "trick", "tricks")
+		destHit := possessedBeingNamed(subj, pets) || contentMentionsPossessed(content, pets)
+		taughtLine := queryHasToken(content, person) &&
+			queryHasToken(content, "taught", "teach", "skilled", "perform") &&
+			queryHasToken(content, "dog", "dogs", "pet", "pets", "cat", "cats")
+		if !trickLine && !destHit && !taughtLine {
 			continue
+		}
+		if trickLine && len(pets) > 0 {
+			if !queryHasToken(content, person) && !strings.EqualFold(subj, person) && !destHit {
+				continue
+			}
+		}
+		if destHit && !trickLine && !taughtLine {
+			pred := recordPredicateOf(rec)
+			switch pred {
+			case PredicateSkill, PredicateActivity, PredicatePreference:
+			default:
+				if pred != "" {
+					continue
+				}
+			}
 		}
 		add(recoveredSlot{content: content, memID: rec.MemoryID})
 		for _, v := range trickObjectSlots(content) {
 			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
 		}
-		if vn := recordValueNorm(rec); vn != "" && queryHasToken(content, "trick", "tricks") {
+		if vn := recordValueNorm(rec); vn != "" {
 			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
+			if strings.Contains(vn, ",") {
+				rest := strings.ReplaceAll(vn, " and ", ",")
+				for _, part := range strings.Split(rest, ",") {
+					part = strings.TrimSpace(part)
+					if part != "" {
+						add(recoveredSlot{value: part, content: content, memID: rec.MemoryID})
+					}
+				}
+			}
 		}
 	}
 	return out
+}
+
+func recordPredicateOf(rec MemoryRecord) string {
+	if rec.Metadata != nil {
+		if v, ok := rec.Metadata["predicate"].(string); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+	if rec.Explain != nil {
+		if v, ok := rec.Explain["predicate"].(string); ok {
+			return strings.TrimSpace(v)
+		}
+	}
+	return ""
+}
+
+func possessedBeingMentions(person string, listed []MemoryRecord) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	add := func(n string) {
+		n = strings.TrimSpace(n)
+		n = strings.Trim(n, ".,;:'\"")
+		if n == "" || strings.EqualFold(n, person) || !looksHopPerson(n) {
+			return
+		}
+		key := strings.ToLower(n)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if _, stop := hopEntityStop[key]; stop {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, n)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" {
+			continue
+		}
+		subj := entitySubjectOf(rec)
+		if !strings.EqualFold(subj, person) && !queryHasToken(content, person) {
+			continue
+		}
+		for _, n := range namedBeings(content + " " + recordValueNorm(rec)) {
+			add(n)
+		}
+		if n := destFromPossessiveClassLine(content, person); n != "" {
+			add(n)
+		}
+	}
+	return out
+}
+
+func possessedBeingNamed(subj string, pets []string) bool {
+	subj = strings.TrimSpace(subj)
+	if subj == "" {
+		return false
+	}
+	for _, p := range pets {
+		if strings.EqualFold(p, subj) {
+			return true
+		}
+	}
+	return false
+}
+
+func contentMentionsPossessed(content string, pets []string) bool {
+	if content == "" || len(pets) == 0 {
+		return false
+	}
+	for _, p := range pets {
+		if queryHasToken(content, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func namedBeings(value string) []string {
+	lower := strings.ToLower(value)
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(name string) {
+		name = strings.TrimSpace(strings.Trim(name, ".,;:'\""))
+		if name == "" {
+			return
+		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if !looksHopPerson(name) {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, name)
+	}
+	for _, cue := range []string{" named ", " called "} {
+		i := strings.Index(lower, cue)
+		if i < 0 {
+			continue
+		}
+		rest := value[i+len(cue):]
+		rest = strings.ReplaceAll(rest, " and ", ", ")
+		rest = strings.ReplaceAll(rest, " And ", ", ")
+		for _, part := range strings.Split(rest, ",") {
+			fields := strings.Fields(strings.TrimSpace(part))
+			if len(fields) == 0 {
+				continue
+			}
+			add(fields[0])
+		}
+	}
+	return out
+}
+
+func destFromPossessiveClassLine(content, person string) string {
+	lower := strings.ToLower(content)
+	p := strings.ToLower(strings.TrimSpace(person))
+	if p == "" {
+		return ""
+	}
+	for _, class := range []string{"dog", "pet", "cat", "puppy", "pup"} {
+		for _, cue := range []string{" is " + p + "'s " + class, " is " + p + "’s " + class} {
+			i := strings.Index(lower, cue)
+			if i < 3 {
+				continue
+			}
+			head := strings.TrimSpace(content[:i])
+			fields := strings.Fields(head)
+			if len(fields) == 0 {
+				continue
+			}
+			name := strings.Trim(fields[len(fields)-1], ".,")
+			if looksHopPerson(name) {
+				return name
+			}
+		}
+	}
+	return ""
 }
 
 func recoverBesidesStressorSlots(person string, listed []MemoryRecord) []recoveredSlot {
@@ -1218,6 +1390,19 @@ func trickObjectSlots(content string) []string {
 		rest = strings.ReplaceAll(rest, " and ", ",")
 		for _, part := range strings.Split(rest, ",") {
 			add(part)
+		}
+	}
+	lower := strings.ToLower(content)
+	if i := strings.Index(lower, "tricks "); i >= 0 {
+		rest := content[i+len("tricks "):]
+		if j := strings.IndexAny(rest, ".!?"); j >= 0 {
+			rest = rest[:j]
+		}
+		if strings.Contains(rest, ",") {
+			rest = strings.ReplaceAll(rest, " and ", ",")
+			for _, part := range strings.Split(rest, ",") {
+				add(part)
+			}
 		}
 	}
 	return out

@@ -1138,7 +1138,12 @@ func hopScanLimit(query string, plan QueryPlan, topK int) int {
 }
 
 func lockTypedListQuery(query string, enumerated bool, typedN int, echoSlogan bool, typedDump bool) bool {
-	if typedDump || !enumerated || typedN < 2 || echoSlogan || looksCountQuery(query) {
+	if !enumerated || typedN < 2 || echoSlogan || looksCountQuery(query) {
+		return false
+	}
+	// Identity dumps (8+ fragments) must not lock hybrid. A 2–6 item typed
+	// set of short skill/possession slots is the answer, not a dump.
+	if typedDump && typedN > 6 {
 		return false
 	}
 	return wantsHistoricalAtomScan(query)
@@ -2038,9 +2043,30 @@ func (s *Service) rankItemsByQuery(ctx context.Context, req RecallRequest, items
 		idx   int
 	}
 	rows := make([]scored, 0, len(items))
+	dests := destNamesFromHops(hops)
 	for i, it := range items {
 		blob := s.itemEvidenceBlob(ctx, req, it, hops)
-		rows = append(rows, scored{it: it, score: itemQueryScore(req.Query, it.Value, blob), idx: i})
+		if extra := hopContentForValue(hops, it.Value); extra != "" {
+			blob += " " + strings.ToLower(extra)
+		}
+		score := itemQueryScore(req.Query, it.Value, blob)
+		if looksTrickQuery(req.Query) {
+			owner := ""
+			if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+				owner = ents[0]
+			}
+			hay := strings.ToLower(strings.TrimSpace(it.Value + " " + blob))
+			for _, d := range dests {
+				if owner != "" && strings.EqualFold(d, owner) {
+					continue
+				}
+				if queryHasToken(hay, d) {
+					score += 2
+					break
+				}
+			}
+		}
+		rows = append(rows, scored{it: it, score: score, idx: i})
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
 		if rows[i].score != rows[j].score {
@@ -2138,7 +2164,65 @@ func itemQueryScore(query, value, blob string) int {
 	if looksTrickQuery(query) && itemHitsExclusion(hay, []string{"trick", "tricks"}) {
 		n += 2
 	}
+	if looksTrickQuery(query) && itemHitsExclusion(hay, []string{"taught", "skilled", "perform"}) {
+		n += 2
+	}
+	if looksItemTransferQuery(query) && itemHasTransferCue(hay) {
+		n += 2
+	}
 	return n
+}
+
+func destNamesFromHops(hops []HopResult) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	add := func(n string) {
+		n = strings.TrimSpace(n)
+		n = strings.TrimSuffix(n, "'s")
+		n = strings.TrimSuffix(n, "’s")
+		n = strings.Trim(n, ".,;:'\"")
+		if n == "" || !looksHopPerson(n) {
+			return
+		}
+		key := strings.ToLower(n)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if _, stop := hopEntityStop[key]; stop {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, n)
+	}
+	for _, h := range hops {
+		for _, c := range h.Contents {
+			for _, n := range capitalizedMentionTokens(c) {
+				add(n)
+			}
+			for _, n := range namedBeings(c) {
+				add(n)
+			}
+		}
+	}
+	return out
+}
+
+func hopContentForValue(hops []HopResult, value string) string {
+	want := strings.ToLower(strings.TrimSpace(value))
+	if want == "" {
+		return ""
+	}
+	for _, h := range hops {
+		for i, v := range h.Values {
+			if strings.ToLower(strings.TrimSpace(v)) != want {
+				continue
+			}
+			if i < len(h.Contents) {
+				return h.Contents[i]
+			}
+		}
+	}
+	return ""
 }
 
 func nameCueTokens(query string) []string {
@@ -2555,6 +2639,9 @@ func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, item
 	if toks := forClauseTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
+	if looksItemTransferQuery(req.Query) {
+		items = s.filterItemsByTransferCue(ctx, req, items, hops)
+	}
 	if toks := inCommunityTokens(req.Query); len(toks) > 0 {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
@@ -2642,6 +2729,50 @@ func expandGroupCompanionEvidence(tok string) []string {
 		}
 	}
 	return []string{tok}
+}
+
+func looksItemTransferQuery(query string) bool {
+	if !queryHasToken(query, "item", "items") {
+		return false
+	}
+	if len(forClauseTokens(query)) == 0 {
+		return false
+	}
+	q := strings.ToLower(query)
+	if strings.Contains(q, "bought") || strings.Contains(q, "acquired") || strings.Contains(q, "purchased") {
+		return true
+	}
+	return queryHasToken(query, "made", "make", "got", "buy")
+}
+
+func itemHasTransferCue(s string) bool {
+	body := " " + strings.ToLower(s) + " "
+	for _, cue := range []string{
+		" bought ", " buy ", " acquired ", " made ", " make ", " making ",
+		" purchased ", " got ", " get ",
+	} {
+		if strings.Contains(body, cue) {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *Service) filterItemsByTransferCue(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	if len(items) == 0 {
+		return items
+	}
+	out := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		if itemHasTransferCue(it.Value) || itemHasTransferCue(blob) {
+			out = append(out, it)
+		}
+	}
+	if len(out) == 0 {
+		return items
+	}
+	return out
 }
 
 func forClauseTokens(query string) []string {
