@@ -2375,9 +2375,18 @@ func TestRecallWhenEventDateFromCaptionObservedAt(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
 		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
 	}
+	dPrevent := time.Date(2023, 8, 21, 12, 0, 0, 0, time.UTC)
+	store.records["j-prev"] = MemoryRecord{
+		MemoryID: "mem_jprev", TenantID: "t-when-cap", SubjectID: "u1",
+		Kind: KindFact, Content: "John believes strength training prevents injuries",
+		DedupeKey: "j-prev", Status: StatusActive, UpdatedAt: now, ObservedAt: &dPrevent,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "strength training prevents injuries", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "strength training prevents injuries", "subject": "John"},
+	}
 	store.atoms = append(store.atoms,
 		stubAtom{pred: PredicateHealth, val: "ankle injury", memID: "mem_jspeech"},
 		stubAtom{pred: PredicateHealth, val: "sprained ankle injury", memID: "mem_jsprain"},
+		stubAtom{pred: PredicateHealth, val: "strength training prevents injuries", memID: "mem_jprev"},
 		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_jjcap"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
@@ -2393,8 +2402,9 @@ func TestRecallWhenEventDateFromCaptionObservedAt(t *testing.T) {
 	}
 	if strings.Contains(got, "21 november") || strings.Contains(got, "november 21") ||
 		strings.Contains(got, "16 december") || strings.Contains(got, "december 16") ||
+		strings.Contains(got, "21 august") || strings.Contains(got, "august 21") ||
 		strings.Contains(got, "nurse") {
-		t.Fatalf("when-query used speech-time, later sprain, or occupation dump: %q", out.Answer)
+		t.Fatalf("when-query used speech-time, later sprain, prevent-injury hop, or occupation dump: %q", out.Answer)
 	}
 }
 

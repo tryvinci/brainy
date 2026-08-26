@@ -2688,29 +2688,32 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 					}
 				}
 			}
-			blob := strings.ToLower(strings.TrimSpace(content + " " + h.Value))
-			for _, v := range h.Values {
-				blob += " " + strings.ToLower(v)
-			}
+			blob := strings.ToLower(strings.TrimSpace(content + " " + recordValueNorm(rec)))
 			addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), false)
 		}
 	}
 	// Untyped image captions never enter typed hops (no person bind, hops
-	// skip search_fallback). Their ObservedAt is still event time when the
-	// caption overlaps the when-query focus.
+	// skip search_fallback). Recency-limited subject scans also miss them
+	// on large conversations. Search by when-query focus so caption
+	// ObservedAt can compete with hop speech time.
 	if len(focus) > 0 && req.TenantID != "" && req.SubjectID != "" {
-		if listed, err := s.listSubjectCorpus(ctx, req.TenantID, req.SubjectID, false, 400); err == nil {
-			for _, rec := range listed {
-				content := strings.TrimSpace(rec.Content)
-				if !looksImageCaptionLine(content) {
-					continue
+		patterns := make([]string, 0, len(focus))
+		for _, t := range focus {
+			if len(t) >= 4 {
+				patterns = append(patterns, t)
+			}
+		}
+		if len(patterns) > 0 {
+			if listed, err := s.store.SearchActiveMemories(ctx, req.TenantID, req.SubjectID, patterns, 40); err == nil {
+				for _, rec := range listed {
+					content := strings.TrimSpace(rec.Content)
+					pred := recordPredicateOf(rec)
+					if pred == PredicateOccupation || pred == PredicateIdentity {
+						continue
+					}
+					blob := strings.ToLower(strings.TrimSpace(content + " " + recordValueNorm(rec)))
+					addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), true)
 				}
-				pred := recordPredicateOf(rec)
-				if pred == PredicateOccupation || pred == PredicateIdentity {
-					continue
-				}
-				blob := strings.ToLower(strings.TrimSpace(content + " " + recordValueNorm(rec)))
-				addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), true)
 			}
 		}
 	}
