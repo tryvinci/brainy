@@ -3527,6 +3527,49 @@ func TestRecoverItemTransferSlotsPrefersObjects(t *testing.T) {
 	}
 }
 
+func TestRecallNamedBeingsRecoverFromIdentityDump(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, content string
+	}{
+		{"eng", PredicateIdentity, "engineering student", "Jolene is an engineering student"},
+		{"out", PredicateIdentity, "big fan of being outside too", "Jolene: I'm a big fan of being outside too"},
+		{"susie", PredicatePossession, "snake named Susie", "Jolene has a pet snake named Susie"},
+		{"sera", PredicatePossession, "snake named Seraphim", "Jolene bought her snake Seraphim in Paris on 27 January 2022"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-names", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Jolene"},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": "Jolene"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-names", SubjectID: "u1",
+		Query: "What are the names of Jolene's snakes?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "susie") || !strings.Contains(got, "seraphim") {
+		t.Fatalf("expected named dests, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "engineering") || strings.Contains(got, "outside") {
+		t.Fatalf("identity dump crowded name list: %q", out.Answer)
+	}
+}
+
 func TestRecallItemTransferDropsUnrelatedPossessions(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
