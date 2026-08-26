@@ -646,6 +646,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if leftoverCoveringKeepTypedAnswer(req.Query, hopResults, typedAnswer) && leftoverCoveringLockChildhoodPossessions(req.Query) {
 			lockedList = true
 		}
+		if lockTypedListQuery(req.Query, enumerated, typedN, echoSlogan) {
+			lockedList = true
+		}
 		if hybrid.Attempted {
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
@@ -1124,10 +1127,20 @@ func hopScanLimit(query string, plan QueryPlan, topK int) int {
 	if topK >= cap {
 		return topK
 	}
-	if looksCountQuery(query) || looksListQuery(tokenize(query)) || plan.NeedsEnumeration {
+	if looksCountQuery(query) {
+		return topK
+	}
+	if looksListQuery(tokenize(query)) || plan.NeedsEnumeration {
 		return cap
 	}
 	return topK
+}
+
+func lockTypedListQuery(query string, enumerated bool, typedN int, echoSlogan bool) bool {
+	if !enumerated || typedN < 2 || echoSlogan || looksCountQuery(query) {
+		return false
+	}
+	return looksListQuery(tokenize(query))
 }
 
 func hasIntent(intents []string, want string) bool {
