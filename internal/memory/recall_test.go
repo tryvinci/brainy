@@ -1518,6 +1518,56 @@ func TestRecallPetTrickRecoversFromTrickContent(t *testing.T) {
 	}
 }
 
+func TestRecallPetTrickRecoversDestCapabilities(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, pred, val, subj, content string
+	}{
+		{"named", PredicatePossession, "three dogs named Max, Daisy, and Ned", "James", "James introduced three dogs named Max, Daisy, and Ned on 17 June 2022"},
+		{"cpp", PredicateSkill, "c++", "James", "James coded in c++"},
+		{"daisy", PredicateSkill, "sit, stay, paw, rollover", "Daisy", "Daisy can perform the tricks sit, stay, paw, and rollover"},
+		{"swim", PredicateActivity, "swimming", "Max", "Max's favorite activity is swimming"},
+		{"fris", PredicateSkill, "catching frisbees", "Max", "Max is skilled at catching frisbees in mid-air and never misses"},
+		{"board", PredicateActivity, "balance on a skateboard", "James", "James taught his dogs to balance on a skateboard"},
+		{"john", PredicateSkill, "skateboarding tricks", "John", "John and his friends helped each other learn new skateboarding tricks"},
+		{"hike", PredicatePreference, "hiking", "James", "James enjoys hiking"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-trick3", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": f.subj},
+			Explain:  map[string]any{"predicate": f.pred, "value_norm": f.val, "subject": f.subj},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: f.pred, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-trick3", SubjectID: "u1",
+		Query: "What kind of tricks do James's pets know?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "sit") || !strings.Contains(got, "swim") || !strings.Contains(got, "frisbee") {
+		t.Fatalf("expected dest-pet capabilities, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	if !strings.Contains(got, "skateboard") {
+		t.Fatalf("expected taught skateboard, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "c++") || strings.Contains(got, "hik") {
+		t.Fatalf("owner skills crowded dest-pet tricks: %q", out.Answer)
+	}
+}
+
 func TestRecallBesidesRecoversWorkStressor(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -3442,6 +3492,53 @@ func TestRecallItemsForClauseReadsFullTypedSetNotCurrentState(t *testing.T) {
 	}
 }
 
+func TestRecallItemTransferDropsUnrelatedPossessions(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	facts := []struct {
+		key, val, content string
+	}{
+		{"beds", "new dog beds", "Audrey bought new dog beds for her dogs last week"},
+		{"toys", "dog toys", "Audrey visited a pet store to buy toys for her dogs"},
+		{"collars", "new collars and tags for her dogs", "Audrey acquired new collars and tags for her dogs"},
+		{"hats", "hats for her dogs", "Audrey's dogs wear hats for fun and receive treats"},
+		{"guide", "birdwatching guidebook", "Audrey possesses a birdwatching guidebook"},
+		{"tattoo", "arm tattoo of four dogs", "Audrey has a tattoo on her arm that depicts her four dogs"},
+		{"four", "four dogs", "Audrey has four dogs"},
+		{"tips", "behavior tips", "Audrey received behavior tips from an animal behaviorist for her dogs"},
+	}
+	for _, f := range facts {
+		id := "mem_" + f.key
+		store.records[f.key] = MemoryRecord{
+			MemoryID: id, TenantID: "t-xfer", SubjectID: "u1",
+			Kind: KindFact, Content: f.content,
+			DedupeKey: f.key, Status: StatusActive, UpdatedAt: now,
+			Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "Audrey"},
+			Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": f.val, "subject": "Audrey"},
+		}
+		store.atoms = append(store.atoms, stubAtom{pred: PredicatePossession, val: f.val, memID: id})
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-xfer", SubjectID: "u1",
+		Query: "What items has Audrey bought or made for her dogs?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	for _, it := range out.Items {
+		got += " | " + strings.ToLower(it.Value)
+	}
+	if !strings.Contains(got, "collar") || !strings.Contains(got, "tag") || !strings.Contains(got, "toy") || !strings.Contains(got, "bed") {
+		t.Fatalf("expected transferred dog items, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if strings.Contains(got, "guidebook") || strings.Contains(got, "tattoo") || strings.Contains(got, "behavior") {
+		t.Fatalf("unrelated possessions crowded transfer list: %q", out.Answer)
+	}
+}
+
 func TestRecallOutdoorWithColleaguesKeepsWorkmates(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -3539,6 +3636,12 @@ func TestLockTypedListQuery(t *testing.T) {
 	}
 	if lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 8, false, true) {
 		t.Fatal("hop dumps must not lock hybrid")
+	}
+	if !lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 4, false, true) {
+		t.Fatal("2–6 item typed sets must lock hybrid even when parts are short")
+	}
+	if !lockTypedListQuery("What kind of tricks do James's pets know?", true, 6, false, true) {
+		t.Fatal("short skill lists must lock hybrid")
 	}
 	if lockTypedListQuery("How do Audrey's dogs react to snow?", true, 6, false, false) {
 		t.Fatal("how-react leftover must not lock hybrid")
