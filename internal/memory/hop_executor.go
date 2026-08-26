@@ -787,7 +787,8 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needTrick := looksTrickQuery(query)
 	needItems := looksItemTransferQuery(query)
 	needBesides := looksBesidesQuery(query) && itemHitsExclusion(query, []string{"stress", "stressor", "stressors"})
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides {
+	needNames := looksNameListQuery(query)
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -821,6 +822,12 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	}
 	if needBesides {
 		prependHopSlots(hops, PredicateActivity, recoverBesidesStressorSlots(person, listed))
+	}
+	if needNames {
+		slots := recoverNamedBeingSlots(person, listed)
+		if len(slots) >= 2 {
+			replaceHopSlots(hops, PredicatePossession, slots)
+		}
 	}
 }
 
@@ -1294,6 +1301,50 @@ func namedBeings(value string) []string {
 	return out
 }
 
+func possessedClassFollowNames(content string) []string {
+	fields := strings.Fields(content)
+	classes := map[string]struct{}{
+		"dog": {}, "dogs": {}, "pet": {}, "pets": {},
+		"cat": {}, "cats": {}, "snake": {}, "snakes": {},
+		"puppy": {}, "pup": {},
+	}
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(name string) {
+		name = strings.TrimSpace(strings.Trim(name, ".,;:'\""))
+		if name == "" || !looksHopPerson(name) {
+			return
+		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if _, stop := hopEntityStop[key]; stop {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, name)
+	}
+	for i, raw := range fields {
+		tok := strings.ToLower(strings.Trim(raw, ".,;:'\""))
+		if _, ok := classes[tok]; !ok {
+			continue
+		}
+		if i+1 >= len(fields) {
+			continue
+		}
+		next := strings.Trim(fields[i+1], ".,;:'\"")
+		if strings.EqualFold(next, "named") || strings.EqualFold(next, "called") {
+			if i+2 >= len(fields) {
+				continue
+			}
+			next = strings.Trim(fields[i+2], ".,;:'\"")
+		}
+		add(next)
+	}
+	return out
+}
+
 func destFromPossessiveClassLine(content, person string) string {
 	lower := strings.ToLower(content)
 	p := strings.ToLower(strings.TrimSpace(person))
@@ -1402,6 +1453,55 @@ func looksCodedSlotValue(v string) bool {
 		return false
 	}
 	return strings.Contains(v, "_")
+}
+
+func looksNameListQuery(query string) bool {
+	if !queryHasToken(query, "name", "names") {
+		return false
+	}
+	return wantsHistoricalAtomScan(query)
+}
+
+func recoverNamedBeingSlots(person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		val := strings.TrimSpace(sl.value)
+		if val == "" || strings.EqualFold(val, person) || !looksHopPerson(val) {
+			return
+		}
+		key := strings.ToLower(val)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		if _, stop := hopEntityStop[key]; stop {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" {
+			continue
+		}
+		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) {
+			continue
+		}
+		for _, n := range namedBeings(content + " " + recordValueNorm(rec)) {
+			add(recoveredSlot{value: n, content: content, memID: rec.MemoryID})
+		}
+		if n := destFromPossessiveClassLine(content, person); n != "" {
+			add(recoveredSlot{value: n, content: content, memID: rec.MemoryID})
+		}
+		for _, n := range possessedClassFollowNames(content) {
+			add(recoveredSlot{value: n, content: content, memID: rec.MemoryID})
+		}
+	}
+	return out
 }
 
 func recoverBesidesStressorSlots(person string, listed []MemoryRecord) []recoveredSlot {
