@@ -1960,10 +1960,13 @@ func polarTriedAnswerFromHops(query string, hops []HopResult, claim []string) st
 }
 
 func polarTriedHopYes(h HopResult, claim []string) bool {
-	pieces := make([]string, 0, 1+len(h.Values)+len(h.Contents))
+	// Score contents and per-slot values only. h.Value is a comma-join of
+	// every slot and would pair an unrelated "tried"/"love" cue with the claim.
+	pieces := make([]string, 0, len(h.Values)+len(h.Contents))
 	pieces = append(pieces, h.Contents...)
-	pieces = append(pieces, h.Values...)
-	if strings.TrimSpace(h.Value) != "" {
+	if len(h.Values) > 0 {
+		pieces = append(pieces, h.Values...)
+	} else if strings.TrimSpace(h.Value) != "" {
 		pieces = append(pieces, h.Value)
 	}
 	for _, p := range pieces {
@@ -1988,7 +1991,18 @@ func polarPieceHasClaim(piece string, claim []string) bool {
 }
 
 func polarExperienceCue(s string) bool {
-	return queryHasToken(s, "loves", "loved", "love", "tried")
+	toks := tokenize(s)
+	for i, t := range toks {
+		switch t {
+		case "loves", "love", "tried":
+			return true
+		case "loved":
+			if i+1 >= len(toks) || toks[i+1] != "ones" {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func filterBesides(query string, items []RecallItem) []RecallItem {

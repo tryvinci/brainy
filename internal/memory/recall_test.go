@@ -1304,6 +1304,21 @@ func TestPolarTriedAnswerFromHopsPlanVsLove(t *testing.T) {
 	if polarTriedAnswerFromHops(q, other, claim) != "" {
 		t.Fatal("foreign-entity hop must not Yes for Deborah")
 	}
+	crowded := []HopResult{{
+		Kind: "fetch_predicate", Predicate: PredicateActivity, Entity: "Jolene",
+		Source: "typed_store",
+		Value:  "hiking, surfing, gathering information about surfing, tried making daily schedule",
+		Values: []string{"hiking", "surfing", "gathering information about surfing", "tried making daily schedule"},
+		Contents: []string{
+			"Jolene went hiking.",
+			"Jolene plans to try surfing.",
+			"Jolene has been gathering information about surfing.",
+			"Jolene tried making a daily schedule.",
+		},
+	}}
+	if polarTriedAnswerFromHops("Has Jolene tried surfing?", crowded, polarClaimTokens("Has Jolene tried surfing?")) != "" {
+		t.Fatal("joined hop Value must not pair an unrelated tried slot with the claim")
+	}
 }
 
 func TestRecallPracticeLocationListDoesNotDumpOccupation(t *testing.T) {
