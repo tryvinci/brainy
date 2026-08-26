@@ -2502,6 +2502,60 @@ func TestRecallWhenEventDateFromCaptionObservedAt(t *testing.T) {
 	}
 }
 
+func TestRecallWhenEventPrefersContentDateOverSessionObservedAt(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	dSession := time.Date(2022, 6, 3, 12, 0, 0, 0, time.UTC)
+	dApril := time.Date(2022, 4, 30, 12, 0, 0, 0, time.UTC)
+	dLater := time.Date(2022, 6, 24, 12, 0, 0, 0, time.UTC)
+	store.records["n-party"] = MemoryRecord{
+		MemoryID: "mem_nparty", TenantID: "t-when-party", SubjectID: "u1",
+		Kind: KindFact, Content: "Nate is organizing a gaming party on the weekend of 11 June 2022.",
+		DedupeKey: "n-party", Status: StatusActive, UpdatedAt: now, ObservedAt: &dSession,
+		Metadata: map[string]any{"predicate": PredicateEvent, "value_norm": "gaming party", "subject": "Nate"},
+		Explain:  map[string]any{"predicate": PredicateEvent, "value_norm": "gaming party", "subject": "Nate"},
+	}
+	store.records["n-rel"] = MemoryRecord{
+		MemoryID: "mem_nrel", TenantID: "t-when-party", SubjectID: "u1",
+		Kind: KindFact, Content: "I'm organizing a gaming party two weekends later - it'll be hectic but fun",
+		DedupeKey: "n-rel", Status: StatusActive, UpdatedAt: now, ObservedAt: &dSession,
+	}
+	store.records["n-tour"] = MemoryRecord{
+		MemoryID: "mem_ntour", TenantID: "t-when-party", SubjectID: "u1",
+		Kind: KindFact, Content: "Nate won his second gaming tournament on 30 April 2022.",
+		DedupeKey: "n-tour", Status: StatusActive, UpdatedAt: now, ObservedAt: &dApril,
+		Metadata: map[string]any{"predicate": PredicateEvent, "value_norm": "gaming tournament", "subject": "Nate"},
+		Explain:  map[string]any{"predicate": PredicateEvent, "value_norm": "gaming tournament", "subject": "Nate"},
+	}
+	store.records["n-after"] = MemoryRecord{
+		MemoryID: "mem_nafter", TenantID: "t-when-party", SubjectID: "u1",
+		Kind: KindFact, Content: "Nate participated in a gaming party that was a great success.",
+		DedupeKey: "n-after", Status: StatusActive, UpdatedAt: now, ObservedAt: &dLater,
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateEvent, val: "gaming party", memID: "mem_nparty"},
+		stubAtom{pred: PredicateEvent, val: "gaming tournament", memID: "mem_ntour"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-when-party", SubjectID: "u1",
+		Query: "When is Nate hosting a gaming party?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "11 june 2022") && !strings.Contains(got, "june 11") {
+		t.Fatalf("expected content event date, answer=%q", out.Answer)
+	}
+	if strings.Contains(got, "3 june") || strings.Contains(got, "june 3") ||
+		strings.Contains(got, "30 april") || strings.Contains(got, "april 30") ||
+		strings.Contains(got, "24 june") || strings.Contains(got, "tournament") {
+		t.Fatalf("when-query used session observed_at, tournament, or later recap: %q", out.Answer)
+	}
+}
+
 func TestRecallTransferKeepsRecipientNotJoin(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
