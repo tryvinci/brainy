@@ -788,7 +788,8 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needItems := looksItemTransferQuery(query)
 	needBesides := looksBesidesQuery(query) && itemHitsExclusion(query, []string{"stress", "stressor", "stressors"})
 	needNames := looksNameListQuery(query)
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames {
+	needFood := looksFoodSetQuery(query)
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -827,6 +828,12 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 		slots := recoverNamedBeingSlots(person, listed)
 		if len(slots) >= 2 {
 			replaceHopSlots(hops, PredicatePossession, slots)
+		}
+	}
+	if needFood {
+		slots := recoverFoodSetSlots(person, listed, query)
+		if len(slots) >= 2 {
+			replaceHopSlots(hops, PredicatePreference, slots)
 		}
 	}
 }
@@ -1470,6 +1477,208 @@ func looksNameListQuery(query string) bool {
 		return false
 	}
 	return wantsHistoricalAtomScan(query)
+}
+
+// looksFoodSetQuery is a typed meal/suggestion set ("what kind of meals",
+// "what kind of food suggestions"). Bare "what kind of food" leftover and
+// un- snack leftover stay on covering.
+func looksFoodSetQuery(query string) bool {
+	if !looksWhatKindQuery(query) {
+		return false
+	}
+	return queryHasToken(query, "meals", "meal", "suggestions", "suggestion")
+}
+
+func itemHasSuggestionCue(s string) bool {
+	body := " " + strings.ToLower(s) + " "
+	for _, cue := range []string{
+		" suggest ", " suggested ", " suggests ", " suggestion ",
+		" recommend ", " recommended ", " recommends ",
+		" how about ", " swap ", " replace ", " instead of ",
+		" given to ", " gave ", " recipe ",
+	} {
+		if strings.Contains(body, cue) {
+			return true
+		}
+	}
+	return false
+}
+
+func itemHasMealCue(s string) bool {
+	body := " " + strings.ToLower(s) + " "
+	for _, cue := range []string{
+		" prepared ", " started eating ", " recipe is ", " recipe for ",
+		" made this ", " made a ", " ate ", " eaten ",
+	} {
+		if strings.Contains(body, cue) {
+			return true
+		}
+	}
+	return false
+}
+
+func recoverFoodSetSlots(person string, listed []MemoryRecord, query string) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	wantSuggest := queryHasToken(query, "suggestions", "suggestion")
+	wantMeal := queryHasToken(query, "meals", "meal")
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		val := strings.TrimSpace(sl.value)
+		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || utf8Len(val) > 60 {
+			return
+		}
+		key := strings.ToLower(val)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || strings.HasPrefix(content, "[") {
+			continue
+		}
+		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) {
+			continue
+		}
+		cueOK := (wantSuggest && itemHasSuggestionCue(content)) || (wantMeal && itemHasMealCue(content))
+		if !cueOK {
+			continue
+		}
+		for _, v := range foodObjectsFromContent(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+			if len(out) >= 6 {
+				return out
+			}
+		}
+		if len(foodObjectsFromContent(content)) > 0 {
+			continue
+		}
+		if vn := recordValueNorm(rec); vn != "" && !looksCodedSlotValue(vn) && !strings.Contains(vn, ",") {
+			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
+			if len(out) >= 6 {
+				return out
+			}
+		}
+	}
+	return out
+}
+
+func foodObjectsFromContent(content string) []string {
+	lower := strings.ToLower(content)
+	takeAfter := func(cue string, splitList bool) []string {
+		i := strings.Index(lower, cue)
+		if i < 0 {
+			return nil
+		}
+		rest := strings.TrimSpace(content[i+len(cue):])
+		rest = trimFoodObjectTail(rest)
+		if rest == "" {
+			return nil
+		}
+		if splitList {
+			return splitFoodListParts(rest)
+		}
+		if utf8Len(rest) < 3 || utf8Len(rest) > 60 || anaphoricSlotValue(rest) {
+			return nil
+		}
+		return []string{rest}
+	}
+	if parts := takeAfter(" how about some ", true); len(parts) > 0 {
+		return parts
+	}
+	if parts := takeAfter(" how about ", true); len(parts) > 0 {
+		return parts
+	}
+	if i := strings.Index(lower, " swap "); i >= 0 {
+		rest := lower[i:]
+		if j := strings.Index(rest, " for "); j >= 0 {
+			got := strings.TrimSpace(content[i+j+len(" for "):])
+			got = trimFoodObjectTail(got)
+			if got != "" && utf8Len(got) >= 3 && utf8Len(got) <= 60 {
+				return []string{got}
+			}
+		}
+	}
+	if i := strings.Index(lower, " replace "); i >= 0 {
+		rest := lower[i:]
+		if j := strings.Index(rest, " with "); j >= 0 {
+			got := strings.TrimSpace(content[i+j+len(" with "):])
+			got = trimFoodObjectTail(got)
+			if got != "" && utf8Len(got) >= 3 && utf8Len(got) <= 60 {
+				return []string{got}
+			}
+		}
+	}
+	for _, cue := range []string{
+		" prepared a ", " prepared ",
+		" started eating ",
+		" recipe is ", " recipe for these ", " recipe for ",
+		" suggested ", " recommends that ",
+	} {
+		if parts := takeAfter(cue, false); len(parts) > 0 {
+			return parts
+		}
+	}
+	return nil
+}
+
+func trimFoodObjectTail(rest string) string {
+	rest = strings.TrimSpace(rest)
+	if j := strings.IndexAny(rest, ".!?"); j >= 0 {
+		rest = strings.TrimSpace(rest[:j])
+	}
+	low := strings.ToLower(rest)
+	for _, tail := range []string{" on ", " as a ", " for a ", " that has ", " after "} {
+		if k := strings.Index(low, tail); k >= 8 {
+			rest = strings.TrimSpace(rest[:k])
+			low = strings.ToLower(rest)
+		}
+	}
+	if k := strings.LastIndex(low, " to "); k >= 3 {
+		tail := strings.TrimSpace(rest[k+4:])
+		if tail != "" && !strings.Contains(tail, " ") {
+			rest = strings.TrimSpace(rest[:k])
+			low = strings.ToLower(rest)
+		}
+	}
+	rest = strings.TrimSpace(rest)
+	rest = strings.TrimPrefix(rest, "a ")
+	rest = strings.TrimPrefix(rest, "an ")
+	rest = strings.TrimPrefix(rest, "the ")
+	rest = strings.TrimPrefix(rest, "these ")
+	rest = strings.TrimPrefix(rest, "some ")
+	return strings.TrimSpace(rest)
+}
+
+func splitFoodListParts(rest string) []string {
+	body := strings.ToLower(rest)
+	body = strings.ReplaceAll(body, " with some ", ",")
+	body = strings.ReplaceAll(body, " or ", ",")
+	body = strings.ReplaceAll(body, " and ", ",")
+	out := make([]string, 0, 4)
+	seen := map[string]struct{}{}
+	for _, part := range strings.Split(body, ",") {
+		part = strings.TrimSpace(part)
+		part = strings.TrimPrefix(part, "a ")
+		part = strings.TrimPrefix(part, "an ")
+		part = strings.TrimPrefix(part, "the ")
+		part = strings.TrimPrefix(part, "some ")
+		part = strings.TrimSpace(part)
+		if part == "" || utf8Len(part) < 3 || utf8Len(part) > 40 || anaphoricSlotValue(part) {
+			continue
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		out = append(out, part)
+	}
+	return out
 }
 
 func recoverNamedBeingSlots(person string, listed []MemoryRecord) []recoveredSlot {

@@ -1203,7 +1203,8 @@ func wantsHistoricalAtomScan(query string) bool {
 		return true
 	}
 	if looksWhatKindQuery(query) {
-		return queryHasToken(query, "tricks", "trick", "instruments", "instrument", "items", "item")
+		return queryHasToken(query, "tricks", "trick", "instruments", "instrument", "items", "item",
+			"meals", "meal", "suggestions", "suggestion")
 	}
 	if !strings.HasPrefix(q, "what ") && !strings.HasPrefix(q, "which ") {
 		return false
@@ -1212,7 +1213,8 @@ func wantsHistoricalAtomScan(query string) bool {
 		tok = strings.Trim(tok, "'\"")
 		tok = strings.TrimSuffix(tok, "'s")
 		switch tok {
-		case "items", "names", "locations", "tricks", "instruments", "instrument":
+		case "items", "names", "locations", "tricks", "instruments", "instrument",
+			"meals", "meal", "suggestions", "suggestion":
 			return true
 		}
 	}
@@ -1226,7 +1228,8 @@ func queryHasTypedSetNoun(query string) bool {
 		switch tok {
 		case "activities", "hobbies", "items", "names", "locations",
 			"tricks", "meals", "snacks", "food", "foods", "events",
-			"places", "books", "instruments", "instrument":
+			"places", "books", "instruments", "instrument",
+			"suggestions", "suggestion":
 			return true
 		}
 	}
@@ -2081,6 +2084,13 @@ func (s *Service) rankItemsByQuery(ctx context.Context, req RecallRequest, items
 		}
 		return rows[i].idx < rows[j].idx
 	})
+	if looksFoodSetQuery(req.Query) {
+		out := make([]RecallItem, 0, len(rows))
+		for _, r := range rows {
+			out = append(out, r.it)
+		}
+		return out
+	}
 	if len(negatedModifierTokens(req.Query)) > 0 {
 		out := make([]RecallItem, 0, len(rows))
 		for _, r := range rows {
@@ -2656,13 +2666,13 @@ func focusHitScore(blob string, focus []string) int {
 }
 
 func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
-	if recip := transferRecipient(req.Query); recip != "" {
+	if recip := transferRecipient(req.Query); recip != "" && !looksFoodSetQuery(req.Query) {
 		items = s.filterItemsByMention(ctx, req, items, hops, strings.ToLower(recip))
 		for i := range items {
 			items[i].Value = trimRecipientSuffix(items[i].Value, recip)
 		}
 	}
-	if toks := afterClauseTokens(req.Query); len(toks) > 0 {
+	if toks := afterClauseTokens(req.Query); len(toks) > 0 && !looksFoodSetQuery(req.Query) {
 		items = s.filterItemsByTokens(ctx, req, items, hops, toks)
 	}
 	head := listHeadModifierTokens(req.Query)
