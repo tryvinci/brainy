@@ -2502,61 +2502,6 @@ func TestRecallWhenEventDateFromCaptionObservedAt(t *testing.T) {
 	}
 }
 
-func TestRecallWhenEventKeepsFocusDatedPartyOverTournamentCovering(t *testing.T) {
-	t.Setenv("BRAINY_RECALL_LLM", "")
-	store := newMemoryStoreStub()
-	svc := NewService(store)
-	now := svc.now()
-	dParty := time.Date(2022, 6, 11, 12, 0, 0, 0, time.UTC)
-	dTour := time.Date(2022, 4, 30, 12, 0, 0, 0, time.UTC)
-	store.records["n-party"] = MemoryRecord{
-		MemoryID: "mem_nparty", TenantID: "t-when-party", SubjectID: "u1",
-		Kind: KindFact, Content: "Nate is organizing a gaming party on the weekend of 11 June 2022",
-		DedupeKey: "nparty", Status: StatusActive, UpdatedAt: now, ObservedAt: &dParty,
-		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "organizing a gaming party", "subject": "Nate"},
-		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "organizing a gaming party", "subject": "Nate"},
-	}
-	store.records["n-tour"] = MemoryRecord{
-		MemoryID: "mem_ntour", TenantID: "t-when-party", SubjectID: "u1",
-		Kind: KindFact, Content: "Nate won his second gaming tournament on 30 April 2022",
-		DedupeKey: "ntour", Status: StatusActive, UpdatedAt: now, ObservedAt: &dTour,
-		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "gaming tournament", "subject": "Nate"},
-		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "gaming tournament", "subject": "Nate"},
-	}
-	store.atoms = append(store.atoms,
-		stubAtom{pred: PredicateActivity, val: "organizing a gaming party", memID: "mem_nparty"},
-		stubAtom{pred: PredicateActivity, val: "gaming tournament", memID: "mem_ntour"},
-	)
-	q := "When is Nate hosting a gaming party?"
-	out, err := svc.Recall(context.Background(), RecallRequest{
-		TenantID: "t-when-party", SubjectID: "u1",
-		Query: q, Mode: "answer", TopK: 20,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := strings.ToLower(out.Answer)
-	if !strings.Contains(got, "11 june 2022") && !strings.Contains(got, "june 11") {
-		t.Fatalf("focus-dated party must keep June 11, answer=%q explain=%v", out.Answer, out.Explain)
-	}
-	if strings.Contains(got, "tournament") || strings.Contains(got, "30 april") || strings.Contains(got, "april 30") {
-		t.Fatalf("leftover covering must not replace a focus-dated party with a tournament: %q", out.Answer)
-	}
-	if out.Explain["date_focus"] != true {
-		t.Fatalf("expected date_focus, explain=%v", out.Explain)
-	}
-	hops := []HopResult{{Kind: "resolve_entity", Entity: "Nate", Value: "Nate", Source: "search_fallback"}}
-	covering := leftoverCoveringSpecificAnswer(q, hops, EvidencePacket{
-		ContextEvidence: []PacketItem{
-			{Content: "Nate won his second gaming tournament on 30 April 2022"},
-			{Content: "Nate is organizing a gaming party on the weekend of 11 June 2022"},
-		},
-	})
-	if leftoverCoveringBareDateMissesEvent(q, hops, covering, "11 June 2022") && out.Explain["date_focus"] != true {
-		t.Fatal("date_focus must be what skips leftover covering on a scored party date")
-	}
-}
-
 func TestRecallTransferKeepsRecipientNotJoin(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

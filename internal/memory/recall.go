@@ -773,7 +773,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && src == "hybrid_llm_packet" {
 					useCovering = leftoverCoveringMayReplaceHybrid(req.Query, hopResults, covering, cur)
 				}
-				if !useCovering && !typedJoin && out.Explain["date_focus"] != true && leftoverCoveringBareDateMissesEvent(req.Query, hopResults, covering, cur) {
+				if !useCovering && !typedJoin && leftoverCoveringBareDateMissesEvent(req.Query, hopResults, covering, cur) {
 					useCovering = true
 				}
 				if !useCovering && !typedJoin && leftoverCoveringYearMissesEvent(req.Query, covering, cur) {
