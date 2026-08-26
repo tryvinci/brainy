@@ -791,8 +791,9 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needFood := looksFoodSetQuery(query)
 	needBeneficiaries := looksBeneficiarySetQuery(query)
 	needParticipation := looksParticipationSetQuery(query)
+	needToldAbout := looksToldAboutQuery(query)
 	needTried := looksTriedPolarQuery(query)
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation && !needTried {
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation && !needToldAbout && !needTried {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -866,6 +867,26 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 				if person != "" {
 					hops[idx].Entity = person
 				}
+			}
+		}
+	}
+	if needToldAbout {
+		slots := recoverToldAboutSlots(query, person, listed)
+		if len(slots) >= 2 {
+			idx := hopIndexForPredicateEntity(hops, PredicateFamilyMember, person)
+			replaceHopSlotsOn(hops, idx, slots)
+			if idx >= 0 && idx < len(hops) && len(hops[idx].Values) >= 2 {
+				hops[idx].Predicate = PredicateFamilyMember
+				if person != "" {
+					hops[idx].Entity = person
+				}
+			}
+		} else if len(slots) > 0 {
+			prependHopSlots(hops, PredicateFamilyMember, slots)
+			idx := hopIndexForPredicateEntity(hops, PredicateFamilyMember, person)
+			if idx >= 0 && idx < len(hops) && person != "" {
+				hops[idx].Predicate = PredicateFamilyMember
+				hops[idx].Entity = person
 			}
 		}
 	}
@@ -1585,6 +1606,247 @@ func looksParticipationSetQuery(query string) bool {
 		return false
 	}
 	return strings.Contains(q, "ways") || strings.HasPrefix(q, "in what")
+}
+
+// looksToldAboutQuery is "who did X tell … about Y" — recipients of a
+// tell-act, not "who told X" (teller) and not leftover covering.
+func looksToldAboutQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" || !queryHasToken(query, "tell", "told") || !strings.Contains(q, " about ") {
+		return false
+	}
+	if strings.HasPrefix(q, "who told") || strings.Contains(q, " who told ") {
+		return false
+	}
+	return strings.HasPrefix(q, "who ") || strings.HasPrefix(q, "whom ")
+}
+
+func recoverToldAboutSlots(query, person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" || !looksToldAboutQuery(query) {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	add := func(sl recoveredSlot) {
+		val := normalizeToldAboutObject(sl.value)
+		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || looksThinToldAboutObject(val) || utf8Len(val) > 40 {
+			return
+		}
+		key := strings.ToLower(val)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		sl.value = val
+		out = append(out, sl)
+	}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || strings.HasPrefix(content, "[") {
+			continue
+		}
+		if !tellAboutBoundToPerson(rec, content, person) {
+			continue
+		}
+		if !toldAboutTopicHit(content, query) {
+			continue
+		}
+		for _, v := range tellAboutObjectsFromContent(content) {
+			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+	}
+	if len(out) > 6 {
+		out = out[:6]
+	}
+	return out
+}
+
+func tellAboutBoundToPerson(rec MemoryRecord, content, person string) bool {
+	if person == "" {
+		return false
+	}
+	sp, body := splitSpeaker(content)
+	if sp != "" && !strings.EqualFold(sp, person) {
+		return false
+	}
+	if strings.EqualFold(entitySubjectOf(rec), person) {
+		return true
+	}
+	if sp != "" && strings.EqualFold(sp, person) {
+		return true
+	}
+	hay := content
+	if strings.TrimSpace(body) != "" {
+		hay = body
+	}
+	if queryHasToken(hay, person) {
+		return true
+	}
+	if strings.TrimSpace(entitySubjectOf(rec)) != "" {
+		return false
+	}
+	return tellAboutFirstPerson(hay)
+}
+
+func tellAboutFirstPerson(content string) bool {
+	lower := " " + strings.ToLower(content) + " "
+	return strings.Contains(lower, " my ") || strings.Contains(lower, " our ") ||
+		strings.Contains(lower, " i ") || strings.Contains(lower, " we ") ||
+		strings.Contains(lower, " i've ") || strings.Contains(lower, " i'm ")
+}
+
+func toldAboutQueryTokens(query string) []string {
+	q := strings.ToLower(query)
+	i := strings.LastIndex(q, " about ")
+	if i < 0 {
+		return nil
+	}
+	var out []string
+	for _, tok := range tokenize(q[i+len(" about "):]) {
+		tok = strings.Trim(tok, "'\"?,.")
+		tok = strings.TrimSuffix(tok, "'s")
+		if tok == "" {
+			continue
+		}
+		if _, stop := preferenceHeadStop[tok]; stop {
+			continue
+		}
+		switch tok {
+		case "who", "whom", "did", "does", "do", "has", "have", "had":
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
+}
+
+func toldAboutTopicHit(content, query string) bool {
+	toks := toldAboutQueryTokens(query)
+	if len(toks) == 0 {
+		return false
+	}
+	low := strings.ToLower(content)
+	for _, tok := range toks {
+		if queryHasToken(content, tok) {
+			return true
+		}
+		if len(tok) >= 5 && strings.Contains(low, tok[:5]) {
+			return true
+		}
+		if len(tok) >= 4 && len(tok) < 5 && strings.Contains(low, tok) {
+			return true
+		}
+	}
+	return false
+}
+
+func tellAboutObjectsFromContent(content string) []string {
+	padded := " " + content + " "
+	lower := strings.ToLower(padded)
+	var out []string
+	seen := map[string]struct{}{}
+	add := func(v string) {
+		v = normalizeToldAboutObject(v)
+		if v == "" || looksThinToldAboutObject(v) || anaphoricSlotValue(v) || utf8Len(v) < 3 || utf8Len(v) > 40 {
+			return
+		}
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	for _, cue := range []string{" telling ", " told ", " tell "} {
+		start := 0
+		for {
+			i := strings.Index(lower[start:], cue)
+			if i < 0 {
+				break
+			}
+			i += start
+			rest := padded[i+len(cue):]
+			aboutIdx := strings.Index(strings.ToLower(rest), " about ")
+			if aboutIdx < 0 {
+				start = i + len(cue)
+				continue
+			}
+			obj := strings.TrimSpace(rest[:aboutIdx])
+			for _, part := range splitToldAboutObjects(obj) {
+				add(part)
+			}
+			start = i + len(cue)
+		}
+	}
+	return out
+}
+
+func splitToldAboutObjects(obj string) []string {
+	obj = strings.TrimSpace(obj)
+	if obj == "" {
+		return nil
+	}
+	var parts []string
+	for _, chunk := range strings.Split(obj, ",") {
+		chunk = strings.TrimSpace(chunk)
+		if chunk == "" {
+			continue
+		}
+		low := strings.ToLower(chunk)
+		if i := strings.Index(low, " and "); i >= 3 {
+			left := strings.TrimSpace(chunk[:i])
+			right := strings.TrimSpace(chunk[i+len(" and "):])
+			if left != "" {
+				parts = append(parts, left)
+			}
+			if right != "" {
+				parts = append(parts, right)
+			}
+			continue
+		}
+		parts = append(parts, chunk)
+	}
+	return parts
+}
+
+func normalizeToldAboutObject(v string) string {
+	v = strings.TrimSpace(v)
+	v = strings.Trim(v, ".,;:!?\"'")
+	if j := strings.IndexAny(v, ".!?"); j >= 0 {
+		v = strings.TrimSpace(v[:j])
+	}
+	for {
+		low := strings.ToLower(v)
+		cut := ""
+		for _, p := range []string{"my ", "our ", "his ", "her ", "their ", "the ", "a ", "an "} {
+			if strings.HasPrefix(low, p) {
+				cut = p
+				break
+			}
+		}
+		if cut == "" {
+			break
+		}
+		v = strings.TrimSpace(v[len(cut):])
+	}
+	if strings.HasSuffix(strings.ToLower(v), " fam") {
+		v = strings.TrimSpace(v[:len(v)-4]) + " family"
+	}
+	return strings.TrimSpace(v)
+}
+
+func looksThinToldAboutObject(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if v == "" {
+		return true
+	}
+	head, _, _ := strings.Cut(v, " ")
+	switch head {
+	case "me", "you", "him", "her", "them", "us", "it", "more", "someone",
+		"everybody", "people", "i", "we":
+		return true
+	}
+	return false
 }
 
 func recoverTriedExperienceSlots(query, person string, listed []MemoryRecord) []recoveredSlot {

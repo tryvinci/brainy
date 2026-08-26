@@ -1154,7 +1154,7 @@ func lockTypedListQuery(query string, enumerated bool, typedN int, echoSlogan bo
 // Singular "what activity did" / "how do dogs react" / "would X enjoy books"
 // are leftover or OD questions that happen to mention a list noun.
 func wantsTypedSetScan(query string) bool {
-	if looksBeneficiarySetQuery(query) {
+	if looksBeneficiarySetQuery(query) || looksToldAboutQuery(query) {
 		return true
 	}
 	q := strings.ToLower(strings.TrimSpace(query))
@@ -1190,7 +1190,7 @@ func wantsTypedSetScan(query string) bool {
 // current-state for possession/skill/place sets. Activity/community/snack
 // leftover questions enumerate at search top-k without this widening.
 func wantsHistoricalAtomScan(query string) bool {
-	if looksBeneficiarySetQuery(query) || looksParticipationSetQuery(query) || looksTriedPolarQuery(query) {
+	if looksBeneficiarySetQuery(query) || looksParticipationSetQuery(query) || looksTriedPolarQuery(query) || looksToldAboutQuery(query) {
 		return true
 	}
 	q := strings.ToLower(strings.TrimSpace(query))
@@ -1285,7 +1285,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 		if v == "" || anaphoricSlotValue(v) || !validEnumeratedValue(v) {
 			return
 		}
-		if predicate == PredicateFamilyMember || predicate == PredicatePreference {
+		if !looksToldAboutQuery(req.Query) && (predicate == PredicateFamilyMember || predicate == PredicatePreference) {
 			head, _, _ := strings.Cut(strings.ToLower(v), " ")
 			if _, stop := preferenceHeadStop[head]; stop {
 				return
@@ -1311,7 +1311,7 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 	// Meal/suggestion sets are one person's preference slots, not the
 	// intersection of giver and recipient (or eater and clause entity).
 	// Beneficiary org lists stay on the named person's affiliations.
-	if looksFoodSetQuery(req.Query) || looksBeneficiarySetQuery(req.Query) || looksParticipationSetQuery(req.Query) {
+	if looksFoodSetQuery(req.Query) || looksBeneficiarySetQuery(req.Query) || looksParticipationSetQuery(req.Query) || looksToldAboutQuery(req.Query) {
 		join = false
 	}
 	if join {
@@ -1378,6 +1378,11 @@ func (s *Service) enumerateFromSearch(ctx context.Context, req RecallRequest, re
 			}
 			if looksParticipationSetQuery(req.Query) {
 				if !strings.EqualFold(h.Predicate, PredicateActivity) {
+					continue
+				}
+			}
+			if looksToldAboutQuery(req.Query) {
+				if !strings.EqualFold(h.Predicate, PredicateFamilyMember) {
 					continue
 				}
 			}
@@ -2150,6 +2155,15 @@ func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, 
 			return capEnumerateItems(kept)
 		}
 	}
+	if looksToldAboutQuery(req.Query) {
+		person := ""
+		if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+			person = ents[0]
+		}
+		if kept := itemsOnPredicateHop(items, hops, PredicateFamilyMember, person); len(kept) >= 2 {
+			return capEnumerateItems(kept)
+		}
+	}
 	if !looksCountQuery(req.Query) {
 		if toks := forClauseTokens(req.Query); len(toks) > 0 && predicateFromListQuery(tokenize(req.Query)) != PredicateFamilyMember {
 			items = dropForClauseClassReferents(items, toks)
@@ -2878,7 +2892,7 @@ func focusHitScore(blob string, focus []string) int {
 }
 
 func (s *Service) filterHopEvidence(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
-	if looksBeneficiarySetQuery(req.Query) {
+	if looksBeneficiarySetQuery(req.Query) || looksToldAboutQuery(req.Query) {
 		return items
 	}
 	if recip := transferRecipient(req.Query); recip != "" && !looksFoodSetQuery(req.Query) {
@@ -10581,6 +10595,31 @@ func leftoverCoveringKeepParticipationSet(query string, hops []HopResult, answer
 	return hits >= 2 && utf8Len(answer) <= 400
 }
 
+func leftoverCoveringKeepToldAboutSet(query string, hops []HopResult, answer string) bool {
+	if !looksToldAboutQuery(query) {
+		return false
+	}
+	answer = strings.TrimSpace(answer)
+	if answer == "" || strings.EqualFold(answer, "not in memory") {
+		return false
+	}
+	if leftoverThinMissAnswer(query, hops, answer) || leftoverQueryEchoAnswer(query, answer) {
+		return false
+	}
+	vals := hopPredicateValues(hops, PredicateFamilyMember, "")
+	if len(vals) < 2 {
+		return false
+	}
+	al := strings.ToLower(answer)
+	hits := 0
+	for _, v := range vals {
+		if utf8.RuneCountInString(v) >= 4 && strings.Contains(al, strings.ToLower(v)) {
+			hits++
+		}
+	}
+	return hits >= 2 && utf8Len(answer) <= 240
+}
+
 func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer string) bool {
 	if looksWhereQuery(query) || leftoverCoveringShouldJoin(query) {
 		return false
@@ -10589,6 +10628,9 @@ func leftoverCoveringKeepTypedAnswer(query string, hops []HopResult, answer stri
 		return true
 	}
 	if leftoverCoveringKeepParticipationSet(query, hops, answer) {
+		return true
+	}
+	if leftoverCoveringKeepToldAboutSet(query, hops, answer) {
 		return true
 	}
 	if !hopsKeepTypedJoin(hops) {

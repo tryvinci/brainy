@@ -4431,6 +4431,132 @@ func TestRecallWhoToldAboutFromTypedHop(t *testing.T) {
 	}
 }
 
+func TestRecallWhoToldAboutFromEmptySubjectFirstPerson(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["e-work"] = MemoryRecord{
+		MemoryID: "mem_ew", TenantID: "t-told2", SubjectID: "u1",
+		Kind: KindFact, Content: "Just a minor accident, but it put a bit of a damper on telling my work friends about getting married",
+		DedupeKey: "ew", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["e-fam"] = MemoryRecord{
+		MemoryID: "mem_efam", TenantID: "t-told2", SubjectID: "u1",
+		Kind: KindFact, Content: "My partner and I told our extended fam about our marriage yesterday – it was so special",
+		DedupeKey: "efam", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["e-hear"] = MemoryRecord{
+		MemoryID: "mem_eh", TenantID: "t-told2", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam: I bet they were thrilled to hear about your marriage, despite the mishap",
+		DedupeKey: "eh", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["e-sup"] = MemoryRecord{
+		MemoryID: "mem_es", TenantID: "t-told2", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan's work friends have been a great support.",
+		DedupeKey: "es", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "work friends", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "work friends", "subject": "Evan"},
+	}
+	store.records["e-job2"] = MemoryRecord{
+		MemoryID: "mem_ej2", TenantID: "t-told2", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan works as a nurse",
+		DedupeKey: "ej2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "Evan"},
+	}
+	store.records["s-told"] = MemoryRecord{
+		MemoryID: "mem_st", TenantID: "t-told2", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam: I told my sister about the wedding",
+		DedupeKey: "st", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "sister", "subject": "Sam"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "sister", "subject": "Sam"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "work friends", memID: "mem_es"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_ej2"},
+		stubAtom{pred: PredicateFamilyMember, val: "sister", memID: "mem_st"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-told2", SubjectID: "u1",
+		Query: "Who did Evan tell about his marriage?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "work friends") || !strings.Contains(got, "extended") {
+		t.Fatalf("expected empty-subject tell-about set, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "sam") {
+		t.Fatalf("must not invent Sam-as-told from hear-about: %q", out.Answer)
+	}
+	if strings.Contains(got, "sister") {
+		t.Fatalf("must not steal foreign-speaker tell-about: %q", out.Answer)
+	}
+	if strings.Contains(got, "nurse") {
+		t.Fatalf("occupation crowded who-told: %q", out.Answer)
+	}
+	if strings.Contains(got, "support") {
+		t.Fatalf("support leftover crowded who-told: %q", out.Answer)
+	}
+}
+
+func TestLooksToldAboutQueryAndObjects(t *testing.T) {
+	q := "Who did Evan tell about his marriage?"
+	if !looksToldAboutQuery(q) {
+		t.Fatal("expected told-about set")
+	}
+	if looksToldAboutQuery("Who told Evan about the accident?") {
+		t.Fatal("teller-slot who-told must not hist-scan")
+	}
+	if looksToldAboutQuery("What did Evan tell Sam?") {
+		t.Fatal("what-tell leftover must not look like told-about sets")
+	}
+	if looksToldAboutQuery("Who is Evan's family?") {
+		t.Fatal("bare family who-query must not look like told-about")
+	}
+	if looksToldAboutQuery("Has Jolene tried surfing?") {
+		t.Fatal("polar leftover must not look like told-about")
+	}
+	work := strings.ToLower(strings.Join(tellAboutObjectsFromContent("Just a minor accident, but it put a bit of a damper on telling my work friends about getting married"), " "))
+	if !strings.Contains(work, "work friends") {
+		t.Fatalf("work friends=%q", work)
+	}
+	fam := strings.ToLower(strings.Join(tellAboutObjectsFromContent("My partner and I told our extended fam about our marriage yesterday"), " "))
+	if !strings.Contains(fam, "extended family") {
+		t.Fatalf("extended family=%q", fam)
+	}
+	if got := tellAboutObjectsFromContent("Sam: I bet they were thrilled to hear about your marriage, despite the mishap"); len(got) != 0 {
+		t.Fatalf("hear-about leaked=%#v", got)
+	}
+	if got := tellAboutObjectsFromContent("Evan's work friends have been a great support."); len(got) != 0 {
+		t.Fatalf("support leftover leaked=%#v", got)
+	}
+	if got := tellAboutObjectsFromContent("Tell me more about your road trip"); len(got) != 0 {
+		t.Fatalf("tell-me-more leaked=%#v", got)
+	}
+	listed := []MemoryRecord{
+		{MemoryID: "w", Content: "Just a minor accident, but it put a bit of a damper on telling my work friends about getting married"},
+		{MemoryID: "f", Content: "My partner and I told our extended fam about our marriage yesterday"},
+		{MemoryID: "s", Content: "Sam: I bet they were thrilled to hear about your marriage, despite the mishap"},
+		{MemoryID: "x", Content: "Sam: I told my sister about the wedding", Metadata: map[string]any{"subject": "Sam"}},
+	}
+	slots := recoverToldAboutSlots(q, "Evan", listed)
+	var b strings.Builder
+	for _, sl := range slots {
+		b.WriteString(sl.value)
+		b.WriteByte('|')
+	}
+	got := strings.ToLower(b.String())
+	if !strings.Contains(got, "work friends") || !strings.Contains(got, "extended") {
+		t.Fatalf("expected recovered tell-about slots, slots=%#v", slots)
+	}
+	if strings.Contains(got, "sam") || strings.Contains(got, "sister") {
+		t.Fatalf("foreign/hear-about leaked=%#v", slots)
+	}
+}
+
 func TestRecallPolarYesFromTaughtSkill(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
