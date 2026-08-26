@@ -3504,8 +3504,23 @@ func TestHopScanLimitEnumeratesPastSearchTopK(t *testing.T) {
 	if got := hopScanLimit("What items has Audrey bought or made for her dogs?", plan, 30); got != 128 {
 		t.Fatalf("enumerate hop scan want 128, got %d", got)
 	}
+	if got := hopScanLimit("How many Ferraris does Calvin own?", QueryPlan{}, 30); got != 30 {
+		t.Fatalf("count hop scan must stay at topK, got %d", got)
+	}
 	if got := hopScanLimit("Where does Riley live?", QueryPlan{}, 30); got != 30 {
 		t.Fatalf("non-list hop scan must stay at topK, got %d", got)
+	}
+}
+
+func TestLockTypedListQuery(t *testing.T) {
+	if !lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 4, false) {
+		t.Fatal("item lists with 4 typed values must lock hybrid")
+	}
+	if lockTypedListQuery("How many Ferraris does Calvin own?", true, 5, false) {
+		t.Fatal("count queries must not use list hybrid lock")
+	}
+	if lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 4, true) {
+		t.Fatal("echo slogans must not lock")
 	}
 }
 
