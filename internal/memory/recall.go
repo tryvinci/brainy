@@ -428,10 +428,13 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 		}
 		if looksWhenEventQuery(req.Query) {
-			if ans := s.dateAnswerFromHops(ctx, req, hopResults); ans != "" {
+			if ans, score := s.dateAnswerFromHops(ctx, req, hopResults); ans != "" {
 				out.Answer = ans
 				out.AnswerStatus = AnswerSupported
 				out.Explain["date_answer"] = true
+				if score > 0 {
+					out.Explain["date_focus"] = true
+				}
 			}
 		}
 		if looksWhichLanguageQuery(req.Query) {
@@ -770,7 +773,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && src == "hybrid_llm_packet" {
 					useCovering = leftoverCoveringMayReplaceHybrid(req.Query, hopResults, covering, cur)
 				}
-				if !useCovering && !typedJoin && leftoverCoveringBareDateMissesEvent(req.Query, hopResults, covering, cur) {
+				if !useCovering && !typedJoin && out.Explain["date_focus"] != true && leftoverCoveringBareDateMissesEvent(req.Query, hopResults, covering, cur) {
 					useCovering = true
 				}
 				if !useCovering && !typedJoin && leftoverCoveringYearMissesEvent(req.Query, covering, cur) {
@@ -2861,7 +2864,7 @@ func looksSupporterGroup(v string) bool {
 	return false
 }
 
-func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hops []HopResult) string {
+func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hops []HopResult) (string, int) {
 	year := queryCalendarYear(req.Query)
 	focus := whenEventFocusTokens(req.Query)
 	type hit struct {
@@ -2908,30 +2911,22 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 	// Untyped image captions never enter typed hops (no person bind, hops
 	// skip search_fallback). Recency-limited subject scans also miss them
 	// on large conversations. Search by when-query focus so caption
-	// ObservedAt can compete with hop speech time.
+	// ObservedAt can compete with hop speech time. Union per-token search
+	// so FTS AND of query verbs (hosting) cannot drop organizing/party
+	// lines that share other focus tokens.
 	if len(focus) > 0 && req.TenantID != "" && req.SubjectID != "" {
-		patterns := make([]string, 0, len(focus))
-		for _, t := range focus {
-			if len(t) >= 4 {
-				patterns = append(patterns, t)
+		for _, rec := range s.searchWhenEventFocus(ctx, req.TenantID, req.SubjectID, focus) {
+			content := strings.TrimSpace(rec.Content)
+			pred := recordPredicateOf(rec)
+			if pred == PredicateOccupation || pred == PredicateIdentity {
+				continue
 			}
-		}
-		if len(patterns) > 0 {
-			if listed, err := s.store.SearchActiveMemories(ctx, req.TenantID, req.SubjectID, patterns, 40); err == nil {
-				for _, rec := range listed {
-					content := strings.TrimSpace(rec.Content)
-					pred := recordPredicateOf(rec)
-					if pred == PredicateOccupation || pred == PredicateIdentity {
-						continue
-					}
-					blob := strings.ToLower(strings.TrimSpace(content + " " + recordValueNorm(rec)))
-					addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), true)
-				}
-			}
+			blob := strings.ToLower(strings.TrimSpace(content + " " + recordValueNorm(rec)))
+			addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), true)
 		}
 	}
 	if len(hits) == 0 {
-		return ""
+		return "", 0
 	}
 	best := hits[0].score
 	for _, h := range hits[1:] {
@@ -2950,9 +2945,60 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 		}
 	}
 	if pick == nil {
-		return ""
+		return "", 0
 	}
-	return pick.t.Format("2 January 2006")
+	return pick.t.Format("2 January 2006"), pick.score
+}
+
+func (s *Service) searchWhenEventFocus(ctx context.Context, tenantID, subjectID string, focus []string) []MemoryRecord {
+	if s == nil || s.store == nil {
+		return nil
+	}
+	patterns := make([]string, 0, len(focus))
+	for _, t := range focus {
+		if len(t) >= 4 {
+			patterns = append(patterns, t)
+		}
+	}
+	if len(patterns) == 0 {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	out := make([]MemoryRecord, 0, 40)
+	add := func(recs []MemoryRecord) {
+		for _, rec := range recs {
+			id := strings.TrimSpace(rec.MemoryID)
+			if id == "" {
+				id = rec.DedupeKey + "\n" + rec.Content
+			}
+			if _, ok := seen[id]; ok {
+				continue
+			}
+			seen[id] = struct{}{}
+			out = append(out, rec)
+			if len(out) >= 40 {
+				return
+			}
+		}
+	}
+	for _, t := range patterns {
+		if len(out) >= 40 {
+			break
+		}
+		recs, err := s.store.SearchActiveMemories(ctx, tenantID, subjectID, []string{t}, 24)
+		if err == nil {
+			add(recs)
+		}
+	}
+	if len(out) == 0 {
+		if recs, err := s.store.SearchActiveMemories(ctx, tenantID, subjectID, patterns, 40); err == nil {
+			add(recs)
+		}
+	}
+	if len(out) > 40 {
+		return out[:40]
+	}
+	return out
 }
 
 func eventTimeFromRecord(rec MemoryRecord, content string) *time.Time {
