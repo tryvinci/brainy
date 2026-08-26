@@ -5919,8 +5919,10 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	best := ""
 	bestScore := 0
+	bestHits := 0
 	strong := leftoverCoverStrongTokens(rare)
 	scored := make([]leftoverCoverScored, 0, 8)
+	rankHitsFirst := looksWhenEventQuery(query) || looksYearQuery(query)
 	for _, line := range lines {
 		if leftoverSkipLine(query, line, speakerCover) {
 			continue
@@ -6167,8 +6169,13 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
-		scored = append(scored, leftoverCoverScored{line: line, score: score})
-		if score > bestScore {
+		scored = append(scored, leftoverCoverScored{line: line, score: score, hits: hits})
+		better := score > bestScore
+		if rankHitsFirst {
+			better = hits > bestHits || (hits == bestHits && score > bestScore)
+		}
+		if better {
+			bestHits = hits
 			bestScore = score
 			best = line
 		}
@@ -6179,6 +6186,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if rarest := leftoverCoverRarestTokens(strong, df); len(rarest) > 0 && !contentCoversAnyQueryToken(best, rarest) {
 		for _, row := range scored {
 			if row.score < 2 || looksChatTurnLine(row.line) {
+				continue
+			}
+			if rankHitsFirst && row.hits < bestHits {
 				continue
 			}
 			if contentCoversAnyQueryToken(row.line, rarest) {
@@ -6485,6 +6495,24 @@ func leftoverCoverRarestTokens(strong []string, df map[string]int) []string {
 type leftoverCoverScored struct {
 	line  string
 	score int
+	hits  int
+}
+
+func leftoverCoverTokenHits(line string, toks []string) int {
+	n := 0
+	for _, tok := range toks {
+		if contentCoversQueryToken(line, tok) {
+			n++
+		}
+	}
+	return n
+}
+
+func leftoverCoveringBareDateNeedHits(strong []string) int {
+	if len(strong) < 2 {
+		return 1
+	}
+	return 2
 }
 
 func leftoverCoveringSchemaActivityLine(line string) bool {
@@ -6966,7 +6994,7 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 	if contentCoversAnyQueryToken(answer, strong) {
 		return false
 	}
-	return contentCoversAnyQueryToken(covering, strong)
+	return leftoverCoverTokenHits(covering, strong) >= leftoverCoveringBareDateNeedHits(strong)
 }
 
 // leftoverCoveringRequiresQueryEntity is true for when-event questions that
@@ -11052,6 +11080,9 @@ func leftoverThinMissAnswer(query string, hops []HopResult, answer string) bool 
 		return false
 	}
 	if leftoverQueryEchoAnswer(query, answer) || leftoverShortItemJoin(answer) {
+		return false
+	}
+	if (looksWhenEventQuery(query) || looksYearQuery(query)) && parseDateFromText(answer) != nil {
 		return false
 	}
 	if answer == "" || strings.EqualFold(answer, "not in memory") {
