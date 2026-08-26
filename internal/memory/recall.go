@@ -2944,8 +2944,13 @@ func (s *Service) filterCountItems(ctx context.Context, req RecallRequest, items
 			wantPred = hints[0]
 		}
 	}
-	out := make([]RecallItem, 0, len(items))
+	typed := make([]RecallItem, 0, len(items))
+	headHits := make([]RecallItem, 0, len(items))
 	items = expandCountNameLists(items)
+	// Specific heads ("Ferraris") intersect the typed set. Generic heads
+	// ("cars") have no token overlap with coupe/sedan, so keep the typed set.
+	useHeadIntersect := head != "" && head != "children" && head != "kids" && head != "child" &&
+		head != "times" && head != "time" && !countHeadIsPossessedClass(head)
 	for _, it := range items {
 		recs := s.itemEvidenceRecords(ctx, req, it)
 		if entity != "" && !countItemMatchesEntity(it, recs, entity) {
@@ -2978,7 +2983,14 @@ func (s *Service) filterCountItems(ctx context.Context, req RecallRequest, items
 				continue
 			}
 		}
-		out = append(out, it)
+		typed = append(typed, it)
+		if useHeadIntersect && countItemMentionsHead(it.Value, blob, head) {
+			headHits = append(headHits, it)
+		}
+	}
+	out := typed
+	if useHeadIntersect && len(headHits) > 0 {
+		out = headHits
 	}
 	out = collapseCountClassNouns(out, head)
 	out = collapseNamedCountDuplicates(out)
@@ -3160,6 +3172,25 @@ func countItemMentionsObject(value, object string) bool {
 	return queryHasToken(value, object)
 }
 
+func countItemMentionsHead(value, blob, head string) bool {
+	head = strings.ToLower(strings.TrimSpace(head))
+	if head == "" {
+		return true
+	}
+	stem := strings.TrimSuffix(head, "es")
+	stem = strings.TrimSuffix(stem, "s")
+	if len(stem) < 3 {
+		stem = head
+	}
+	hay := strings.TrimSpace(value + " " + blob)
+	if hay == "" {
+		return false
+	}
+	return queryHasToken(hay, head, stem) ||
+		strings.Contains(strings.ToLower(hay), head) ||
+		strings.Contains(strings.ToLower(hay), stem)
+}
+
 func countItemIsZero(value string) bool {
 	v := " " + strings.ToLower(strings.TrimSpace(value)) + " "
 	if strings.Contains(v, " no ") || strings.Contains(v, " none ") || strings.Contains(v, " zero ") {
@@ -3239,12 +3270,44 @@ func collapseCountClassNouns(items []RecallItem, head string) []RecallItem {
 
 // countValueIsBareClassNoun is a duplicate class label ("kids", "pets") that
 // should yield when named or quantified instances exist. Quantified phrases
-// ("two children") are the counted set, not a duplicate label.
+// ("two children") and modified instances ("a new Ferrari") are the counted
+// set, not a duplicate label.
 func countValueIsBareClassNoun(value, head string) bool {
 	if countItemQuantity(value, head) > 1 {
 		return false
 	}
-	return countValueIsClassNoun(value, head) || countValueIsClassNoun(valueLexicalHead(value), head)
+	v := strings.ToLower(strings.TrimSpace(value))
+	if countValueIsClassNoun(v, head) {
+		return true
+	}
+	v = strings.Map(func(r rune) rune {
+		if r == '(' || r == ')' {
+			return ' '
+		}
+		return r
+	}, v)
+	skip := map[string]struct{}{
+		"a": {}, "an": {}, "the": {}, "my": {}, "his": {}, "her": {},
+		"their": {}, "our": {}, "and": {}, "or": {},
+		"one": {}, "two": {}, "three": {}, "four": {}, "five": {},
+		"six": {}, "seven": {}, "eight": {}, "nine": {}, "ten": {},
+	}
+	classish, extra := 0, 0
+	for _, f := range strings.Fields(strings.ReplaceAll(v, "-", " ")) {
+		f = strings.Trim(f, ".,;:'\"()")
+		if f == "" {
+			continue
+		}
+		if _, ok := skip[f]; ok {
+			continue
+		}
+		if countValueIsClassNoun(f, head) {
+			classish++
+			continue
+		}
+		extra++
+	}
+	return classish > 0 && extra == 0
 }
 
 func collapseNamedCountDuplicates(items []RecallItem) []RecallItem {
