@@ -80,7 +80,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 
 	intents := AnalyzeQueryIntents(req.Query)
 	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all") || WantsHistoricalRetrieval(intents)
-	if looksCountQuery(req.Query) && countAsOfBound(req.Query) != nil {
+	if looksCountQuery(req.Query) {
 		hist = true
 	}
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
@@ -1549,7 +1549,7 @@ func hopMemoryIDForExtractedValue(h HopResult, value string) string {
 		}
 	}
 	for i, c := range h.Contents {
-		if !strings.Contains(strings.ToLower(c), want) {
+		if !queryHasToken(c, want) {
 			continue
 		}
 		if i < len(h.MemoryIDs) {
@@ -1678,7 +1678,7 @@ func countAnswer(query string, items []RecallItem) string {
 				n++
 			}
 		}
-		if n == 0 {
+		if n == 0 || n < len(items) {
 			return strconv.Itoa(len(items))
 		}
 		return strconv.Itoa(n)
@@ -3040,27 +3040,39 @@ func countItemWithinAsOf(it RecallItem, recs []MemoryRecord, asOf time.Time) boo
 
 func countItemObserved(it RecallItem, recs []MemoryRecord) *time.Time {
 	want := strings.ToLower(strings.TrimSpace(it.Value))
-	var fallback *time.Time
+	var best *time.Time
+	consider := func(t time.Time) {
+		t = t.UTC()
+		if best == nil || t.Before(*best) {
+			cp := t
+			best = &cp
+		}
+	}
 	for _, rec := range recs {
 		if rec.ObservedAt == nil || rec.ObservedAt.IsZero() {
 			continue
 		}
-		t := rec.ObservedAt.UTC()
-		if fallback == nil {
-			cp := t
-			fallback = &cp
+		if want != "" && !(strings.Contains(strings.ToLower(rec.Content), want) ||
+			strings.EqualFold(recordValueNorm(rec), it.Value) ||
+			queryHasToken(recordValueNorm(rec), want)) {
+			continue
 		}
-		if want != "" && (strings.Contains(strings.ToLower(rec.Content), want) ||
-			strings.EqualFold(recordValueNorm(rec), it.Value)) {
-			return &t
-		}
+		consider(*rec.ObservedAt)
+	}
+	if best != nil {
+		return best
 	}
 	if strings.TrimSpace(it.ObservedAt) != "" {
 		if t := parseFlexibleTime(it.ObservedAt); t != nil {
 			return t
 		}
 	}
-	return fallback
+	for _, rec := range recs {
+		if rec.ObservedAt != nil && !rec.ObservedAt.IsZero() {
+			consider(*rec.ObservedAt)
+		}
+	}
+	return best
 }
 
 func countAsOfBound(query string) *time.Time {
