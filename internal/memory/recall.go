@@ -2028,6 +2028,7 @@ func (s *Service) refineEnumeratedItems(ctx context.Context, req RecallRequest, 
 			items = dropForClauseClassReferents(items, toks)
 		}
 		items = s.rankItemsByQuery(ctx, req, items, hops)
+		items = s.filterTrickDestItems(ctx, req, items, hops)
 		items = capEnumerateItems(items)
 	}
 	return items
@@ -2056,14 +2057,20 @@ func (s *Service) rankItemsByQuery(ctx context.Context, req RecallRequest, items
 				owner = ents[0]
 			}
 			hay := strings.ToLower(strings.TrimSpace(it.Value + " " + blob))
+			destHit := false
 			for _, d := range dests {
 				if owner != "" && strings.EqualFold(d, owner) {
 					continue
 				}
 				if queryHasToken(hay, d) {
+					destHit = true
 					score += 2
 					break
 				}
+			}
+			taught := owner != "" && queryHasToken(hay, owner) && queryHasToken(hay, "taught", "teach")
+			if destCapabilityLine(hay) && (destHit || taught) {
+				score += 2
 			}
 		}
 		rows = append(rows, scored{it: it, score: score, idx: i})
@@ -2195,16 +2202,58 @@ func destNamesFromHops(hops []HopResult) []string {
 		out = append(out, n)
 	}
 	for _, h := range hops {
+		person := strings.TrimSpace(h.Entity)
 		for _, c := range h.Contents {
-			for _, n := range capitalizedMentionTokens(c) {
+			for _, n := range namedBeings(c) {
 				add(n)
 			}
-			for _, n := range namedBeings(c) {
+			if n := destFromPossessiveClassLine(c, person); n != "" {
 				add(n)
 			}
 		}
 	}
 	return out
+}
+
+func (s *Service) filterTrickDestItems(ctx context.Context, req RecallRequest, items []RecallItem, hops []HopResult) []RecallItem {
+	if !looksTrickQuery(req.Query) || len(items) < 2 {
+		return items
+	}
+	dests := destNamesFromHops(hops)
+	if len(dests) == 0 {
+		return items
+	}
+	owner := ""
+	if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+		owner = ents[0]
+	}
+	keep := make([]RecallItem, 0, len(items))
+	for _, it := range items {
+		blob := s.itemEvidenceBlob(ctx, req, it, hops)
+		if extra := hopContentForValue(hops, it.Value); extra != "" {
+			blob += " " + extra
+		}
+		hay := strings.ToLower(strings.TrimSpace(it.Value + " " + blob))
+		destHit := false
+		for _, d := range dests {
+			if owner != "" && strings.EqualFold(d, owner) {
+				continue
+			}
+			if queryHasToken(hay, d) {
+				destHit = true
+				break
+			}
+		}
+		taught := owner != "" && queryHasToken(hay, owner) && queryHasToken(hay, "taught", "teach")
+		trickObj := queryHasToken(it.Value, "trick", "tricks") || len(trickObjectSlots(it.Value+" "+blob)) > 0
+		if destHit || taught || (trickObj && destCapabilityLine(hay)) {
+			keep = append(keep, it)
+		}
+	}
+	if len(keep) >= 2 {
+		return keep
+	}
+	return items
 }
 
 func hopContentForValue(hops []HopResult, value string) string {
@@ -2748,12 +2797,19 @@ func looksItemTransferQuery(query string) bool {
 func itemHasTransferCue(s string) bool {
 	body := " " + strings.ToLower(s) + " "
 	for _, cue := range []string{
-		" bought ", " buy ", " acquired ", " made ", " make ", " making ",
-		" purchased ", " got ", " get ",
+		" bought ", " buy ", " buying ", " acquired ", " purchased ", " purchase ",
 	} {
 		if strings.Contains(body, cue) {
 			return true
 		}
+	}
+	if (strings.Contains(body, " got ") || strings.Contains(body, " get ")) &&
+		(strings.Contains(body, " for ") || strings.Contains(body, " gift")) {
+		return true
+	}
+	if (strings.Contains(body, " made ") || strings.Contains(body, " make ") || strings.Contains(body, " making ")) &&
+		strings.Contains(body, " for ") {
+		return true
 	}
 	return false
 }

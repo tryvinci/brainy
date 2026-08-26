@@ -808,9 +808,15 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 		prependHopSlots(hops, PredicateSkill, recoverPlayObjectSlots(person, listed))
 	}
 	if needTrick {
-		prependHopSlots(hops, PredicateSkill, recoverTrickSlots(person, listed))
+		slots := recoverTrickSlots(person, listed)
+		if len(possessedBeingMentions(person, listed)) > 0 && len(slots) > 0 {
+			replaceHopSlots(hops, PredicateSkill, slots)
+		} else {
+			prependHopSlots(hops, PredicateSkill, slots)
+		}
 	}
 	if needItems {
+		filterHopSlotsByTransferCue(hops, PredicatePossession)
 		prependHopSlots(hops, PredicatePossession, recoverItemTransferSlots(person, listed, query))
 	}
 	if needBesides {
@@ -843,7 +849,10 @@ func prependHopSlots(hops []HopResult, pred string, slots []recoveredSlot) {
 	for _, sl := range slots {
 		val := strings.TrimSpace(sl.value)
 		if val != "" {
-			if anaphoricSlotValue(val) || looksTitleCaseSlogan(val) || looksTitleCaseSlogan(titleCaseWords(val)) || utf8Len(val) > 80 {
+			slogan := looksTitleCaseSlogan(val) || looksTitleCaseSlogan(titleCaseWords(val))
+			if anaphoricSlotValue(val) || looksCodedSlotValue(val) || utf8Len(val) > 80 {
+				val = ""
+			} else if slogan && !itemHasTransferCue(val) && !itemHasTransferCue(sl.content) {
 				val = ""
 			} else {
 				key := strings.ToLower(val)
@@ -889,6 +898,86 @@ func prependHopSlots(hops []HopResult, pred string, slots []recoveredSlot) {
 		h.Source = "typed_store"
 		h.ProofKind = "typed_exact"
 	}
+}
+
+func replaceHopSlots(hops []HopResult, pred string, slots []recoveredSlot) {
+	if len(hops) == 0 || len(slots) == 0 {
+		return
+	}
+	idx := hopIndexForPredicate(hops, pred)
+	if idx < 0 {
+		return
+	}
+	h := &hops[idx]
+	haveVal := map[string]struct{}{}
+	var vals, contents, ids []string
+	for _, sl := range slots {
+		val := strings.TrimSpace(sl.value)
+		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || utf8Len(val) > 80 {
+			continue
+		}
+		if looksTitleCaseSlogan(val) {
+			continue
+		}
+		key := strings.ToLower(val)
+		if _, ok := haveVal[key]; ok {
+			continue
+		}
+		haveVal[key] = struct{}{}
+		vals = append(vals, val)
+		contents = append(contents, strings.TrimSpace(sl.content))
+		ids = append(ids, sl.memID)
+		if len(vals) >= 8 {
+			break
+		}
+	}
+	if len(vals) == 0 {
+		return
+	}
+	h.Values = vals
+	h.Contents = contents
+	h.MemoryIDs = ids
+	h.Value = strings.Join(vals, ", ")
+	h.Source = "typed_store"
+	h.ProofKind = "typed_exact"
+}
+
+func filterHopSlotsByTransferCue(hops []HopResult, pred string) {
+	if len(hops) == 0 {
+		return
+	}
+	idx := hopIndexForPredicate(hops, pred)
+	if idx < 0 {
+		return
+	}
+	h := &hops[idx]
+	var vals, contents, ids []string
+	for i, v := range h.Values {
+		content := ""
+		if i < len(h.Contents) {
+			content = h.Contents[i]
+		}
+		id := ""
+		if i < len(h.MemoryIDs) {
+			id = h.MemoryIDs[i]
+		}
+		if looksCodedSlotValue(v) {
+			continue
+		}
+		if !itemHasTransferCue(v) && !itemHasTransferCue(content) {
+			continue
+		}
+		vals = append(vals, v)
+		contents = append(contents, content)
+		ids = append(ids, id)
+	}
+	if len(vals) == 0 {
+		return
+	}
+	h.Values = vals
+	h.Contents = contents
+	h.MemoryIDs = ids
+	h.Value = strings.Join(vals, ", ")
 }
 
 func hopIndexForPredicate(hops []HopResult, pred string) int {
@@ -1071,14 +1160,16 @@ func recoverTrickSlots(person string, listed []MemoryRecord) []recoveredSlot {
 		for _, v := range trickObjectSlots(content) {
 			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
 		}
-		if vn := recordValueNorm(rec); vn != "" {
-			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
-			if strings.Contains(vn, ",") {
-				rest := strings.ReplaceAll(vn, " and ", ",")
-				for _, part := range strings.Split(rest, ",") {
-					part = strings.TrimSpace(part)
-					if part != "" {
-						add(recoveredSlot{value: part, content: content, memID: rec.MemoryID})
+		if vn := recordValueNorm(rec); vn != "" && !looksCodedSlotValue(vn) {
+			if destCapabilityLine(content) || queryHasToken(content, "trick", "tricks") || len(trickObjectSlots(content)) > 0 {
+				add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
+				if strings.Contains(vn, ",") {
+					rest := strings.ReplaceAll(vn, " and ", ",")
+					for _, part := range strings.Split(rest, ",") {
+						part = strings.TrimSpace(part)
+						if part != "" && !looksCodedSlotValue(part) {
+							add(recoveredSlot{value: part, content: content, memID: rec.MemoryID})
+						}
 					}
 				}
 			}
@@ -1263,11 +1354,53 @@ func recoverItemTransferSlots(person string, listed []MemoryRecord, query string
 			continue
 		}
 		add(recoveredSlot{content: content, memID: rec.MemoryID})
-		if vn := recordValueNorm(rec); vn != "" {
+		if obj := transferObjectFromContent(content); obj != "" {
+			add(recoveredSlot{value: obj, content: content, memID: rec.MemoryID})
+		}
+		if vn := recordValueNorm(rec); vn != "" && !looksCodedSlotValue(vn) {
 			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
 		}
 	}
 	return out
+}
+
+func transferObjectFromContent(content string) string {
+	lower := strings.ToLower(content)
+	cues := []string{" to buy ", " bought ", " buy ", " acquired ", " purchased ", " got ", " made "}
+	for _, cue := range cues {
+		i := strings.Index(lower, cue)
+		if i < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(content[i+len(cue):])
+		if j := strings.Index(strings.ToLower(rest), " for "); j >= 0 {
+			rest = strings.TrimSpace(rest[:j])
+		}
+		if k := strings.IndexAny(rest, ".!?"); k >= 0 {
+			rest = strings.TrimSpace(rest[:k])
+		}
+		rest = strings.TrimSpace(rest)
+		rest = strings.TrimPrefix(rest, "a ")
+		rest = strings.TrimPrefix(rest, "an ")
+		rest = strings.TrimPrefix(rest, "the ")
+		if rest == "" || utf8Len(rest) < 3 || utf8Len(rest) > 40 {
+			continue
+		}
+		low := strings.ToLower(rest)
+		if strings.Contains(low, "store") || strings.Contains(low, "shop") || anaphoricSlotValue(rest) {
+			continue
+		}
+		return rest
+	}
+	return ""
+}
+
+func looksCodedSlotValue(v string) bool {
+	v = strings.TrimSpace(v)
+	if v == "" || strings.Contains(v, " ") {
+		return false
+	}
+	return strings.Contains(v, "_")
 }
 
 func recoverBesidesStressorSlots(person string, listed []MemoryRecord) []recoveredSlot {
