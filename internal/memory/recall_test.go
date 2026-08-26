@@ -1682,6 +1682,40 @@ func TestPlacesFromContentStopsRelativeClauseAndGerund(t *testing.T) {
 	}
 }
 
+func TestLooksFoodSetQueryTypedMealsNotSnacks(t *testing.T) {
+	if !looksFoodSetQuery("What kind of healthy food suggestions has Evan given to Sam?") {
+		t.Fatal("expected suggestions set")
+	}
+	if !looksFoodSetQuery("What kind of healthy meals did Sam start eating after getting a health scare?") {
+		t.Fatal("expected meals set")
+	}
+	if looksFoodSetQuery("What kind of unhealthy snacks does Sam enjoy eating?") {
+		t.Fatal("un- snacks must stay leftover covering")
+	}
+	if looksFoodSetQuery("What kind of food did Maria have on her dinner spread iwth her mother?") {
+		t.Fatal("bare food leftover must not hist-scan")
+	}
+}
+
+func TestFoodObjectsFromContentSuggestionAndMealCues(t *testing.T) {
+	got := strings.Join(foodObjectsFromContent("Evan: Definitely, how about some flavored seltzer with some air-popped popcorn or fruit"), ",")
+	low := strings.ToLower(got)
+	if !strings.Contains(low, "seltzer") || !strings.Contains(low, "popcorn") || !strings.Contains(low, "fruit") {
+		t.Fatalf("how-about list=%q", got)
+	}
+	swap := foodObjectsFromContent("Evan recommends that Sam swap soda for flavored seltzer water as a healthier alternative.")
+	if len(swap) != 1 || !strings.Contains(strings.ToLower(swap[0]), "seltzer") {
+		t.Fatalf("swap object=%#v", swap)
+	}
+	if strings.Contains(strings.ToLower(strings.Join(swap, " ")), "soda") {
+		t.Fatalf("swap kept soda=%#v", swap)
+	}
+	meal := foodObjectsFromContent("Sam prepared a grilled salmon with roasted vegetables on 14 August 2023.")
+	if len(meal) != 1 || !strings.Contains(strings.ToLower(meal[0]), "salmon") {
+		t.Fatalf("prepared meal=%#v", meal)
+	}
+}
+
 func TestRecallUnhealthyListDropsPositiveSlogans(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -2047,6 +2081,27 @@ func TestRecallTransferKeepsRecipientNotJoin(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "quinoa bowls", "subject": "Evan"},
 		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "quinoa bowls", "subject": "Evan"},
 	}
+	store.records["e-how"] = MemoryRecord{
+		MemoryID: "mem_eh", TenantID: "t-xfer", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan: Definitely, how about some flavored seltzer with some air-popped popcorn or fruit",
+		DedupeKey: "eh", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "flavored seltzer", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "flavored seltzer", "subject": "Evan"},
+	}
+	store.records["e-swap"] = MemoryRecord{
+		MemoryID: "mem_ew", TenantID: "t-xfer", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan recommends that Sam swap soda for flavored seltzer water as a healthier alternative.",
+		DedupeKey: "ew", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "flavored seltzer water over soda", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "flavored seltzer water over soda", "subject": "Evan"},
+	}
+	store.records["e-hike"] = MemoryRecord{
+		MemoryID: "mem_ehi", TenantID: "t-xfer", SubjectID: "u1",
+		Kind: KindFact, Content: "Evan enjoys hiking",
+		DedupeKey: "ehi", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Evan"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Evan"},
+	}
 	store.records["e-soda"] = MemoryRecord{
 		MemoryID: "mem_eso", TenantID: "t-xfer", SubjectID: "u1",
 		Kind: KindFact, Content: "Evan enjoys soda",
@@ -2056,6 +2111,9 @@ func TestRecallTransferKeepsRecipientNotJoin(t *testing.T) {
 	}
 	store.atoms = append(store.atoms,
 		stubAtom{pred: PredicatePreference, val: "quinoa bowls", memID: "mem_es"},
+		stubAtom{pred: PredicatePreference, val: "flavored seltzer", memID: "mem_eh"},
+		stubAtom{pred: PredicatePreference, val: "flavored seltzer water over soda", memID: "mem_ew"},
+		stubAtom{pred: PredicatePreference, val: "hiking", memID: "mem_ehi"},
 		stubAtom{pred: PredicatePreference, val: "soda", memID: "mem_eso"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
@@ -2072,8 +2130,14 @@ func TestRecallTransferKeepsRecipientNotJoin(t *testing.T) {
 	if !strings.Contains(got, "quinoa") {
 		t.Fatalf("expected transferred suggestion, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
 	}
+	if !strings.Contains(got, "seltzer") || !strings.Contains(got, "popcorn") {
+		t.Fatalf("expected how-about suggestion objects, answer=%q items=%#v", out.Answer, out.Items)
+	}
 	if strings.Contains(got, "soda") {
 		t.Fatalf("giver's unrelated preference crowded transfer: %q", out.Answer)
+	}
+	if strings.Contains(got, "hik") {
+		t.Fatalf("giver activity crowded food suggestions: %q", out.Answer)
 	}
 }
 
@@ -2089,6 +2153,20 @@ func TestRecallAfterClauseKeepsMatchingMeals(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "quinoa bowls", "subject": "Sam"},
 		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "quinoa bowls", "subject": "Sam"},
 	}
+	store.records["s-salmon"] = MemoryRecord{
+		MemoryID: "mem_ss", TenantID: "t-after", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam prepared a grilled salmon with roasted vegetables on 14 August 2023.",
+		DedupeKey: "ss", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "grilled salmon with roasted vegetables", "subject": "Sam"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "grilled salmon with roasted vegetables", "subject": "Sam"},
+	}
+	store.records["s-stir"] = MemoryRecord{
+		MemoryID: "mem_st", TenantID: "t-after", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam's favorite recipe is grilled chicken and veggie stir-fry.",
+		DedupeKey: "st", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "grilled chicken and veggie stir-fry", "subject": "Sam"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "grilled chicken and veggie stir-fry", "subject": "Sam"},
+	}
 	store.records["s-candy"] = MemoryRecord{
 		MemoryID: "mem_sc", TenantID: "t-after", SubjectID: "u1",
 		Kind: KindFact, Content: "Sam enjoys candy",
@@ -2098,6 +2176,8 @@ func TestRecallAfterClauseKeepsMatchingMeals(t *testing.T) {
 	}
 	store.atoms = append(store.atoms,
 		stubAtom{pred: PredicatePreference, val: "quinoa bowls", memID: "mem_sm"},
+		stubAtom{pred: PredicatePreference, val: "grilled salmon with roasted vegetables", memID: "mem_ss"},
+		stubAtom{pred: PredicatePreference, val: "grilled chicken and veggie stir-fry", memID: "mem_st"},
 		stubAtom{pred: PredicatePreference, val: "candy", memID: "mem_sc"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
@@ -2113,6 +2193,9 @@ func TestRecallAfterClauseKeepsMatchingMeals(t *testing.T) {
 	}
 	if !strings.Contains(got, "quinoa") {
 		t.Fatalf("expected after-clause meal, answer=%q items=%#v", out.Answer, out.Items)
+	}
+	if !strings.Contains(got, "salmon") || !strings.Contains(got, "stir") {
+		t.Fatalf("expected prepared/recipe meals, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
 	}
 	if strings.Contains(got, "candy") {
 		t.Fatalf("unrelated meal crowded after-clause: %q", out.Answer)
