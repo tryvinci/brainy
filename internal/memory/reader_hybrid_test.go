@@ -1106,6 +1106,58 @@ func TestRecallHybridMayOverwriteDateAnswer(t *testing.T) {
 	}
 }
 
+func TestRecallHybridAbstainKeepsWhenEventDate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"","supporting_memory_ids":[],"unresolved_targets":[],"abstain":true}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL,
+		APIKey:  "test",
+		Model:   "test-model",
+	})
+	now := svc.now()
+	dCap := time.Date(2023, 11, 16, 12, 0, 0, 0, time.UTC)
+	dSpeech := time.Date(2023, 11, 21, 12, 0, 0, 0, time.UTC)
+	store.records["cap"] = MemoryRecord{
+		MemoryID: "mem_cap", TenantID: "t-hyb-when-keep", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "[ankle injury wrapped bandages] [a photo of a person with a bandage on their leg]",
+		DedupeKey: "cap", Status: StatusActive, UpdatedAt: now, ObservedAt: &dCap,
+	}
+	store.records["speech"] = MemoryRecord{
+		MemoryID: "mem_sp", TenantID: "t-hyb-when-keep", SubjectID: "u1",
+		Kind: KindFact, Content: "John: Last season, I had a major challenge when I hurt my ankle",
+		DedupeKey: "speech", Status: StatusActive, UpdatedAt: now, ObservedAt: &dSpeech,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "ankle injury", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "ankle injury", "subject": "John"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateHealth, val: "ankle injury", memID: "mem_sp"})
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-when-keep", SubjectID: "u1",
+		Query: "When did John get an ankle injury in 2023?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "16 november 2023") && !strings.Contains(got, "november 16") {
+		t.Fatalf("hybrid abstain must keep caption date, answer=%q explain=%v", out.Answer, out.Explain)
+	}
+	if strings.EqualFold(strings.TrimSpace(out.Answer), "not in memory") {
+		t.Fatalf("hybrid abstain overwrote typed date: %q", out.Answer)
+	}
+}
+
 func TestRecallHybridDoesNotOverwriteCountAnswer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

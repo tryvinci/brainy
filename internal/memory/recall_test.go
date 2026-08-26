@@ -2340,6 +2340,64 @@ func TestRecallWhenInjuryDateNotEventDump(t *testing.T) {
 	}
 }
 
+func TestRecallWhenEventDateFromCaptionObservedAt(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	dCaption := time.Date(2023, 11, 16, 12, 0, 0, 0, time.UTC)
+	dSpeech := time.Date(2023, 11, 21, 12, 0, 0, 0, time.UTC)
+	dLater := time.Date(2023, 12, 16, 12, 0, 0, 0, time.UTC)
+	store.records["j-cap"] = MemoryRecord{
+		MemoryID: "mem_jcap", TenantID: "t-when-cap", SubjectID: "u1",
+		Kind: KindFact, Primitive: PrimitiveEpisode,
+		Content:   "[ankle injury wrapped bandages] [a photo of a person with a bandage on their leg]",
+		DedupeKey: "j-cap", Status: StatusActive, UpdatedAt: now, ObservedAt: &dCaption,
+	}
+	store.records["j-speech"] = MemoryRecord{
+		MemoryID: "mem_jspeech", TenantID: "t-when-cap", SubjectID: "u1",
+		Kind: KindFact, Content: "John: Last season, I had a major challenge when I hurt my ankle",
+		DedupeKey: "j-speech", Status: StatusActive, UpdatedAt: now, ObservedAt: &dSpeech,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "ankle injury", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "ankle injury", "subject": "John"},
+	}
+	store.records["j-sprain"] = MemoryRecord{
+		MemoryID: "mem_jsprain", TenantID: "t-when-cap", SubjectID: "u1",
+		Kind: KindFact, Content: "John suffered a recent sprained ankle injury",
+		DedupeKey: "j-sprain", Status: StatusActive, UpdatedAt: now, ObservedAt: &dLater,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "sprained ankle injury", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "sprained ankle injury", "subject": "John"},
+	}
+	store.records["j-job"] = MemoryRecord{
+		MemoryID: "mem_jjcap", TenantID: "t-when-cap", SubjectID: "u1",
+		Kind: KindFact, Content: "John works as a nurse",
+		DedupeKey: "j-job", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "nurse", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateHealth, val: "ankle injury", memID: "mem_jspeech"},
+		stubAtom{pred: PredicateHealth, val: "sprained ankle injury", memID: "mem_jsprain"},
+		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_jjcap"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-when-cap", SubjectID: "u1",
+		Query: "When did John get an ankle injury in 2023?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if !strings.Contains(got, "16 november 2023") && !strings.Contains(got, "november 16") {
+		t.Fatalf("expected caption observed_at, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "21 november") || strings.Contains(got, "november 21") ||
+		strings.Contains(got, "16 december") || strings.Contains(got, "december 16") ||
+		strings.Contains(got, "nurse") {
+		t.Fatalf("when-query used speech-time, later sprain, or occupation dump: %q", out.Answer)
+	}
+}
+
 func TestRecallTransferKeepsRecipientNotJoin(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

@@ -614,6 +614,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedWhere := looksWhereQuery(req.Query) && out.Explain["where_answer"] == true
 		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
 		lockedCount := looksCountQuery(req.Query) && out.Explain["count_answer"] == true
+		keepDateOnHybridAbstain := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
 		typedAnswer := strings.TrimSpace(out.Answer)
 		typedItems := itemsFromCommaAnswer(typedAnswer)
 		if len(typedItems) == 0 {
@@ -701,7 +702,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
+		} else if hybrid.Abstain && !keepDateOnHybridAbstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			leftover := leftoverNonEntityQueryTokens(req.Query, hopResults)
 			canComposeHops := hopComposeAllowed(req.Query) && hopJoinProven(hopResults) &&
 				!skipSlots &&
@@ -2655,6 +2656,18 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 		score int
 	}
 	var hits []hit
+	addHit := func(t *time.Time, score int, requireFocus bool) {
+		if t == nil || t.IsZero() {
+			return
+		}
+		if year != 0 && t.Year() != year {
+			return
+		}
+		if requireFocus && len(focus) > 0 && score == 0 {
+			return
+		}
+		hits = append(hits, hit{t: t.UTC(), score: score})
+	}
 	for _, h := range hops {
 		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
 			continue
@@ -2679,14 +2692,26 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 			for _, v := range h.Values {
 				blob += " " + strings.ToLower(v)
 			}
-			t := eventTimeFromRecord(rec, content)
-			if t == nil {
-				continue
+			addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), false)
+		}
+	}
+	// Untyped image captions never enter typed hops (no person bind, hops
+	// skip search_fallback). Their ObservedAt is still event time when the
+	// caption overlaps the when-query focus.
+	if len(focus) > 0 && req.TenantID != "" && req.SubjectID != "" {
+		if listed, err := s.listSubjectCorpus(ctx, req.TenantID, req.SubjectID, false, 400); err == nil {
+			for _, rec := range listed {
+				content := strings.TrimSpace(rec.Content)
+				if !looksImageCaptionLine(content) {
+					continue
+				}
+				pred := recordPredicateOf(rec)
+				if pred == PredicateOccupation || pred == PredicateIdentity {
+					continue
+				}
+				blob := strings.ToLower(strings.TrimSpace(content + " " + recordValueNorm(rec)))
+				addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), true)
 			}
-			if year != 0 && t.Year() != year {
-				continue
-			}
-			hits = append(hits, hit{t: t.UTC(), score: focusHitScore(blob, focus)})
 		}
 	}
 	if len(hits) == 0 {
