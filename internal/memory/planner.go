@@ -160,6 +160,11 @@ func buildTypedHops(query string) []HopStep {
 	if len(entities) >= 2 && len(usePreds) > 0 {
 		usePreds = usePreds[:1]
 	}
+	// Counts hop the counted class only. Sibling hints (preference on a
+	// children count, event on an injury count) dump unrelated slots.
+	if looksCountQuery(query) && len(usePreds) > 1 {
+		usePreds = usePreds[:1]
+	}
 	targets := entities
 	if len(targets) == 0 {
 		targets = []string{""}
