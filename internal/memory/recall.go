@@ -2192,7 +2192,9 @@ func languageObjectStop(t string) bool {
 	switch t {
 	case "to", "from", "with", "for", "on", "in", "at", "via", "using",
 		"and", "or", "how", "that", "which", "who", "when", "while",
-		"app", "apps":
+		"app", "apps",
+		"during", "after", "before", "until", "since", "throughout",
+		"about", "over":
 		return true
 	}
 	return false
