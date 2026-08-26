@@ -2920,12 +2920,11 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 	year := queryCalendarYear(req.Query)
 	focus := whenEventFocusTokens(req.Query)
 	type hit struct {
-		t           time.Time
-		score       int
-		fromContent bool
+		t     time.Time
+		score int
 	}
 	var hits []hit
-	addHit := func(t *time.Time, score int, requireFocus, fromContent bool) {
+	addHit := func(t *time.Time, score int, requireFocus bool) {
 		if t == nil || t.IsZero() {
 			return
 		}
@@ -2935,7 +2934,7 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 		if requireFocus && len(focus) > 0 && score == 0 {
 			return
 		}
-		hits = append(hits, hit{t: t.UTC(), score: score, fromContent: fromContent})
+		hits = append(hits, hit{t: t.UTC(), score: score})
 	}
 	for _, h := range hops {
 		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
@@ -2958,8 +2957,7 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 				}
 			}
 			blob := strings.ToLower(strings.TrimSpace(content + " " + recordValueNorm(rec)))
-			t, fromContent := eventTimeFromRecord(rec, content)
-			addHit(t, focusHitScore(blob, focus), false, fromContent)
+			addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), false)
 		}
 	}
 	// Untyped image captions never enter typed hops (no person bind, hops
@@ -2976,8 +2974,7 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 				continue
 			}
 			blob := strings.ToLower(strings.TrimSpace(content + " " + recordValueNorm(rec)))
-			t, fromContent := eventTimeFromRecord(rec, content)
-			addHit(t, focusHitScore(blob, focus), true, fromContent)
+			addHit(eventTimeFromRecord(rec, content), focusHitScore(blob, focus), true)
 		}
 	}
 	if len(hits) == 0 {
@@ -2995,18 +2992,7 @@ func (s *Service) dateAnswerFromHops(ctx context.Context, req RecallRequest, hop
 		if best > 0 && h.score < best {
 			continue
 		}
-		if pick == nil {
-			pick = &hits[i]
-			continue
-		}
-		if h.fromContent && !pick.fromContent {
-			pick = &hits[i]
-			continue
-		}
-		if pick.fromContent && !h.fromContent {
-			continue
-		}
-		if h.t.Before(pick.t) {
+		if pick == nil || h.t.Before(pick.t) {
 			pick = &hits[i]
 		}
 	}
@@ -3067,16 +3053,12 @@ func (s *Service) searchWhenEventFocus(ctx context.Context, tenantID, subjectID 
 	return out
 }
 
-func eventTimeFromRecord(rec MemoryRecord, content string) (*time.Time, bool) {
-	blob := firstNonEmpty(content, rec.Content)
-	if parsed := parseDateFromText(blob); parsed != nil {
-		return parsed, true
-	}
+func eventTimeFromRecord(rec MemoryRecord, content string) *time.Time {
 	if rec.ObservedAt != nil && !rec.ObservedAt.IsZero() {
 		t := rec.ObservedAt.UTC()
-		return &t, false
+		return &t
 	}
-	return nil, false
+	return parseDateFromText(firstNonEmpty(content, rec.Content))
 }
 
 func parseDateFromText(s string) *time.Time {
