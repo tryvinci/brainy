@@ -1577,7 +1577,8 @@ func looksThinParticipation(v string) bool {
 	switch v {
 	case "community", "rights", "difference", "painting", "sidewalk", "month",
 		"city", "neighborhood", "students", "folks", "adoption", "freedom",
-		"pride", "work", "people", "group", "events", "campaigns", "meetings":
+		"pride", "work", "people", "group", "events", "campaigns", "meetings",
+		"back", "those", "chasing", "not-so-great", "not so great":
 		return true
 	}
 	if strings.HasPrefix(v, "community ") && !strings.Contains(v, "garden") {
@@ -1590,9 +1591,9 @@ func recoverParticipationSlots(person string, listed []MemoryRecord) []recovered
 	if person == "" {
 		return nil
 	}
-	var out []recoveredSlot
+	var primary, attend []recoveredSlot
 	seen := map[string]struct{}{}
-	add := func(sl recoveredSlot) {
+	add := func(dst *[]recoveredSlot, sl recoveredSlot) {
 		val := strings.TrimSpace(sl.value)
 		val = strings.Trim(val, ".,;: ")
 		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || utf8Len(val) > 48 || looksThinParticipation(val) {
@@ -1603,7 +1604,7 @@ func recoverParticipationSlots(person string, listed []MemoryRecord) []recovered
 			return
 		}
 		seen[key] = struct{}{}
-		out = append(out, sl)
+		*dst = append(*dst, sl)
 	}
 	for _, rec := range listed {
 		content := strings.TrimSpace(rec.Content)
@@ -1614,17 +1615,48 @@ func recoverParticipationSlots(person string, listed []MemoryRecord) []recovered
 			!strings.HasPrefix(strings.ToLower(content), strings.ToLower(person)+":") {
 			continue
 		}
-		for _, v := range participationObjectsFromContent(content) {
-			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		for _, v := range participationObjectsFromCues(content, participationPrimaryCues) {
+			add(&primary, recoveredSlot{value: v, content: content, memID: rec.MemoryID})
+		}
+		for _, v := range participationObjectsFromCues(content, participationAttendCues) {
+			add(&attend, recoveredSlot{value: v, content: content, memID: rec.MemoryID})
 		}
 	}
+	out := append(primary, attend...)
 	if len(out) > 8 {
 		out = out[:8]
 	}
 	return out
 }
 
+var participationPrimaryCues = []string{
+	" joined a ", " joined an ", " joined the ", " joined ",
+	" organizing an ", " organizing a ", " host an ", " host a ", " hosting an ", " hosting a ",
+	" participating in a ", " participating in an ", " participating in the ",
+	" participates in a ", " participates in an ", " participates in the ",
+	"mentorship program",
+}
+
+var participationAttendCues = []string{
+	" attended a ", " attended an ", " attended the ", " attended ",
+}
+
 func participationObjectsFromContent(content string) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, v := range append(participationObjectsFromCues(content, participationPrimaryCues),
+		participationObjectsFromCues(content, participationAttendCues)...) {
+		key := strings.ToLower(v)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, v)
+	}
+	return out
+}
+
+func participationObjectsFromCues(content string, cues []string) []string {
 	lower := strings.ToLower(content)
 	var out []string
 	seen := map[string]struct{}{}
@@ -1634,7 +1666,10 @@ func participationObjectsFromContent(content string) []string {
 		if j := strings.IndexAny(v, ".!?"); j >= 0 {
 			v = strings.TrimSpace(v[:j])
 		}
-		for _, tail := range []string{" which ", " during ", " on ", " last ", " after ", " and we ", " for ", " since ", " scheduled "} {
+		for _, tail := range []string{
+			" which ", " during ", " on ", " last ", " after ", " and we ", " and ",
+			" for ", " since ", " scheduled ", " featuring ", " in ",
+		} {
 			if k := strings.Index(strings.ToLower(v), tail); k >= 3 {
 				v = strings.TrimSpace(v[:k])
 			}
@@ -1646,7 +1681,7 @@ func participationObjectsFromContent(content string) []string {
 		v = strings.TrimPrefix(v, "an ")
 		v = strings.TrimPrefix(v, "the ")
 		v = strings.TrimPrefix(v, "new ")
-		if v == "" || utf8Len(v) < 4 || utf8Len(v) > 48 || looksThinParticipation(v) {
+		if v == "" || utf8Len(v) < 5 || utf8Len(v) > 48 || looksThinParticipation(v) {
 			return
 		}
 		key := strings.ToLower(v)
@@ -1656,12 +1691,7 @@ func participationObjectsFromContent(content string) []string {
 		seen[key] = struct{}{}
 		out = append(out, v)
 	}
-	for _, cue := range []string{
-		" joined a ", " joined an ", " joined the ", " joined ",
-		" attended a ", " attended an ", " attended the ", " attended ",
-		" organizing an ", " organizing a ", " host an ", " host a ", " hosting an ", " hosting a ",
-		"mentorship program",
-	} {
+	for _, cue := range cues {
 		start := 0
 		for {
 			i := strings.Index(lower[start:], cue)

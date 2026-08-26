@@ -2537,6 +2537,20 @@ func TestRecallParticipationSetFromJoinedActivities(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "contacted mentor for adoption advice", "subject": "Caroline"},
 		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "contacted mentor for adoption advice", "subject": "Caroline"},
 	}
+	store.records["c-junk"] = MemoryRecord{
+		MemoryID: "mem_cjunk", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline attended back",
+		DedupeKey: "cjunk", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "back", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "back", "subject": "Caroline"},
+	}
+	store.records["c-nsg"] = MemoryRecord{
+		MemoryID: "mem_cnsg", TenantID: "t-part", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline attended not-so-great",
+		DedupeKey: "cnsg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "not-so-great", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "not-so-great", "subject": "Caroline"},
+	}
 	store.atoms = append(store.atoms,
 		stubAtom{pred: PredicateAffiliation, val: "lgbtq activist group", memID: "mem_cact"},
 		stubAtom{pred: PredicateEvent, val: "pride parade", memID: "mem_cpride"},
@@ -2545,6 +2559,8 @@ func TestRecallParticipationSetFromJoinedActivities(t *testing.T) {
 		stubAtom{pred: PredicateActivity, val: "hiking", memID: "mem_chike"},
 		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_cjob"},
 		stubAtom{pred: PredicateActivity, val: "contacted mentor for adoption advice", memID: "mem_cadv"},
+		stubAtom{pred: PredicateActivity, val: "back", memID: "mem_cjunk"},
+		stubAtom{pred: PredicateActivity, val: "not-so-great", memID: "mem_cnsg"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
 		TenantID: "t-part", SubjectID: "u1",
@@ -2597,12 +2613,19 @@ func TestLooksParticipationSetQueryAndObjects(t *testing.T) {
 	if !strings.Contains(art, "art") {
 		t.Fatalf("art show=%q", art)
 	}
+	partArt := strings.ToLower(strings.Join(participationObjectsFromContent("Caroline is participating in an art show."), " "))
+	if !strings.Contains(partArt, "art") {
+		t.Fatalf("participating art show=%q", partArt)
+	}
 	ment := strings.ToLower(strings.Join(participationObjectsFromContent("Caroline joined a mentorship program for LGBTQ youth on the weekend of 15–16 July 2023."), " "))
 	if !strings.Contains(ment, "mentorship") {
 		t.Fatalf("mentorship=%q", ment)
 	}
 	if got := participationObjectsFromContent("Caroline participates in hiking"); len(got) != 0 {
 		t.Fatalf("hobby participate-in leaked=%#v", got)
+	}
+	if got := participationObjectsFromContent("Caroline attended back"); len(got) != 0 {
+		t.Fatalf("attended-back leaked=%#v", got)
 	}
 	if got := participationObjectsFromContent("Caroline contacted her mentor for adoption advice."); len(got) != 0 {
 		t.Fatalf("mentor-contact leaked=%#v", got)
