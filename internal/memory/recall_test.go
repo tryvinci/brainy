@@ -1533,6 +1533,10 @@ func TestRecallPetTrickRecoversDestCapabilities(t *testing.T) {
 		{"fris", PredicateSkill, "catching frisbees", "Max", "Max is skilled at catching frisbees in mid-air and never misses"},
 		{"board", PredicateActivity, "balance on a skateboard", "James", "James taught his dogs to balance on a skateboard"},
 		{"john", PredicateSkill, "skateboarding tricks", "John", "John and his friends helped each other learn new skateboarding tricks"},
+		{"host", PredicateSkill, "great host", "James", "James is a great host"},
+		{"pers", PredicateSkill, "perseverance", "James", "James values perseverance"},
+		{"care", PredicateSkill, "takes care of pets", "James", "James takes care of pets"},
+		{"swimj", PredicateSkill, "pro swimmer", "James", "James is a pro swimmer"},
 		{"hike", PredicatePreference, "hiking", "James", "James enjoys hiking"},
 	}
 	for _, f := range facts {
@@ -1565,6 +1569,9 @@ func TestRecallPetTrickRecoversDestCapabilities(t *testing.T) {
 	}
 	if strings.Contains(got, "c++") || strings.Contains(got, "hik") {
 		t.Fatalf("owner skills crowded dest-pet tricks: %q", out.Answer)
+	}
+	if strings.Contains(got, "great host") || strings.Contains(got, "perseverance") || strings.Contains(got, "pro swimmer") {
+		t.Fatalf("owner identity crowded dest-pet tricks: %q", out.Answer)
 	}
 }
 
@@ -3492,6 +3499,34 @@ func TestRecallItemsForClauseReadsFullTypedSetNotCurrentState(t *testing.T) {
 	}
 }
 
+func TestRecoverItemTransferSlotsPrefersObjects(t *testing.T) {
+	listed := []MemoryRecord{
+		{MemoryID: "beds", Content: "Audrey bought new dog beds for her dogs last week",
+			Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "new dog beds", "subject": "Audrey"}},
+		{MemoryID: "toys", Content: "Audrey visited a pet store to buy toys for her dogs",
+			Metadata: map[string]any{"predicate": PredicateEvent, "value_norm": "pet_store_visit", "subject": "Audrey"}},
+		{MemoryID: "collars", Content: "Audrey acquired new collars and tags for her dogs",
+			Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "new collars and tags for her dogs", "subject": "Audrey"}},
+		{MemoryID: "guide", Content: "Audrey possesses a birdwatching guidebook",
+			Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "birdwatching guidebook", "subject": "Audrey"}},
+	}
+	slots := recoverItemTransferSlots("Audrey", listed, "What items has Audrey bought or made for her dogs?")
+	var b strings.Builder
+	for _, sl := range slots {
+		b.WriteString(sl.value)
+		b.WriteByte(' ')
+		b.WriteString(sl.content)
+		b.WriteByte('|')
+	}
+	got := strings.ToLower(b.String())
+	if !strings.Contains(got, "collar") || !strings.Contains(got, "tag") || !strings.Contains(got, "toy") || !strings.Contains(got, "bed") {
+		t.Fatalf("expected transfer objects, slots=%#v", slots)
+	}
+	if strings.Contains(got, "guidebook") || strings.Contains(got, "pet_store_visit") {
+		t.Fatalf("unexpected junk slots=%#v", slots)
+	}
+}
+
 func TestRecallItemTransferDropsUnrelatedPossessions(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -3504,6 +3539,8 @@ func TestRecallItemTransferDropsUnrelatedPossessions(t *testing.T) {
 		{"toys", PredicateEvent, "dog toys", "Audrey visited a pet store to buy toys for her dogs"},
 		{"collars", PredicatePossession, "new collars and tags for her dogs", "Audrey acquired new collars and tags for her dogs"},
 		{"hats", PredicatePossession, "hats for her dogs", "Audrey's dogs wear hats for fun and receive treats"},
+		{"happy", PredicateEvent, "make dogs happy", "Audrey wants to make dogs happy when they are anxious"},
+		{"visit", PredicateEvent, "pet_store_visit", "Audrey visited a pet store to buy toys for her dogs"},
 		{"guide", PredicatePossession, "birdwatching guidebook", "Audrey possesses a birdwatching guidebook"},
 		{"tattoo", PredicatePossession, "arm tattoo of four dogs", "Audrey has a tattoo on her arm that depicts her four dogs"},
 		{"four", PredicatePossession, "four dogs", "Audrey has four dogs"},
@@ -3536,6 +3573,9 @@ func TestRecallItemTransferDropsUnrelatedPossessions(t *testing.T) {
 	}
 	if strings.Contains(got, "guidebook") || strings.Contains(got, "tattoo") || strings.Contains(got, "behavior") {
 		t.Fatalf("unrelated possessions crowded transfer list: %q", out.Answer)
+	}
+	if strings.Contains(got, "happy") || strings.Contains(got, "pet_store_visit") {
+		t.Fatalf("mood/event keys crowded transfer list: %q", out.Answer)
 	}
 }
 
@@ -3621,6 +3661,26 @@ func TestHopScanLimitEnumeratesPastSearchTopK(t *testing.T) {
 	}
 	if got := hopScanLimit("What activity did Caroline used to do with her dad?", plan, 30); got != 30 {
 		t.Fatalf("singular what-activity leftover must not widen hop scan, got %d", got)
+	}
+}
+
+func TestDestNamesFromHopsNamedBeingsOnly(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "James", Value: "James"},
+		{Kind: "fetch_predicate", Predicate: PredicateSkill, Entity: "James", Source: "typed_store",
+			Contents: []string{
+				"James introduced three dogs named Max, Daisy, and Ned",
+				"John and his friends helped each other learn new skateboarding tricks",
+				"James is a great host",
+			}},
+	}
+	got := destNamesFromHops(hops)
+	join := strings.ToLower(strings.Join(got, " "))
+	if !strings.Contains(join, "max") || !strings.Contains(join, "daisy") || !strings.Contains(join, "ned") {
+		t.Fatalf("expected named dest beings, got %#v", got)
+	}
+	if strings.Contains(join, "john") || strings.Contains(join, "james") {
+		t.Fatalf("owner/foreign speakers must not become dest names: %#v", got)
 	}
 }
 
