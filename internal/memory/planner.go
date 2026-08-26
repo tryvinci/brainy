@@ -82,7 +82,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query)) && hopPlanAllowed(query) {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query)) && hopPlanAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -584,6 +584,9 @@ func hopComposeAllowed(query string) bool {
 	if looksPolarQuery(query) {
 		return false
 	}
+	if looksWhichLanguageQuery(query) {
+		return false
+	}
 	return true
 }
 
@@ -595,6 +598,21 @@ func looksWhenEventQuery(query string) bool {
 func looksYearQuery(query string) bool {
 	q := strings.ToLower(strings.TrimSpace(query))
 	return strings.Contains(q, "which year") || strings.Contains(q, "what year")
+}
+
+// looksWhichLanguageQuery is which/what language someone is learning or
+// studying. Rank matrix "is learning X" over purpose adjuncts ("to learn X",
+// app-for, interested-in). Not a language-name dictionary.
+func looksWhichLanguageQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" || !strings.Contains(q, "language") {
+		return false
+	}
+	if !queryHasToken(query, "learn", "learning", "learns", "learned", "learnt",
+		"study", "studying", "studies", "studied") {
+		return false
+	}
+	return strings.HasPrefix(q, "which ") || strings.HasPrefix(q, "what ")
 }
 
 // looksInstrumentPurposeQuery is "what does the X help … with" — the

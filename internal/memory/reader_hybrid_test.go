@@ -1158,6 +1158,55 @@ func TestRecallHybridAbstainKeepsWhenEventDate(t *testing.T) {
 	}
 }
 
+func TestRecallHybridDoesNotOverwriteLanguageAnswer(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"Spanish","supporting_memory_ids":[],"unresolved_targets":[],"abstain":false}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL, APIKey: "test", Model: "test-model",
+	})
+	now := svc.now()
+	store.records["t-de"] = MemoryRecord{
+		MemoryID: "mem_tde", TenantID: "t-hyb-lang", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim is learning German",
+		DedupeKey: "tde", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "learning german", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "learning german", "subject": "Tim"},
+	}
+	store.records["t-es"] = MemoryRecord{
+		MemoryID: "mem_tes", TenantID: "t-hyb-lang", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim is using a language learning app to learn Spanish",
+		DedupeKey: "tes", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "learning spanish", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "learning spanish", "subject": "Tim"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "learning german", memID: "mem_tde"},
+		stubAtom{pred: PredicateActivity, val: "learning spanish", memID: "mem_tes"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-lang", SubjectID: "u1",
+		Query: "Which language is Tim learning?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if got != "german" {
+		t.Fatalf("language lock must keep matrix German, answer=%q explain=%v", out.Answer, out.Explain)
+	}
+}
+
 func TestRecallHybridDoesNotOverwriteCountAnswer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{

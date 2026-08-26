@@ -434,6 +434,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["date_answer"] = true
 			}
 		}
+		if looksWhichLanguageQuery(req.Query) {
+			if ans := s.languageAnswerFromHops(ctx, req, hopResults); ans != "" {
+				out.Answer = ans
+				out.Abstained = false
+				out.AnswerStatus = AnswerSupported
+				out.Explain["language_answer"] = true
+			}
+		}
 		if looksWhereQuery(req.Query) {
 			if looksLocationListQuery(req.Query) {
 				loc := s.locationItemsFromEvidence(ctx, req, hopResults, nil)
@@ -613,6 +621,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedDate := false
 		lockedWhere := looksWhereQuery(req.Query) && out.Explain["where_answer"] == true
 		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
+		lockedLanguage := looksWhichLanguageQuery(req.Query) && out.Explain["language_answer"] == true
 		lockedCount := looksCountQuery(req.Query) && out.Explain["count_answer"] == true
 		keepDateOnHybridAbstain := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
 		typedAnswer := strings.TrimSpace(out.Answer)
@@ -657,7 +666,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
 		}
-		if hybrid.OK && (lockedWhere || lockedPolar || lockedCount || lockedMHList || lockedList || lockedOrdinal) {
+		if hybrid.OK && (lockedWhere || lockedPolar || lockedLanguage || lockedCount || lockedMHList || lockedList || lockedOrdinal) {
 			lock := "where"
 			if lockedList {
 				lock = "list"
@@ -668,6 +677,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			if lockedPolar {
 				lock = "polar"
 			}
+			if lockedLanguage {
+				lock = "language"
+			}
 			if lockedCount {
 				lock = "count"
 			}
@@ -676,7 +688,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 			out.Explain["hybrid_skipped_lock"] = lock
 		}
-		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			// Enumerated answers already have a typed list; hop-slot
 			// grounding re-expands them into unrelated dumps. Unproven
@@ -702,7 +714,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !keepDateOnHybridAbstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
+		} else if hybrid.Abstain && !keepDateOnHybridAbstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			leftover := leftoverNonEntityQueryTokens(req.Query, hopResults)
 			canComposeHops := hopComposeAllowed(req.Query) && hopJoinProven(hopResults) &&
 				!skipSlots &&
@@ -740,7 +752,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "hybrid_llm_packet"
 			}
 		}
-		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedCount {
+		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedLanguage && !lockedCount {
 			if covering := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt); covering != "" {
 				cur := strings.TrimSpace(out.Answer)
 				src, _ := out.Explain["reader_source"].(string)
@@ -2012,6 +2024,207 @@ func polarExperienceCue(s string) bool {
 				return true
 			}
 		}
+	}
+	return false
+}
+
+func (s *Service) languageAnswerFromHops(ctx context.Context, req RecallRequest, hops []HopResult) string {
+	if !looksWhichLanguageQuery(req.Query) {
+		return ""
+	}
+	person := ""
+	if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+		person = ents[0]
+	}
+	if person == "" {
+		return ""
+	}
+	bestObj := ""
+	bestScore := 0
+	consider := func(content string, rec MemoryRecord, hopEntity string) {
+		if !languageFactBoundToPerson(person, content, rec, hopEntity) {
+			return
+		}
+		obj, score := languageLearnObject(content, rec)
+		if obj == "" || score < 3 {
+			return
+		}
+		if score > bestScore || (score == bestScore && bestObj != "" && utf8Len(obj) < utf8Len(bestObj)) || bestObj == "" {
+			bestObj = obj
+			bestScore = score
+		}
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for i, c := range h.Contents {
+			var rec MemoryRecord
+			if i < len(h.MemoryIDs) && h.MemoryIDs[i] != "" && s != nil && s.store != nil {
+				if got, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, h.MemoryIDs[i]); err == nil {
+					rec = got
+				}
+			}
+			consider(c, rec, h.Entity)
+		}
+		for _, v := range h.Values {
+			consider(v, MemoryRecord{}, h.Entity)
+		}
+	}
+	if s != nil && s.store != nil && req.TenantID != "" && req.SubjectID != "" {
+		if listed, err := s.store.ListMemories(ctx, req.TenantID, req.SubjectID, false); err == nil {
+			for _, rec := range listed {
+				consider(rec.Content, rec, entitySubjectOf(rec))
+			}
+		}
+	}
+	if bestScore < 3 || bestObj == "" {
+		return ""
+	}
+	return titleCaseWords(bestObj)
+}
+
+func languageFactBoundToPerson(person, content string, rec MemoryRecord, hopEntity string) bool {
+	person = strings.TrimSpace(person)
+	if person == "" {
+		return false
+	}
+	if strings.EqualFold(entitySubjectOf(rec), person) {
+		return true
+	}
+	if strings.TrimSpace(hopEntity) != "" && strings.EqualFold(strings.TrimSpace(hopEntity), person) {
+		return true
+	}
+	lower := strings.ToLower(strings.TrimSpace(content))
+	p := strings.ToLower(person)
+	if strings.HasPrefix(lower, p+":") || strings.HasPrefix(lower, p+" is ") ||
+		strings.HasPrefix(lower, p+"'s ") || strings.HasPrefix(lower, p+"’s ") {
+		return true
+	}
+	return false
+}
+
+func languageLearnObject(content string, rec MemoryRecord) (string, int) {
+	obj, score := languageLearnObjectFromText(content)
+	if score >= 3 {
+		return obj, score
+	}
+	if score == 0 {
+		if vn := recordValueNorm(rec); vn != "" {
+			return languageLearnObjectFromText(vn)
+		}
+	}
+	return obj, score
+}
+
+func languageLearnObjectFromText(text string) (string, int) {
+	toks := tokenize(text)
+	bestObj := ""
+	bestScore := 0
+	for i, t := range toks {
+		if !isLearnStudyVerb(t) {
+			continue
+		}
+		if i+1 < len(toks) && toks[i+1] == "to" {
+			continue
+		}
+		obj := languageObjectAfter(toks, i+1)
+		if obj == "" || looksThinLanguageObject(obj) {
+			continue
+		}
+		score := 3
+		if i > 0 && toks[i-1] == "to" {
+			score = 1
+		}
+		if languagePurposeAdjunct(toks, i) && score > 1 {
+			score = 1
+		}
+		if score > bestScore || (score == bestScore && (bestObj == "" || utf8Len(obj) < utf8Len(bestObj))) {
+			bestObj = obj
+			bestScore = score
+		}
+	}
+	return bestObj, bestScore
+}
+
+func isLearnStudyVerb(t string) bool {
+	switch t {
+	case "learn", "learning", "learns", "learned", "learnt",
+		"study", "studying", "studies", "studied":
+		return true
+	}
+	return false
+}
+
+func languagePurposeAdjunct(toks []string, verbIdx int) bool {
+	start := verbIdx - 6
+	if start < 0 {
+		start = 0
+	}
+	for j := start; j < verbIdx; j++ {
+		switch toks[j] {
+		case "interested", "interest", "app", "apps", "using", "use", "used":
+			return true
+		}
+	}
+	return false
+}
+
+func languageObjectAfter(toks []string, start int) string {
+	var parts []string
+	for i := start; i < len(toks) && len(parts) < 3; i++ {
+		t := toks[i]
+		if languageObjectStop(t) {
+			break
+		}
+		if languageObjectSkip(t) {
+			continue
+		}
+		parts = append(parts, t)
+	}
+	return strings.Join(parts, " ")
+}
+
+func languageObjectStop(t string) bool {
+	switch t {
+	case "to", "from", "with", "for", "on", "in", "at", "via", "using",
+		"and", "or", "how", "that", "which", "who", "when", "while",
+		"app", "apps":
+		return true
+	}
+	return false
+}
+
+func languageObjectSkip(t string) bool {
+	switch t {
+	case "a", "an", "the", "some", "any":
+		return true
+	}
+	return false
+}
+
+func looksThinLanguageObject(obj string) bool {
+	o := strings.ToLower(strings.TrimSpace(obj))
+	if o == "" || utf8Len(o) < 2 || utf8Len(o) > 24 {
+		return true
+	}
+	fields := strings.Fields(o)
+	rest := make([]string, 0, len(fields))
+	for _, f := range fields {
+		switch f {
+		case "new", "another", "other", "more", "different":
+			continue
+		}
+		rest = append(rest, f)
+	}
+	if len(rest) == 0 {
+		return true
+	}
+	switch strings.Join(rest, " ") {
+	case "language", "languages", "app", "apps", "stories", "story",
+		"it", "them", "this", "that", "stuff", "things", "thing",
+		"group", "class", "school", "their stories":
+		return true
 	}
 	return false
 }

@@ -1241,6 +1241,76 @@ func TestRecallPolarDoesNotStealLearnToFromOtherPerson(t *testing.T) {
 	}
 }
 
+func TestLooksWhichLanguageQuery(t *testing.T) {
+	if !looksWhichLanguageQuery("Which language is Tim learning?") {
+		t.Fatal("which + language + learning")
+	}
+	if !looksWhichLanguageQuery("What language is Tim studying?") {
+		t.Fatal("what + language + studying")
+	}
+	if looksWhichLanguageQuery("How does Jolene plan to pursue her dream of learning to surf?") {
+		t.Fatal("learn-to-skill without language must not match")
+	}
+	if looksWhichLanguageQuery("What language does Tim speak?") {
+		t.Fatal("speak without learn/study must not match")
+	}
+}
+
+func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["t-de"] = MemoryRecord{
+		MemoryID: "mem_tde", TenantID: "t-lang", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim is learning German",
+		DedupeKey: "tde", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "learning german", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "learning german", "subject": "Tim"},
+	}
+	store.records["t-es"] = MemoryRecord{
+		MemoryID: "mem_tes", TenantID: "t-lang", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim is using a language learning app on his phone to learn Spanish",
+		DedupeKey: "tes", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "learning spanish", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "learning spanish", "subject": "Tim"},
+	}
+	store.records["t-int"] = MemoryRecord{
+		MemoryID: "mem_tint", TenantID: "t-lang", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim is interested in learning Spanish",
+		DedupeKey: "tint", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "spanish", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "spanish", "subject": "Tim"},
+	}
+	store.records["j-es"] = MemoryRecord{
+		MemoryID: "mem_jes", TenantID: "t-lang", SubjectID: "u1",
+		Kind: KindFact, Content: "John is learning Spanish",
+		DedupeKey: "jes", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "learning spanish", "subject": "John"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "learning spanish", "subject": "John"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "learning german", memID: "mem_tde"},
+		stubAtom{pred: PredicateActivity, val: "learning spanish", memID: "mem_tes"},
+		stubAtom{pred: PredicateActivity, val: "spanish", memID: "mem_tint"},
+		stubAtom{pred: PredicateActivity, val: "learning spanish", memID: "mem_jes"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-lang", SubjectID: "u1",
+		Query: "Which language is Tim learning?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if got != "german" {
+		t.Fatalf("matrix learning must beat purpose adjunct and other-person Spanish, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "spanish") {
+		t.Fatalf("must not steal Spanish from adjunct or John: %q", out.Answer)
+	}
+}
+
 func TestRecallPolarYesFromLovedActivityDespiteOtherCurrentPreference(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

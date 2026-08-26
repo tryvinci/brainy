@@ -794,7 +794,8 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needToldAbout := looksToldAboutQuery(query)
 	needJourney := looksJourneyChangeQuery(query)
 	needTried := looksTriedPolarQuery(query)
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation && !needToldAbout && !needJourney && !needTried {
+	needLanguage := looksWhichLanguageQuery(query)
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation && !needToldAbout && !needJourney && !needTried && !needLanguage {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -929,6 +930,19 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 			idx := hopIndexForPredicate(hops, pred)
 			if idx >= 0 && idx < len(hops) {
 				hops[idx].Predicate = pred
+				if person != "" {
+					hops[idx].Entity = person
+				}
+			}
+		}
+	}
+	if needLanguage {
+		slots := recoverLanguageLearningSlots(query, person, listed)
+		if len(slots) > 0 {
+			idx := hopIndexForPredicateEntity(hops, PredicateActivity, person)
+			replaceHopSlotsOn(hops, idx, slots)
+			if idx >= 0 && idx < len(hops) {
+				hops[idx].Predicate = PredicateActivity
 				if person != "" {
 					hops[idx].Entity = person
 				}
@@ -2073,6 +2087,35 @@ func polarTriedClaimValue(content string, rec MemoryRecord, claim []string) stri
 		}
 	}
 	return ""
+}
+
+func recoverLanguageLearningSlots(query, person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" || !looksWhichLanguageQuery(query) {
+		return nil
+	}
+	best := recoveredSlot{}
+	bestScore := 0
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || strings.HasPrefix(content, "[") {
+			continue
+		}
+		if !languageFactBoundToPerson(person, content, rec, entitySubjectOf(rec)) {
+			continue
+		}
+		obj, score := languageLearnObject(content, rec)
+		if obj == "" || score < 3 {
+			continue
+		}
+		if score > bestScore || (score == bestScore && (best.value == "" || utf8Len(obj) < utf8Len(best.value))) {
+			bestScore = score
+			best = recoveredSlot{value: titleCaseWords(obj), content: content, memID: rec.MemoryID}
+		}
+	}
+	if bestScore < 3 || best.value == "" {
+		return nil
+	}
+	return []recoveredSlot{best}
 }
 
 func looksThinParticipation(v string) bool {
