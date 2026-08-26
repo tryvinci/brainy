@@ -445,6 +445,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["language_answer"] = true
 			}
 		}
+		if looksFavoriteWorkQuery(req.Query) {
+			if ans := s.titledWorkAnswerFromHops(ctx, req, hopResults); ans != "" {
+				out.Answer = ans
+				out.Abstained = false
+				out.AnswerStatus = AnswerSupported
+				out.Explain["titled_work_answer"] = true
+			}
+		}
 		if looksWhereQuery(req.Query) {
 			if looksLocationListQuery(req.Query) {
 				loc := s.locationItemsFromEvidence(ctx, req, hopResults, nil)
@@ -625,6 +633,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedWhere := looksWhereQuery(req.Query) && out.Explain["where_answer"] == true
 		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
 		lockedLanguage := looksWhichLanguageQuery(req.Query) && out.Explain["language_answer"] == true
+		lockedTitledWork := looksFavoriteWorkQuery(req.Query) && out.Explain["titled_work_answer"] == true
 		lockedCount := looksCountQuery(req.Query) && out.Explain["count_answer"] == true
 		keepDateOnHybridAbstain := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
 		typedAnswer := strings.TrimSpace(out.Answer)
@@ -669,7 +678,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
 		}
-		if hybrid.OK && (lockedWhere || lockedPolar || lockedLanguage || lockedCount || lockedMHList || lockedList || lockedOrdinal) {
+		if hybrid.OK && (lockedWhere || lockedPolar || lockedLanguage || lockedTitledWork || lockedCount || lockedMHList || lockedList || lockedOrdinal) {
 			lock := "where"
 			if lockedList {
 				lock = "list"
@@ -683,6 +692,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			if lockedLanguage {
 				lock = "language"
 			}
+			if lockedTitledWork {
+				lock = "titled_work"
+			}
 			if lockedCount {
 				lock = "count"
 			}
@@ -691,7 +703,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 			out.Explain["hybrid_skipped_lock"] = lock
 		}
-		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			// Enumerated answers already have a typed list; hop-slot
 			// grounding re-expands them into unrelated dumps. Unproven
@@ -717,7 +729,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !keepDateOnHybridAbstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
+		} else if hybrid.Abstain && !keepDateOnHybridAbstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			leftover := leftoverNonEntityQueryTokens(req.Query, hopResults)
 			canComposeHops := hopComposeAllowed(req.Query) && hopJoinProven(hopResults) &&
 				!skipSlots &&
@@ -755,7 +767,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "hybrid_llm_packet"
 			}
 		}
-		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedLanguage && !lockedCount {
+		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedCount {
 			if covering := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt); covering != "" {
 				cur := strings.TrimSpace(out.Answer)
 				src, _ := out.Explain["reader_source"].(string)
@@ -2085,6 +2097,110 @@ func (s *Service) languageAnswerFromHops(ctx context.Context, req RecallRequest,
 		return ""
 	}
 	return titleCaseWords(bestObj)
+}
+
+func (s *Service) titledWorkAnswerFromHops(ctx context.Context, req RecallRequest, hops []HopResult) string {
+	if !looksFavoriteWorkQuery(req.Query) {
+		return ""
+	}
+	person := ""
+	if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+		person = ents[0]
+	}
+	if person == "" {
+		return ""
+	}
+	bestTitle := ""
+	bestScore := 0
+	consider := func(content string, rec MemoryRecord, hopEntity string) {
+		if !languageFactBoundToPerson(person, content, rec, hopEntity) {
+			return
+		}
+		title, score := favoriteWorkTitleFromText(content)
+		if title == "" || score < 4 {
+			return
+		}
+		if score > bestScore || (score == bestScore && utf8Len(title) > utf8Len(bestTitle)) {
+			bestTitle = title
+			bestScore = score
+		}
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for i, c := range h.Contents {
+			var rec MemoryRecord
+			if i < len(h.MemoryIDs) && h.MemoryIDs[i] != "" && s != nil && s.store != nil {
+				if got, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, h.MemoryIDs[i]); err == nil {
+					rec = got
+				}
+			}
+			consider(c, rec, h.Entity)
+		}
+		for _, v := range h.Values {
+			consider(v, MemoryRecord{}, h.Entity)
+		}
+	}
+	if s != nil && s.store != nil && req.TenantID != "" && req.SubjectID != "" {
+		if listed, err := s.store.ListMemories(ctx, req.TenantID, req.SubjectID, false); err == nil {
+			for _, rec := range listed {
+				consider(rec.Content, rec, entitySubjectOf(rec))
+			}
+		}
+	}
+	if bestScore < 4 || bestTitle == "" {
+		return ""
+	}
+	return bestTitle
+}
+
+func favoriteWorkTitleFromText(text string) (string, int) {
+	body := hybridLineBody(text)
+	if looksInterrogativeLine(body) || looksImageCaptionLine(body) {
+		return "", 0
+	}
+	lower := strings.ToLower(body)
+	hasFav := strings.Contains(lower, "favorite") || strings.Contains(lower, "favourite")
+	if !hasFav {
+		return "", 0
+	}
+	hasWork := queryHasToken(body, "game", "games", "book", "books", "show", "series",
+		"movie", "movies", "play", "played", "playing")
+	oneOf := strings.Contains(lower, "one of my favorite") || strings.Contains(lower, "one of my favourite")
+	titles := leftoverCoveringQuotedTitles(body)
+	if len(titles) > 0 && (hasWork || oneOf) {
+		t := strings.TrimSpace(titles[0])
+		if looksLikeWorkTitle(t) {
+			score := 4
+			if hasWork {
+				score = 5
+			}
+			return t, score
+		}
+	}
+	if !hasWork {
+		return "", 0
+	}
+	for _, cue := range []string{
+		" is my favorite game", " is my favourite game",
+		" is her favorite game", " is his favorite game",
+		" is my favorite book", " is my favourite book",
+		" is my favorite show", " is my favourite show",
+	} {
+		i := strings.Index(lower, cue)
+		if i <= 0 {
+			continue
+		}
+		head := strings.TrimSpace(body[:i])
+		if j := strings.LastIndex(head, ": "); j >= 0 && j < 32 {
+			head = strings.TrimSpace(head[j+2:])
+		}
+		if looksLikeWorkTitle(head) {
+			return head, 4
+		}
+	}
+	return "", 0
 }
 
 func languageFactBoundToPerson(person, content string, rec MemoryRecord, hopEntity string) bool {

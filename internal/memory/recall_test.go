@@ -1256,6 +1256,69 @@ func TestLooksWhichLanguageQuery(t *testing.T) {
 	}
 }
 
+func TestLooksFavoriteWorkQuery(t *testing.T) {
+	if !looksFavoriteWorkQuery("What was one of Jolene's favorite games to play with her mom?") {
+		t.Fatal("what + favorite + games")
+	}
+	if !looksFavoriteWorkQuery("What is Nate's favorite video game?") {
+		t.Fatal("what + favorite + game")
+	}
+	if looksFavoriteWorkQuery("What is Jolene's favorite yoga pose?") {
+		t.Fatal("favorite without work noun must not match")
+	}
+	if looksFavoriteWorkQuery("How does Jolene plan to pursue her dream of learning to surf?") {
+		t.Fatal("non-favorite query must not match")
+	}
+}
+
+func TestRecallFavoriteWorkRanksQuotedTitleOverPark(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-mh"] = MemoryRecord{
+		MemoryID: "mem_jmh", TenantID: "t-fav", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene's favorite game is \"Monster Hunter: World\".",
+		DedupeKey: "jmh", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "Monster Hunter: World", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "Monster Hunter: World", "subject": "Jolene"},
+	}
+	store.records["j-park"] = MemoryRecord{
+		MemoryID: "mem_jpark", TenantID: "t-fav", SubjectID: "u1",
+		Kind: KindFact, Content: "My favorite is a park with a forest trail - it's so calming getting lost in nature",
+		DedupeKey: "jpark", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "park", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "park", "subject": "Jolene"},
+	}
+	store.records["d-game"] = MemoryRecord{
+		MemoryID: "mem_dgame", TenantID: "t-fav", SubjectID: "u1",
+		Kind: KindFact, Content: "Deborah's favorite game is \"Stardew Valley\".",
+		DedupeKey: "dgame", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "Stardew Valley", "subject": "Deborah"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "Stardew Valley", "subject": "Deborah"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "Monster Hunter: World", memID: "mem_jmh"},
+		stubAtom{pred: PredicatePreference, val: "park", memID: "mem_jpark"},
+		stubAtom{pred: PredicatePreference, val: "Stardew Valley", memID: "mem_dgame"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-fav", SubjectID: "u1",
+		Query: "What was one of Jolene's favorite games to play with her mom on the nintendo wii game system?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if !strings.Contains(got, "monster hunter") {
+		t.Fatalf("quoted favorite game must beat leftover favorite-park covering, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "park") || strings.Contains(got, "stardew") {
+		t.Fatalf("must not steal park covering or other-person title: %q", out.Answer)
+	}
+}
+
 func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

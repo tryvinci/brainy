@@ -511,6 +511,12 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if hopComposeAllowed("Has Riley tried surfing?") {
 		t.Fatal("polar queries must not dump hop values")
 	}
+	if hopComposeAllowed("Which language is Tim learning?") {
+		t.Fatal("language queries must not dump hop values")
+	}
+	if hopComposeAllowed("What is Nate's favorite video game?") {
+		t.Fatal("favorite-work queries must not dump hop values")
+	}
 	if toks := practiceObjectTokens("Which locations does Riley practice her yoga at?"); len(toks) != 1 || toks[0] != "yoga" {
 		t.Fatalf("expected yoga practice object, toks=%v", toks)
 	}

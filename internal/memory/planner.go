@@ -82,7 +82,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query)) && hopPlanAllowed(query) {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query) || looksFavoriteWorkQuery(query)) && hopPlanAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -587,6 +587,9 @@ func hopComposeAllowed(query string) bool {
 	if looksWhichLanguageQuery(query) {
 		return false
 	}
+	if looksFavoriteWorkQuery(query) {
+		return false
+	}
 	return true
 }
 
@@ -613,6 +616,24 @@ func looksWhichLanguageQuery(query string) bool {
 		return false
 	}
 	return strings.HasPrefix(q, "which ") || strings.HasPrefix(q, "what ")
+}
+
+// looksFavoriteWorkQuery is which/what favorite game/book/show. Typed
+// titled-work ranking over leftover "favorite" covering of unrelated lines.
+// Not a title dictionary and not a leftover-covering detector.
+func looksFavoriteWorkQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return false
+	}
+	if !strings.HasPrefix(q, "which ") && !strings.HasPrefix(q, "what ") {
+		return false
+	}
+	if !queryHasToken(query, "favorite", "favourite", "favorites", "favourites") {
+		return false
+	}
+	return queryHasToken(query, "game", "games", "book", "books", "show", "series",
+		"movie", "movies", "title", "titles")
 }
 
 // looksInstrumentPurposeQuery is "what does the X help … with" — the
