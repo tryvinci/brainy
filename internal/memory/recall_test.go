@@ -3567,6 +3567,8 @@ func TestWantsTypedSetScan(t *testing.T) {
 		"What new hobby did James become interested in on 9 July, 2022?",
 		"Which activity helps Nate escape and stimulates his imagination?",
 		"What activity helped Evan with stress and flexibility?",
+		"What kind of deals did John sign with Nike and Gatorade?",
+		"What kind of games is James excited to play with his new video card?",
 	}
 	for _, q := range skip {
 		if wantsTypedSetScan(q) {

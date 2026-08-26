@@ -746,13 +746,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				// Short typed item joins stay locked except where hop-dumps,
 				// which starve locative leftover covering with activity lists.
 				typedJoin := leftoverCoveringKeepTypedAnswer(req.Query, hopResults, cur)
-				// Only lock leftover covering off for real typed-set scans
-				// (what items / what kind of / plural activities). Harness
-				// enumerate mode + incidental "activity"/"dogs" tokens must
-				// still let leftover covering replace hop dumps.
-				if enumerated && typedN >= 2 && wantsTypedSetScan(req.Query) && !typedAnswerIsHopDump(cur) && !leftoverCoveringKindMissesList(req.Query, covering, cur) {
-					typedJoin = true
-				}
+				// Do not force typedJoin from enumerate item-count: harness
+				// mode=enumerate plus a 2-item hop dump would starve leftover
+				// covering (Nike/Gatorade deals, soda and candy, yoga+running).
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
 					leftoverThinMissAnswer(req.Query, hopResults, cur))
 				if !useCovering && !typedJoin && src != "hybrid_llm_packet" && typedAnswerIsHopDump(cur) {
@@ -1165,7 +1161,12 @@ func wantsTypedSetScan(query string) bool {
 			return false
 		}
 	}
-	if looksWhatKindQuery(query) || strings.HasPrefix(q, "list ") || strings.HasPrefix(q, "what are ") {
+	if looksWhatKindQuery(query) {
+		// Typed class sets (tricks, meals, snacks). Leftover
+		// "what kind of deals/games" have no set noun and stay on covering.
+		return queryHasTypedSetNoun(query)
+	}
+	if strings.HasPrefix(q, "list ") || strings.HasPrefix(q, "what are ") {
 		return true
 	}
 	if looksCommunityQuery(query) {
