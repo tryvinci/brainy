@@ -2806,6 +2806,12 @@ func TestCountHelpersKeepNumberedChildren(t *testing.T) {
 	if !countValueIsBareClassNoun("kids", "children") {
 		t.Fatalf("kids should be a bare class noun")
 	}
+	if countValueIsBareClassNoun("a new Ferrari", "ferraris") {
+		t.Fatalf("modified Ferrari mention treated as bare noun")
+	}
+	if !countValueIsBareClassNoun("ferrari", "ferraris") {
+		t.Fatalf("bare ferrari should be a class noun")
+	}
 }
 
 func TestCollapseCountKeepsQuantifiedClassPhrase(t *testing.T) {
@@ -3258,10 +3264,18 @@ func TestRecallCountSpecificPossessionHead(t *testing.T) {
 		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "cottage", "subject": "Calvin"},
 		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "cottage", "subject": "Calvin"},
 	}
+	store.records["c-studio"] = MemoryRecord{
+		MemoryID: "mem_cs", TenantID: "t-fer", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin possesses a music studio.",
+		DedupeKey: "cs", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "music studio", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "music studio", "subject": "Calvin"},
+	}
 	store.atoms = append(store.atoms,
 		stubAtom{pred: PredicatePossession, val: "ferrari 458", memID: "mem_cf1"},
 		stubAtom{pred: PredicatePossession, val: "ferrari california", memID: "mem_cf2"},
 		stubAtom{pred: PredicatePossession, val: "cottage", memID: "mem_ch"},
+		stubAtom{pred: PredicatePossession, val: "music studio", memID: "mem_cs"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
 		TenantID: "t-fer", SubjectID: "u1",
@@ -3272,6 +3286,57 @@ func TestRecallCountSpecificPossessionHead(t *testing.T) {
 	}
 	if strings.TrimSpace(out.Answer) != "2" {
 		t.Fatalf("expected Ferrari count 2, answer=%q items=%#v", out.Answer, out.Items)
+	}
+}
+
+func TestRecallCountSpecificPossessionGenericLabels(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["c-new"] = MemoryRecord{
+		MemoryID: "mem_cn", TenantID: "t-fer2", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin owns a new Ferrari.",
+		DedupeKey: "cn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "a new Ferrari", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "a new Ferrari", "subject": "Calvin"},
+	}
+	store.records["c-blk"] = MemoryRecord{
+		MemoryID: "mem_cb", TenantID: "t-fer2", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin acquired a new Ferrari, a black sports car, on 2023-10-08.",
+		DedupeKey: "cb", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "ferrari (black sports car)", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "ferrari (black sports car)", "subject": "Calvin"},
+	}
+	store.records["c-red"] = MemoryRecord{
+		MemoryID: "mem_cr", TenantID: "t-fer2", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin possesses a red sports car.",
+		DedupeKey: "cr", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "red sports car", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "red sports car", "subject": "Calvin"},
+	}
+	store.records["c-studio"] = MemoryRecord{
+		MemoryID: "mem_cs2", TenantID: "t-fer2", SubjectID: "u1",
+		Kind: KindFact, Content: "Calvin possesses a music studio.",
+		DedupeKey: "cs2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "music studio", "subject": "Calvin"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "music studio", "subject": "Calvin"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "a new Ferrari", memID: "mem_cn"},
+		stubAtom{pred: PredicatePossession, val: "ferrari (black sports car)", memID: "mem_cb"},
+		stubAtom{pred: PredicatePossession, val: "red sports car", memID: "mem_cr"},
+		stubAtom{pred: PredicatePossession, val: "music studio", memID: "mem_cs2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-fer2", SubjectID: "u1",
+		Query: "How many Ferraris does Calvin own?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.Answer) != "2" {
+		t.Fatalf("expected Ferrari count 2 from named class mentions, answer=%q items=%#v", out.Answer, out.Items)
 	}
 }
 
