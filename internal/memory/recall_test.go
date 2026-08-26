@@ -1744,6 +1744,12 @@ func TestFoodObjectsFromContentSuggestionAndMealCues(t *testing.T) {
 	if len(meal) != 1 || !strings.Contains(strings.ToLower(meal[0]), "salmon") {
 		t.Fatalf("prepared meal=%#v", meal)
 	}
+	if !looksThinFoodObject("started painting") {
+		t.Fatal("started painting must not count as a food object")
+	}
+	if looksThinFoodObject("started eating quinoa bowls") {
+		t.Fatal("started eating meals must stay")
+	}
 }
 
 func TestRecallUnhealthyListDropsPositiveSlogans(t *testing.T) {

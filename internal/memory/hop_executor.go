@@ -1528,7 +1528,7 @@ func itemHasSuggestionCue(s string) bool {
 		" suggest ", " suggested ", " suggests ", " suggestion ",
 		" recommend ", " recommended ", " recommends ",
 		" how about ", " swap ", " replace ", " instead of ",
-		" given to ", " gave ",
+		" given to ", " gave to ",
 	} {
 		if strings.Contains(body, cue) {
 			return true
@@ -1552,7 +1552,13 @@ func itemHasMealCue(s string) bool {
 
 func looksThinFoodObject(v string) bool {
 	v = strings.ToLower(strings.TrimSpace(v))
-	if v == "" || strings.Contains(v, " ") {
+	if v == "" {
+		return false
+	}
+	if strings.HasPrefix(v, "started ") && !strings.Contains(v, "eating") {
+		return true
+	}
+	if strings.Contains(v, " ") {
 		return false
 	}
 	switch v {
