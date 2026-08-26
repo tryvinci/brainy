@@ -2649,6 +2649,188 @@ func TestRecallHowManyChildrenSkipsPartner(t *testing.T) {
 	}
 }
 
+func TestRecallCountSkipsPreferenceJunk(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["r-son2"] = MemoryRecord{
+		MemoryID: "mem_rs2", TenantID: "t-kids-pref", SubjectID: "u1",
+		Kind: KindFact, Content: "Sam is Riley's son",
+		DedupeKey: "rs2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "sam", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "sam", "subject": "Riley"},
+	}
+	store.records["r-dau2"] = MemoryRecord{
+		MemoryID: "mem_rd2", TenantID: "t-kids-pref", SubjectID: "u1",
+		Kind: KindFact, Content: "Dana is Riley's daughter",
+		DedupeKey: "rd2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicateFamilyMember, "value_norm": "dana", "subject": "Riley"},
+	}
+	store.records["r-nat"] = MemoryRecord{
+		MemoryID: "mem_rn", TenantID: "t-kids-pref", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's kids like nature",
+		DedupeKey: "rn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "nature", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "nature", "subject": "Riley"},
+	}
+	store.records["r-hap"] = MemoryRecord{
+		MemoryID: "mem_rhp", TenantID: "t-kids-pref", SubjectID: "u1",
+		Kind: KindFact, Content: "Riley's kids like happiness",
+		DedupeKey: "rhp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "happiness", "subject": "Riley"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "happiness", "subject": "Riley"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateFamilyMember, val: "sam", memID: "mem_rs2"},
+		stubAtom{pred: PredicateFamilyMember, val: "dana", memID: "mem_rd2"},
+		stubAtom{pred: PredicatePreference, val: "nature", memID: "mem_rn"},
+		stubAtom{pred: PredicatePreference, val: "happiness", memID: "mem_rhp"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-kids-pref", SubjectID: "u1",
+		Query: "How many children does Riley have?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.Answer) != "2" {
+		t.Fatalf("preference junk must not count as children, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallCountPossessionsEntityScoped(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	jul := time.Date(2023, 7, 11, 0, 0, 0, 0, time.UTC)
+	sep := time.Date(2023, 9, 24, 0, 0, 0, 0, time.UTC)
+	oct := time.Date(2023, 10, 19, 0, 0, 0, 0, time.UTC)
+	store.records["a-toby"] = MemoryRecord{
+		MemoryID: "mem_atoby", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Andrew has a puppy named Toby",
+		DedupeKey: "atoby", Status: StatusActive, UpdatedAt: now, ObservedAt: &jul,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "puppy named Toby", "subject": "Andrew"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "puppy named Toby", "subject": "Andrew"},
+	}
+	store.records["a-prec"] = MemoryRecord{
+		MemoryID: "mem_aprec", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Andrew has Precious",
+		DedupeKey: "aprec", Status: StatusActive, UpdatedAt: now, ObservedAt: &sep,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "Precious", "subject": "Andrew"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "Precious", "subject": "Andrew"},
+	}
+	store.records["a-bud"] = MemoryRecord{
+		MemoryID: "mem_abud", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Andrew adopted Buddy from the shelter",
+		DedupeKey: "abud", Status: StatusActive, UpdatedAt: now, ObservedAt: &oct,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "Buddy", "subject": "Andrew"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "Buddy", "subject": "Andrew"},
+	}
+	store.records["a-none"] = MemoryRecord{
+		MemoryID: "mem_anone", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Andrew currently has no pets",
+		DedupeKey: "anone", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "currently has no pets", "subject": "Andrew"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "currently has no pets", "subject": "Andrew"},
+	}
+	store.records["u-scout"] = MemoryRecord{
+		MemoryID: "mem_uscout", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Audrey has a dog named Scout and Andrew likes visiting",
+		DedupeKey: "uscout", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "Scout", "subject": "Audrey"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "Scout", "subject": "Audrey"},
+	}
+	store.records["u-toy"] = MemoryRecord{
+		MemoryID: "mem_utoy", TenantID: "t-pets", SubjectID: "u1",
+		Kind: KindFact, Content: "Audrey bought toys for her dogs",
+		DedupeKey: "utoy", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "value_norm": "toys", "subject": "Audrey"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "value_norm": "toys", "subject": "Audrey"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePossession, val: "puppy named Toby", memID: "mem_atoby"},
+		stubAtom{pred: PredicatePossession, val: "Precious", memID: "mem_aprec"},
+		stubAtom{pred: PredicatePossession, val: "Buddy", memID: "mem_abud"},
+		stubAtom{pred: PredicatePossession, val: "currently has no pets", memID: "mem_anone"},
+		stubAtom{pred: PredicatePossession, val: "Scout", memID: "mem_uscout"},
+		stubAtom{pred: PredicatePossession, val: "toys", memID: "mem_utoy"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-pets", SubjectID: "u1",
+		Query: "How many pets will Andrew have, as of December 2023?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.Answer) != "3" {
+		t.Fatalf("expected Andrew's 3 pets, not Audrey's, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+	sepOut, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-pets", SubjectID: "u1",
+		Query: "How many pets did Andrew have, as of September 2023?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(sepOut.Answer) != "2" {
+		t.Fatalf("as-of September should keep Toby+Precious, answer=%q items=%#v", sepOut.Answer, sepOut.Items)
+	}
+}
+
+func TestRecallCountTimesObjectNotAllHealth(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-ank1b"] = MemoryRecord{
+		MemoryID: "mem_ja1b", TenantID: "t-times-obj", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan injured his ankle",
+		DedupeKey: "ja1b", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "ankle injury last season", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "ankle injury last season", "subject": "Jordan"},
+	}
+	store.records["j-ank2b"] = MemoryRecord{
+		MemoryID: "mem_ja2b", TenantID: "t-times-obj", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan injured his ankle again",
+		DedupeKey: "ja2b", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "recent sprained ankle", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "recent sprained ankle", "subject": "Jordan"},
+	}
+	store.records["j-pt"] = MemoryRecord{
+		MemoryID: "mem_jpt", TenantID: "t-times-obj", SubjectID: "u1",
+		Kind: KindFact, Content: "Jordan is staying in shape with PT",
+		DedupeKey: "jpt", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "staying in shape", "subject": "Jordan"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "staying in shape", "subject": "Jordan"},
+	}
+	store.records["t-inj"] = MemoryRecord{
+		MemoryID: "mem_tinj", TenantID: "t-times-obj", SubjectID: "u1",
+		Kind: KindFact, Content: "Tim injured his ankle",
+		DedupeKey: "tinj", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Tim"},
+		Explain:  map[string]any{"predicate": PredicateHealth, "value_norm": "ankle", "subject": "Tim"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateHealth, val: "ankle injury last season", memID: "mem_ja1b"},
+		stubAtom{pred: PredicateHealth, val: "recent sprained ankle", memID: "mem_ja2b"},
+		stubAtom{pred: PredicateHealth, val: "staying in shape", memID: "mem_jpt"},
+		stubAtom{pred: PredicateHealth, val: "ankle", memID: "mem_tinj"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-times-obj", SubjectID: "u1",
+		Query: "How many times has Jordan injured his ankle?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(out.Answer) != "2" {
+		t.Fatalf("expected 2 ankle incidents, not PT or Tim, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+}
+
 func TestRecallKinshipHobbiesUseDestNotSource(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

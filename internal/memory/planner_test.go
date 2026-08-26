@@ -548,14 +548,20 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	}
 
 	kidsCount := PlanQuery("How many children does Riley have?", nil)
-	foundKidsFam := false
+	foundKidsFam, foundKidsPref := false, false
 	for _, hop := range kidsCount.Hops {
 		if hop.Predicate == PredicateFamilyMember {
 			foundKidsFam = true
 		}
+		if hop.Predicate == PredicatePreference {
+			foundKidsPref = true
+		}
 	}
 	if !foundKidsFam {
 		t.Fatalf("how-many children must hop family, hops=%+v", kidsCount.Hops)
+	}
+	if foundKidsPref {
+		t.Fatalf("child count must not hop preference, hops=%+v", kidsCount.Hops)
 	}
 
 	ev := PlanQuery("What events is Maria planning for the homeless shelter fundraiser?", nil)
