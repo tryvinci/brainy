@@ -3510,17 +3510,68 @@ func TestHopScanLimitEnumeratesPastSearchTopK(t *testing.T) {
 	if got := hopScanLimit("Where does Riley live?", QueryPlan{}, 30); got != 30 {
 		t.Fatalf("non-list hop scan must stay at topK, got %d", got)
 	}
+	if got := hopScanLimit("How do Audrey's dogs react to snow?", plan, 30); got != 30 {
+		t.Fatalf("leftover how-react must not widen hop scan, got %d", got)
+	}
+	if got := hopScanLimit("What activity did Caroline used to do with her dad?", plan, 30); got != 30 {
+		t.Fatalf("singular what-activity leftover must not widen hop scan, got %d", got)
+	}
 }
 
 func TestLockTypedListQuery(t *testing.T) {
-	if !lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 4, false) {
+	if !lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 4, false, false) {
 		t.Fatal("item lists with 4 typed values must lock hybrid")
 	}
-	if lockTypedListQuery("How many Ferraris does Calvin own?", true, 5, false) {
+	if lockTypedListQuery("How many Ferraris does Calvin own?", true, 5, false, false) {
 		t.Fatal("count queries must not use list hybrid lock")
 	}
-	if lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 4, true) {
+	if lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 4, true, false) {
 		t.Fatal("echo slogans must not lock")
+	}
+	if lockTypedListQuery("What items has Audrey bought or made for her dogs?", true, 8, false, true) {
+		t.Fatal("hop dumps must not lock hybrid")
+	}
+	if lockTypedListQuery("How do Audrey's dogs react to snow?", true, 6, false, false) {
+		t.Fatal("how-react leftover must not lock hybrid")
+	}
+}
+
+func TestWantsTypedSetScan(t *testing.T) {
+	want := []string{
+		"What items has Audrey bought or made for her dogs?",
+		"What outdoor activities has John done with his colleagues?",
+		"What kind of tricks do James's pets know?",
+		"What are the names of Jolene's snakes?",
+		"Which locations does Deborah practice her yoga at?",
+		"Which community activities have Deborah and Anna participated in?",
+		"What events is Maria planning for the homeless shelter funraiser?",
+		"What instruments does Riley play?",
+		"In what ways is Riley participating in the civic community?",
+		"list all hobbies Caroline enjoys",
+	}
+	for _, q := range want {
+		if !wantsTypedSetScan(q) {
+			t.Fatalf("expected typed-set scan for %q", q)
+		}
+	}
+	skip := []string{
+		"How do Audrey's dogs react to snow?",
+		"What activity did Caroline used to do with her dad?",
+		"What does Gina say about the dancers in the photo?",
+		"What advice does Gina give to Jon about running a successful business?",
+		"Why did Maria sit with the little girl at the shelter event in February 2023?",
+		"Would Tim enjoy reading books by C. S. Lewis or John Greene?",
+		"What pets wouldn't cause any discomfort to Joanna?",
+		"What did Audrey do in November 2023 to better take care of her dogs?",
+		"What does the smartwatch help Evan with?",
+		"What new hobby did James become interested in on 9 July, 2022?",
+		"Which activity helps Nate escape and stimulates his imagination?",
+		"What activity helped Evan with stress and flexibility?",
+	}
+	for _, q := range skip {
+		if wantsTypedSetScan(q) {
+			t.Fatalf("typed-set scan must not fire for leftover/OD %q", q)
+		}
 	}
 }
 

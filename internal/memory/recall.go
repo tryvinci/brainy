@@ -82,7 +82,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 
 	intents := AnalyzeQueryIntents(req.Query)
 	hist := req.IncludeHistorical || strings.EqualFold(req.View, "historical") || strings.EqualFold(req.View, "all") || WantsHistoricalRetrieval(intents)
-	if looksCountQuery(req.Query) || looksListQuery(tokenize(req.Query)) || hasIntent(intents, IntentEnumeration) {
+	// Full atom history is for how-many and typed-set enumerations
+	// ("what items", "what activities has"). Incidental list nouns in
+	// how/why leftover questions must not scan every possession/activity.
+	if looksCountQuery(req.Query) || wantsTypedSetScan(req.Query) {
 		hist = true
 	}
 	search, err := s.SearchOpt(ctx, req.TenantID, req.SubjectID, req.Vertical, "", req.Query, SearchOptions{
@@ -389,7 +392,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		}
 	case "answer":
 		out.ContextBlock = assembleContextFromPacket(pkt, budget)
-		if (plan.NeedsEnumeration || looksListQuery(tokenize(req.Query)) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || looksLocationListQuery(req.Query) || transferRecipient(req.Query) != "") && !looksConsequenceQuery(req.Query) && !looksWhereQuery(req.Query) {
+		if (wantsTypedSetScan(req.Query) || looksUnwindQuery(req.Query) || looksSuperlativeQuery(req.Query) || looksLocationListQuery(req.Query) || transferRecipient(req.Query) != "") && !looksConsequenceQuery(req.Query) && !looksWhereQuery(req.Query) {
 			enumerated = true
 			items := s.enumerateFromSearch(ctx, req, search.Results, hopResults)
 			items = s.refineEnumeratedItems(ctx, req, items, hopResults)
@@ -646,7 +649,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		if leftoverCoveringKeepTypedAnswer(req.Query, hopResults, typedAnswer) && leftoverCoveringLockChildhoodPossessions(req.Query) {
 			lockedList = true
 		}
-		if lockTypedListQuery(req.Query, enumerated, typedN, echoSlogan) {
+		if lockTypedListQuery(req.Query, enumerated, typedN, echoSlogan, typedAnswerIsHopDump(typedAnswer)) {
 			lockedList = true
 		}
 		if hybrid.Attempted {
@@ -743,9 +746,11 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				// Short typed item joins stay locked except where hop-dumps,
 				// which starve locative leftover covering with activity lists.
 				typedJoin := leftoverCoveringKeepTypedAnswer(req.Query, hopResults, cur)
-				// Typed enumerate of 2+ items stays unless covering is a
-				// like-A,-B,-and-C leftover the typed list does not already cover.
-				if enumerated && typedN >= 2 && !leftoverCoveringKindMissesList(req.Query, covering, cur) {
+				// Only lock leftover covering off for real typed-set scans
+				// (what items / what kind of / plural activities). Harness
+				// enumerate mode + incidental "activity"/"dogs" tokens must
+				// still let leftover covering replace hop dumps.
+				if enumerated && typedN >= 2 && wantsTypedSetScan(req.Query) && !typedAnswerIsHopDump(cur) && !leftoverCoveringKindMissesList(req.Query, covering, cur) {
 					typedJoin = true
 				}
 				useCovering := !typedJoin && (out.Abstained || strings.EqualFold(cur, "not in memory") ||
@@ -1130,17 +1135,60 @@ func hopScanLimit(query string, plan QueryPlan, topK int) int {
 	if looksCountQuery(query) {
 		return topK
 	}
-	if looksListQuery(tokenize(query)) || plan.NeedsEnumeration {
+	if wantsTypedSetScan(query) {
 		return cap
 	}
 	return topK
 }
 
-func lockTypedListQuery(query string, enumerated bool, typedN int, echoSlogan bool) bool {
-	if !enumerated || typedN < 2 || echoSlogan || looksCountQuery(query) {
+func lockTypedListQuery(query string, enumerated bool, typedN int, echoSlogan bool, typedDump bool) bool {
+	if typedDump || !enumerated || typedN < 2 || echoSlogan || looksCountQuery(query) {
 		return false
 	}
-	return looksListQuery(tokenize(query))
+	return wantsTypedSetScan(query)
+}
+
+// wantsTypedSetScan is true when the question asks for the full typed set of
+// a class (items bought, activities done, names, locations, what-kind lists).
+// Singular "what activity did" / "how do dogs react" / "would X enjoy books"
+// are leftover or OD questions that happen to mention a list noun.
+func wantsTypedSetScan(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" || looksCountQuery(query) {
+		return false
+	}
+	for _, p := range []string{
+		"how ", "why ", "when ", "where ", "would ",
+		"what did ", "what does ", "what do ",
+	} {
+		if strings.HasPrefix(q, p) {
+			return false
+		}
+	}
+	if looksWhatKindQuery(query) || strings.HasPrefix(q, "list ") || strings.HasPrefix(q, "what are ") {
+		return true
+	}
+	if looksCommunityQuery(query) {
+		return true
+	}
+	if !strings.HasPrefix(q, "what ") && !strings.HasPrefix(q, "which ") && !strings.HasPrefix(q, "in what ") {
+		return false
+	}
+	return queryHasTypedSetNoun(query)
+}
+
+func queryHasTypedSetNoun(query string) bool {
+	for _, tok := range tokenize(query) {
+		tok = strings.Trim(tok, "'\"")
+		tok = strings.TrimSuffix(tok, "'s")
+		switch tok {
+		case "activities", "hobbies", "items", "names", "locations",
+			"tricks", "meals", "snacks", "food", "foods", "events",
+			"places", "books", "instruments", "instrument":
+			return true
+		}
+	}
+	return false
 }
 
 func hasIntent(intents []string, want string) bool {
