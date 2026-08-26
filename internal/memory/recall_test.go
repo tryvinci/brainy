@@ -1094,6 +1094,218 @@ func TestRecallPolarDoesNotYesFromUnrelatedHobby(t *testing.T) {
 	}
 }
 
+func TestLooksTriedPolarQuery(t *testing.T) {
+	if !looksTriedPolarQuery("Has Deborah tried surfing?") {
+		t.Fatal("expected tried polar")
+	}
+	if !looksTriedPolarQuery("Did Riley try pottery?") {
+		t.Fatal("did-try is tried polar")
+	}
+	if looksTriedPolarQuery("Does Deborah like hiking?") {
+		t.Fatal("like-polar must not use tried-from-love")
+	}
+	if looksTriedPolarQuery("What has Deborah tried?") {
+		t.Fatal("what-has list is not tried polar")
+	}
+}
+
+func TestRecallPolarYesFromLovedActivity(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["d-love"] = MemoryRecord{
+		MemoryID: "mem_dl", TenantID: "t-polar-love", SubjectID: "u1",
+		Kind: KindFact, Content: "Deborah loves surfing.",
+		DedupeKey: "dl", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "surfing", "subject": "Deborah"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "surfing", "subject": "Deborah"},
+	}
+	store.records["d-plan"] = MemoryRecord{
+		MemoryID: "mem_dp", TenantID: "t-polar-love", SubjectID: "u1",
+		Kind: KindFact, Content: "Deborah plans to try surfing together with Jolene sometime in the future.",
+		DedupeKey: "dp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePlan, "value_norm": "surfing", "subject": "Deborah"},
+		Explain:  map[string]any{"predicate": PredicatePlan, "value_norm": "surfing", "subject": "Deborah"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "surfing", memID: "mem_dl"},
+		stubAtom{pred: PredicatePlan, val: "surfing", memID: "mem_dp"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-polar-love", SubjectID: "u1",
+		Query: "Has Deborah tried surfing?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("love of the claim activity must prove tried Yes, answer=%q items=%#v hops=%v", out.Answer, out.Items, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallPolarYesFromDiscoveredLove(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["d-disc"] = MemoryRecord{
+		MemoryID: "mem_dd", TenantID: "t-polar-disc", SubjectID: "u1",
+		Kind: KindFact, Content: "Deborah discovered her love for surfing at the beach shown in the photo.",
+		DedupeKey: "dd", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "surfing", "subject": "Deborah"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "surfing", "subject": "Deborah"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "surfing", memID: "mem_dd"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-polar-disc", SubjectID: "u1",
+		Query: "Has Deborah tried surfing?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("discovered love must prove tried Yes, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallPolarDoesNotYesFromPlanToTry(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["j-plan"] = MemoryRecord{
+		MemoryID: "mem_jp", TenantID: "t-polar-plan", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene plans to try surfing together with Deborah sometime in the future.",
+		DedupeKey: "jp", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "surfing", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "surfing", "subject": "Jolene"},
+	}
+	store.records["j-guide"] = MemoryRecord{
+		MemoryID: "mem_jg", TenantID: "t-polar-plan", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene is gathering a beginners' guide and learning to surf.",
+		DedupeKey: "jg", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "surfing", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "surfing", "subject": "Jolene"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "surfing", memID: "mem_jp"},
+		stubAtom{pred: PredicateActivity, val: "surfing", memID: "mem_jg"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-polar-plan", SubjectID: "u1",
+		Query: "Has Jolene tried surfing?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("plan/learn-only must not prove tried Yes: %q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallPolarDoesNotStealLearnToFromOtherPerson(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["d-love2"] = MemoryRecord{
+		MemoryID: "mem_dl2", TenantID: "t-polar-steal", SubjectID: "u1",
+		Kind: KindFact, Content: "Deborah loves surfing.",
+		DedupeKey: "dl2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "surfing", "subject": "Deborah"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "surfing", "subject": "Deborah"},
+	}
+	store.records["j-learn"] = MemoryRecord{
+		MemoryID: "mem_jl", TenantID: "t-polar-steal", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene is learning to surf from a beginners' guide.",
+		DedupeKey: "jl", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "surfing", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "value_norm": "surfing", "subject": "Jolene"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "surfing", memID: "mem_dl2"},
+		stubAtom{pred: PredicateActivity, val: "surfing", memID: "mem_jl"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-polar-steal", SubjectID: "u1",
+		Query: "Has Jolene tried surfing?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("other person's love must not prove this person tried: %q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallPolarYesFromLovedActivityDespiteOtherCurrentPreference(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["d-hike"] = MemoryRecord{
+		MemoryID: "mem_dh", TenantID: "t-polar-cs", SubjectID: "u1",
+		Kind: KindFact, Content: "Deborah enjoys hiking.",
+		DedupeKey: "dh", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Deborah"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "hiking", "subject": "Deborah"},
+	}
+	store.records["d-love3"] = MemoryRecord{
+		MemoryID: "mem_dl3", TenantID: "t-polar-cs", SubjectID: "u1",
+		Kind: KindFact, Content: "Deborah loves surfing.",
+		DedupeKey: "dl3", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "surfing", "subject": "Deborah"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "surfing", "subject": "Deborah"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicatePreference, val: "hiking", memID: "mem_dh"},
+		stubAtom{pred: PredicatePreference, val: "surfing", memID: "mem_dl3"},
+	)
+	_ = store.UpsertCurrentState(context.Background(), "t-polar-cs", "u1", statePredicateKey("Deborah", PredicatePreference), "mem_dh", "hiking", "")
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-polar-cs", SubjectID: "u1",
+		Query: "Has Deborah tried surfing?", Mode: "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("older love must still prove tried Yes over a later preference, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
+func TestPolarTriedAnswerFromHopsPlanVsLove(t *testing.T) {
+	q := "Has Deborah tried surfing?"
+	claim := polarClaimTokens(q)
+	love := []HopResult{{
+		Kind: "fetch_predicate", Predicate: PredicatePreference, Entity: "Deborah",
+		Source: "typed_store", Value: "surfing", Values: []string{"surfing"},
+		Contents: []string{"Deborah loves surfing."},
+	}}
+	if polarTriedAnswerFromHops(q, love, claim) != "Yes" {
+		t.Fatalf("love hop must Yes, claim=%v", claim)
+	}
+	plan := []HopResult{{
+		Kind: "fetch_predicate", Predicate: PredicateActivity, Entity: "Deborah",
+		Source: "typed_store", Value: "surfing", Values: []string{"surfing"},
+		Contents: []string{"Deborah plans to try surfing together with Jolene sometime in the future."},
+	}}
+	if polarTriedAnswerFromHops(q, plan, claim) != "" {
+		t.Fatal("plan-only hop must not Yes")
+	}
+	other := []HopResult{{
+		Kind: "fetch_predicate", Predicate: PredicatePreference, Entity: "Jolene",
+		Source: "typed_store", Value: "surfing", Values: []string{"surfing"},
+		Contents: []string{"Deborah loves surfing."},
+	}}
+	if polarTriedAnswerFromHops(q, other, claim) != "" {
+		t.Fatal("foreign-entity hop must not Yes for Deborah")
+	}
+}
+
 func TestRecallPracticeLocationListDoesNotDumpOccupation(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

@@ -791,7 +791,8 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 	needFood := looksFoodSetQuery(query)
 	needBeneficiaries := looksBeneficiarySetQuery(query)
 	needParticipation := looksParticipationSetQuery(query)
-	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation {
+	needTried := looksTriedPolarQuery(query)
+	if !needLoc && !needUnwind && !needPlay && !needTrick && !needItems && !needBesides && !needNames && !needFood && !needBeneficiaries && !needParticipation && !needTried {
 		return
 	}
 	listed, err := s.store.ListMemories(ctx, tenantID, subjectID, false)
@@ -862,6 +863,23 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 			replaceHopSlotsOn(hops, idx, slots)
 			if idx >= 0 && idx < len(hops) && len(hops[idx].Values) >= 2 {
 				hops[idx].Predicate = PredicateActivity
+				if person != "" {
+					hops[idx].Entity = person
+				}
+			}
+		}
+	}
+	if needTried {
+		slots := recoverTriedExperienceSlots(query, person, listed)
+		if len(slots) > 0 {
+			pred := PredicatePreference
+			if hopIndexForPredicate(hops, PredicatePreference) < 0 {
+				pred = PredicateActivity
+			}
+			prependHopSlots(hops, pred, slots)
+			idx := hopIndexForPredicate(hops, pred)
+			if idx >= 0 && idx < len(hops) {
+				hops[idx].Predicate = pred
 				if person != "" {
 					hops[idx].Entity = person
 				}
@@ -1567,6 +1585,62 @@ func looksParticipationSetQuery(query string) bool {
 		return false
 	}
 	return strings.Contains(q, "ways") || strings.HasPrefix(q, "in what")
+}
+
+func recoverTriedExperienceSlots(query, person string, listed []MemoryRecord) []recoveredSlot {
+	if person == "" {
+		return nil
+	}
+	claim := polarClaimTokens(query)
+	if len(claim) == 0 {
+		return nil
+	}
+	var out []recoveredSlot
+	seen := map[string]struct{}{}
+	for _, rec := range listed {
+		content := strings.TrimSpace(rec.Content)
+		if content == "" || strings.HasPrefix(content, "[") {
+			continue
+		}
+		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) &&
+			!strings.HasPrefix(strings.ToLower(content), strings.ToLower(person)+":") {
+			continue
+		}
+		if !polarPieceHasClaim(content, claim) || !polarExperienceCue(content) {
+			continue
+		}
+		val := polarTriedClaimValue(content, rec, claim)
+		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) {
+			continue
+		}
+		key := strings.ToLower(val)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, recoveredSlot{value: val, content: content, memID: rec.MemoryID})
+		if len(out) >= 4 {
+			break
+		}
+	}
+	return out
+}
+
+func polarTriedClaimValue(content string, rec MemoryRecord, claim []string) string {
+	if v := strings.ToLower(strings.TrimSpace(recordValueNorm(rec))); v != "" {
+		for _, t := range claim {
+			if t != "" && strings.Contains(v, t) {
+				return t
+			}
+		}
+	}
+	lower := strings.ToLower(content)
+	for _, t := range claim {
+		if t != "" && strings.Contains(lower, t) {
+			return t
+		}
+	}
+	return ""
 }
 
 func looksThinParticipation(v string) bool {

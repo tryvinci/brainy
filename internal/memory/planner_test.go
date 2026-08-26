@@ -260,7 +260,7 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 		t.Fatalf("polar query must hop, intents=%v", polar.Intents)
 	}
 	polarEnts := map[string]bool{}
-	foundTriedActivity := false
+	foundTriedActivity, foundTriedPref := false, false
 	for _, hop := range polar.Hops {
 		if hop.Kind == "resolve_entity" {
 			polarEnts[strings.ToLower(hop.Entity)] = true
@@ -268,12 +268,18 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 		if hop.Predicate == PredicateActivity {
 			foundTriedActivity = true
 		}
+		if hop.Predicate == PredicatePreference {
+			foundTriedPref = true
+		}
 	}
 	if !polarEnts["riley"] {
 		t.Fatalf("expected riley hop, hops=%+v", polar.Hops)
 	}
 	if !foundTriedActivity {
 		t.Fatalf("tried polar must hop activity, hops=%+v", polar.Hops)
+	}
+	if !foundTriedPref {
+		t.Fatalf("tried polar must hop preference, hops=%+v", polar.Hops)
 	}
 
 	kin := PlanQuery("What were Alex's mother's hobbies?", nil)

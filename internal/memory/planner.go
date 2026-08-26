@@ -647,6 +647,12 @@ func looksPolarQuery(query string) bool {
 	return false
 }
 
+// looksTriedPolarQuery is has/did/have-tried polar. Love/discovered-love of
+// the claim activity proves Yes; plan/learn/guide-only does not.
+func looksTriedPolarQuery(query string) bool {
+	return looksPolarQuery(query) && queryHasToken(query, "tried", "try")
+}
+
 func looksUnwindQuery(query string) bool {
 	q := strings.ToLower(query)
 	return strings.Contains(q, "do to") || strings.Contains(q, "unwind") || strings.Contains(q, "relax")

@@ -1190,7 +1190,7 @@ func wantsTypedSetScan(query string) bool {
 // current-state for possession/skill/place sets. Activity/community/snack
 // leftover questions enumerate at search top-k without this widening.
 func wantsHistoricalAtomScan(query string) bool {
-	if looksBeneficiarySetQuery(query) || looksParticipationSetQuery(query) {
+	if looksBeneficiarySetQuery(query) || looksParticipationSetQuery(query) || looksTriedPolarQuery(query) {
 		return true
 	}
 	q := strings.ToLower(strings.TrimSpace(query))
@@ -1907,6 +1907,9 @@ func polarAnswerFromHops(query string, hops []HopResult) string {
 	if len(claim) == 0 {
 		return ""
 	}
+	if looksTriedPolarQuery(query) {
+		return polarTriedAnswerFromHops(query, hops, claim)
+	}
 	var b strings.Builder
 	for _, h := range hops {
 		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
@@ -1935,6 +1938,57 @@ func polarAnswerFromHops(query string, hops []HopResult) string {
 		}
 	}
 	return ""
+}
+
+func polarTriedAnswerFromHops(query string, hops []HopResult, claim []string) string {
+	person := ""
+	if ents := hopQueryEntities(query); len(ents) > 0 {
+		person = ents[0]
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		if person != "" && strings.TrimSpace(h.Entity) != "" && !strings.EqualFold(strings.TrimSpace(h.Entity), person) {
+			continue
+		}
+		if polarTriedHopYes(h, claim) {
+			return "Yes"
+		}
+	}
+	return ""
+}
+
+func polarTriedHopYes(h HopResult, claim []string) bool {
+	pieces := make([]string, 0, 1+len(h.Values)+len(h.Contents))
+	pieces = append(pieces, h.Contents...)
+	pieces = append(pieces, h.Values...)
+	if strings.TrimSpace(h.Value) != "" {
+		pieces = append(pieces, h.Value)
+	}
+	for _, p := range pieces {
+		if polarPieceHasClaim(p, claim) && polarExperienceCue(p) {
+			return true
+		}
+	}
+	return false
+}
+
+func polarPieceHasClaim(piece string, claim []string) bool {
+	p := strings.ToLower(piece)
+	if strings.TrimSpace(p) == "" {
+		return false
+	}
+	for _, t := range claim {
+		if t != "" && strings.Contains(p, t) {
+			return true
+		}
+	}
+	return false
+}
+
+func polarExperienceCue(s string) bool {
+	return queryHasToken(s, "loves", "loved", "love", "tried")
 }
 
 func filterBesides(query string, items []RecallItem) []RecallItem {
