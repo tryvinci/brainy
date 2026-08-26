@@ -4660,9 +4660,16 @@ func TestRecallJourneyChangesFromBodyAndFriends(t *testing.T) {
 	store.records["c-fr"] = MemoryRecord{
 		MemoryID: "mem_cfr", TenantID: "t-jny2", SubjectID: "u1",
 		Kind: KindFact, Content: "A few of Caroline's close friends were unable to handle her transition.",
-		DedupeKey: "cfr", Status: StatusActive, UpdatedAt: now,
+		DedupeKey: "cfr", Status: StatusActive, LifecycleState: LifecycleSuperseded, UpdatedAt: now,
 		Metadata: map[string]any{"predicate": PredicateRelationshipStatus, "value_norm": "unsupportive friends", "subject": "Caroline"},
 		Explain:  map[string]any{"predicate": PredicateRelationshipStatus, "value_norm": "unsupportive friends", "subject": "Caroline"},
+	}
+	store.records["c-id"] = MemoryRecord{
+		MemoryID: "mem_cid", TenantID: "t-jny2", SubjectID: "u1",
+		Kind: KindFact, Content: "Caroline is a trans woman",
+		DedupeKey: "cid", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "trans woman", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "trans woman", "subject": "Caroline"},
 	}
 	store.records["c-talk"] = MemoryRecord{
 		MemoryID: "mem_ctalk", TenantID: "t-jny2", SubjectID: "u1",
@@ -4682,6 +4689,7 @@ func TestRecallJourneyChangesFromBodyAndFriends(t *testing.T) {
 		stubAtom{pred: PredicateActivity, val: "school talk", memID: "mem_ctalk"},
 		stubAtom{pred: PredicateOccupation, val: "nurse", memID: "mem_cjob"},
 		stubAtom{pred: PredicateRelationshipStatus, val: "unsupportive friends", memID: "mem_cfr"},
+		stubAtom{pred: PredicateIdentity, val: "trans woman", memID: "mem_cid"},
 	)
 	out, err := svc.Recall(context.Background(), RecallRequest{
 		TenantID: "t-jny2", SubjectID: "u1",
@@ -4699,6 +4707,9 @@ func TestRecallJourneyChangesFromBodyAndFriends(t *testing.T) {
 	}
 	if strings.Contains(got, "nurse") {
 		t.Fatalf("occupation crowded journey changes: %q", out.Answer)
+	}
+	if strings.Contains(got, "trans woman") {
+		t.Fatalf("identity dump crowded journey changes: %q", out.Answer)
 	}
 }
 

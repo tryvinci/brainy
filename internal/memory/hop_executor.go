@@ -892,7 +892,14 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 		}
 	}
 	if needJourney {
-		slots := recoverJourneyChangeSlots(query, person, listed)
+		// Journey "changes faced" are historical. Singleton current-state
+		// (one relationship_status per person) supersedes earlier facets;
+		// the rows remain in the store and must still be enumerable.
+		journeyListed := listed
+		if hist, err := s.store.ListMemories(ctx, tenantID, subjectID, true); err == nil && len(hist) > 0 {
+			journeyListed = hist
+		}
+		slots := recoverJourneyChangeSlots(query, person, journeyListed)
 		if len(slots) >= 2 {
 			idx := hopIndexForPredicateEntity(hops, PredicateIdentity, person)
 			replaceHopSlotsOn(hops, idx, slots)
