@@ -831,7 +831,11 @@ func (s *Service) recoverSlotAlignedHops(ctx context.Context, tenantID, subjectI
 		}
 	}
 	if needFood {
-		slots := recoverFoodSetSlots(person, listed, query)
+		giver := foodSetRecoverPerson(query)
+		if giver == "" {
+			giver = person
+		}
+		slots := recoverFoodSetSlots(giver, listed, query)
 		if len(slots) >= 2 {
 			replaceHopSlots(hops, PredicatePreference, slots)
 		}
@@ -1482,6 +1486,21 @@ func looksNameListQuery(query string) bool {
 // looksFoodSetQuery is a typed meal/suggestion set ("what kind of meals",
 // "what kind of food suggestions"). Bare "what kind of food" leftover and
 // un- snack leftover stay on covering.
+func foodSetRecoverPerson(query string) string {
+	ents := hopQueryEntities(query)
+	if recip := transferRecipient(query); recip != "" {
+		for _, e := range ents {
+			if !strings.EqualFold(e, recip) {
+				return e
+			}
+		}
+	}
+	if len(ents) > 0 {
+		return ents[0]
+	}
+	return ""
+}
+
 func looksFoodSetQuery(query string) bool {
 	if !looksWhatKindQuery(query) {
 		return false
@@ -1495,7 +1514,7 @@ func itemHasSuggestionCue(s string) bool {
 		" suggest ", " suggested ", " suggests ", " suggestion ",
 		" recommend ", " recommended ", " recommends ",
 		" how about ", " swap ", " replace ", " instead of ",
-		" given to ", " gave ", " recipe ",
+		" given to ", " gave ",
 	} {
 		if strings.Contains(body, cue) {
 			return true
@@ -1517,6 +1536,19 @@ func itemHasMealCue(s string) bool {
 	return false
 }
 
+func looksThinFoodObject(v string) bool {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if v == "" || strings.Contains(v, " ") {
+		return false
+	}
+	switch v {
+	case "healthier", "healthy", "yummy", "tasty", "good", "great",
+		"recipes", "recipe", "meals", "meal", "snacks", "snack", "food":
+		return true
+	}
+	return false
+}
+
 func recoverFoodSetSlots(person string, listed []MemoryRecord, query string) []recoveredSlot {
 	if person == "" {
 		return nil
@@ -1527,7 +1559,7 @@ func recoverFoodSetSlots(person string, listed []MemoryRecord, query string) []r
 	seen := map[string]struct{}{}
 	add := func(sl recoveredSlot) {
 		val := strings.TrimSpace(sl.value)
-		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || utf8Len(val) > 60 {
+		if val == "" || anaphoricSlotValue(val) || looksCodedSlotValue(val) || utf8Len(val) > 60 || looksThinFoodObject(val) {
 			return
 		}
 		key := strings.ToLower(val)
@@ -1542,7 +1574,8 @@ func recoverFoodSetSlots(person string, listed []MemoryRecord, query string) []r
 		if content == "" || strings.HasPrefix(content, "[") {
 			continue
 		}
-		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) {
+		if !strings.EqualFold(entitySubjectOf(rec), person) && !queryHasToken(content, person) &&
+			!strings.HasPrefix(strings.ToLower(content), strings.ToLower(person)+":") {
 			continue
 		}
 		cueOK := (wantSuggest && itemHasSuggestionCue(content)) || (wantMeal && itemHasMealCue(content))
@@ -1551,19 +1584,16 @@ func recoverFoodSetSlots(person string, listed []MemoryRecord, query string) []r
 		}
 		for _, v := range foodObjectsFromContent(content) {
 			add(recoveredSlot{value: v, content: content, memID: rec.MemoryID})
-			if len(out) >= 6 {
-				return out
-			}
 		}
 		if len(foodObjectsFromContent(content)) > 0 {
 			continue
 		}
-		if vn := recordValueNorm(rec); vn != "" && !looksCodedSlotValue(vn) && !strings.Contains(vn, ",") {
+		if vn := recordValueNorm(rec); vn != "" && !looksCodedSlotValue(vn) && !strings.Contains(vn, ",") && !looksThinFoodObject(vn) {
 			add(recoveredSlot{value: vn, content: content, memID: rec.MemoryID})
-			if len(out) >= 6 {
-				return out
-			}
 		}
+	}
+	if len(out) > 6 {
+		out = out[:6]
 	}
 	return out
 }
