@@ -758,6 +758,44 @@ func TestSearchAdmitsRareQueryToken(t *testing.T) {
 	}
 }
 
+func TestUncoveredQueryTokensNamedPersonIgnoresFirstPersonEventCover(t *testing.T) {
+	q := "When did Caroline go biking with friends?"
+	cands := map[string]MemoryRecord{
+		"fp":    {MemoryID: "fp", Content: "I had a wicked day out with the gang last weekend - we went biking"},
+		"lgbtq": {MemoryID: "lgbtq", Content: "Caroline painted her artwork to capture the unity of the LGBTQ community"},
+	}
+	got := uncoveredQueryTokensInCandidates(q, cands, tokenize(q))
+	hasBiking := false
+	for _, tok := range got {
+		if tok == "biking" {
+			hasBiking = true
+		}
+	}
+	if !hasBiking {
+		t.Fatalf("biking must stay uncovered when only first-person leftover has it, got %v", got)
+	}
+	cands["compiled"] = MemoryRecord{
+		MemoryID: "compiled",
+		Content:  "Caroline went biking with the gang last weekend on 2023-09-09.",
+	}
+	got2 := uncoveredQueryTokensInCandidates(q, cands, tokenize(q))
+	for _, tok := range got2 {
+		if tok == "biking" {
+			t.Fatalf("named compiled fact must cover biking, got %v", got2)
+		}
+	}
+	anon := "When did I go biking last weekend?"
+	anonCands := map[string]MemoryRecord{
+		"fp": {MemoryID: "fp", Content: "I had a wicked day out with the gang last weekend - we went biking"},
+	}
+	for _, tok := range uncoveredQueryTokensInCandidates(anon, anonCands, tokenize(anon)) {
+		if tok == "biking" {
+			t.Fatalf("unnamed query must still treat first-person biking as coverage, got %v",
+				uncoveredQueryTokensInCandidates(anon, anonCands, tokenize(anon)))
+		}
+	}
+}
+
 func TestSearchWhenEventDropsDecideFlood(t *testing.T) {
 	store := newMemoryStoreStub()
 	svc := NewService(store)

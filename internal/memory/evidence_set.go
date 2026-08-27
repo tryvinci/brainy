@@ -220,15 +220,36 @@ func candidatesCoverQueryToken(candidates map[string]MemoryRecord, token string)
 	return false
 }
 
-func uncoveredQueryTokensInCandidates(candidates map[string]MemoryRecord, queryTokens []string) []string {
+func uncoveredQueryTokensInCandidates(query string, candidates map[string]MemoryRecord, queryTokens []string) []string {
 	toks := distinctiveQueryTokens(queryTokens)
 	out := make([]string, 0, len(toks))
 	for _, tok := range toks {
-		if !candidatesCoverQueryToken(candidates, tok) {
-			out = append(out, tok)
+		if candidatesCoverQueryTokenNamed(query, candidates, tok) {
+			continue
 		}
+		out = append(out, tok)
 	}
 	return out
+}
+
+// candidatesCoverQueryTokenNamed is true when some candidate both contains
+// token and names a query person. A first-person leftover that only has the
+// event token must not count as coverage for a named-person when-event, or
+// compiled "Name went X" facts never enter the pool.
+func candidatesCoverQueryTokenNamed(query string, candidates map[string]MemoryRecord, token string) bool {
+	ents := hopQueryEntities(query)
+	if len(ents) == 0 {
+		return candidatesCoverQueryToken(candidates, token)
+	}
+	for _, rec := range candidates {
+		if leftoverCoveringQueryEntityHits(query, rec.Content) == 0 {
+			continue
+		}
+		if contentCoversQueryToken(rec.Content, token) {
+			return true
+		}
+	}
+	return false
 }
 
 func coverQueryTokensThenCap(ranked []rankedSearchResult, limit int, queryTokens []string) []rankedSearchResult {

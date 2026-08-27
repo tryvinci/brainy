@@ -650,7 +650,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	// Rare query tokens (filling, gym, series) lose the lexical pool when FTS
 	// ANDs every term or ILIKE is recency-capped on common names. Admit a
 	// bounded per-token hit set so compiled facts can rank.
-	trace.QueryTokenAdmitted = s.admitUncoveredQueryTokens(ctx, tenantID, subjectID, includeSuperseded, candidates, admitToks)
+	trace.QueryTokenAdmitted = s.admitUncoveredQueryTokens(ctx, tenantID, subjectID, includeSuperseded, candidates, admitToks, query)
 
 	// Host leftover covering needs the hosted-event line in the packet. FTS
 	// overfetch often never includes that session; realize/photograph enter
@@ -1497,11 +1497,11 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	return SearchResponse{Results: results, Trace: trace}, nil
 }
 
-func (s *Service) admitUncoveredQueryTokens(ctx context.Context, tenantID, subjectID string, includeSuperseded bool, candidates map[string]MemoryRecord, queryTokens []string) int {
+func (s *Service) admitUncoveredQueryTokens(ctx context.Context, tenantID, subjectID string, includeSuperseded bool, candidates map[string]MemoryRecord, queryTokens []string, query string) int {
 	if s == nil || s.store == nil || candidates == nil {
 		return 0
 	}
-	uncovered := uncoveredQueryTokensInCandidates(candidates, queryTokens)
+	uncovered := uncoveredQueryTokensInCandidates(query, candidates, queryTokens)
 	if len(uncovered) == 0 {
 		return 0
 	}
