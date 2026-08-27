@@ -5573,6 +5573,38 @@ func TestLeftoverCoveringFindObjectSkipsAttendRestatement(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringFindObjectKeepsAttendWhenFreeingMissesLocative(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Had a blast biking nearby with my neighbor last week - was so freeing and beautiful (2 April 2023; the week before 9 April 2023)"},
+			{Content: "Alex attended a music festival with her friends and had a great time."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What did Alex find freeing at the music festival?", hops, pkt)
+	lower := strings.ToLower(got)
+	if strings.Contains(lower, "biking") {
+		t.Fatalf("unnamed off-locative freeing leftover must not cover, got %q", got)
+	}
+	if got != "" && !strings.Contains(lower, "festival") {
+		t.Fatalf("named festival covering may stay when no locative freeing line exists, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringRelativeAnchorReplacesCompiledWeekendOf(t *testing.T) {
+	q := "When is Joanna going to make Nate's ice cream for her family?"
+	cover := "I'm going to make it for my family this weekend - can't wait (25 June 2022; the weekend before 24 June 2022)"
+	hybrid := "Joanna will make Nate's ice cream for her family on the weekend of 25 June 2022."
+	if !leftoverCoveringRelativeAnchorBeatsWeekendOf(q, cover, hybrid) {
+		t.Fatal("relative weekend-before leftover must replace compiled weekend-of hybrid")
+	}
+	if leftoverCoveringRelativeAnchorBeatsWeekendOf(q, hybrid, cover) {
+		t.Fatal("compiled weekend-of must not replace a relative-before leftover")
+	}
+}
+
 func TestLeftoverCoveringSpecificAnswerKeepsWeekendPlanNotSpeakerChat(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},

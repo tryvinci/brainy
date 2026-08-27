@@ -791,6 +791,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				if !useCovering && !typedJoin && leftoverCoveringYearMissesEvent(req.Query, covering, cur) {
 					useCovering = true
 				}
+				if !useCovering && !typedJoin && leftoverCoveringRelativeAnchorBeatsWeekendOf(req.Query, covering, cur) {
+					useCovering = true
+				}
 				if !useCovering && !typedJoin && leftoverCoveringPurposeMissesInstrument(req.Query, covering, cur) {
 					useCovering = true
 				}
@@ -6065,6 +6068,24 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	best := ""
 	bestScore := 0
 	strong := leftoverCoverStrongTokens(rare)
+	findObjs := leftoverCoveringQueryFindObjects(query)
+	locNouns := leftoverCoveringQueryLocativeNouns(query)
+	packetHasFind := false
+	if len(findObjs) > 0 {
+		for _, cand := range lines {
+			if leftoverSkipLine(query, cand, speakerCover) {
+				continue
+			}
+			if !contentCoversAnyQueryToken(cand, findObjs) {
+				continue
+			}
+			if len(locNouns) > 0 && !contentCoversAnyQueryToken(cand, locNouns) {
+				continue
+			}
+			packetHasFind = true
+			break
+		}
+	}
 	scored := make([]leftoverCoverScored, 0, 8)
 	for _, line := range lines {
 		if leftoverSkipLine(query, line, speakerCover) {
@@ -6082,7 +6103,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringMissesQueryKinship(query, line) {
 			continue
 		}
-		if leftoverCoveringMissesFindObject(query, line) {
+		if packetHasFind && leftoverCoveringMissesFindObject(query, line) {
 			continue
 		}
 		if leftoverCoveringHowFeelWhenMissesAffect(query, line) {
@@ -6874,6 +6895,9 @@ func leftoverCoveringMayReplaceHybrid(query string, hops []HopResult, covering, 
 	if leftoverCoveringYearMissesEvent(query, covering, answer) {
 		return true
 	}
+	if leftoverCoveringRelativeAnchorBeatsWeekendOf(query, covering, answer) {
+		return true
+	}
 	if leftoverCoveringPurposeMissesInstrument(query, covering, answer) {
 		return true
 	}
@@ -7336,6 +7360,18 @@ func leftoverCoveringPreferRelativeAnchor(scored []leftoverCoverScored, best str
 		return ""
 	}
 	return pick
+}
+
+func leftoverCoveringRelativeAnchorBeatsWeekendOf(query, covering, answer string) bool {
+	if !looksWhenEventQuery(query) {
+		return false
+	}
+	covering = strings.TrimSpace(covering)
+	answer = leftoverCoveringAnswerHead(answer)
+	if covering == "" || leftoverCoveringHasRelativeAnchor(answer) {
+		return false
+	}
+	return leftoverCoveringHasRelativeAnchor(covering) && leftoverCoveringIsBareWeekendOf(answer)
 }
 
 func leftoverCoveringQueryActivityGerunds(query string) []string {
