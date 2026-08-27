@@ -193,11 +193,55 @@ func TestMalformedCompilerFactDetector(t *testing.T) {
 		"Alex is from Canada",
 		"The launch date is June 3.",
 		"Alex participates in pottery (14 July 2023; the Friday before 15 July 2023)",
+		"John attended a convention with his colleagues",
+		"Riley attended a meditation retreat in Phuket with Casey",
 	}
 	for _, c := range good {
 		if malformedCompilerFact(c) {
 			t.Fatalf("expected well-formed: %q", c)
 		}
+	}
+}
+
+func TestSingleTokenAttendedEchoPenalty(t *testing.T) {
+	echoes := []string{
+		"Melanie attended setback",
+		"John attended community (16 January 2023; the week before 9 January 2023)",
+		"John attended community (16 January 2023; the week before 9 January 2023) (2 January 2023)",
+		"John attended crazy",
+	}
+	for _, c := range echoes {
+		if malformedCompilerFact(c) {
+			t.Fatalf("write path must still persist event atoms: %q", c)
+		}
+		if !singleTokenAttendedEcho(c) {
+			t.Fatalf("expected ranking echo: %q", c)
+		}
+		if malformedCompilerFactPenalty(c) != -0.85 {
+			t.Fatalf("expected ranking penalty for %q, got %v", c, malformedCompilerFactPenalty(c))
+		}
+	}
+	keep := []string{
+		"John attended a convention with his colleagues",
+		"Riley attended a meditation retreat in Phuket with Casey",
+	}
+	for _, c := range keep {
+		if singleTokenAttendedEcho(c) {
+			t.Fatalf("phrase event must not be an echo: %q", c)
+		}
+		if malformedCompilerFact(c) {
+			t.Fatalf("expected well-formed: %q", c)
+		}
+		if malformedCompilerFactPenalty(c) != 0 {
+			t.Fatalf("phrase event must keep ranking: %q", c)
+		}
+	}
+	speech := "Sam attended speech (2 June 2023; the week before 9 June 2023)"
+	if malformedCompilerFact(speech) {
+		t.Fatal("write path must still persist attended speech")
+	}
+	if !singleTokenAttendedEcho(speech) {
+		t.Fatal("single-token attended speech is an echo for ranking")
 	}
 }
 

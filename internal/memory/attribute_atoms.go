@@ -1176,6 +1176,31 @@ func malformedCompilerFact(content string) bool {
 	return false
 }
 
+// singleTokenAttendedEcho reports "Name attended <one-word>" compiler echoes
+// ("attended setback"). Real events keep an article or a place/event phrase
+// ("attended a convention", "attended a meditation retreat in Phuket").
+// Ranking-only: the compiler still persists "attended speech" event atoms
+// that carry session-relative stamps, so this must not gate write.
+func singleTokenAttendedEcho(content string) bool {
+	c := strings.ToLower(stripTrailingStamp(content))
+	if c == "" {
+		return false
+	}
+	for {
+		next := stripTrailingStamp(c)
+		if next == c {
+			break
+		}
+		c = next
+	}
+	i := strings.Index(c, " attended ")
+	if i < 0 {
+		return false
+	}
+	val := strings.Trim(strings.TrimSpace(c[i+len(" attended "):]), `."'`)
+	return val == "" || !strings.Contains(val, " ")
+}
+
 func looksLikeWorkTitle(title string) bool {
 	words := strings.Fields(title)
 	if len(words) == 0 || len(words) > 8 {

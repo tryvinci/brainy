@@ -1362,6 +1362,15 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 				explain["embedding_similarity"] = embedScore
 			}
 		}
+		// Fusion v2 rescales with Max(score, 1.0), which wipes penalties
+		// applied inside scoreMemoryIDF. Re-apply the one-word attended
+		// echo penalty after fusion so those atoms cannot ride exact FTS.
+		if fusionV2 && singleTokenAttendedEcho(record.Content) {
+			if penalty := malformedCompilerFactPenalty(record.Content); penalty != 0 {
+				score += penalty
+				explain["malformed_compiler_fact_penalty"] = penalty
+			}
+		}
 		if s.entityRankingEnabled {
 			if bonus := entityOverlapBoost(distinctiveQueryEntities, recordEntities(record)); bonus > 0 {
 				score += bonus
@@ -6084,7 +6093,7 @@ func attributeAtomBoost(record MemoryRecord) float64 {
 }
 
 func malformedCompilerFactPenalty(content string) float64 {
-	if malformedCompilerFact(content) {
+	if malformedCompilerFact(content) || singleTokenAttendedEcho(content) {
 		return -0.85
 	}
 	return 0
