@@ -2110,13 +2110,14 @@ func (s *Service) titledWorkAnswerFromHops(ctx context.Context, req RecallReques
 	if person == "" {
 		return ""
 	}
+	class := favoriteWorkQueryClass(req.Query)
 	bestTitle := ""
 	bestScore := 0
 	consider := func(content string, rec MemoryRecord, hopEntity string) {
 		if !languageFactBoundToPerson(person, content, rec, hopEntity) {
 			return
 		}
-		title, score := favoriteWorkTitleFromText(content)
+		title, score := favoriteWorkTitleFromText(content, class)
 		if title == "" || score < 4 {
 			return
 		}
@@ -2155,7 +2156,24 @@ func (s *Service) titledWorkAnswerFromHops(ctx context.Context, req RecallReques
 	return bestTitle
 }
 
-func favoriteWorkTitleFromText(text string) (string, int) {
+func favoriteWorkQueryClass(query string) []string {
+	var out []string
+	if queryHasToken(query, "book", "books") {
+		out = append(out, "book", "books")
+	}
+	if queryHasToken(query, "game", "games") {
+		out = append(out, "game", "games", "play", "played", "playing")
+	}
+	if queryHasToken(query, "show", "series") {
+		out = append(out, "show", "series")
+	}
+	if queryHasToken(query, "movie", "movies") {
+		out = append(out, "movie", "movies")
+	}
+	return out
+}
+
+func favoriteWorkTitleFromText(text string, class []string) (string, int) {
 	body := hybridLineBody(text)
 	if looksInterrogativeLine(body) || looksImageCaptionLine(body) {
 		return "", 0
@@ -2165,11 +2183,17 @@ func favoriteWorkTitleFromText(text string) (string, int) {
 	if !hasFav {
 		return "", 0
 	}
+	if len(class) > 0 && !queryHasToken(body, class...) {
+		return "", 0
+	}
 	hasWork := queryHasToken(body, "game", "games", "book", "books", "show", "series",
 		"movie", "movies", "play", "played", "playing")
+	if len(class) > 0 {
+		hasWork = queryHasToken(body, class...)
+	}
 	oneOf := strings.Contains(lower, "one of my favorite") || strings.Contains(lower, "one of my favourite")
 	titles := leftoverCoveringQuotedTitles(body)
-	if len(titles) > 0 && (hasWork || oneOf) {
+	if len(titles) > 0 && (hasWork || (oneOf && len(class) == 0)) {
 		t := strings.TrimSpace(titles[0])
 		if looksLikeWorkTitle(t) {
 			score := 4
@@ -6035,10 +6059,8 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	best := ""
 	bestScore := 0
-	bestHits := 0
 	strong := leftoverCoverStrongTokens(rare)
 	scored := make([]leftoverCoverScored, 0, 8)
-	rankHitsFirst := looksWhenEventQuery(query) || looksYearQuery(query)
 	for _, line := range lines {
 		if leftoverSkipLine(query, line, speakerCover) {
 			continue
@@ -6285,13 +6307,8 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 				score -= 3
 			}
 		}
-		scored = append(scored, leftoverCoverScored{line: line, score: score, hits: hits})
-		better := score > bestScore
-		if rankHitsFirst {
-			better = hits > bestHits || (hits == bestHits && score > bestScore)
-		}
-		if better {
-			bestHits = hits
+		scored = append(scored, leftoverCoverScored{line: line, score: score})
+		if score > bestScore {
 			bestScore = score
 			best = line
 		}
@@ -6302,9 +6319,6 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if rarest := leftoverCoverRarestTokens(strong, df); len(rarest) > 0 && !contentCoversAnyQueryToken(best, rarest) {
 		for _, row := range scored {
 			if row.score < 2 || looksChatTurnLine(row.line) {
-				continue
-			}
-			if rankHitsFirst && row.hits < bestHits {
 				continue
 			}
 			if contentCoversAnyQueryToken(row.line, rarest) {
@@ -6611,24 +6625,6 @@ func leftoverCoverRarestTokens(strong []string, df map[string]int) []string {
 type leftoverCoverScored struct {
 	line  string
 	score int
-	hits  int
-}
-
-func leftoverCoverTokenHits(line string, toks []string) int {
-	n := 0
-	for _, tok := range toks {
-		if contentCoversQueryToken(line, tok) {
-			n++
-		}
-	}
-	return n
-}
-
-func leftoverCoveringBareDateNeedHits(strong []string) int {
-	if len(strong) < 2 {
-		return 1
-	}
-	return 2
 }
 
 func leftoverCoveringSchemaActivityLine(line string) bool {
@@ -7110,7 +7106,7 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 	if contentCoversAnyQueryToken(answer, strong) {
 		return false
 	}
-	return leftoverCoverTokenHits(covering, strong) >= leftoverCoveringBareDateNeedHits(strong)
+	return contentCoversAnyQueryToken(covering, strong)
 }
 
 // leftoverCoveringRequiresQueryEntity is true for when-event questions that
@@ -11196,9 +11192,6 @@ func leftoverThinMissAnswer(query string, hops []HopResult, answer string) bool 
 		return false
 	}
 	if leftoverQueryEchoAnswer(query, answer) || leftoverShortItemJoin(answer) {
-		return false
-	}
-	if (looksWhenEventQuery(query) || looksYearQuery(query)) && parseDateFromText(answer) != nil {
 		return false
 	}
 	if answer == "" || strings.EqualFold(answer, "not in memory") {

@@ -1317,6 +1317,29 @@ func TestRecallFavoriteWorkRanksQuotedTitleOverPark(t *testing.T) {
 	if strings.Contains(got, "park") || strings.Contains(got, "stardew") {
 		t.Fatalf("must not steal park covering or other-person title: %q", out.Answer)
 	}
+	store.records["j-sap"] = MemoryRecord{
+		MemoryID: "mem_jsap", TenantID: "t-fav", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene's favorite book is \"Sapiens\".",
+		DedupeKey: "jsap", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "Sapiens", "subject": "Jolene"},
+		Explain:  map[string]any{"predicate": PredicatePreference, "value_norm": "Sapiens", "subject": "Jolene"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicatePreference, val: "Sapiens", memID: "mem_jsap"})
+	book, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-fav", SubjectID: "u1",
+		Query: "What is Jolene's favorite book which she mentioned on 4 February, 2023?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotBook := strings.ToLower(strings.TrimSpace(book.Answer))
+	if !strings.Contains(gotBook, "sapiens") {
+		t.Fatalf("favorite book must stay Sapiens, answer=%q", book.Answer)
+	}
+	if strings.Contains(gotBook, "monster hunter") {
+		t.Fatalf("game title must not steal a favorite-book query: %q", book.Answer)
+	}
 }
 
 func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
@@ -5712,43 +5735,6 @@ func TestLeftoverCoveringReplacesBareDateMissingEvent(t *testing.T) {
 	ginaQ := "When did Gina interview for a design internship?"
 	if leftoverCoveringBareDateMissesEvent(ginaQ, hops, "Gina launched an ad campaign on 20 June 2023.", "10 May 2023") {
 		t.Fatal("unrelated dated leftover covering must not beat a matching internship date")
-	}
-	nateHops := []HopResult{
-		{Kind: "resolve_entity", Entity: "Nate", Value: "Nate", Source: "search_fallback"},
-	}
-	qParty := "When is Nate hosting a gaming party?"
-	tournament := "Nate won his second gaming tournament on 30 April 2022."
-	party := "Nate is organizing a gaming party on the weekend of 11 June 2022."
-	if leftoverCoveringBareDateMissesEvent(qParty, nateHops, tournament, "11 June 2022") {
-		t.Fatal("single leftover-token tournament must not steal a focused party date")
-	}
-	if leftoverThinMissAnswer(qParty, nateHops, "11 June 2022") {
-		t.Fatal("a parseable when-event date is not a thin miss")
-	}
-	if !leftoverCoveringBareDateMissesEvent(qParty, nateHops, party, "11 June 2022") {
-		t.Fatal("party covering that hits gaming+party may replace a bare date")
-	}
-}
-
-func TestLeftoverCoveringWhenEventPrefersMoreQueryTokens(t *testing.T) {
-	hops := []HopResult{
-		{Kind: "resolve_entity", Entity: "Nate", Value: "Nate", Source: "search_fallback"},
-	}
-	pkt := EvidencePacket{
-		ContextEvidence: []PacketItem{
-			{Content: "Nate won his second gaming tournament on 30 April 2022."},
-			{Content: "Nate is organizing a gaming party on the weekend of 11 June 2022."},
-			{Content: "Nate loves having turtles."},
-		},
-	}
-	q := "When is Nate hosting a gaming party?"
-	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
-	lower := strings.ToLower(got)
-	if !strings.Contains(lower, "party") || !strings.Contains(got, "11 June") {
-		t.Fatalf("when-event leftover covering must pick the party date over a gaming tournament, got %q", got)
-	}
-	if strings.Contains(lower, "tournament") || strings.Contains(got, "30 April") {
-		t.Fatalf("fewer leftover-token tournament must not win hosting+gaming+party, got %q", got)
 	}
 }
 
