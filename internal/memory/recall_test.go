@@ -5778,6 +5778,28 @@ func TestLeftoverCoveringWhenEventPrefersNamedPersonOverFirstPerson(t *testing.T
 	}
 }
 
+func TestLeftoverCoveringWhenEventPrefersWentOverParticipatesAndFriends(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Caroline", Value: "Caroline", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Caroline met up with friends and family on 2023-06-02."},
+			{Content: "Caroline participates in biking (6 September 2023; the week before 13 September 2023)"},
+			{Content: "Caroline went biking with the gang last weekend on 2023-09-09. (6 September 2023; the week before 13 September 2023)"},
+			{Content: "I had a wicked day out with the gang last weekend - we went biking and saw some pretty cool stuff (6 September 2023; the week before 13 September 2023)"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("When did Caroline go biking with friends?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "went biking") || !strings.Contains(got, "2023-09-09") {
+		t.Fatalf("when-event covering must pick the dated went-biking fact, got %q", got)
+	}
+	if strings.Contains(lower, "participates") || strings.Contains(lower, "met up") || strings.HasPrefix(lower, "i had") {
+		t.Fatalf("participates/friends-meetup/first-person must not cover went-biking, got %q", got)
+	}
+}
+
 func TestLeftoverCoveringWhenEventPrefersYearEventOverBareHopDate(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "John", Value: "John", Source: "search_fallback"},

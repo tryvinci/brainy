@@ -6068,6 +6068,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringSkipForeignWhenEvent(query, line) {
 			continue
 		}
+		if leftoverCoveringWhenEventMissingActivityGerund(query, line) {
+			continue
+		}
 		if looksInstrumentPurposeQuery(query) && leftoverCoveringInstrumentPossessLine(line) &&
 			!leftoverCoveringInstrumentPurposeLine(line) {
 			continue
@@ -6133,6 +6136,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			}
 		} else if leftoverCoveringQueryEntityHits(query, line) >= 2 {
 			score += 2
+		}
+		if looksWhenEventQuery(query) && leftoverCoveringSchemaActivityLine(line) {
+			score -= 3
 		}
 		if looksInstrumentPurposeQuery(query) && leftoverCoveringInstrumentPurposeLine(line) {
 			score += 3
@@ -7118,6 +7124,31 @@ func leftoverCoveringBareDateMissesEvent(query string, hops []HopResult, coverin
 func leftoverCoveringRequiresQueryEntity(query string) bool {
 	return (looksWhenEventQuery(query) || looksYearQuery(query) || looksInstrumentPurposeQuery(query)) &&
 		len(hopQueryEntities(query)) > 0
+}
+
+// leftoverCoveringWhenEventMissingActivityGerund drops when-event covering
+// that misses the query's activity gerund (biking). A friends-meetup dated
+// line must not cover "when did X go biking with friends".
+func leftoverCoveringWhenEventMissingActivityGerund(query, line string) bool {
+	if !looksWhenEventQuery(query) {
+		return false
+	}
+	ings := leftoverCoveringQueryActivityGerunds(query)
+	if len(ings) == 0 {
+		return false
+	}
+	return !contentCoversAnyQueryToken(line, ings)
+}
+
+func leftoverCoveringQueryActivityGerunds(query string) []string {
+	out := make([]string, 0, 1)
+	for _, tok := range distinctiveQueryTokens(tokenize(query)) {
+		if len(tok) < 5 || !strings.HasSuffix(tok, "ing") {
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
 }
 
 func leftoverCoveringLineYear(s string) int {
