@@ -1147,6 +1147,9 @@ func malformedCompilerFact(content string) bool {
 	if c == "" {
 		return true
 	}
+	if malformedIndefiniteLightVerbSubject(c) {
+		return true
+	}
 	if i := strings.Index(c, " participates in "); i >= 0 {
 		val := strings.Trim(strings.TrimSpace(c[i+len(" participates in "):]), `."'`)
 		if val == "" {
@@ -1198,6 +1201,18 @@ func malformedCompilerFact(content string) bool {
 	if utf8.RuneCountInString(last) == 1 {
 		r, _ := utf8.DecodeRuneInString(last)
 		if r >= 'a' && r <= 'z' {
+			return true
+		}
+	}
+	return false
+}
+
+// malformedIndefiniteLightVerbSubject is an extractor template whose subject
+// never resolved (Anything/Something has done X at Y). Those lines are not
+// durable facts and must not be admitted or used as leftover covering.
+func malformedIndefiniteLightVerbSubject(c string) bool {
+	for _, p := range []string{"anything", "something", "someone", "everyone", "everybody", "nobody"} {
+		if strings.HasPrefix(c, p+" has done ") || strings.HasPrefix(c, p+" participates in ") {
 			return true
 		}
 	}

@@ -1515,6 +1515,9 @@ func (s *Service) admitUncoveredQueryTokens(ctx context.Context, tenantID, subje
 			continue
 		}
 		for _, rec := range hits {
+			if malformedCompilerFact(rec.Content) {
+				continue
+			}
 			if !contentCoversQueryToken(rec.Content, tok) {
 				continue
 			}

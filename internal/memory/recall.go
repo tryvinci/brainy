@@ -6071,6 +6071,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringWhenEventMissingActivityGerund(query, line) {
 			continue
 		}
+		if malformedIndefiniteLightVerbSubject(strings.ToLower(stripTrailingStamp(line))) {
+			continue
+		}
 		if looksInstrumentPurposeQuery(query) && leftoverCoveringInstrumentPossessLine(line) &&
 			!leftoverCoveringInstrumentPurposeLine(line) {
 			continue

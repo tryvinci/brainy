@@ -5433,6 +5433,22 @@ func TestLeftoverCoveringSpecificAnswerKeepsLastWeekSessionNews(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringSkipsMalformedHasDone(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Maria", Value: "Maria", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Maria: Hey John, great news - I'm now friends with one of my fellow volunteers"},
+			{Content: "Anything has done exciting at Horizon"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What exciting news did Maria share on 16 June, 2023?", hops, pkt)
+	if strings.Contains(strings.ToLower(got), "horizon") {
+		t.Fatalf("malformed empty-subject has-done must not cover, got %q", got)
+	}
+}
+
 func TestLeftoverCoveringSpecificAnswerKeepsWeekendPlanNotSpeakerChat(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},

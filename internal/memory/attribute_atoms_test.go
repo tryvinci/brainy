@@ -180,6 +180,7 @@ func TestMalformedCompilerFactDetector(t *testing.T) {
 		"Melanie participates in runn",
 		"Caroline mentioned \"ve got lots of kids\"",
 		"Melanie has done taking at kids in need - you",
+		"Anything has done exciting at Horizon",
 	}
 	for _, c := range bad {
 		if !malformedCompilerFact(c) {

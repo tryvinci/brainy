@@ -794,6 +794,25 @@ func TestUncoveredQueryTokensNamedPersonIgnoresFirstPersonEventCover(t *testing.
 				uncoveredQueryTokensInCandidates(anon, anonCands, tokenize(anon)))
 		}
 	}
+	newsQ := "What exciting news did Maria share on 16 June, 2023?"
+	newsCands := map[string]MemoryRecord{
+		"gym": {MemoryID: "gym", Content: "I got some great news to share - I joined a gym last week (9 June 2023)"},
+	}
+	gotNews := uncoveredQueryTokensInCandidates(newsQ, newsCands, tokenize(newsQ))
+	for _, tok := range gotNews {
+		if tok == "news" || tok == "june" || tok == "share" {
+			t.Fatalf("first-person leftover must not extra-uncover tokens it already covers, got %v", gotNews)
+		}
+	}
+	hasExciting := false
+	for _, tok := range gotNews {
+		if tok == "exciting" {
+			hasExciting = true
+		}
+	}
+	if !hasExciting {
+		t.Fatalf("exciting with no candidate coverage must stay base-uncovered, got %v", gotNews)
+	}
 }
 
 func TestSearchWhenEventDropsDecideFlood(t *testing.T) {

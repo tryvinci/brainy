@@ -222,12 +222,37 @@ func candidatesCoverQueryToken(candidates map[string]MemoryRecord, token string)
 
 func uncoveredQueryTokensInCandidates(query string, candidates map[string]MemoryRecord, queryTokens []string) []string {
 	toks := distinctiveQueryTokens(queryTokens)
-	out := make([]string, 0, len(toks))
+	base := make([]string, 0, len(toks))
 	for _, tok := range toks {
-		if candidatesCoverQueryTokenNamed(query, candidates, tok) {
-			continue
+		if !candidatesCoverQueryToken(candidates, tok) {
+			base = append(base, tok)
 		}
+	}
+	ents := hopQueryEntities(query)
+	if len(ents) == 0 || !looksWhenEventQuery(query) {
+		return base
+	}
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(toks))
+	add := func(tok string) {
+		if _, ok := seen[tok]; ok {
+			return
+		}
+		seen[tok] = struct{}{}
 		out = append(out, tok)
+	}
+	for _, tok := range base {
+		add(tok)
+	}
+	// When-event only: a first-person leftover that has the activity token
+	// ("we went biking") must not block admitting the named compiled fact
+	// ("Alex went biking"). What-news leftover already covering
+	// news/share/june stays covered so ILIKE admit cannot pull empty-subject
+	// compiler junk.
+	for _, tok := range toks {
+		if candidatesCoverQueryToken(candidates, tok) && !candidatesCoverQueryTokenNamed(query, candidates, tok) {
+			add(tok)
+		}
 	}
 	return out
 }
