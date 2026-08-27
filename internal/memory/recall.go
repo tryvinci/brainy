@@ -5898,6 +5898,11 @@ func leftoverCoveringRareForQuery(query string, hops []HopResult) []string {
 		}
 		rare = filtered
 	}
+	rare = leftoverCoverAddTokens(rare, leftoverCoveringQueryKinshipNouns(query)...)
+	rare = leftoverCoverAddTokens(rare, leftoverCoveringQueryFindObjects(query)...)
+	if leftoverCoveringAsksHowFeelWhen(query) {
+		rare = leftoverCoverAddTokens(rare, "feel", "felt", "feeling", "feels")
+	}
 	if len(leftoverCoverNonWeakTokens(rare)) > 0 {
 		return rare
 	}
@@ -6072,6 +6077,15 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			continue
 		}
 		if leftoverCoveringUnnamedMissesLocativeNoun(query, line) {
+			continue
+		}
+		if leftoverCoveringMissesQueryKinship(query, line) {
+			continue
+		}
+		if leftoverCoveringMissesFindObject(query, line) {
+			continue
+		}
+		if leftoverCoveringHowFeelWhenMissesAffect(query, line) {
 			continue
 		}
 		if malformedIndefiniteLightVerbSubject(strings.ToLower(stripTrailingStamp(line))) {
@@ -6565,6 +6579,11 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			// names a self-directed object, not an others-directed support leftover.
 		} else {
 			return ""
+		}
+	}
+	if looksWhenEventQuery(query) {
+		if next := leftoverCoveringPreferRelativeAnchor(scored, best); next != "" {
+			best = next
 		}
 	}
 	if leftoverCoveringShouldJoin(query) {
@@ -7184,6 +7203,139 @@ func leftoverCoveringQueryLocativeNouns(query string) []string {
 		}
 	}
 	return nil
+}
+
+// leftoverCoveringQueryKinshipNouns returns a with-PP kinship role already in
+// the query (with her dad). Possessive "and her partner" / "her husband" stay
+// out so dated-plan and duration covering still compete.
+func leftoverCoveringQueryKinshipNouns(query string) []string {
+	q := " " + strings.ToLower(query) + " "
+	out := make([]string, 0, 1)
+	seen := map[string]struct{}{}
+	for _, role := range kinshipRoles {
+		for _, p := range []string{
+			" with her " + role, " with his " + role, " with my " + role,
+			" with their " + role, " with the " + role, " with a " + role,
+			" with " + role,
+		} {
+			if !strings.Contains(q, p) {
+				continue
+			}
+			if _, ok := seen[role]; ok {
+				continue
+			}
+			seen[role] = struct{}{}
+			out = append(out, role)
+		}
+	}
+	return out
+}
+
+func leftoverCoveringMissesQueryKinship(query, line string) bool {
+	nouns := leftoverCoveringQueryKinshipNouns(query)
+	if len(nouns) == 0 || contentCoversAnyQueryToken(line, nouns) {
+		return false
+	}
+	return leftoverCoveringLineHasForeignPerson(query, line)
+}
+
+// leftoverCoveringQueryFindObjects is the distinctive object of find/found
+// ("find freeing at …"). Attend/visit restatements that miss it must not cover.
+func leftoverCoveringQueryFindObjects(query string) []string {
+	toks := tokenize(query)
+	out := make([]string, 0, 1)
+	for i, tok := range toks {
+		switch tok {
+		case "find", "found", "finding", "finds":
+		default:
+			continue
+		}
+		if i+1 >= len(toks) {
+			continue
+		}
+		next := toks[i+1]
+		if len(next) < 5 || leftoverCoverWeakToken(next) {
+			continue
+		}
+		switch next {
+		case "at", "in", "on", "to", "for", "from", "with", "about", "out",
+			"that", "this", "the", "them", "him", "her", "his", "our", "their":
+			continue
+		}
+		out = append(out, next)
+	}
+	return out
+}
+
+func leftoverCoveringMissesFindObject(query, line string) bool {
+	objs := leftoverCoveringQueryFindObjects(query)
+	if len(objs) == 0 {
+		return false
+	}
+	return !contentCoversAnyQueryToken(line, objs)
+}
+
+func leftoverCoveringAsksHowFeelWhen(query string) bool {
+	q := strings.ToLower(query)
+	if !strings.Contains(q, "how ") || !strings.Contains(q, " when ") {
+		return false
+	}
+	for _, tok := range tokenize(query) {
+		switch tok {
+		case "feel", "felt", "feeling", "feels":
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringHowFeelWhenMissesAffect(query, line string) bool {
+	if !leftoverCoveringAsksHowFeelWhen(query) {
+		return false
+	}
+	return !contentCoversAnyQueryToken(line, []string{"feel", "felt", "feeling", "feels"})
+}
+
+func leftoverCoveringHasRelativeAnchor(line string) bool {
+	low := " " + strings.ToLower(strings.TrimSpace(line)) + " "
+	for _, p := range []string{
+		" weekend before ", " week before ", " day before ",
+		" weekend after ", " week after ", " day after ",
+	} {
+		if strings.Contains(low, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func leftoverCoveringIsBareWeekendOf(line string) bool {
+	if leftoverCoveringHasRelativeAnchor(line) {
+		return false
+	}
+	low := strings.ToLower(line)
+	return strings.Contains(low, "weekend of ") || strings.Contains(low, "on the weekend")
+}
+
+func leftoverCoveringPreferRelativeAnchor(scored []leftoverCoverScored, best string) string {
+	if leftoverCoveringHasRelativeAnchor(best) || !leftoverCoveringIsBareWeekendOf(best) {
+		return ""
+	}
+	pick := ""
+	pickScore := -1
+	for _, row := range scored {
+		if row.score < 2 || !leftoverCoveringHasRelativeAnchor(row.line) {
+			continue
+		}
+		if row.score > pickScore {
+			pickScore = row.score
+			pick = row.line
+		}
+	}
+	if pick == "" || strings.EqualFold(strings.TrimSpace(pick), strings.TrimSpace(best)) {
+		return ""
+	}
+	return pick
 }
 
 func leftoverCoveringQueryActivityGerunds(query string) []string {

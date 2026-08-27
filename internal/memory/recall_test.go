@@ -5491,6 +5491,88 @@ func TestLeftoverCoveringStripsConflictingObservedAtStamp(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringRequiresKinshipOnWithDadActivity(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Both Dana and her kids helped with the painting, describing it as a bonding activity."},
+			{Content: "I used to go horseback riding with my dad when I was a kid, we'd go through the fields"},
+			{Content: "She went horseback riding with her dad."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What activity did Alex used to do with her dad?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "horseback") && !strings.Contains(lower, "dad") {
+		t.Fatalf("with-dad leftover must cover, got %q", got)
+	}
+	if strings.Contains(lower, "painting") || strings.Contains(lower, "dana") {
+		t.Fatalf("foreign-person painting must not cover a with-dad activity, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringPrefersRelativeWeekendBeforeCompiledWeekendOf(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},
+		{Kind: "resolve_entity", Entity: "Nate", Value: "Nate", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Joanna will make Nate's ice cream for her family on the weekend of 25 June 2022."},
+			{Content: "I'm going to make it for my family this weekend - can't wait (25 June 2022; the weekend before 24 June 2022)"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("When is Joanna going to make Nate's ice cream for her family?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "weekend before") {
+		t.Fatalf("relative weekend-before leftover must beat compiled weekend-of, got %q", got)
+	}
+	if strings.Contains(lower, "weekend of 25") {
+		t.Fatalf("compiled weekend-of must not cover when a relative-before leftover exists, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringHowFeelWhenSkipsEventRestatement(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Last week, someone wrote me a letter after reading an online blog post I made about a hard moment in my life (7 August 2022; the week before 14 August 2022)"},
+			{Content: "She felt it was a blessing (grateful for the support)."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("How did Alex feel when someone wrote her a letter after reading her blog post?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "felt") && !strings.Contains(lower, "blessing") {
+		t.Fatalf("feeling leftover must cover how-feel-when, got %q", got)
+	}
+	if strings.Contains(lower, "wrote me a letter") {
+		t.Fatalf("letter-event leftover must not cover how-feel-when, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringFindObjectSkipsAttendRestatement(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Alex attended a music festival with her friends and had a great time."},
+			{Content: "Alex found dancing freeing at the music festival."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What did Alex find freeing at the music festival?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "danc") || !strings.Contains(lower, "freeing") {
+		t.Fatalf("find-object leftover must keep freeing, got %q", got)
+	}
+	if strings.Contains(lower, "attended") {
+		t.Fatalf("attend restatement must not cover find-object, got %q", got)
+	}
+}
+
 func TestLeftoverCoveringSpecificAnswerKeepsWeekendPlanNotSpeakerChat(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},
