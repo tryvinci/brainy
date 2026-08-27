@@ -5541,6 +5541,7 @@ func TestLeftoverCoveringHowFeelWhenSkipsEventRestatement(t *testing.T) {
 		ContextEvidence: []PacketItem{
 			{Content: "Last week, someone wrote me a letter after reading an online blog post I made about a hard moment in my life (7 August 2022; the week before 14 August 2022)"},
 			{Content: "Sometimes I'm so relieved, but other times I just feel anxious about what comes next"},
+			{Content: "Alex feels anxious about what comes next after completing her second script."},
 			{Content: "I think just having someone to support me throughout the whole process is such a blessing"},
 		},
 	}

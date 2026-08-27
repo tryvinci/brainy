@@ -7356,14 +7356,39 @@ func leftoverCoveringHowFeelWhenMissesAffect(query, line string) bool {
 	if leftoverCoveringContrastMoodLine(line) {
 		return true
 	}
-	if contentCoversAnyQueryToken(line, []string{"feel", "felt", "feeling", "feels"}) {
-		return false
-	}
 	low := strings.ToLower(hybridLineBody(line))
-	if strings.Contains(low, "blessing") || strings.Contains(low, "grateful") || strings.Contains(low, "thankful") {
+	hasBless := strings.Contains(low, "blessing") || strings.Contains(low, "grateful") || strings.Contains(low, "thankful")
+	hasFeel := contentCoversAnyQueryToken(line, []string{"feel", "felt", "feeling", "feels"})
+	if !hasFeel && !hasBless {
+		return true
+	}
+	event := leftoverCoveringHowFeelWhenEventTokens(query)
+	if len(event) == 0 || contentCoversAnyQueryToken(line, event) {
 		return false
 	}
-	return true
+	// Mood leftover that misses the when-clause event stays out unless it is
+	// a blessing/grateful copula leftover.
+	return !hasBless
+}
+
+func leftoverCoveringHowFeelWhenEventTokens(query string) []string {
+	q := strings.ToLower(query)
+	i := strings.LastIndex(q, " when ")
+	if i < 0 {
+		return nil
+	}
+	out := make([]string, 0, 4)
+	for _, tok := range tokenize(q[i+len(" when "):]) {
+		if len(tok) < 5 || leftoverCoverWeakToken(tok) {
+			continue
+		}
+		switch tok {
+		case "someone", "somebody", "after", "before", "during":
+			continue
+		}
+		out = append(out, tok)
+	}
+	return out
 }
 
 func leftoverCoveringContrastMoodLine(line string) bool {
