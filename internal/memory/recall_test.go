@@ -1271,6 +1271,25 @@ func TestLooksFavoriteWorkQuery(t *testing.T) {
 	}
 }
 
+func TestQueryAttributeIntentBoostGatesTitledWorkGames(t *testing.T) {
+	rec := MemoryRecord{
+		Content: "Jolene's favorite game is Monster Hunter: World.",
+		Explain: map[string]any{"rule": "attribute_titled_work"},
+	}
+	fav := queryAttributeIntentBoost(tokenize("What was one of Jolene's favorite games to play with her mom?"), rec)
+	if fav < 0.5 {
+		t.Fatalf("favorite+games must still boost titled-work, got %v", fav)
+	}
+	book := queryAttributeIntentBoost(tokenize("What book did Jolene mention?"), rec)
+	if book < 0.5 {
+		t.Fatalf("book queries must still boost titled-work, got %v", book)
+	}
+	game := queryAttributeIntentBoost(tokenize("When did Jolene complete the game Walking Dead?"), rec)
+	if game != 0 {
+		t.Fatalf("game without favorite must not boost titled-work retrieval, got %v", game)
+	}
+}
+
 func TestRecallFavoriteWorkRanksQuotedTitleOverPark(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -5735,6 +5754,27 @@ func TestLeftoverCoveringReplacesBareDateMissingEvent(t *testing.T) {
 	ginaQ := "When did Gina interview for a design internship?"
 	if leftoverCoveringBareDateMissesEvent(ginaQ, hops, "Gina launched an ad campaign on 20 June 2023.", "10 May 2023") {
 		t.Fatal("unrelated dated leftover covering must not beat a matching internship date")
+	}
+}
+
+func TestLeftoverCoveringWhenEventPrefersNamedPersonOverFirstPerson(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Caroline", Value: "Caroline", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "I had a wicked day out with the gang last weekend - we went biking and saw some pretty cool stuff (6 September 2023; the week before 13 September 2023)"},
+			{Content: "Caroline went biking with the gang last weekend on 2023-09-09. (6 September 2023; the week before 13 September 2023)"},
+		},
+	}
+	q := "When did Caroline go biking with friends?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "caroline") || !strings.Contains(lower, "biking") {
+		t.Fatalf("when-event covering must prefer the named-person fact, got %q", got)
+	}
+	if strings.HasPrefix(lower, "i had") {
+		t.Fatalf("unattributed first-person leftover must not beat Caroline biking, got %q", got)
 	}
 }
 

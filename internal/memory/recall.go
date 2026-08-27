@@ -6127,7 +6127,11 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			}
 		}
 		score += hits
-		if leftoverCoveringQueryEntityHits(query, line) >= 2 {
+		if leftoverCoveringRequiresQueryEntity(query) {
+			if n := leftoverCoveringQueryEntityHits(query, line); n > 0 {
+				score += 2 * n
+			}
+		} else if leftoverCoveringQueryEntityHits(query, line) >= 2 {
 			score += 2
 		}
 		if looksInstrumentPurposeQuery(query) && leftoverCoveringInstrumentPurposeLine(line) {
@@ -10730,6 +10734,13 @@ func leftoverCoveringSkipForeignWhenEvent(query, line string) bool {
 	if !leftoverCoveringRequiresQueryEntity(query) {
 		return false
 	}
+	return leftoverCoveringSkipForeignPerson(query, line)
+}
+
+// leftoverCoveringSkipForeignPerson drops leftover covering that names a
+// different person and does not name a query person. First-person lines with
+// no other person still compete.
+func leftoverCoveringSkipForeignPerson(query, line string) bool {
 	if leftoverCoveringMentionsQueryEntity(query, line) {
 		return false
 	}
