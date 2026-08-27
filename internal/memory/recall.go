@@ -6071,6 +6071,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringWhenEventMissingActivityGerund(query, line) {
 			continue
 		}
+		if leftoverCoveringUnnamedMissesLocativeNoun(query, line) {
+			continue
+		}
 		if malformedIndefiniteLightVerbSubject(strings.ToLower(stripTrailingStamp(line))) {
 			continue
 		}
@@ -6593,6 +6596,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		}
 	}
 	best = stripConflictingDateTail(query, best)
+	best = stripConflictingObservedAtStamp(best)
 	if whereQ {
 		if place := locativePlaceFromLine(best); place != "" {
 			return leftoverCoveringFinish(query, place)
@@ -7141,6 +7145,45 @@ func leftoverCoveringWhenEventMissingActivityGerund(query, line string) bool {
 		return false
 	}
 	return !contentCoversAnyQueryToken(line, ings)
+}
+
+// leftoverCoveringUnnamedMissesLocativeNoun drops first-person covering that
+// misses a locative NP from the query ("at the music festival"). Named-person
+// lines and queries without a locative PP are unchanged.
+func leftoverCoveringUnnamedMissesLocativeNoun(query, line string) bool {
+	if looksWhereQuery(query) {
+		return false
+	}
+	if leftoverCoveringQueryEntityHits(query, line) > 0 {
+		return false
+	}
+	nouns := leftoverCoveringQueryLocativeNouns(query)
+	if len(nouns) == 0 {
+		return false
+	}
+	return !contentCoversAnyQueryToken(line, nouns)
+}
+
+func leftoverCoveringQueryLocativeNouns(query string) []string {
+	q := strings.ToLower(query)
+	for _, p := range []string{" at the ", " at a ", " at an ", " during the ", " during a "} {
+		i := strings.LastIndex(q, p)
+		if i < 0 {
+			continue
+		}
+		rest := strings.Trim(q[i+len(p):], " ?.,;:!")
+		out := make([]string, 0, 2)
+		for _, f := range strings.Fields(rest) {
+			f = strings.Trim(f, "\"'")
+			if len(f) >= 5 && !leftoverCoverWeakToken(f) {
+				out = append(out, f)
+			}
+		}
+		if len(out) > 0 {
+			return out
+		}
+	}
+	return nil
 }
 
 func leftoverCoveringQueryActivityGerunds(query string) []string {
@@ -11278,6 +11321,30 @@ func stripConflictingDateTail(query, line string) string {
 		return line
 	}
 	return strings.TrimRight(head, ".,;:")
+}
+
+// stripConflictingObservedAtStamp drops a trailing "(DATE)" provenance stamp
+// when the line body already names a different calendar day and the stamp has
+// no relative restatement (week before / weekend after) the judge uses as gold.
+func stripConflictingObservedAtStamp(line string) string {
+	body := stripTrailingStamp(line)
+	if body == line {
+		return line
+	}
+	stamp := strings.TrimSpace(line[len(body):])
+	low := strings.ToLower(stamp)
+	if strings.Contains(low, "before") || strings.Contains(low, "after") || strings.Contains(low, "weekend") {
+		return line
+	}
+	dBody := parseDateFromText(body)
+	dStamp := parseDateFromText(stamp)
+	if dBody == nil || dStamp == nil {
+		return line
+	}
+	if dBody.Year() == dStamp.Year() && dBody.YearDay() == dStamp.YearDay() {
+		return line
+	}
+	return body
 }
 
 func looksLikeQueryNameEcho(query, value string) bool {

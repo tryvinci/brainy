@@ -5449,6 +5449,48 @@ func TestLeftoverCoveringSkipsMalformedHasDone(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringSkipsUnnamedMissesLocativeNoun(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Deborah", Value: "Deborah", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Had a blast biking nearby with my neighbor last week - was so freeing and beautiful (2 April 2023; the week before 9 April 2023)"},
+			{Content: "Deborah found dancing freeing at the music festival."},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What did Deborah find freeing at the music festival?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "danc") {
+		t.Fatalf("festival dancing must cover over unnamed biking leftover, got %q", got)
+	}
+	if strings.Contains(lower, "biking") {
+		t.Fatalf("unnamed biking leftover must not cover festival freeing, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringStripsConflictingObservedAtStamp(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Jolene", Value: "Jolene", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Jolene is planning to play the game \"Walking Dead\" on 28 January 2023. (15 January 2023)"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("When do Jolene and her partner plan to complete the game \"Walking Dead\"?", hops, pkt)
+	if !strings.Contains(got, "28 January 2023") {
+		t.Fatalf("content date must remain, got %q", got)
+	}
+	if strings.Contains(got, "15 January") {
+		t.Fatalf("conflicting ObservedAt stamp must strip, got %q", got)
+	}
+	keep := stripConflictingObservedAtStamp("Alex went biking on 2023-09-09. (6 September 2023; the week before 13 September 2023)")
+	if !strings.Contains(keep, "week before") {
+		t.Fatalf("relative week-before stamp must stay, got %q", keep)
+	}
+}
+
 func TestLeftoverCoveringSpecificAnswerKeepsWeekendPlanNotSpeakerChat(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Joanna", Value: "Joanna", Source: "search_fallback"},
