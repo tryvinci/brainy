@@ -5540,7 +5540,8 @@ func TestLeftoverCoveringHowFeelWhenSkipsEventRestatement(t *testing.T) {
 	pkt := EvidencePacket{
 		ContextEvidence: []PacketItem{
 			{Content: "Last week, someone wrote me a letter after reading an online blog post I made about a hard moment in my life (7 August 2022; the week before 14 August 2022)"},
-			{Content: "She felt it was a blessing (grateful for the support)."},
+			{Content: "Sometimes I'm so relieved, but other times I just feel anxious about what comes next"},
+			{Content: "I think just having someone to support me throughout the whole process is such a blessing"},
 		},
 	}
 	got := leftoverCoveringSpecificAnswer("How did Alex feel when someone wrote her a letter after reading her blog post?", hops, pkt)
@@ -5550,6 +5551,9 @@ func TestLeftoverCoveringHowFeelWhenSkipsEventRestatement(t *testing.T) {
 	}
 	if strings.Contains(lower, "wrote me a letter") {
 		t.Fatalf("letter-event leftover must not cover how-feel-when, got %q", got)
+	}
+	if strings.Contains(lower, "anxious") || strings.Contains(lower, "other times") {
+		t.Fatalf("contrast-mood leftover must not cover how-feel-when, got %q", got)
 	}
 }
 
@@ -5602,6 +5606,38 @@ func TestLeftoverCoveringRelativeAnchorReplacesCompiledWeekendOf(t *testing.T) {
 	}
 	if leftoverCoveringRelativeAnchorBeatsWeekendOf(q, hybrid, cover) {
 		t.Fatal("compiled weekend-of must not replace a relative-before leftover")
+	}
+}
+
+func TestLeftoverCoveringFindObjectPrefersLocativeCaptionOverAttend(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Had a blast biking nearby with my neighbor last week - was so freeing and beautiful (2 April 2023; the week before 9 April 2023)"},
+			{Content: "Alex attended a music festival with her friends and had a great time."},
+			{Content: "[music festival couple dancing] [a photo of a man and woman standing in a field at night]"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("What did Alex find freeing at the music festival?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "danc") {
+		t.Fatalf("locative caption with activity gerund must cover find-object, got %q", got)
+	}
+	if strings.Contains(lower, "attended") || strings.Contains(lower, "biking") {
+		t.Fatalf("attend/biking must not cover when a locative dancing caption exists, got %q", got)
+	}
+}
+
+func TestStripAlsoReferencedDateTailDropsConflictingExtraDate(t *testing.T) {
+	got := stripAlsoReferencedDateTail("Alex joined a mentorship program on the weekend of 15–16 July 2023 (also referenced as joining the weekend of 10 July 2023).")
+	if !strings.Contains(got, "15") || strings.Contains(got, "10 July") {
+		t.Fatalf("conflicting also-referenced date must strip, got %q", got)
+	}
+	keep := stripAlsoReferencedDateTail("Alex joined on the weekend of 15 July 2023 (also referenced as 15 July 2023).")
+	if !strings.Contains(keep, "also referenced") {
+		t.Fatalf("same-day also-referenced tail must stay, got %q", keep)
 	}
 }
 

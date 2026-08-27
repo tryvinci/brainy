@@ -867,6 +867,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 						out.Explain["item_count"] = len(next)
 					}
 				}
+				if stripped := stripAlsoReferencedDateTail(out.Answer); stripped != out.Answer {
+					out.Answer = stripped
+				}
 			}
 		}
 	}
@@ -5972,7 +5975,10 @@ func looksSpeakerPrefixedStatement(s string) bool {
 }
 
 func leftoverSkipLine(query, line string, leftoverRare []string) bool {
-	if looksTitleCaseSlogan(line) || looksImageCaptionLine(line) || looksPromptNotAnswer(line) {
+	if looksTitleCaseSlogan(line) || looksPromptNotAnswer(line) {
+		return true
+	}
+	if looksImageCaptionLine(line) && !leftoverCoveringAllowsCaption(query, line) {
 		return true
 	}
 	if leftoverCoveringAllowsZeroQueryTokens(query, line) {
@@ -6076,6 +6082,10 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			if leftoverSkipLine(query, cand, speakerCover) {
 				continue
 			}
+			if leftoverCoveringAllowsCaption(query, cand) {
+				packetHasFind = true
+				break
+			}
 			if !contentCoversAnyQueryToken(cand, findObjs) {
 				continue
 			}
@@ -6103,7 +6113,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 		if leftoverCoveringMissesQueryKinship(query, line) {
 			continue
 		}
-		if packetHasFind && leftoverCoveringMissesFindObject(query, line) {
+		if packetHasFind && leftoverCoveringMissesFindObject(query, line) && !leftoverCoveringAllowsCaption(query, line) {
 			continue
 		}
 		if leftoverCoveringHowFeelWhenMissesAffect(query, line) {
@@ -6637,6 +6647,7 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	}
 	best = stripConflictingDateTail(query, best)
 	best = stripConflictingObservedAtStamp(best)
+	best = stripAlsoReferencedDateTail(best)
 	if whereQ {
 		if place := locativePlaceFromLine(best); place != "" {
 			return leftoverCoveringFinish(query, place)
@@ -7229,6 +7240,31 @@ func leftoverCoveringQueryLocativeNouns(query string) []string {
 	return nil
 }
 
+// leftoverCoveringAllowsCaption lets an image caption compete when the query
+// asks what was found at a locative and the caption names that locative plus
+// an activity gerund. Captions stay skipped for other leftover covering.
+func leftoverCoveringAllowsCaption(query, line string) bool {
+	if !looksImageCaptionLine(line) {
+		return false
+	}
+	if len(leftoverCoveringQueryFindObjects(query)) == 0 {
+		return false
+	}
+	loc := leftoverCoveringQueryLocativeNouns(query)
+	if len(loc) == 0 || !contentCoversAnyQueryToken(line, loc) {
+		return false
+	}
+	if contentCoversAnyQueryToken(line, leftoverCoveringQueryFindObjects(query)) {
+		return true
+	}
+	for _, tok := range tokenize(line) {
+		if len(tok) >= 5 && strings.HasSuffix(tok, "ing") && !leftoverCoverWeakToken(tok) {
+			return true
+		}
+	}
+	return false
+}
+
 // leftoverCoveringQueryKinshipNouns returns a with-PP kinship role already in
 // the query (with her dad). Possessive "and her partner" / "her husband" stay
 // out so dated-plan and duration covering still compete.
@@ -7317,7 +7353,25 @@ func leftoverCoveringHowFeelWhenMissesAffect(query, line string) bool {
 	if !leftoverCoveringAsksHowFeelWhen(query) {
 		return false
 	}
-	return !contentCoversAnyQueryToken(line, []string{"feel", "felt", "feeling", "feels"})
+	if leftoverCoveringContrastMoodLine(line) {
+		return true
+	}
+	if contentCoversAnyQueryToken(line, []string{"feel", "felt", "feeling", "feels"}) {
+		return false
+	}
+	low := strings.ToLower(hybridLineBody(line))
+	if strings.Contains(low, "blessing") || strings.Contains(low, "grateful") || strings.Contains(low, "thankful") {
+		return false
+	}
+	return true
+}
+
+func leftoverCoveringContrastMoodLine(line string) bool {
+	low := strings.ToLower(hybridLineBody(line))
+	if !strings.Contains(low, "sometimes") {
+		return false
+	}
+	return strings.Contains(low, "other times") || strings.Contains(low, "but other")
 }
 
 func leftoverCoveringHasRelativeAnchor(line string) bool {
@@ -11533,6 +11587,42 @@ func stripConflictingObservedAtStamp(line string) string {
 		return line
 	}
 	return body
+}
+
+// stripAlsoReferencedDateTail drops an "(also referenced as … DATE)" suffix
+// when that suffix names a different calendar day than the line body.
+func stripAlsoReferencedDateTail(line string) string {
+	line = strings.TrimSpace(line)
+	low := strings.ToLower(line)
+	idx := strings.Index(low, "(also referenced as")
+	if idx < 0 {
+		idx = strings.Index(low, "(also referred to as")
+	}
+	if idx < 8 {
+		return line
+	}
+	head := strings.TrimSpace(line[:idx])
+	tail := line[idx:]
+	dTail := parseDateFromText(tail)
+	if dTail == nil {
+		return line
+	}
+	dHead := parseDateFromText(head)
+	if dHead != nil && dHead.Year() == dTail.Year() && dHead.YearDay() == dTail.YearDay() {
+		return line
+	}
+	headLow := strings.ToLower(head)
+	for _, form := range []string{
+		dTail.Format("2 January"),
+		dTail.Format("2 January 2006"),
+		dTail.Format("January 2"),
+		dTail.Format("January 2, 2006"),
+	} {
+		if strings.Contains(headLow, strings.ToLower(form)) {
+			return line
+		}
+	}
+	return strings.TrimRight(head, " .,")
 }
 
 func looksLikeQueryNameEcho(query, value string) bool {
