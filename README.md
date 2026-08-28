@@ -128,6 +128,11 @@ open-domain** on this pin.
 | LongMemEval-20 | **20%** (4/20) product `/recall` | no fair pin on this harness | no pin |
 | BEAM 100K | **40%** (8/20) search+harness | see published % above | no pin |
 
+Skip-ingest stratified 180 on this VM (not public LoCoMo, not this 1×30 pin):
+**150/180** product `/recall` (MH 28/33, OD **4/11** trail, SH 87/98,
+temporal 31/38). Not 90% (162/180 on that sample). Details:
+[docs/benchmarks/README.md](docs/benchmarks/README.md).
+
 Mem0 **OSS** was not re-measured. Reproduce and artifacts:
 **[docs/benchmarks](docs/benchmarks/README.md)**. Pins:
 [LoCoMo](docs/benchmarks/artifacts/locomo-fresh-1x30-20260815.md) ·
