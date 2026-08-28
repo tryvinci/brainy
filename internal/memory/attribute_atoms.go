@@ -30,6 +30,9 @@ var (
 	youAreRoleRE          = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	youWillBeRoleRE       = regexp.MustCompile(`(?i)\b(?:you(?:'ll| will))\s+be\s+(a|an)\s+([^,.!?]{3,60})`)
 	youAreDoingRE         = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+doing\s+([^,.!?]{3,80})`)
+	iToldAboutRE          = regexp.MustCompile(`(?i)\b(?:i|we)\s+told\s+(you|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	tellingAboutRE        = regexp.MustCompile(`(?i)\btelling\s+(you|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	namedToldAboutRE      = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+told\s+(you|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
 	youAreStatusRE        = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(single|married|divorced|engaged|widowed)\b`)
 	isARoleBareRE         = regexp.MustCompile(`(?i)\bis\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	asARoleRE             = regexp.MustCompile(`(?i)\bas an?\s+([a-z][a-z\s-]{2,40})\b`)
@@ -310,6 +313,35 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		obj := clipIdentityTail(NormalizeText(hit.groups[1]))
 		if utf8.RuneCountInString(obj) >= 3 && utf8.RuneCountInString(obj) <= 80 && !doingObjectStopWord(obj) {
 			emit(who, fmt.Sprintf("%s thinks %s is doing %s", who, bind.partner, obj), 0.86, "attribute_belief")
+		}
+	}
+	if !looksInterrogativeLine(body) {
+		emitTold := func(speaker, recipRaw, topicRaw string) {
+			topic := clipIdentityTail(NormalizeText(topicRaw))
+			if speaker == "" || utf8.RuneCountInString(topic) < 3 || utf8.RuneCountInString(topic) > 60 {
+				return
+			}
+			for _, part := range splitToldAboutObjects(recipRaw) {
+				recip := toldRecipientFromMatch(part, bind)
+				if recip == "" || strings.EqualFold(recip, speaker) {
+					continue
+				}
+				emit(speaker, fmt.Sprintf("%s told %s about %s", speaker, recip, topic), 0.88, "attribute_event")
+			}
+		}
+		if who != "" {
+			for _, hit := range reFindAll(iToldAboutRE, body, 4) {
+				emitTold(who, hit.groups[1], hit.groups[2])
+			}
+			for _, hit := range reFindAll(tellingAboutRE, body, 4) {
+				emitTold(who, hit.groups[1], hit.groups[2])
+			}
+		}
+		for _, hit := range reFindAll(namedToldAboutRE, body, 4) {
+			name := bind.canonName(hit.groups[1])
+			if likelyPersonName(name) {
+				emitTold(name, hit.groups[2], hit.groups[3])
+			}
 		}
 	}
 	if hit, ok := reFind(namedIsStatusRE, body); ok {
@@ -716,6 +748,27 @@ func doingObjectStopWord(obj string) bool {
 	head, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(obj)), " ")
 	_, stop := doingObjectStop[head]
 	return stop
+}
+
+func toldRecipientFromMatch(raw string, bind *clauseBind) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.EqualFold(raw, "you") {
+		if bind == nil || bind.partner == "" {
+			return ""
+		}
+		return bind.partner
+	}
+	recip := normalizeToldAboutObject(raw)
+	if recip == "" || looksThinToldAboutObject(recip) {
+		return ""
+	}
+	if likelyPersonName(recip) && bind != nil {
+		return bind.canonName(recip)
+	}
+	return recip
 }
 
 func clipCareerTail(s string) string {
@@ -1240,7 +1293,7 @@ func valueNormFromAtomContent(content string) string {
 	for _, sep := range []string{
 		" moved from ", " moved to ", " is from ", " lives in ", " participates in ", " enjoys ",
 		" kids like ", " read \"", " mentioned \"", " works as ", " realized that ", " thinks ",
-		" will be a ", " will be an ", " is a ", " is ",
+		" told ", " will be a ", " will be an ", " is a ", " is ",
 		" plans career in ", " plans career for ", " plans ", " studies ", " collects ",
 		" researched ", " has known friends for ", " has done ", " attended ",
 	} {

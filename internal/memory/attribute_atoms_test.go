@@ -662,3 +662,39 @@ func TestSecondPersonWillBeNeedsAddressee(t *testing.T) {
 		}
 	}
 }
+
+func TestToldAboutCompilesSpeakerRecipients(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Evan: I told Dana about my marriage."},
+			{Role: "user", Content: "Evan: Just a minor accident, but it put a bit of a damper on telling my work friends about getting married."},
+			{Role: "user", Content: "Evan: My partner and I told our extended fam about our marriage yesterday."},
+			{Role: "user", Content: "Sam: I bet they were thrilled to hear about your marriage, despite the mishap."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "evan told dana about") {
+		t.Fatalf("expected I-told recipient, got %q", joined)
+	}
+	if !strings.Contains(joined, "evan told work friends about") {
+		t.Fatalf("expected telling-work-friends, got %q", joined)
+	}
+	if !strings.Contains(joined, "evan told") || !strings.Contains(joined, "family") {
+		t.Fatalf("expected extended-fam tell, got %q", joined)
+	}
+	if strings.Contains(joined, "sam told") {
+		t.Fatalf("hear-about must not compile as told, got %q", joined)
+	}
+}
