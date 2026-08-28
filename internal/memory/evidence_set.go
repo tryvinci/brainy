@@ -145,12 +145,24 @@ func queryTokenCoveredInResults(results []SearchResult, token string) bool {
 	return false
 }
 
+func tokenHasDigit(s string) bool {
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			return true
+		}
+	}
+	return false
+}
+
 func distinctiveQueryTokens(tokens []string) []string {
 	out := make([]string, 0, len(tokens))
 	seen := map[string]struct{}{}
 	for _, t := range contentBearingTokens(tokens) {
 		t = strings.ToLower(strings.TrimSpace(t))
-		if len(t) < 4 {
+		if t == "" {
+			continue
+		}
+		if len(t) < 4 && !(tokenHasDigit(t) && len(t) >= 2) {
 			continue
 		}
 		if _, ok := seen[t]; ok {

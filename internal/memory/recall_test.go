@@ -5993,6 +5993,51 @@ func TestLeftoverCoveringReplacesBareDateMissingEvent(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhenStartWorkingPrefersSinceProject(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	gold := "Riley has been developing a 2D adventure game with puzzles and exploration since June 2022."
+	q := "When did Riley start working on his 2D Adventure mobile game?"
+	if leftoverCoveringWhenEventMissingActivityGerund(q, gold) {
+		t.Fatal("light-verb working must not require that gerund on a since-dated project leftover")
+	}
+	ings := leftoverCoveringQueryActivityGerunds(q)
+	for _, g := range ings {
+		if g == "working" {
+			t.Fatalf("working is a light gerund, got %v", ings)
+		}
+	}
+	rare := leftoverCoveringRareForQuery(q, hops)
+	has2d := false
+	for _, tok := range rare {
+		if strings.EqualFold(tok, "2d") {
+			has2d = true
+			break
+		}
+	}
+	if !has2d {
+		t.Fatalf("digit short token 2d must stay rare, got %v", rare)
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Riley participates in bowling (16 March 2022; the day before 17 March 2022)"},
+			{Content: gold},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "june 2022") && !strings.Contains(lower, "2d") {
+		t.Fatalf("when-start covering must pick the since-dated project leftover, got %q", got)
+	}
+	if strings.Contains(got, "17 March") || strings.Contains(lower, "bowl") {
+		t.Fatalf("bare bowling date must not win a when-start project query, got %q", got)
+	}
+	if !leftoverCoveringBareDateMissesEvent(q, hops, got, "17 March 2022") {
+		t.Fatal("bare hop date must yield to since-dated project covering")
+	}
+}
+
 func TestLeftoverCoveringWhenEventPrefersNamedPersonOverFirstPerson(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Caroline", Value: "Caroline", Source: "search_fallback"},

@@ -5953,7 +5953,9 @@ func leftoverCoverQueryMonthYearTokens(query string) []string {
 func filterLeftoverCoverTokens(leftover []string, minLen int) []string {
 	rare := make([]string, 0, len(leftover))
 	for _, tok := range leftover {
-		if utf8Len(tok) < minLen || isCalendarCoverToken(tok) {
+		n := utf8Len(tok)
+		keepShort := tokenHasDigit(tok) && n >= 2
+		if (n < minLen && !keepShort) || isCalendarCoverToken(tok) {
 			continue
 		}
 		rare = append(rare, tok)
@@ -7522,6 +7524,9 @@ func leftoverCoveringQueryActivityGerunds(query string) []string {
 	out := make([]string, 0, 1)
 	for _, tok := range distinctiveQueryTokens(tokenize(query)) {
 		if len(tok) < 5 || !strings.HasSuffix(tok, "ing") {
+			continue
+		}
+		if _, stop := activityGerundStop[tok]; stop {
 			continue
 		}
 		out = append(out, tok)

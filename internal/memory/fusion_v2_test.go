@@ -163,3 +163,22 @@ func TestFailureTaxonomyConstants(t *testing.T) {
 		t.Fatal("empty constants")
 	}
 }
+
+func TestDistinctiveQueryTokensKeepsDigitShort(t *testing.T) {
+	toks := distinctiveQueryTokens(tokenize("When did Riley start working on his 2D Adventure mobile game?"))
+	has2d := false
+	for _, tok := range toks {
+		if tok == "2d" {
+			has2d = true
+		}
+	}
+	if !has2d {
+		t.Fatalf("expected 2d in distinctive tokens, got %v", toks)
+	}
+	plain := distinctiveQueryTokens(tokenize("When did Riley go to the gym?"))
+	for _, tok := range plain {
+		if len(tok) < 4 {
+			t.Fatalf("short non-digit token leaked: %v", plain)
+		}
+	}
+}
