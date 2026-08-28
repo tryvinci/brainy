@@ -181,4 +181,10 @@ func TestDistinctiveQueryTokensKeepsDigitShort(t *testing.T) {
 			t.Fatalf("short non-digit token leaked: %v", plain)
 		}
 	}
+	dated := distinctiveQueryTokens(tokenize("Where did Riley take his family for a road trip on 24 May, 2023?"))
+	for _, tok := range dated {
+		if tok == "24" {
+			t.Fatalf("calendar day token must not be distinctive, got %v", dated)
+		}
+	}
 }

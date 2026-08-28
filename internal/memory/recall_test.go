@@ -6038,6 +6038,27 @@ func TestLeftoverCoveringWhenStartWorkingPrefersSinceProject(t *testing.T) {
 	}
 }
 
+func TestLeftoverCoveringWhereRoadTripKeepsPlaceOverFamilyPrefix(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Riley", Value: "Riley", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Last weekend, I took my family"},
+			{Content: "Riley took his family on a road trip to Jasper National Park on the weekend of 20–21 May 2023, driving through the Icefields Parkway."},
+		},
+	}
+	q := "Where did Riley take his family for a road trip on 24 May, 2023?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "jasper") {
+		t.Fatalf("where leftover covering must keep the park, got %q", got)
+	}
+	if strings.HasPrefix(strings.TrimSpace(lower), "last weekend") {
+		t.Fatalf("family-prefix leftover must not beat the locative, got %q", got)
+	}
+}
+
 func TestLeftoverCoveringWhenEventPrefersNamedPersonOverFirstPerson(t *testing.T) {
 	hops := []HopResult{
 		{Kind: "resolve_entity", Entity: "Caroline", Value: "Caroline", Source: "search_fallback"},

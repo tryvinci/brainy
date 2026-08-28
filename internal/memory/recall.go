@@ -5954,7 +5954,7 @@ func filterLeftoverCoverTokens(leftover []string, minLen int) []string {
 	rare := make([]string, 0, len(leftover))
 	for _, tok := range leftover {
 		n := utf8Len(tok)
-		keepShort := tokenHasDigit(tok) && n >= 2
+		keepShort := keepShortAlphanumericToken(tok)
 		if (n < minLen && !keepShort) || isCalendarCoverToken(tok) {
 			continue
 		}

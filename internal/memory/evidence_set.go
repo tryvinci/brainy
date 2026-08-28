@@ -154,6 +154,19 @@ func tokenHasDigit(s string) bool {
 	return false
 }
 
+func tokenHasLetter(s string) bool {
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+			return true
+		}
+	}
+	return false
+}
+
+func keepShortAlphanumericToken(s string) bool {
+	return len(s) >= 2 && tokenHasDigit(s) && tokenHasLetter(s)
+}
+
 func distinctiveQueryTokens(tokens []string) []string {
 	out := make([]string, 0, len(tokens))
 	seen := map[string]struct{}{}
@@ -162,7 +175,7 @@ func distinctiveQueryTokens(tokens []string) []string {
 		if t == "" {
 			continue
 		}
-		if len(t) < 4 && !(tokenHasDigit(t) && len(t) >= 2) {
+		if len(t) < 4 && !keepShortAlphanumericToken(t) {
 			continue
 		}
 		if _, ok := seen[t]; ok {
