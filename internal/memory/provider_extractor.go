@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const providerExtractionVersion = "provider-v4-ops"
+const providerExtractionVersion = "provider-v5-ops"
 
 // gpt-oss (and similar reasoning models) spend hundreds of tokens on a
 // reasoning channel before emitting JSON. Cloudflare's default max_tokens is
@@ -310,7 +310,7 @@ CRITICAL RULES:
 2. In multi-speaker dialogue ("Name: ..."), first-person facts ("I am…") belong to that speaker.
    When a turn reports a fact about another named person (Name researched / works as / lives in / realized that / is a),
    attribute the memory to that person, not the reporter.
-   In two-party dialogue, second-person facts ("you are…", "you researched…") belong to the addressee.
+   In two-party dialogue, second-person facts ("you are…", "you researched…", "you will be a/an…") belong to the addressee.
 3. Emit ONE memory per distinct attribute, activity, place, titled work, preference, or plan.
    Split compound utterances. Prefer many small atoms over one long paraphrase.
 4. When possible set subject + predicate + value (normalized short value, not the full sentence).
@@ -327,6 +327,9 @@ CRITICAL RULES:
    - topics a speaker researched or is researching (the topic, not the motive)
    - collections / possessions ("collects classic children's books")
    - durations ("for 4 years", "for six months") and season+year starts ("summer of 2022")
+   - tell-acts: told/telling/talked to/spoke to a recipient about a topic → "{speaker} told {recipient} about {topic}" (hear/heard is not a tell-act)
+   - future identity: "I/you/{Name} will be a/an {role}" is a plan, not present identity; reporter belief is "{speaker} thinks {person} will be a/an {role}"
+   - speaker belief about another person: "{Name} is doing X" / "you're doing X" → "{speaker} thinks {person} is doing X"
 6. Resolve relative time against Observation Date (yesterday, last Fri, last week, this month).
    Put the absolute date in "when" AND in content. Also include the session-relative phrase
    when the utterance is last-<weekday> or last week (e.g. "the Monday before 3 March 2024").
