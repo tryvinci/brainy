@@ -7394,12 +7394,13 @@ func leftoverCoveringHowFeelWhenMissesAffect(query, line string) bool {
 		return true
 	}
 	event := leftoverCoveringHowFeelWhenEventTokens(query)
-	if len(event) == 0 || contentCoversAnyQueryToken(line, event) {
+	if len(event) == 0 {
 		return false
 	}
-	// Mood leftover that misses the when-clause event stays out unless it is
-	// a blessing/grateful copula leftover.
-	return !hasBless
+	// Blessing/grateful copula still has to name the when-clause event.
+	// Off-event "whole process is such a blessing" leftover must not cover
+	// a letter/blog how-feel-when; hybrid keeps the feeling restatement.
+	return !contentCoversAnyQueryToken(line, event)
 }
 
 func leftoverCoveringHowFeelWhenEventTokens(query string) []string {
@@ -7414,7 +7415,7 @@ func leftoverCoveringHowFeelWhenEventTokens(query string) []string {
 			continue
 		}
 		switch tok {
-		case "someone", "somebody", "after", "before", "during":
+		case "someone", "somebody", "anyone", "after", "before", "during", "while", "about":
 			continue
 		}
 		out = append(out, tok)

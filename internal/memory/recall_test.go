@@ -5547,14 +5547,34 @@ func TestLeftoverCoveringHowFeelWhenSkipsEventRestatement(t *testing.T) {
 	}
 	got := leftoverCoveringSpecificAnswer("How did Alex feel when someone wrote her a letter after reading her blog post?", hops, pkt)
 	lower := strings.ToLower(got)
-	if !strings.Contains(lower, "felt") && !strings.Contains(lower, "blessing") {
-		t.Fatalf("feeling leftover must cover how-feel-when, got %q", got)
+	if strings.Contains(lower, "whole process") {
+		t.Fatalf("off-event blessing leftover must not cover how-feel-when, got %q", got)
 	}
 	if strings.Contains(lower, "wrote me a letter") {
 		t.Fatalf("letter-event leftover must not cover how-feel-when, got %q", got)
 	}
 	if strings.Contains(lower, "anxious") || strings.Contains(lower, "other times") {
 		t.Fatalf("contrast-mood leftover must not cover how-feel-when, got %q", got)
+	}
+}
+
+func TestLeftoverCoveringHowFeelWhenKeepsBlessingWithEventTokens(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Alex", Value: "Alex", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Last week, someone wrote me a letter after reading an online blog post I made about a hard moment in my life"},
+			{Content: "Getting that letter after they read my blog was such a blessing"},
+		},
+	}
+	got := leftoverCoveringSpecificAnswer("How did Alex feel when someone wrote her a letter after reading her blog post?", hops, pkt)
+	lower := strings.ToLower(got)
+	if !strings.Contains(lower, "blessing") || !strings.Contains(lower, "letter") {
+		t.Fatalf("blessing leftover that names the when-event must cover, got %q", got)
+	}
+	if strings.Contains(lower, "wrote me a letter") {
+		t.Fatalf("letter-event leftover without affect must not cover, got %q", got)
 	}
 }
 
