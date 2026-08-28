@@ -1109,6 +1109,73 @@ func TestLooksTriedPolarQuery(t *testing.T) {
 	}
 }
 
+func TestLooksWouldMemberQuery(t *testing.T) {
+	if !looksWouldMemberQuery("Would Alex be considered a member of the makers community?") {
+		t.Fatal("would + member")
+	}
+	if !looksPolarQuery("Would Alex be considered a member of the makers community?") {
+		t.Fatal("would-member is polar")
+	}
+	if looksWouldMemberQuery("Would Alex want to move back to her home country soon?") {
+		t.Fatal("would-want must not be membership polar")
+	}
+	if looksWouldMemberQuery("What community activities have Alex and Blake participated in?") {
+		t.Fatal("community list is not would-member")
+	}
+}
+
+func TestRecallPolarYesFromOwnMembership(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["a-mem"] = MemoryRecord{
+		MemoryID: "mem_am", TenantID: "t-member", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex is a member of the makers community",
+		DedupeKey: "am", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "makers community", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "makers community", "subject": "Alex"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateIdentity, val: "makers community", memID: "mem_am"})
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-member", SubjectID: "u1",
+		Query: "Would Alex be considered a member of the makers community?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("own membership must Yes, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallPolarDoesNotStealMembership(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["b-mem"] = MemoryRecord{
+		MemoryID: "mem_bm", TenantID: "t-member2", SubjectID: "u1",
+		Kind: KindFact, Content: "Blake is a member of the makers community",
+		DedupeKey: "bm", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "makers community", "subject": "Blake"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "makers community", "subject": "Blake"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateIdentity, val: "makers community", memID: "mem_bm"})
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-member2", SubjectID: "u1",
+		Query: "Would Alex be considered a member of the makers community?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("other person's membership must not prove would-member: %q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
 func TestRecallPolarYesFromLovedActivity(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

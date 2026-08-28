@@ -1956,9 +1956,11 @@ func polarClaimTokens(query string) []string {
 }
 
 func polarAnswerFromHops(query string, hops []HopResult) string {
-	if len(hopQueryEntities(query)) == 0 {
+	ents := hopQueryEntities(query)
+	if len(ents) == 0 {
 		return ""
 	}
+	person := ents[0]
 	claim := polarClaimTokens(query)
 	if len(claim) == 0 {
 		return ""
@@ -1966,34 +1968,40 @@ func polarAnswerFromHops(query string, hops []HopResult) string {
 	if looksTriedPolarQuery(query) {
 		return polarTriedAnswerFromHops(query, hops, claim)
 	}
-	var b strings.Builder
 	for _, h := range hops {
-		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
 			continue
 		}
-		for _, v := range h.Values {
-			b.WriteString(" ")
-			b.WriteString(strings.ToLower(v))
+		pieces := make([]string, 0, len(h.Contents)+len(h.Values)+1)
+		pieces = append(pieces, h.Contents...)
+		if len(h.Values) > 0 {
+			pieces = append(pieces, h.Values...)
+		} else if strings.TrimSpace(h.Value) != "" {
+			pieces = append(pieces, h.Value)
 		}
-		if h.Value != "" {
-			b.WriteString(" ")
-			b.WriteString(strings.ToLower(h.Value))
-		}
-		for _, c := range h.Contents {
-			b.WriteString(" ")
-			b.WriteString(strings.ToLower(c))
-		}
-	}
-	blob := b.String()
-	if strings.TrimSpace(blob) == "" {
-		return ""
-	}
-	for _, t := range claim {
-		if strings.Contains(blob, t) {
-			return "Yes"
+		for _, p := range pieces {
+			if !polarEvidenceBoundToPerson(query, person, p, h.Entity) {
+				continue
+			}
+			if polarPieceHasClaim(p, claim) {
+				return "Yes"
+			}
 		}
 	}
 	return ""
+}
+
+func polarEvidenceBoundToPerson(query, person, piece, hopEntity string) bool {
+	if strings.TrimSpace(piece) == "" {
+		return false
+	}
+	if leftoverCoveringSkipForeignPerson(query, piece) {
+		return false
+	}
+	if leftoverCoveringMentionsQueryEntity(query, piece) {
+		return true
+	}
+	return languageFactBoundToPerson(person, piece, MemoryRecord{}, hopEntity)
 }
 
 func polarTriedAnswerFromHops(query string, hops []HopResult, claim []string) string {

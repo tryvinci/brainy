@@ -710,7 +710,18 @@ func looksPolarQuery(query string) bool {
 			return true
 		}
 	}
-	return false
+	return looksWouldMemberQuery(query)
+}
+
+// looksWouldMemberQuery is would-X-be-a-member. Identity polar from that
+// person's compiled membership only — not another person's group, and not
+// Yes from absence.
+func looksWouldMemberQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if !strings.HasPrefix(q, "would ") {
+		return false
+	}
+	return queryHasToken(query, "member", "members", "membership")
 }
 
 // looksTriedPolarQuery is has/did/have-tried polar. Love/discovered-love of
