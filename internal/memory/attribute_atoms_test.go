@@ -580,3 +580,85 @@ func TestTitleCopulaIsNotIdentityAtom(t *testing.T) {
 		}
 	}
 }
+
+func TestSecondPersonWillBeCompilesPartnerProjection(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Caroline: I'm going to adopt."},
+			{Role: "user", Content: "Melanie: You'll be an awesome mom. You're doing something amazing."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "caroline will be an awesome mom") {
+		t.Fatalf("expected partner will-be role, got %q", joined)
+	}
+	if !strings.Contains(joined, "melanie thinks caroline will be an awesome mom") {
+		t.Fatalf("expected speaker thinks will-be, got %q", joined)
+	}
+	if !strings.Contains(joined, "melanie thinks caroline is doing something amazing") {
+		t.Fatalf("expected speaker thinks doing, got %q", joined)
+	}
+	if strings.Contains(joined, "caroline is a awesome mom") || strings.Contains(joined, "caroline is an awesome mom") {
+		t.Fatalf("you'll-be must not compile present identity, got %q", joined)
+	}
+
+	hold, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Alex: You are a software engineer."},
+			{Role: "user", Content: "Sam: You'll be a minute."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holdJoined := ""
+	for _, m := range hold {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		holdJoined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(holdJoined, "sam is a software engineer") {
+		t.Fatalf("present you-are role must still compile, got %q", holdJoined)
+	}
+	if strings.Contains(holdJoined, "will be a minute") {
+		t.Fatalf("duration you'll-be must not compile as a role, got %q", holdJoined)
+	}
+}
+
+func TestSecondPersonWillBeNeedsAddressee(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Melanie: You'll be an awesome mom."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		c := strings.ToLower(m.Content)
+		if strings.Contains(c, "will be") || strings.Contains(c, "thinks") {
+			t.Fatalf("unbound you must not compile will-be, got %q", m.Content)
+		}
+	}
+}

@@ -1466,6 +1466,49 @@ func TestRecallThinkAboutPrefersThinkerEncouragement(t *testing.T) {
 	}
 }
 
+func TestRecallThinkAboutPrefersCompiledThinksProjection(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-think-do"] = MemoryRecord{
+		MemoryID: "mem_mtd", TenantID: "t-think2", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie thinks Caroline is doing something amazing",
+		DedupeKey: "mtd", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateBelief, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateBelief, "subject": "Melanie"},
+	}
+	store.records["m-think-mom"] = MemoryRecord{
+		MemoryID: "mem_mtm", TenantID: "t-think2", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie thinks Caroline will be an awesome mom",
+		DedupeKey: "mtm", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateBelief, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateBelief, "subject": "Melanie"},
+	}
+	store.records["c-feel2"] = MemoryRecord{
+		MemoryID: "mem_cfeel2", TenantID: "t-think2", SubjectID: "u1",
+		Kind: KindFact, Content: "It's a big decision, but I think I'm ready to give all my love to a child",
+		DedupeKey: "cfeel2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Caroline"},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-think2", SubjectID: "u1",
+		Query: "What does Melanie think about Caroline's decision to adopt?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if !strings.Contains(got, "amazing") || !strings.Contains(got, "awesome mom") {
+		t.Fatalf("think-about must join compiled thinks projection, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "ready to give") {
+		t.Fatalf("topic-person feelings must not cover compiled thinks, answer=%q", out.Answer)
+	}
+}
+
 func TestRecallYearStartUsesHedgedDurationAsOf(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

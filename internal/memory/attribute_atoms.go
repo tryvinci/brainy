@@ -28,6 +28,8 @@ var (
 	namedIsRoleRE         = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+is\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	namedIsStatusRE       = regexp.MustCompile(`(?i)\b([A-Z][a-z]{1,20})\s+is\s+(single|married|divorced|engaged|widowed)\b`)
 	youAreRoleRE          = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(?:a|an)\s+([^,.!?]{3,60})`)
+	youWillBeRoleRE       = regexp.MustCompile(`(?i)\b(?:you(?:'ll| will))\s+be\s+(a|an)\s+([^,.!?]{3,60})`)
+	youAreDoingRE         = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+doing\s+([^,.!?]{3,80})`)
 	youAreStatusRE        = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(single|married|divorced|engaged|widowed)\b`)
 	isARoleBareRE         = regexp.MustCompile(`(?i)\bis\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	asARoleRE             = regexp.MustCompile(`(?i)\bas an?\s+([a-z][a-z\s-]{2,40})\b`)
@@ -83,6 +85,11 @@ var (
 	roleStop = map[string]struct{}{
 		"kid": {}, "kids": {}, "child": {}, "career": {}, "job": {}, "fan": {},
 		"result": {}, "way": {}, "bit": {}, "lot": {}, "while": {}, "moment": {},
+		"minute": {}, "second": {}, "hour": {},
+	}
+
+	doingObjectStop = map[string]struct{}{
+		"it": {}, "this": {}, "that": {}, "them": {}, "so": {},
 	}
 
 	// Light nouns after "had a" / "gave a" / "ran a" that are not events.
@@ -285,6 +292,24 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		attr := clipIdentityTail(NormalizeText(hit.groups[1]))
 		if utf8.RuneCountInString(attr) <= 40 && !roleStopWord(attr) {
 			emit(bind.partner, fmt.Sprintf("%s is a %s", bind.partner, attr), 0.88, "attribute_identity")
+		}
+	}
+	if hit, ok := reFind(youWillBeRoleRE, body); ok && bind.partner != "" {
+		article := strings.ToLower(strings.TrimSpace(hit.groups[1]))
+		attr := clipIdentityTail(NormalizeText(hit.groups[2]))
+		if (article == "a" || article == "an") && utf8.RuneCountInString(attr) >= 3 &&
+			utf8.RuneCountInString(attr) <= 40 && !roleStopWord(attr) {
+			emit(bind.partner, fmt.Sprintf("%s will be %s %s", bind.partner, article, attr), 0.86, "attribute_plan")
+			if who != "" && !strings.EqualFold(who, bind.partner) {
+				emit(who, fmt.Sprintf("%s thinks %s will be %s %s", who, bind.partner, article, attr), 0.88, "attribute_belief")
+			}
+		}
+	}
+	if hit, ok := reFind(youAreDoingRE, body); ok && bind.partner != "" && who != "" &&
+		!strings.EqualFold(who, bind.partner) {
+		obj := clipIdentityTail(NormalizeText(hit.groups[1]))
+		if utf8.RuneCountInString(obj) >= 3 && utf8.RuneCountInString(obj) <= 80 && !doingObjectStopWord(obj) {
+			emit(who, fmt.Sprintf("%s thinks %s is doing %s", who, bind.partner, obj), 0.86, "attribute_belief")
 		}
 	}
 	if hit, ok := reFind(namedIsStatusRE, body); ok {
@@ -684,6 +709,12 @@ func clipIdentityTail(s string) string {
 func roleStopWord(role string) bool {
 	head, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(role)), " ")
 	_, stop := roleStop[head]
+	return stop
+}
+
+func doingObjectStopWord(obj string) bool {
+	head, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(obj)), " ")
+	_, stop := doingObjectStop[head]
 	return stop
 }
 
@@ -1208,7 +1239,8 @@ func valueNormFromAtomContent(content string) string {
 	lower := strings.ToLower(content)
 	for _, sep := range []string{
 		" moved from ", " moved to ", " is from ", " lives in ", " participates in ", " enjoys ",
-		" kids like ", " read \"", " mentioned \"", " works as ", " realized that ", " is a ", " is ",
+		" kids like ", " read \"", " mentioned \"", " works as ", " realized that ", " thinks ",
+		" will be a ", " will be an ", " is a ", " is ",
 		" plans career in ", " plans career for ", " plans ", " studies ", " collects ",
 		" researched ", " has known friends for ", " has done ", " attended ",
 	} {

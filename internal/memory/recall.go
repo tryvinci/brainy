@@ -2257,7 +2257,21 @@ func thinkAboutEncouragementFromText(text string) (kind, phrase string) {
 	case strings.Contains(low, "you'll be") || strings.Contains(low, "you will be"):
 		kind = "will_be"
 	default:
-		return "", ""
+		i := strings.Index(low, " thinks ")
+		if i < 0 {
+			return "", ""
+		}
+		rest := strings.TrimSpace(body[i+len(" thinks "):])
+		restLow := strings.ToLower(rest)
+		switch {
+		case strings.Contains(restLow, " is doing "):
+			kind = "doing"
+		case strings.Contains(restLow, " will be "):
+			kind = "will_be"
+		default:
+			return "", ""
+		}
+		body = rest
 	}
 	body = strings.TrimSpace(strings.Trim(body, `"'`))
 	body = strings.TrimRight(body, ".!")
@@ -2354,7 +2368,8 @@ func languageFactBoundToPerson(person, content string, rec MemoryRecord, hopEnti
 	lower := strings.ToLower(strings.TrimSpace(content))
 	p := strings.ToLower(person)
 	if strings.HasPrefix(lower, p+":") || strings.HasPrefix(lower, p+" is ") ||
-		strings.HasPrefix(lower, p+"'s ") || strings.HasPrefix(lower, p+"’s ") {
+		strings.HasPrefix(lower, p+" thinks ") || strings.HasPrefix(lower, p+"'s ") ||
+		strings.HasPrefix(lower, p+"’s ") {
 		return true
 	}
 	return false
