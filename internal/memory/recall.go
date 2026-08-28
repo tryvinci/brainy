@@ -2186,16 +2186,21 @@ func (s *Service) thinkAboutAnswerFromHops(ctx context.Context, req RecallReques
 	if !looksWhatThinkAboutQuery(req.Query) {
 		return ""
 	}
+	ents := hopQueryEntities(req.Query)
 	person := ""
-	if ents := hopQueryEntities(req.Query); len(ents) > 0 {
+	if len(ents) > 0 {
 		person = ents[0]
+	}
+	topic := thinkAboutTopicPerson(req.Query)
+	if topic == "" && len(ents) > 1 {
+		topic = ents[1]
 	}
 	if person == "" {
 		return ""
 	}
-	var doing, willBe string
+	var doing, willBe, both string
 	consider := func(content string, rec MemoryRecord, hopEntity string) {
-		if !languageFactBoundToPerson(person, content, rec, hopEntity) {
+		if !thinkAboutEncouragementBound(person, topic, content, rec, hopEntity) {
 			return
 		}
 		kind, phrase := thinkAboutEncouragementFromText(content)
@@ -2203,12 +2208,16 @@ func (s *Service) thinkAboutAnswerFromHops(ctx context.Context, req RecallReques
 			return
 		}
 		switch kind {
+		case "both":
+			if both == "" || utf8.RuneCountInString(phrase) < utf8.RuneCountInString(both) {
+				both = phrase
+			}
 		case "doing":
-			if doing == "" {
+			if doing == "" || utf8.RuneCountInString(phrase) < utf8.RuneCountInString(doing) {
 				doing = phrase
 			}
 		case "will_be":
-			if willBe == "" {
+			if willBe == "" || utf8.RuneCountInString(phrase) < utf8.RuneCountInString(willBe) {
 				willBe = phrase
 			}
 		}
@@ -2237,6 +2246,9 @@ func (s *Service) thinkAboutAnswerFromHops(ctx context.Context, req RecallReques
 			}
 		}
 	}
+	if both != "" {
+		return both
+	}
 	parts := make([]string, 0, 2)
 	if doing != "" {
 		parts = append(parts, doing)
@@ -2250,6 +2262,55 @@ func (s *Service) thinkAboutAnswerFromHops(ctx context.Context, req RecallReques
 	return strings.Join(parts, " ")
 }
 
+// thinkAboutEncouragementBound is the thinker's second-person encouragement.
+// Unlabeled you-forms bind only on two-party think-about (thinker + topic
+// person) so a third speaker's "you're doing" cannot attach to a one-name
+// think-about.
+func thinkAboutEncouragementBound(thinker, topic, content string, rec MemoryRecord, hopEntity string) bool {
+	if languageFactBoundToPerson(thinker, content, rec, hopEntity) {
+		return true
+	}
+	if strings.TrimSpace(topic) == "" {
+		return false
+	}
+	if lab := utteranceSpeakerLabel(content); lab != "" && !strings.EqualFold(lab, thinker) {
+		return false
+	}
+	kind, _ := thinkAboutEncouragementFromText(content)
+	return kind != ""
+}
+
+func utteranceSpeakerLabel(text string) string {
+	body := strings.TrimSpace(hybridLineBody(text))
+	if i := strings.Index(body, ": "); i > 0 && i < 32 && !strings.Contains(body[:i], " ") {
+		return strings.TrimSpace(body[:i])
+	}
+	return ""
+}
+
+// thinkAboutTopicPerson is the named person after think-about / thinks-about.
+func thinkAboutTopicPerson(query string) string {
+	lower := strings.ToLower(query)
+	for _, cue := range []string{" think about ", " thinks about "} {
+		i := strings.Index(lower, cue)
+		if i < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(query[i+len(cue):])
+		fields := strings.Fields(rest)
+		if len(fields) == 0 {
+			continue
+		}
+		n := strings.Trim(fields[0], "'\"?,.")
+		n = strings.TrimSuffix(n, "'s")
+		n = strings.TrimSuffix(n, "’s")
+		if looksHopPerson(n) {
+			return n
+		}
+	}
+	return ""
+}
+
 func thinkAboutEncouragementFromText(text string) (kind, phrase string) {
 	if looksInterrogativeLine(text) || looksImageCaptionLine(text) {
 		return "", ""
@@ -2259,10 +2320,14 @@ func thinkAboutEncouragementFromText(text string) (kind, phrase string) {
 		body = strings.TrimSpace(body[i+2:])
 	}
 	low := strings.ToLower(body)
+	hasDoing := strings.Contains(low, "you're doing") || strings.Contains(low, "you are doing")
+	hasWill := strings.Contains(low, "you'll be") || strings.Contains(low, "you will be")
 	switch {
-	case strings.Contains(low, "you're doing") || strings.Contains(low, "you are doing"):
+	case hasDoing && hasWill:
+		kind = "both"
+	case hasDoing:
 		kind = "doing"
-	case strings.Contains(low, "you'll be") || strings.Contains(low, "you will be"):
+	case hasWill:
 		kind = "will_be"
 	default:
 		i := strings.Index(low, " thinks ")
@@ -2271,10 +2336,14 @@ func thinkAboutEncouragementFromText(text string) (kind, phrase string) {
 		}
 		rest := strings.TrimSpace(body[i+len(" thinks "):])
 		restLow := strings.ToLower(rest)
+		thinkDoing := strings.Contains(restLow, " is doing ")
+		thinkWill := strings.Contains(restLow, " will be ")
 		switch {
-		case strings.Contains(restLow, " is doing "):
+		case thinkDoing && thinkWill:
+			kind = "both"
+		case thinkDoing:
 			kind = "doing"
-		case strings.Contains(restLow, " will be "):
+		case thinkWill:
 			kind = "will_be"
 		default:
 			return "", ""

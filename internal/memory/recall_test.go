@@ -1533,6 +1533,64 @@ func TestRecallThinkAboutPrefersThinkerEncouragement(t *testing.T) {
 	}
 }
 
+func TestRecallThinkAboutBindsUnlabeledWillBeOverLongDoing(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-long"] = MemoryRecord{
+		MemoryID: "mem_mlong", TenantID: "t-think3", SubjectID: "u1",
+		Kind: KindPreference, Content: "Melanie: Woah, Caroline, it sounds like you're doing some impressive work",
+		DedupeKey: "mlong", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["m-tight"] = MemoryRecord{
+		MemoryID: "mem_mtight", TenantID: "t-think3", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie: You're doing something amazing",
+		DedupeKey: "mtight", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["m-will"] = MemoryRecord{
+		MemoryID: "mem_mwill", TenantID: "t-think3", SubjectID: "u1",
+		Kind: KindFact, Content: "You'll be an awesome mom",
+		DedupeKey: "mwill", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["maria"] = MemoryRecord{
+		MemoryID: "mem_maria", TenantID: "t-think3", SubjectID: "u1",
+		Kind: KindFact, Content: "Maria: Wow, what you're doing is truly amazing",
+		DedupeKey: "maria", Status: StatusActive, UpdatedAt: now,
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-think3", SubjectID: "u1",
+		Query: "What does Melanie think about Caroline's decision to adopt?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if !strings.Contains(got, "amazing") || !strings.Contains(got, "awesome mom") {
+		t.Fatalf("unlabeled will-be plus tight doing must win, answer=%q", out.Answer)
+	}
+	if strings.Contains(got, "impressive work") {
+		t.Fatalf("longer vocative doing must not cover tight encouragement, answer=%q", out.Answer)
+	}
+	if strings.Contains(got, "maria") {
+		t.Fatalf("third-speaker you-doing must not bind, answer=%q", out.Answer)
+	}
+
+	john, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-think3", SubjectID: "u1",
+		Query: "What did John think about the yoga classes?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jgot := strings.ToLower(strings.TrimSpace(john.Answer))
+	if strings.Contains(jgot, "awesome mom") || strings.Contains(jgot, "impressive work") {
+		t.Fatalf("one-name think-about must not steal two-party you-forms, answer=%q", john.Answer)
+	}
+}
+
 func TestRecallThinkAboutPrefersCompiledThinksProjection(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
