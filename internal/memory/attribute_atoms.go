@@ -30,9 +30,9 @@ var (
 	youAreRoleRE          = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	youWillBeRoleRE       = regexp.MustCompile(`(?i)\b(?:you(?:'ll| will))\s+be\s+(a|an)\s+([^,.!?]{3,60})`)
 	youAreDoingRE         = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+doing\s+([^,.!?]{3,80})`)
-	iToldAboutRE          = regexp.MustCompile(`(?i)\b(?:i|we)\s+told\s+(you|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
-	tellingAboutRE        = regexp.MustCompile(`(?i)\btelling\s+(you|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
-	namedToldAboutRE      = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+told\s+(you|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	iToldAboutRE          = regexp.MustCompile(`(?i)\b(?:i|we)\s+told\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	tellingAboutRE        = regexp.MustCompile(`(?i)\btelling\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	namedToldAboutRE      = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+told\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
 	youAreStatusRE        = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(single|married|divorced|engaged|widowed)\b`)
 	isARoleBareRE         = regexp.MustCompile(`(?i)\bis\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	asARoleRE             = regexp.MustCompile(`(?i)\bas an?\s+([a-z][a-z\s-]{2,40})\b`)
@@ -322,7 +322,7 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 				return
 			}
 			for _, part := range splitToldAboutObjects(recipRaw) {
-				recip := toldRecipientFromMatch(part, bind)
+				recip := toldRecipientFromMatch(part, bind, who)
 				if recip == "" || strings.EqualFold(recip, speaker) {
 					continue
 				}
@@ -750,7 +750,7 @@ func doingObjectStopWord(obj string) bool {
 	return stop
 }
 
-func toldRecipientFromMatch(raw string, bind *clauseBind) string {
+func toldRecipientFromMatch(raw string, bind *clauseBind, speaker string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return ""
@@ -760,6 +760,9 @@ func toldRecipientFromMatch(raw string, bind *clauseBind) string {
 			return ""
 		}
 		return bind.partner
+	}
+	if strings.EqualFold(raw, "me") || strings.EqualFold(raw, "us") {
+		return strings.TrimSpace(speaker)
 	}
 	recip := normalizeToldAboutObject(raw)
 	if recip == "" || looksThinToldAboutObject(recip) {

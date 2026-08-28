@@ -671,6 +671,7 @@ func TestToldAboutCompilesSpeakerRecipients(t *testing.T) {
 			{Role: "user", Content: "Evan: I told Dana about my marriage."},
 			{Role: "user", Content: "Evan: Just a minor accident, but it put a bit of a damper on telling my work friends about getting married."},
 			{Role: "user", Content: "Evan: My partner and I told our extended fam about our marriage yesterday."},
+			{Role: "user", Content: "Evan: Dana told me about the wedding."},
 			{Role: "user", Content: "Sam: I bet they were thrilled to hear about your marriage, despite the mishap."},
 		},
 	})
@@ -693,6 +694,9 @@ func TestToldAboutCompilesSpeakerRecipients(t *testing.T) {
 	}
 	if !strings.Contains(joined, "evan told") || !strings.Contains(joined, "family") {
 		t.Fatalf("expected extended-fam tell, got %q", joined)
+	}
+	if !strings.Contains(joined, "dana told evan about") {
+		t.Fatalf("expected told-me binds to speaker, got %q", joined)
 	}
 	if strings.Contains(joined, "sam told") {
 		t.Fatalf("hear-about must not compile as told, got %q", joined)
