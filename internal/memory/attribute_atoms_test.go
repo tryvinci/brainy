@@ -420,6 +420,34 @@ func TestPlayGameTitleAndDurationCompile(t *testing.T) {
 	}
 }
 
+func TestStartedActivityYearAndSinceMonthCompile(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Messages: []Message{
+			{Role: "user", Content: "Riley: I started practicing yoga in 2020."},
+			{Role: "user", Content: "Riley: I have been developing a 2D adventure game with puzzles since June 2022."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "started practicing yoga in 2020") {
+		t.Fatalf("expected started-activity year, got %q", joined)
+	}
+	if !strings.Contains(joined, "started in june 2022") && !strings.Contains(joined, "since june 2022") {
+		t.Fatalf("expected since-month year start, got %q", joined)
+	}
+}
+
 func TestDeicticVisibleTextCompilesTitledWork(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{
