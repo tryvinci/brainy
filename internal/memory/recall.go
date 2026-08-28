@@ -3210,7 +3210,7 @@ func eventTimeFromRecord(rec MemoryRecord, content string) *time.Time {
 }
 
 func parseDateFromText(s string) *time.Time {
-	s = strings.TrimSpace(s)
+	s = strings.Trim(strings.TrimSpace(s), "()[];,.\"'?")
 	if s == "" {
 		return nil
 	}
@@ -3218,7 +3218,7 @@ func parseDateFromText(s string) *time.Time {
 		return t
 	}
 	fields := strings.Fields(s)
-	for n := 5; n >= 2; n-- {
+	for n := 5; n >= 1; n-- {
 		for i := 0; i+n <= len(fields); i++ {
 			chunk := strings.Trim(strings.Join(fields[i:i+n], " "), "()[];,.\"'?")
 			if t := parseFlexibleTime(chunk); t != nil && t.Year() > 1900 {
@@ -6001,6 +6001,7 @@ func leftoverSkipLine(query, line string, leftoverRare []string) bool {
 		!(looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, line)) &&
 		!(looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, line)) &&
 		!(looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, line)) &&
+		!(leftoverCoveringYearStartDurationLine(query, line)) &&
 		!(looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, line)) &&
 		!(looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, line)) &&
 		!(looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, line)) &&
@@ -6134,6 +6135,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 			continue
 		}
 		if leftoverCoveringSkipYearMismatch(query, line) {
+			continue
+		}
+		if leftoverCoveringYearStartSkipsSnapshot(query, line) {
 			continue
 		}
 		if looksLocationListQuery(query) {
@@ -7585,6 +7589,9 @@ func leftoverCoveringLineMonth(s string) string {
 }
 
 func leftoverCoveringLineHasYear(s string) bool {
+	if leftoverCoveringRelativeStartYear(s) != 0 {
+		return true
+	}
 	if parseDateFromText(s) != nil {
 		return true
 	}
@@ -7638,14 +7645,29 @@ func leftoverCoveringForYears(head string) int {
 		if fields[i] != "for" {
 			continue
 		}
-		if !strings.HasPrefix(fields[i+2], "year") {
+		j := i + 1
+		for j < len(fields) && leftoverCoveringDurationHedge(fields[j]) {
+			j++
+		}
+		if j+1 >= len(fields) {
 			continue
 		}
-		if n := leftoverCoveringYearWord(fields[i+1]); n > 0 {
+		if !strings.HasPrefix(fields[j+1], "year") {
+			continue
+		}
+		if n := leftoverCoveringYearWord(fields[j]); n > 0 {
 			return n
 		}
 	}
 	return 0
+}
+
+func leftoverCoveringDurationHedge(tok string) bool {
+	switch strings.ToLower(strings.Trim(tok, ".,;:()[]\"'")) {
+	case "about", "around", "nearly", "almost", "roughly", "approximately":
+		return true
+	}
+	return false
 }
 
 func leftoverCoveringYearWord(tok string) int {
@@ -7691,6 +7713,9 @@ func leftoverCoveringYearMissesEvent(query, covering, answer string) bool {
 	}
 	if !leftoverCoveringLineHasYear(covering) {
 		return false
+	}
+	if looksYearStartQuery(query) && leftoverCoveringYearStartSkipsSnapshot(query, answer) {
+		return true
 	}
 	if leftoverCoveringLineHasYear(answer) && leftoverCoveringMentionsQueryEntity(query, answer) {
 		if leftoverCoveringRelativeStartYear(answer) != 0 {
@@ -8105,6 +8130,9 @@ func leftoverCoveringAllowsZeroQueryTokens(query, line string) bool {
 		return true
 	}
 	if looksWhatDidRealizeAfterQuery(query) && leftoverCoveringSelfDirectedRealizeLine(query, line) {
+		return true
+	}
+	if leftoverCoveringYearStartDurationLine(query, line) {
 		return true
 	}
 	return looksWhatKindQuery(query) && leftoverCoveringKindListLine(line)
@@ -9649,6 +9677,31 @@ func leftoverCoveringDurationActorLine(query, line string) bool {
 		}
 	}
 	return false
+}
+
+func leftoverCoveringYearStartDurationLine(query, line string) bool {
+	if !looksYearStartQuery(query) {
+		return false
+	}
+	if leftoverCoveringRelativeStartYear(line) == 0 {
+		return false
+	}
+	return leftoverCoveringDurationActorLine(query, line)
+}
+
+func leftoverCoveringYearStartSkipsSnapshot(query, line string) bool {
+	if !looksYearStartQuery(query) {
+		return false
+	}
+	if leftoverCoveringRelativeStartYear(line) != 0 {
+		return false
+	}
+	low := strings.ToLower(hybridLineBody(line))
+	if strings.Contains(low, "started") || strings.Contains(low, "began") ||
+		strings.Contains(low, "beginning") || strings.Contains(low, " since ") {
+		return false
+	}
+	return leftoverCoveringLineHasYear(line)
 }
 
 func leftoverCoveringDurationExplicitLine(line string) bool {

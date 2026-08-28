@@ -519,6 +519,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	for _, record := range memories {
 		candidates[record.MemoryID] = record
 	}
+	if looksYearStartQuery(query) {
+		s.admitYearStartDurationMemories(ctx, tenantID, subjectID, includeSuperseded, candidates, query)
+	}
 	denseAdmitted := 0
 	if len(embedScores) > 0 {
 		for _, record := range allMemories {
@@ -1260,6 +1263,10 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 			score = 0.9
 			explain["ranking_basis"] = "duration_floor"
 		}
+		if score <= 0 && leftoverCoveringYearStartDurationLine(query, record.Content) {
+			score = 0.9
+			explain["ranking_basis"] = "year_start_duration_floor"
+		}
 		if score <= 0 && looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, record.Content) {
 			score = 0.9
 			explain["ranking_basis"] = "cadence_floor"
@@ -1458,6 +1465,9 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	if looksHowLongBeenQuery(query) {
 		ranked = keepDurationInCap(fullRanked, ranked, query, limit)
 	}
+	if looksYearStartQuery(query) {
+		ranked = keepDurationInCap(fullRanked, ranked, query, limit)
+	}
 	if looksHowOftenQuery(query) {
 		ranked = keepCadenceInCap(fullRanked, ranked, query, limit)
 	}
@@ -1521,6 +1531,25 @@ func (s *Service) admitUncoveredQueryTokens(ctx context.Context, tenantID, subje
 			if !contentCoversQueryToken(rec.Content, tok) {
 				continue
 			}
+			if admitRecord(candidates, rec, includeSuperseded) {
+				admitted++
+			}
+		}
+	}
+	return admitted
+}
+
+func (s *Service) admitYearStartDurationMemories(ctx context.Context, tenantID, subjectID string, includeSuperseded bool, candidates map[string]MemoryRecord, query string) int {
+	if s == nil || s.store == nil || candidates == nil || !looksYearStartQuery(query) {
+		return 0
+	}
+	hits, err := s.store.SearchMemories(ctx, tenantID, subjectID, []string{"% years as of %"}, 24, includeSuperseded)
+	if err != nil {
+		return 0
+	}
+	admitted := 0
+	for _, rec := range hits {
+		if leftoverCoveringYearStartDurationLine(query, rec.Content) {
 			if admitRecord(candidates, rec, includeSuperseded) {
 				admitted++
 			}
@@ -5811,12 +5840,21 @@ func expandDurationSessionNeighbors(candidates map[string]MemoryRecord, query st
 }
 
 func keepDurationInCap(full, capped []rankedSearchResult, query string, limit int) []rankedSearchResult {
-	if !looksHowLongBeenQuery(query) {
+	howLong := looksHowLongBeenQuery(query)
+	yearStart := looksYearStartQuery(query)
+	if !howLong && !yearStart {
 		return capped
 	}
 	extra := make([]rankedSearchResult, 0, 8)
 	for _, item := range full {
-		if !leftoverCoveringDurationLine(query, item.result.Content) {
+		ok := false
+		if howLong && leftoverCoveringDurationLine(query, item.result.Content) {
+			ok = true
+		}
+		if yearStart && leftoverCoveringYearStartDurationLine(query, item.result.Content) {
+			ok = true
+		}
+		if !ok {
 			continue
 		}
 		extra = append(extra, item)

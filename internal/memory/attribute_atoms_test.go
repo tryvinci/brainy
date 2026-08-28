@@ -448,6 +448,35 @@ func TestStartedActivityYearAndSinceMonthCompile(t *testing.T) {
 	}
 }
 
+func TestDurationAnaphoraCompilesStartYear(t *testing.T) {
+	ext := NewDeterministicExtractor()
+	memories, err := ext.Extract(context.Background(), IngestRequest{
+		TenantID: "t1", SubjectID: "u1", SourceType: "conversation",
+		Metadata: map[string]any{"observed_at": "2023-06-06"},
+		Messages: []Message{
+			{Role: "user", Content: "Dana: How long have you been doing yoga and meditation?"},
+			{Role: "assistant", Content: "Riley: I've been doing them sporadically for about 3 years now."},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	joined := ""
+	for _, m := range memories {
+		rule, _ := m.Explain["rule"].(string)
+		if !strings.HasPrefix(rule, "attribute_") {
+			continue
+		}
+		joined += " | " + strings.ToLower(m.Content)
+	}
+	if !strings.Contains(joined, "started practicing yoga in 2020") {
+		t.Fatalf("expected anaphoric yoga start year, got %q", joined)
+	}
+	if !strings.Contains(joined, "started practicing meditation in 2020") {
+		t.Fatalf("expected anaphoric meditation start year, got %q", joined)
+	}
+}
+
 func TestDeicticVisibleTextCompilesTitledWork(t *testing.T) {
 	ext := NewDeterministicExtractor()
 	memories, err := ext.Extract(context.Background(), IngestRequest{

@@ -1416,6 +1416,49 @@ func TestRecallFavoriteWorkCurrentlyPlayingQuotedTitle(t *testing.T) {
 	}
 }
 
+func TestRecallYearStartUsesHedgedDurationAsOf(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["c-mat"] = MemoryRecord{
+		MemoryID: "mem_cmat", TenantID: "t-year", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey has yoga mat blocks as of 28 March 2023.",
+		DedupeKey: "cmat", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePossession, "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicatePossession, "subject": "Casey"},
+	}
+	store.records["c-dur"] = MemoryRecord{
+		MemoryID: "mem_cdur", TenantID: "t-year", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey has been doing an activity sporadically for about 3 years as of 2023-06-06.",
+		DedupeKey: "cdur", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Casey"},
+	}
+	store.records["c-mtn"] = MemoryRecord{
+		MemoryID: "mem_cmtn", TenantID: "t-year", SubjectID: "u1",
+		Kind: KindFact, Content: "Casey did yoga on a mountain on 5 June 2023.",
+		DedupeKey: "cmtn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Casey"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Casey"},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-year", SubjectID: "u1",
+		Query: "Which year did Casey start practicing yoga?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if got != "2020" && !strings.HasPrefix(got, "2020") {
+		t.Fatalf("year-start recall must resolve hedged duration-as-of, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "mat") || strings.Contains(got, "mountain") || strings.Contains(got, "2023") {
+		t.Fatalf("dated snapshot must not cover year-start, answer=%q", out.Answer)
+	}
+}
+
 func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -6361,6 +6404,34 @@ func TestLeftoverCoveringWhichYearResolvesRelativeDuration(t *testing.T) {
 	yogaGot := leftoverCoveringSpecificAnswer("Which year did Riley start practicing yoga?", hops, pkt)
 	if !strings.Contains(yogaGot, "2020") || strings.Contains(yogaGot, "2018") || yogaGot == "2021" {
 		t.Fatalf("explicit start year must still cover which-year, got %q", yogaGot)
+	}
+}
+
+func TestLeftoverCoveringWhichYearPrefersDurationOverSnapshot(t *testing.T) {
+	hops := []HopResult{
+		{Kind: "resolve_entity", Entity: "Casey", Value: "Casey", Source: "search_fallback"},
+	}
+	pkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Casey has yoga mat blocks as of 28 March 2023."},
+			{Content: "Casey has been doing an activity sporadically for about 3 years as of 2023-06-06."},
+			{Content: "Casey did yoga on a mountain on 5 June 2023."},
+		},
+	}
+	q := "Which year did Casey start practicing yoga?"
+	got := leftoverCoveringSpecificAnswer(q, hops, pkt)
+	if got != "2020" {
+		t.Fatalf("year-start covering must resolve hedged duration-as-of, not a dated snapshot, got %q", got)
+	}
+	sincePkt := EvidencePacket{
+		ContextEvidence: []PacketItem{
+			{Content: "Casey has yoga mat blocks as of 28 March 2023."},
+			{Content: "Casey has been practicing yoga since 2020."},
+		},
+	}
+	sinceGot := leftoverCoveringSpecificAnswer(q, hops, sincePkt)
+	if !strings.Contains(sinceGot, "2020") || strings.Contains(strings.ToLower(sinceGot), "mat") {
+		t.Fatalf("year-start covering must keep since-year inception, got %q", sinceGot)
 	}
 }
 

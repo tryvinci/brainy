@@ -603,6 +603,15 @@ func looksYearQuery(query string) bool {
 	return strings.Contains(q, "which year") || strings.Contains(q, "what year")
 }
 
+// looksYearStartQuery is which/what-year inception ("start" / "began"),
+// not a dated snapshot of an ongoing activity.
+func looksYearStartQuery(query string) bool {
+	if !looksYearQuery(query) {
+		return false
+	}
+	return queryHasToken(query, "start", "started", "starts", "begin", "began", "beginning")
+}
+
 // looksWhichLanguageQuery is which/what language someone is learning or
 // studying. Rank matrix "is learning X" over purpose adjuncts ("to learn X",
 // app-for, interested-in). Not a language-name dictionary.

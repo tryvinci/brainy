@@ -529,6 +529,12 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if looksYearQuery("Which locations does Riley practice her yoga at?") {
 		t.Fatal("location lists must not count as year-event queries")
 	}
+	if !looksYearStartQuery("Which year did Riley start practicing yoga?") {
+		t.Fatal("which-year start queries must bind as year-start")
+	}
+	if looksYearStartQuery("Which year was Riley born?") {
+		t.Fatal("birth-year queries must not count as year-start")
+	}
 	if looksWhenEventQuery("Which year did Riley start practicing yoga?") {
 		t.Fatal("which-year must not take the when-prefix hop-date path")
 	}

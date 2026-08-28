@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -55,7 +56,9 @@ var (
 	planningActRE         = regexp.MustCompile(`(?i)\b(?:planning on|planning to|going to)\s+(?:go(?:ing)?\s+)?([a-z]+ing)\b`)
 	workshopRE            = regexp.MustCompile(`(?i)\b([a-z][a-z-]{2,30})\s+(?:workshop|class|lesson)s?\b`)
 	goGerundRE            = regexp.MustCompile(`(?i)\b(?:go|going|went|off to go)\s+([a-z]+ing)\b`)
-	durationYearsRE       = regexp.MustCompile(`(?i)\bfor\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+years\b`)
+	durationYearsRE       = regexp.MustCompile(`(?i)\bfor\s+(?:(?:about|around|nearly|almost|roughly|approximately)\s+)?(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+years\b`)
+	doingNamedActRE       = regexp.MustCompile(`(?i)\b(?:doing|practicing|practising|playing)\s+([a-z][a-z]+(?:\s+[a-z][a-z]+){0,4})`)
+	doingActAnaphoraRE    = regexp.MustCompile(`(?i)\b(?:doing|practicing|practising|playing)\s+(?:them|it|this|that)\b`)
 	durationMonthsRE      = regexp.MustCompile(`(?i)\b(?:for|took)\s+(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+months\b`)
 	seasonYearRE          = regexp.MustCompile(`(?i)\b(summer|winter|spring|fall|autumn)\s+(?:of\s+)?(20\d{2})\b`)
 	startedActivityYearRE = regexp.MustCompile(`(?i)\b(?:started|began)\s+(practicing|playing|doing|working on|learning)\s+([^,.!?]{2,40}?)\s+in\s+(20\d{2})\b`)
@@ -166,16 +169,17 @@ func extractAttributeAtoms(utterances []string, observedAt *time.Time) []Extract
 		turns = append(turns, turn{who: speaker, body: body, utt: utt})
 	}
 	speakers := collectSpeakers(turns)
+	acts := collectDoingActivities(turns)
 	var prior []string
 	lastNamed := ""
-	for _, t := range turns {
+	for i, t := range turns {
 		whoKey := strings.ToLower(t.who)
 		if t.who != "" && kidsMentionRE.MatchString(t.body) {
 			kidsBySpeaker[whoKey] = true
 		}
 		bind := newClauseBind(t.who, speakers).withAddressee(prior)
 		bind.lastNamed = lastNamed
-		for _, atom := range attributeAtomsFromUtterance(t.who, t.body, t.utt, observedAt, &bind) {
+		for _, atom := range attributeAtomsFromUtterance(t.who, t.body, t.utt, observedAt, &bind, i, acts) {
 			add(atom)
 			if pred, _ := atom.Explain["predicate"].(string); pred == PredicateOrigin {
 				if v, _ := atom.Explain["value_norm"].(string); v != "" && whoKey != "" {
@@ -228,7 +232,7 @@ func splitSpeaker(utterance string) (speaker, body string) {
 	return strings.TrimSpace(m[1]), NormalizeText(m[2])
 }
 
-func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time, bind *clauseBind) []ExtractedMemory {
+func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time, bind *clauseBind, turnIdx int, acts []doingActSpan) []ExtractedMemory {
 	if bind == nil {
 		tmp := newClauseBind(who, nil)
 		bind = &tmp
@@ -548,6 +552,14 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		n := numberWord(hit.groups[1])
 		if strings.Contains(lowerBody, "friend") {
 			emitOn(body, hit.start, true, 0.9, "attribute_duration", "%s has known friends for %s years", n)
+		} else if named := resolveDurationActivities(body, turnIdx, acts); len(named) > 0 {
+			if y := durationStartYear(numberWordInt(n), body, observedAt); y >= 1900 && y <= 2100 {
+				for _, act := range named {
+					emitOn(body, hit.start, true, 0.86, "attribute_event", "%s started practicing %s in %s", act, strconv.Itoa(y))
+				}
+			} else {
+				emitOn(body, hit.start, true, 0.82, "attribute_duration", "%s has a %s-year duration", n)
+			}
 		} else {
 			emitOn(body, hit.start, true, 0.82, "attribute_duration", "%s has a %s-year duration", n)
 		}
@@ -850,6 +862,127 @@ func numberWord(raw string) string {
 	default:
 		return strings.TrimSpace(raw)
 	}
+}
+
+func numberWordInt(raw string) int {
+	n, err := strconv.Atoi(numberWord(raw))
+	if err != nil || n <= 0 || n > 80 {
+		return 0
+	}
+	return n
+}
+
+type doingActSpan struct {
+	idx  int
+	acts []string
+}
+
+var durationActivityStop = map[string]struct{}{
+	"them": {}, "it": {}, "this": {}, "that": {}, "these": {}, "those": {},
+	"some": {}, "more": {}, "things": {}, "stuff": {}, "thing": {},
+	"something": {}, "anything": {}, "everything": {},
+	"activity": {}, "activities": {}, "hobby": {}, "hobbies": {},
+	"time": {}, "lot": {}, "bit": {}, "way": {},
+}
+
+func collectDoingActivities(turns []turn) []doingActSpan {
+	out := make([]doingActSpan, 0, len(turns))
+	for i, t := range turns {
+		acts := namedDoingActivities(t.body)
+		if len(acts) == 0 {
+			continue
+		}
+		out = append(out, doingActSpan{idx: i, acts: acts})
+	}
+	return out
+}
+
+func namedDoingActivities(body string) []string {
+	hit, ok := reFind(doingNamedActRE, body)
+	if !ok {
+		return nil
+	}
+	raw := strings.ToLower(NormalizeText(hit.groups[1]))
+	raw = strings.ReplaceAll(raw, ",", " and ")
+	parts := strings.Split(raw, " and ")
+	out := make([]string, 0, len(parts))
+	seen := map[string]struct{}{}
+	for _, p := range parts {
+		p = clipDurationActivity(p)
+		if p == "" {
+			continue
+		}
+		head, _, _ := strings.Cut(p, " ")
+		if _, stop := durationActivityStop[p]; stop {
+			continue
+		}
+		if _, stop := durationActivityStop[head]; stop {
+			continue
+		}
+		if utf8.RuneCountInString(p) < 3 || utf8.RuneCountInString(p) > 40 {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	return out
+}
+
+func clipDurationActivity(s string) string {
+	s = strings.TrimSpace(s)
+	lower := strings.ToLower(s)
+	for _, tail := range []string{" to ", " for ", " with ", " when ", " that ", " which ", " because ", " during "} {
+		if i := strings.Index(lower, tail); i > 0 {
+			s = strings.TrimSpace(s[:i])
+			lower = strings.ToLower(s)
+		}
+	}
+	return strings.TrimSpace(s)
+}
+
+func resolveDurationActivities(body string, turnIdx int, acts []doingActSpan) []string {
+	if named := namedDoingActivities(body); len(named) > 0 {
+		return named
+	}
+	lower := strings.ToLower(body)
+	if !doingActAnaphoraRE.MatchString(body) && !strings.Contains(lower, "an activity") &&
+		!strings.Contains(lower, "the activity") {
+		return nil
+	}
+	best := []string(nil)
+	bestDist := 1 << 20
+	for _, span := range acts {
+		if span.idx == turnIdx || len(span.acts) == 0 {
+			continue
+		}
+		d := span.idx - turnIdx
+		if d < 0 {
+			d = -d
+		} else {
+			d += 100
+		}
+		if d < bestDist {
+			bestDist = d
+			best = span.acts
+		}
+	}
+	return best
+}
+
+func durationStartYear(n int, body string, observedAt *time.Time) int {
+	if n <= 0 || n > 80 {
+		return 0
+	}
+	if y := leftoverCoveringRelativeStartYear(body); y >= 1900 && y <= 2100 {
+		return y
+	}
+	if observedAt != nil && !observedAt.IsZero() {
+		return observedAt.Year() - n
+	}
+	return 0
 }
 
 func deicticVisibleWorkTitle(body string) (string, bool) {
