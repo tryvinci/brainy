@@ -218,6 +218,9 @@ func predicateHintsFromQuery(query string) []string {
 	case looksWouldMemberQuery(query):
 		add(PredicateIdentity)
 		add(PredicateAffiliation)
+	case looksWhatThinkAboutQuery(query):
+		add(PredicateBelief)
+		add(PredicatePlan)
 	case looksTriedPolarQuery(query):
 		add(PredicateActivity)
 		add(PredicatePreference)

@@ -552,7 +552,7 @@ func relationFollowPredicate(pred string) bool {
 	case PredicateOrigin, PredicateResidence, PredicateActivity,
 		PredicateMediaConsumed, PredicateOccupation, PredicateFamilyMember,
 		PredicateEducation, PredicatePlan, PredicateEvent, PredicateIdentity,
-		PredicatePreference, PredicateRelationshipStatus:
+		PredicatePreference, PredicateRelationshipStatus, PredicateBelief:
 		return true
 	}
 	return false

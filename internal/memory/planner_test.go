@@ -563,6 +563,22 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if !foundIdent || !foundAlex {
 		t.Fatalf("would-member must hop identity for the query person, hops=%+v", member.Hops)
 	}
+	think := PlanQuery("What does Melanie think about Caroline's decision to adopt?", nil)
+	foundBelief, foundMelanie := false, false
+	for _, hop := range think.Hops {
+		if hop.Predicate == PredicateBelief {
+			foundBelief = true
+		}
+		if strings.EqualFold(hop.Entity, "melanie") {
+			foundMelanie = true
+		}
+	}
+	if !foundBelief || !foundMelanie {
+		t.Fatalf("think-about must hop belief for the thinker, hops=%+v", think.Hops)
+	}
+	if hopComposeAllowed("What does Melanie think about Caroline's decision to adopt?") {
+		t.Fatal("think-about must not dump hop values")
+	}
 	if looksWhenEventQuery("Which year did Riley start practicing yoga?") {
 		t.Fatal("which-year must not take the when-prefix hop-date path")
 	}
