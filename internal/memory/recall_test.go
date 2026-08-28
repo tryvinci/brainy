@@ -5626,8 +5626,8 @@ func TestLeftoverCoveringFindObjectPrefersLocativeCaptionOverAttend(t *testing.T
 	if !strings.Contains(lower, "danc") {
 		t.Fatalf("locative caption with activity gerund must cover find-object, got %q", got)
 	}
-	if strings.Contains(lower, "attended") || strings.Contains(lower, "biking") {
-		t.Fatalf("attend/biking must not cover when a locative dancing caption exists, got %q", got)
+	if strings.Contains(lower, "attended") || strings.Contains(lower, "biking") || strings.Contains(lower, "[a photo") {
+		t.Fatalf("attend/biking/raw caption must not cover when a locative dancing caption exists, got %q", got)
 	}
 }
 
@@ -5635,6 +5635,10 @@ func TestStripAlsoReferencedDateTailDropsConflictingExtraDate(t *testing.T) {
 	got := stripAlsoReferencedDateTail("Alex joined a mentorship program on the weekend of 15–16 July 2023 (also referenced as joining the weekend of 10 July 2023).")
 	if !strings.Contains(got, "15") || strings.Contains(got, "10 July") {
 		t.Fatalf("conflicting also-referenced date must strip, got %q", got)
+	}
+	got2 := stripAlsoReferencedDateTail("Alex joined a mentorship program on the weekend of 15–16 July 2023 (and also referenced joining on the weekend of 10 July 2023).")
+	if strings.Contains(got2, "10 July") {
+		t.Fatalf("and-also-referenced extra date must strip, got %q", got2)
 	}
 	keep := stripAlsoReferencedDateTail("Alex joined on the weekend of 15 July 2023 (also referenced as 15 July 2023).")
 	if !strings.Contains(keep, "also referenced") {

@@ -6648,6 +6648,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	best = stripConflictingDateTail(query, best)
 	best = stripConflictingObservedAtStamp(best)
 	best = stripAlsoReferencedDateTail(best)
+	if cap := leftoverCoveringCaptionAnswer(query, best); cap != "" {
+		best = cap
+	}
 	if whereQ {
 		if place := locativePlaceFromLine(best); place != "" {
 			return leftoverCoveringFinish(query, place)
@@ -7263,6 +7266,34 @@ func leftoverCoveringAllowsCaption(query, line string) bool {
 		}
 	}
 	return false
+}
+
+func leftoverCoveringCaptionAnswer(query, line string) string {
+	if !leftoverCoveringAllowsCaption(query, line) {
+		return ""
+	}
+	src := line
+	trim := strings.TrimSpace(line)
+	if strings.HasPrefix(trim, "[") {
+		if i := strings.Index(trim, "]"); i > 1 {
+			src = trim[1:i]
+		}
+	}
+	var gerund string
+	for _, tok := range tokenize(src) {
+		if len(tok) >= 5 && strings.HasSuffix(tok, "ing") && !leftoverCoverWeakToken(tok) {
+			gerund = tok
+			break
+		}
+	}
+	if gerund == "" {
+		return ""
+	}
+	loc := leftoverCoveringQueryLocativeNouns(query)
+	if len(loc) == 0 {
+		return gerund
+	}
+	return gerund + " at the " + loc[0]
 }
 
 // leftoverCoveringQueryKinshipNouns returns a with-PP kinship role already in
@@ -11619,9 +11650,11 @@ func stripConflictingObservedAtStamp(line string) string {
 func stripAlsoReferencedDateTail(line string) string {
 	line = strings.TrimSpace(line)
 	low := strings.ToLower(line)
-	idx := strings.Index(low, "(also referenced as")
-	if idx < 0 {
-		idx = strings.Index(low, "(also referred to as")
+	idx := -1
+	for _, m := range []string{"(also referenced as", "(also referred to as", "(and also referenced", "(also referenced "} {
+		if i := strings.Index(low, m); i >= 8 && (idx < 0 || i < idx) {
+			idx = i
+		}
 	}
 	if idx < 8 {
 		return line
