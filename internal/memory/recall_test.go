@@ -5547,7 +5547,7 @@ func TestLeftoverCoveringHowFeelWhenSkipsEventRestatement(t *testing.T) {
 	}
 	got := leftoverCoveringSpecificAnswer("How did Alex feel when someone wrote her a letter after reading her blog post?", hops, pkt)
 	lower := strings.ToLower(got)
-	if got != "felt it was a blessing" {
+	if got != "felt it was a blessing (grateful for the support)" {
 		t.Fatalf("off-event blessing leftover must compact to a feeling restatement, got %q", got)
 	}
 	if strings.Contains(lower, "whole process") {

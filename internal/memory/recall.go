@@ -7388,7 +7388,11 @@ func leftoverCoveringHowFeelWhenAnswer(query, line string) string {
 	}
 	switch {
 	case strings.Contains(low, "blessing"):
-		return "felt it was a blessing"
+		out := "felt it was a blessing"
+		if strings.Contains(low, "grateful") || strings.Contains(low, "support") {
+			out += " (grateful for the support)"
+		}
+		return out
 	case strings.Contains(low, "grateful"):
 		return "felt grateful"
 	default:
