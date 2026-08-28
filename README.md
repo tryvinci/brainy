@@ -129,8 +129,8 @@ open-domain** on this pin.
 | BEAM 100K | **40%** (8/20) search+harness | see published % above | no pin |
 
 Skip-ingest stratified 180 on this VM (not public LoCoMo, not this 1×30 pin):
-**151/180** product `/recall` (MH 28/33, OD **4/11** trail, SH 87/98,
-temporal 32/38). Not 90% (162/180 on that sample). Details:
+**152/180** product `/recall` (MH 28/33, OD **4/11** trail, SH 87/98,
+temporal 33/38). Not 90% (162/180 on that sample). Details:
 [docs/benchmarks/README.md](docs/benchmarks/README.md).
 
 Mem0 **OSS** was not re-measured. Reproduce and artifacts:
