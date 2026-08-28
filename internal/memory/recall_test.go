@@ -1361,6 +1361,61 @@ func TestRecallFavoriteWorkRanksQuotedTitleOverPark(t *testing.T) {
 	}
 }
 
+func TestRecallFavoriteWorkCurrentlyPlayingQuotedTitle(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["n-play"] = MemoryRecord{
+		MemoryID: "mem_nplay", TenantID: "t-fav2", SubjectID: "u1",
+		Kind: KindFact, Content: "Nate is currently playing the fantasy RPG \"Xeonoblade Chronicles\".",
+		DedupeKey: "nplay", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "Xeonoblade Chronicles", "subject": "Nate"},
+		Explain:  map[string]any{"rule": "attribute_titled_work", "predicate": PredicateActivity, "subject": "Nate"},
+	}
+	store.records["n-tourn"] = MemoryRecord{
+		MemoryID: "mem_ntourn", TenantID: "t-fav2", SubjectID: "u1",
+		Kind: KindFact, Content: "Nate: Playing video games is a great way to express my creativity and passion.",
+		DedupeKey: "ntourn", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "value_norm": "video games", "subject": "Nate"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Nate"},
+	}
+	store.records["j-mh"] = MemoryRecord{
+		MemoryID: "mem_jmh2", TenantID: "t-fav2", SubjectID: "u1",
+		Kind: KindFact, Content: "Jolene's favorite game is \"Monster Hunter: World\".",
+		DedupeKey: "jmh2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicatePreference, "value_norm": "Monster Hunter: World", "subject": "Jolene"},
+		Explain:  map[string]any{"rule": "attribute_titled_work", "predicate": PredicatePreference, "subject": "Jolene"},
+	}
+	store.atoms = append(store.atoms,
+		stubAtom{pred: PredicateActivity, val: "Xeonoblade Chronicles", memID: "mem_nplay"},
+		stubAtom{pred: PredicateActivity, val: "video games", memID: "mem_ntourn"},
+		stubAtom{pred: PredicatePreference, val: "Monster Hunter: World", memID: "mem_jmh2"},
+	)
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-fav2", SubjectID: "u1",
+		Query: "What is Nate's favorite video game?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if !strings.Contains(got, "xeonoblade") {
+		t.Fatalf("currently-playing quoted title must answer favorite-game, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "creativity") || strings.Contains(got, "passion") || strings.Contains(got, "monster hunter") {
+		t.Fatalf("must not return tournament leftover or other-person title: %q", out.Answer)
+	}
+	title, score := favoriteWorkTitleFromText("Nate is currently playing the fantasy RPG \"Xeonoblade Chronicles\".", []string{"game", "games", "play", "played", "playing"})
+	if score < 4 || !strings.Contains(strings.ToLower(title), "xeonoblade") {
+		t.Fatalf("currently-playing quoted title must score, got %q score=%d", title, score)
+	}
+	if gotTitle, gotScore := favoriteWorkTitleFromText("Nate won a Valorant tournament last Saturday.", []string{"game", "games", "play", "played", "playing"}); gotTitle != "" || gotScore != 0 {
+		t.Fatalf("tournament without currently-playing quoted title must not score, got %q score=%d", gotTitle, gotScore)
+	}
+}
+
 func TestRecallWhichLanguageRanksMatrixOverPurposeAdjunct(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

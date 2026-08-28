@@ -2186,7 +2186,9 @@ func favoriteWorkTitleFromText(text string, class []string) (string, int) {
 	}
 	lower := strings.ToLower(body)
 	hasFav := strings.Contains(lower, "favorite") || strings.Contains(lower, "favourite")
-	if !hasFav {
+	currentlyPlaying := strings.Contains(lower, "currently playing") ||
+		strings.Contains(lower, "currently plays")
+	if !hasFav && !currentlyPlaying {
 		return "", 0
 	}
 	if len(class) > 0 && !queryHasToken(body, class...) {
