@@ -544,6 +544,25 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if looksWhatThinkAboutQuery("Why does Maria think it's important for younger generations to visit military memorials?") {
 		t.Fatal("why-think must not count as what-think-about")
 	}
+	if !looksWouldMemberQuery("Would Alex be considered a member of the makers community?") {
+		t.Fatal("would + member must bind as would-member")
+	}
+	if hopComposeAllowed("Would Alex be considered a member of the makers community?") {
+		t.Fatal("would-member must not dump hop values")
+	}
+	member := PlanQuery("Would Alex be considered a member of the makers community?", nil)
+	foundIdent, foundAlex := false, false
+	for _, hop := range member.Hops {
+		if hop.Predicate == PredicateIdentity {
+			foundIdent = true
+		}
+		if strings.EqualFold(hop.Entity, "alex") {
+			foundAlex = true
+		}
+	}
+	if !foundIdent || !foundAlex {
+		t.Fatalf("would-member must hop identity for the query person, hops=%+v", member.Hops)
+	}
 	if looksWhenEventQuery("Which year did Riley start practicing yoga?") {
 		t.Fatal("which-year must not take the when-prefix hop-date path")
 	}

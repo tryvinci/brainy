@@ -82,7 +82,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query) || looksFavoriteWorkQuery(query) || looksWhatThinkAboutQuery(query)) && hopPlanAllowed(query) {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query) || looksFavoriteWorkQuery(query) || looksWhatThinkAboutQuery(query) || looksWouldMemberQuery(query)) && hopPlanAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -320,7 +320,8 @@ func personAfterAuxiliary(query string) string {
 	for i := 0; i < len(fields)-1; i++ {
 		w := strings.ToLower(strings.Trim(fields[i], "?,.!\""))
 		switch w {
-		case "does", "did", "do", "has", "have":
+		case "does", "did", "do", "has", "have", "is", "was", "were",
+			"can", "could", "would", "should", "might":
 		default:
 			continue
 		}
@@ -370,7 +371,8 @@ func looksHopPerson(w string) bool {
 		return false
 	}
 	switch strings.ToLower(w) {
-	case "what", "which", "who", "where", "when", "why", "how":
+	case "what", "which", "who", "where", "when", "why", "how",
+		"would", "could", "should", "might":
 		return false
 	}
 	_, stop := hopEntityStop[strings.ToLower(w)]
@@ -519,6 +521,7 @@ func hopEntityName(names []string) string {
 }
 
 var hopEntityStop = map[string]struct{}{
+	"would": {}, "could": {}, "should": {}, "might": {},
 	"career": {}, "path": {}, "occupation": {}, "job": {}, "work": {},
 	"books": {}, "book": {}, "activities": {}, "activity": {},
 	"hobbies": {}, "hobby": {}, "kids": {}, "children": {}, "child": {},
