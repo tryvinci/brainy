@@ -82,7 +82,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query) || looksFavoriteWorkQuery(query)) && hopPlanAllowed(query) {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query) || looksFavoriteWorkQuery(query) || looksWhatThinkAboutQuery(query)) && hopPlanAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -590,6 +590,9 @@ func hopComposeAllowed(query string) bool {
 	if looksFavoriteWorkQuery(query) {
 		return false
 	}
+	if looksWhatThinkAboutQuery(query) {
+		return false
+	}
 	return true
 }
 
@@ -625,6 +628,21 @@ func looksWhichLanguageQuery(query string) bool {
 		return false
 	}
 	return strings.HasPrefix(q, "which ") || strings.HasPrefix(q, "what ")
+}
+
+// looksWhatThinkAboutQuery is what-does/did X think about Y. Typed
+// second-person encouragement from the thinker ("you're doing" /
+// "you'll be") over the topic person's own feelings. Not leftover
+// covering and not an evaluative dictionary.
+func looksWhatThinkAboutQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return false
+	}
+	if !strings.HasPrefix(q, "what does ") && !strings.HasPrefix(q, "what did ") {
+		return false
+	}
+	return strings.Contains(q, " think about ") || strings.Contains(q, " thinks about ")
 }
 
 // looksFavoriteWorkQuery is which/what favorite game/book/show. Typed

@@ -1416,6 +1416,56 @@ func TestRecallFavoriteWorkCurrentlyPlayingQuotedTitle(t *testing.T) {
 	}
 }
 
+func TestRecallThinkAboutPrefersThinkerEncouragement(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-art"] = MemoryRecord{
+		MemoryID: "mem_mart", TenantID: "t-think", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie: Your art's amazing, Caroline.",
+		DedupeKey: "mart", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+	}
+	store.records["m-do"] = MemoryRecord{
+		MemoryID: "mem_mdo", TenantID: "t-think", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie: You're doing something amazing",
+		DedupeKey: "mdo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+	}
+	store.records["m-mom"] = MemoryRecord{
+		MemoryID: "mem_mmom", TenantID: "t-think", SubjectID: "u1",
+		Kind: KindFact, Content: "You'll be an awesome mom",
+		DedupeKey: "mmom", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+	}
+	store.records["c-feel"] = MemoryRecord{
+		MemoryID: "mem_cfeel", TenantID: "t-think", SubjectID: "u1",
+		Kind: KindFact, Content: "It's a big decision, but I think I'm ready to give all my love to a child",
+		DedupeKey: "cfeel", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Caroline"},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-think", SubjectID: "u1",
+		Query: "What does Melanie think about Caroline's decision to adopt?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if !strings.Contains(got, "amazing") || !strings.Contains(got, "awesome mom") {
+		t.Fatalf("think-about must join thinker encouragement, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nervous") || strings.Contains(got, "ready to give") || strings.Contains(got, "your art") {
+		t.Fatalf("topic-person feelings and unrelated art leftover must not cover think-about, answer=%q", out.Answer)
+	}
+}
+
 func TestRecallYearStartUsesHedgedDurationAsOf(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()

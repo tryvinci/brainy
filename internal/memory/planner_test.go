@@ -535,6 +535,15 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if looksYearStartQuery("Which year was Riley born?") {
 		t.Fatal("birth-year queries must not count as year-start")
 	}
+	if !looksWhatThinkAboutQuery("What does Melanie think about Caroline's decision to adopt?") {
+		t.Fatal("what-does-think-about must bind as think-about")
+	}
+	if looksWhatThinkAboutQuery("How does Tim stay motivated during difficult study sessions?") {
+		t.Fatal("how-motivated must not count as think-about")
+	}
+	if looksWhatThinkAboutQuery("Why does Maria think it's important for younger generations to visit military memorials?") {
+		t.Fatal("why-think must not count as what-think-about")
+	}
 	if looksWhenEventQuery("Which year did Riley start practicing yoga?") {
 		t.Fatal("which-year must not take the when-prefix hop-date path")
 	}
