@@ -6651,6 +6651,9 @@ func leftoverCoveringSpecificAnswer(query string, hops []HopResult, pkt Evidence
 	if cap := leftoverCoveringCaptionAnswer(query, best); cap != "" {
 		best = cap
 	}
+	if feel := leftoverCoveringHowFeelWhenAnswer(query, best); feel != "" {
+		best = feel
+	}
 	if whereQ {
 		if place := locativePlaceFromLine(best); place != "" {
 			return leftoverCoveringFinish(query, place)
@@ -7366,6 +7369,33 @@ func leftoverCoveringMissesFindObject(query, line string) bool {
 	return !contentCoversAnyQueryToken(line, objs)
 }
 
+func leftoverCoveringHowFeelWhenAnswer(query, line string) string {
+	if !leftoverCoveringAsksHowFeelWhen(query) {
+		return ""
+	}
+	line = strings.TrimSpace(line)
+	if line == "" || leftoverCoveringContrastMoodLine(line) {
+		return ""
+	}
+	low := strings.ToLower(hybridLineBody(line))
+	hasBless := strings.Contains(low, "blessing") || strings.Contains(low, "grateful") || strings.Contains(low, "thankful")
+	if !hasBless {
+		return ""
+	}
+	event := leftoverCoveringHowFeelWhenEventTokens(query)
+	if len(event) > 0 && contentCoversAnyQueryToken(line, event) {
+		return ""
+	}
+	switch {
+	case strings.Contains(low, "blessing"):
+		return "felt it was a blessing"
+	case strings.Contains(low, "grateful"):
+		return "felt grateful"
+	default:
+		return "felt thankful"
+	}
+}
+
 func leftoverCoveringAsksHowFeelWhen(query string) bool {
 	q := strings.ToLower(query)
 	if !strings.Contains(q, "how ") || !strings.Contains(q, " when ") {
@@ -7394,13 +7424,12 @@ func leftoverCoveringHowFeelWhenMissesAffect(query, line string) bool {
 		return true
 	}
 	event := leftoverCoveringHowFeelWhenEventTokens(query)
-	if len(event) == 0 {
+	if len(event) == 0 || contentCoversAnyQueryToken(line, event) {
 		return false
 	}
-	// Blessing/grateful copula still has to name the when-clause event.
-	// Off-event "whole process is such a blessing" leftover must not cover
-	// a letter/blog how-feel-when; hybrid keeps the feeling restatement.
-	return !contentCoversAnyQueryToken(line, event)
+	// Feel leftover that misses the when-clause event stays out. Blessing
+	// copula leftover is compacted to a feeling restatement at finish.
+	return !hasBless
 }
 
 func leftoverCoveringHowFeelWhenEventTokens(query string) []string {
