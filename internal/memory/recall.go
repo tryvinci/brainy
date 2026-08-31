@@ -453,6 +453,14 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["titled_work_answer"] = true
 			}
 		}
+		if looksWhatThinkAboutQuery(req.Query) {
+			if ans := s.thinkAboutAnswerFromHops(ctx, req, hopResults); ans != "" {
+				out.Answer = ans
+				out.Abstained = false
+				out.AnswerStatus = AnswerSupported
+				out.Explain["think_about_answer"] = true
+			}
+		}
 		if looksWhereQuery(req.Query) {
 			if looksLocationListQuery(req.Query) {
 				loc := s.locationItemsFromEvidence(ctx, req, hopResults, nil)
@@ -634,6 +642,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 		lockedPolar := looksPolarQuery(req.Query) && out.Explain["polar_answer"] == true
 		lockedLanguage := looksWhichLanguageQuery(req.Query) && out.Explain["language_answer"] == true
 		lockedTitledWork := looksFavoriteWorkQuery(req.Query) && out.Explain["titled_work_answer"] == true
+		lockedThinkAbout := looksWhatThinkAboutQuery(req.Query) && out.Explain["think_about_answer"] == true
 		lockedCount := looksCountQuery(req.Query) && out.Explain["count_answer"] == true
 		keepDateOnHybridAbstain := looksWhenEventQuery(req.Query) && out.Explain["date_answer"] == true
 		typedAnswer := strings.TrimSpace(out.Answer)
@@ -678,7 +687,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			out.Explain["hybrid_pre_item_count"] = typedN
 			out.Explain["hybrid_extra_item_count"] = extras
 		}
-		if hybrid.OK && (lockedWhere || lockedPolar || lockedLanguage || lockedTitledWork || lockedCount || lockedMHList || lockedList || lockedOrdinal) {
+		if hybrid.OK && (lockedWhere || lockedPolar || lockedLanguage || lockedTitledWork || lockedThinkAbout || lockedCount || lockedMHList || lockedList || lockedOrdinal) {
 			lock := "where"
 			if lockedList {
 				lock = "list"
@@ -695,6 +704,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			if lockedTitledWork {
 				lock = "titled_work"
 			}
+			if lockedThinkAbout {
+				lock = "think_about"
+			}
 			if lockedCount {
 				lock = "count"
 			}
@@ -703,7 +715,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			}
 			out.Explain["hybrid_skipped_lock"] = lock
 		}
-		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
+		if hybrid.OK && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedThinkAbout && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			out.Answer = strings.TrimSpace(hybrid.Answer)
 			// Enumerated answers already have a typed list; hop-slot
 			// grounding re-expands them into unrelated dumps. Unproven
@@ -729,7 +741,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 			plan.Tools = append(plan.Tools, "hybrid_reader")
 			out.Explain["query_plan"] = plan
 			out.Explain["tools_executed"] = plan.Tools
-		} else if hybrid.Abstain && !keepDateOnHybridAbstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
+		} else if hybrid.Abstain && !keepDateOnHybridAbstain && !lockedDate && !lockedWhere && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedThinkAbout && !lockedCount && !lockedMHList && !lockedList && !lockedOrdinal {
 			leftover := leftoverNonEntityQueryTokens(req.Query, hopResults)
 			canComposeHops := hopComposeAllowed(req.Query) && hopJoinProven(hopResults) &&
 				!skipSlots &&
@@ -767,7 +779,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				out.Explain["reader_source"] = "hybrid_llm_packet"
 			}
 		}
-		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedCount {
+		if out.Explain["ordinal_name"] != true && !lockedPolar && !lockedLanguage && !lockedTitledWork && !lockedThinkAbout && !lockedCount {
 			if covering := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt); covering != "" {
 				cur := strings.TrimSpace(out.Answer)
 				src, _ := out.Explain["reader_source"].(string)
@@ -1944,9 +1956,11 @@ func polarClaimTokens(query string) []string {
 }
 
 func polarAnswerFromHops(query string, hops []HopResult) string {
-	if len(hopQueryEntities(query)) == 0 {
+	ents := hopQueryEntities(query)
+	if len(ents) == 0 {
 		return ""
 	}
+	person := ents[0]
 	claim := polarClaimTokens(query)
 	if len(claim) == 0 {
 		return ""
@@ -1954,34 +1968,40 @@ func polarAnswerFromHops(query string, hops []HopResult) string {
 	if looksTriedPolarQuery(query) {
 		return polarTriedAnswerFromHops(query, hops, claim)
 	}
-	var b strings.Builder
 	for _, h := range hops {
-		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" {
 			continue
 		}
-		for _, v := range h.Values {
-			b.WriteString(" ")
-			b.WriteString(strings.ToLower(v))
+		pieces := make([]string, 0, len(h.Contents)+len(h.Values)+1)
+		pieces = append(pieces, h.Contents...)
+		if len(h.Values) > 0 {
+			pieces = append(pieces, h.Values...)
+		} else if strings.TrimSpace(h.Value) != "" {
+			pieces = append(pieces, h.Value)
 		}
-		if h.Value != "" {
-			b.WriteString(" ")
-			b.WriteString(strings.ToLower(h.Value))
-		}
-		for _, c := range h.Contents {
-			b.WriteString(" ")
-			b.WriteString(strings.ToLower(c))
-		}
-	}
-	blob := b.String()
-	if strings.TrimSpace(blob) == "" {
-		return ""
-	}
-	for _, t := range claim {
-		if strings.Contains(blob, t) {
-			return "Yes"
+		for _, p := range pieces {
+			if !polarEvidenceBoundToPerson(query, person, p, h.Entity) {
+				continue
+			}
+			if polarPieceHasClaim(p, claim) {
+				return "Yes"
+			}
 		}
 	}
 	return ""
+}
+
+func polarEvidenceBoundToPerson(query, person, piece, hopEntity string) bool {
+	if strings.TrimSpace(piece) == "" {
+		return false
+	}
+	if leftoverCoveringSkipForeignPerson(query, piece) {
+		return false
+	}
+	if leftoverCoveringMentionsQueryEntity(query, piece) {
+		return true
+	}
+	return languageFactBoundToPerson(person, piece, MemoryRecord{}, hopEntity)
 }
 
 func polarTriedAnswerFromHops(query string, hops []HopResult, claim []string) string {
@@ -2162,6 +2182,182 @@ func (s *Service) titledWorkAnswerFromHops(ctx context.Context, req RecallReques
 	return bestTitle
 }
 
+func (s *Service) thinkAboutAnswerFromHops(ctx context.Context, req RecallRequest, hops []HopResult) string {
+	if !looksWhatThinkAboutQuery(req.Query) {
+		return ""
+	}
+	ents := hopQueryEntities(req.Query)
+	person := ""
+	if len(ents) > 0 {
+		person = ents[0]
+	}
+	topic := thinkAboutTopicPerson(req.Query)
+	if topic == "" && len(ents) > 1 {
+		topic = ents[1]
+	}
+	if person == "" {
+		return ""
+	}
+	var doing, willBe, both string
+	consider := func(content string, rec MemoryRecord, hopEntity string) {
+		if !thinkAboutEncouragementBound(person, topic, content, rec, hopEntity) {
+			return
+		}
+		kind, phrase := thinkAboutEncouragementFromText(content)
+		if phrase == "" {
+			return
+		}
+		switch kind {
+		case "both":
+			if both == "" || utf8.RuneCountInString(phrase) < utf8.RuneCountInString(both) {
+				both = phrase
+			}
+		case "doing":
+			if doing == "" || utf8.RuneCountInString(phrase) < utf8.RuneCountInString(doing) {
+				doing = phrase
+			}
+		case "will_be":
+			if willBe == "" || utf8.RuneCountInString(phrase) < utf8.RuneCountInString(willBe) {
+				willBe = phrase
+			}
+		}
+	}
+	for _, h := range hops {
+		if h.Kind == "resolve_entity" || h.Source == "unresolved" || h.Source == "search_fallback" {
+			continue
+		}
+		for i, c := range h.Contents {
+			var rec MemoryRecord
+			if i < len(h.MemoryIDs) && h.MemoryIDs[i] != "" && s != nil && s.store != nil {
+				if got, err := s.store.GetMemory(ctx, req.TenantID, req.SubjectID, h.MemoryIDs[i]); err == nil {
+					rec = got
+				}
+			}
+			consider(c, rec, h.Entity)
+		}
+		for _, v := range h.Values {
+			consider(v, MemoryRecord{}, h.Entity)
+		}
+	}
+	if s != nil && s.store != nil && req.TenantID != "" && req.SubjectID != "" {
+		if listed, err := s.store.ListMemories(ctx, req.TenantID, req.SubjectID, false); err == nil {
+			for _, rec := range listed {
+				consider(rec.Content, rec, entitySubjectOf(rec))
+			}
+		}
+	}
+	if both != "" {
+		return both
+	}
+	parts := make([]string, 0, 2)
+	if doing != "" {
+		parts = append(parts, doing)
+	}
+	if willBe != "" {
+		parts = append(parts, willBe)
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, " ")
+}
+
+// thinkAboutEncouragementBound is the thinker's second-person encouragement.
+// Unlabeled you-forms bind only on two-party think-about (thinker + topic
+// person) so a third speaker's "you're doing" cannot attach to a one-name
+// think-about.
+func thinkAboutEncouragementBound(thinker, topic, content string, rec MemoryRecord, hopEntity string) bool {
+	if languageFactBoundToPerson(thinker, content, rec, hopEntity) {
+		return true
+	}
+	if strings.TrimSpace(topic) == "" {
+		return false
+	}
+	if lab := utteranceSpeakerLabel(content); lab != "" && !strings.EqualFold(lab, thinker) {
+		return false
+	}
+	kind, _ := thinkAboutEncouragementFromText(content)
+	return kind != ""
+}
+
+func utteranceSpeakerLabel(text string) string {
+	body := strings.TrimSpace(hybridLineBody(text))
+	if i := strings.Index(body, ": "); i > 0 && i < 32 && !strings.Contains(body[:i], " ") {
+		return strings.TrimSpace(body[:i])
+	}
+	return ""
+}
+
+// thinkAboutTopicPerson is the named person after think-about / thinks-about.
+func thinkAboutTopicPerson(query string) string {
+	lower := strings.ToLower(query)
+	for _, cue := range []string{" think about ", " thinks about "} {
+		i := strings.Index(lower, cue)
+		if i < 0 {
+			continue
+		}
+		rest := strings.TrimSpace(query[i+len(cue):])
+		fields := strings.Fields(rest)
+		if len(fields) == 0 {
+			continue
+		}
+		n := strings.Trim(fields[0], "'\"?,.")
+		n = strings.TrimSuffix(n, "'s")
+		n = strings.TrimSuffix(n, "’s")
+		if looksHopPerson(n) {
+			return n
+		}
+	}
+	return ""
+}
+
+func thinkAboutEncouragementFromText(text string) (kind, phrase string) {
+	if looksInterrogativeLine(text) || looksImageCaptionLine(text) {
+		return "", ""
+	}
+	body := strings.TrimSpace(hybridLineBody(text))
+	if i := strings.Index(body, ": "); i > 0 && i < 32 && !strings.Contains(body[:i], " ") {
+		body = strings.TrimSpace(body[i+2:])
+	}
+	low := strings.ToLower(body)
+	hasDoing := strings.Contains(low, "you're doing") || strings.Contains(low, "you are doing")
+	hasWill := strings.Contains(low, "you'll be") || strings.Contains(low, "you will be")
+	switch {
+	case hasDoing && hasWill:
+		kind = "both"
+	case hasDoing:
+		kind = "doing"
+	case hasWill:
+		kind = "will_be"
+	default:
+		i := strings.Index(low, " thinks ")
+		if i < 0 {
+			return "", ""
+		}
+		rest := strings.TrimSpace(body[i+len(" thinks "):])
+		restLow := strings.ToLower(rest)
+		thinkDoing := strings.Contains(restLow, " is doing ")
+		thinkWill := strings.Contains(restLow, " will be ")
+		switch {
+		case thinkDoing && thinkWill:
+			kind = "both"
+		case thinkDoing:
+			kind = "doing"
+		case thinkWill:
+			kind = "will_be"
+		default:
+			return "", ""
+		}
+		body = rest
+	}
+	body = strings.TrimSpace(strings.Trim(body, `"'`))
+	body = strings.TrimRight(body, ".!")
+	if utf8.RuneCountInString(body) < 8 || utf8.RuneCountInString(body) > 160 {
+		return "", ""
+	}
+	return kind, body
+}
+
 func favoriteWorkQueryClass(query string) []string {
 	var out []string
 	if queryHasToken(query, "book", "books") {
@@ -2249,7 +2445,8 @@ func languageFactBoundToPerson(person, content string, rec MemoryRecord, hopEnti
 	lower := strings.ToLower(strings.TrimSpace(content))
 	p := strings.ToLower(person)
 	if strings.HasPrefix(lower, p+":") || strings.HasPrefix(lower, p+" is ") ||
-		strings.HasPrefix(lower, p+"'s ") || strings.HasPrefix(lower, p+"’s ") {
+		strings.HasPrefix(lower, p+" thinks ") || strings.HasPrefix(lower, p+"'s ") ||
+		strings.HasPrefix(lower, p+"’s ") {
 		return true
 	}
 	return false

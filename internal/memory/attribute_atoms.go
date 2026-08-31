@@ -28,6 +28,17 @@ var (
 	namedIsRoleRE         = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+is\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	namedIsStatusRE       = regexp.MustCompile(`(?i)\b([A-Z][a-z]{1,20})\s+is\s+(single|married|divorced|engaged|widowed)\b`)
 	youAreRoleRE          = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(?:a|an)\s+([^,.!?]{3,60})`)
+	youWillBeRoleRE       = regexp.MustCompile(`(?i)\b(?:you(?:'ll| will))\s+be\s+(a|an)\s+([^,.!?]{3,60})`)
+	iWillBeRoleRE         = regexp.MustCompile(`(?i)\b(?:i(?:'ll| will))\s+be\s+(a|an)\s+([^,.!?]{3,60})`)
+	namedWillBeRoleRE     = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+will\s+be\s+(a|an)\s+([^,.!?]{3,60})`)
+	youAreDoingRE         = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+doing\s+([^,.!?]{3,80})`)
+	namedIsDoingRE        = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+is\s+doing\s+([^,.!?]{3,80})`)
+	iToldAboutRE          = regexp.MustCompile(`(?i)\b(?:i|we)\s+told\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	tellingAboutRE        = regexp.MustCompile(`(?i)\btelling\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	namedToldAboutRE      = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+told\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	iTalkedAboutRE        = regexp.MustCompile(`(?i)\b(?:i|we)\s+(?:talked|spoke)\s+to\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	talkingToAboutRE      = regexp.MustCompile(`(?i)\b(?:talking|speaking)\s+to\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Za-z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
+	namedTalkedAboutRE    = regexp.MustCompile(`\b([A-Z][a-z]{1,20})\s+(?:talked|spoke)\s+to\s+(you|me|us|(?:my|our|his|her|their)\s+[a-z][a-z\s-]{2,40}|[A-Z][a-z]{1,20})\s+about\s+([^,.!?]{3,60})`)
 	youAreStatusRE        = regexp.MustCompile(`(?i)\b(?:you(?:'re| are))\s+(single|married|divorced|engaged|widowed)\b`)
 	isARoleBareRE         = regexp.MustCompile(`(?i)\bis\s+(?:a|an)\s+([^,.!?]{3,60})`)
 	asARoleRE             = regexp.MustCompile(`(?i)\bas an?\s+([a-z][a-z\s-]{2,40})\b`)
@@ -83,6 +94,11 @@ var (
 	roleStop = map[string]struct{}{
 		"kid": {}, "kids": {}, "child": {}, "career": {}, "job": {}, "fan": {},
 		"result": {}, "way": {}, "bit": {}, "lot": {}, "while": {}, "moment": {},
+		"minute": {}, "second": {}, "hour": {},
+	}
+
+	doingObjectStop = map[string]struct{}{
+		"it": {}, "this": {}, "that": {}, "them": {}, "so": {},
 	}
 
 	// Light nouns after "had a" / "gave a" / "ran a" that are not events.
@@ -285,6 +301,95 @@ func attributeAtomsFromUtterance(who, body, source string, observedAt *time.Time
 		attr := clipIdentityTail(NormalizeText(hit.groups[1]))
 		if utf8.RuneCountInString(attr) <= 40 && !roleStopWord(attr) {
 			emit(bind.partner, fmt.Sprintf("%s is a %s", bind.partner, attr), 0.88, "attribute_identity")
+		}
+	}
+	emitWillBe := func(person, article, attr, reporter string) {
+		article = strings.ToLower(strings.TrimSpace(article))
+		attr = clipIdentityTail(NormalizeText(attr))
+		if person == "" || (article != "a" && article != "an") {
+			return
+		}
+		if utf8.RuneCountInString(attr) < 3 || utf8.RuneCountInString(attr) > 40 || roleStopWord(attr) {
+			return
+		}
+		emit(person, fmt.Sprintf("%s will be %s %s", person, article, attr), 0.86, "attribute_plan")
+		if reporter != "" && !strings.EqualFold(reporter, person) {
+			emit(reporter, fmt.Sprintf("%s thinks %s will be %s %s", reporter, person, article, attr), 0.88, "attribute_belief")
+		}
+	}
+	emitDoingBelief := func(person, obj, reporter string) {
+		obj = clipIdentityTail(NormalizeText(obj))
+		if person == "" || reporter == "" || strings.EqualFold(reporter, person) {
+			return
+		}
+		if utf8.RuneCountInString(obj) < 3 || utf8.RuneCountInString(obj) > 80 || doingObjectStopWord(obj) {
+			return
+		}
+		emit(reporter, fmt.Sprintf("%s thinks %s is doing %s", reporter, person, obj), 0.86, "attribute_belief")
+	}
+	if hit, ok := reFind(youWillBeRoleRE, body); ok && bind.partner != "" {
+		emitWillBe(bind.partner, hit.groups[1], hit.groups[2], who)
+	}
+	if who != "" {
+		if hit, ok := reFind(iWillBeRoleRE, body); ok {
+			emitWillBe(who, hit.groups[1], hit.groups[2], "")
+		}
+	}
+	if hit, ok := reFind(youAreDoingRE, body); ok && bind.partner != "" {
+		emitDoingBelief(bind.partner, hit.groups[1], who)
+	}
+	if !looksInterrogativeLine(body) {
+		for _, hit := range reFindAll(namedWillBeRoleRE, body, 4) {
+			name := bind.canonName(hit.groups[1])
+			if likelyPersonName(name) {
+				emitWillBe(name, hit.groups[2], hit.groups[3], who)
+			}
+		}
+		for _, hit := range reFindAll(namedIsDoingRE, body, 4) {
+			name := bind.canonName(hit.groups[1])
+			if likelyPersonName(name) {
+				emitDoingBelief(name, hit.groups[2], who)
+			}
+		}
+		emitTold := func(speaker, recipRaw, topicRaw string) {
+			topic := clipIdentityTail(NormalizeText(topicRaw))
+			if speaker == "" || utf8.RuneCountInString(topic) < 3 || utf8.RuneCountInString(topic) > 60 ||
+				doingObjectStopWord(topic) {
+				return
+			}
+			for _, part := range splitToldAboutObjects(recipRaw) {
+				recip := toldRecipientFromMatch(part, bind, who)
+				if recip == "" || strings.EqualFold(recip, speaker) {
+					continue
+				}
+				emit(speaker, fmt.Sprintf("%s told %s about %s", speaker, recip, topic), 0.88, "attribute_event")
+			}
+		}
+		if who != "" {
+			for _, hit := range reFindAll(iToldAboutRE, body, 4) {
+				emitTold(who, hit.groups[1], hit.groups[2])
+			}
+			for _, hit := range reFindAll(tellingAboutRE, body, 4) {
+				emitTold(who, hit.groups[1], hit.groups[2])
+			}
+			for _, hit := range reFindAll(iTalkedAboutRE, body, 4) {
+				emitTold(who, hit.groups[1], hit.groups[2])
+			}
+			for _, hit := range reFindAll(talkingToAboutRE, body, 4) {
+				emitTold(who, hit.groups[1], hit.groups[2])
+			}
+		}
+		for _, hit := range reFindAll(namedToldAboutRE, body, 4) {
+			name := bind.canonName(hit.groups[1])
+			if likelyPersonName(name) {
+				emitTold(name, hit.groups[2], hit.groups[3])
+			}
+		}
+		for _, hit := range reFindAll(namedTalkedAboutRE, body, 4) {
+			name := bind.canonName(hit.groups[1])
+			if likelyPersonName(name) {
+				emitTold(name, hit.groups[2], hit.groups[3])
+			}
 		}
 	}
 	if hit, ok := reFind(namedIsStatusRE, body); ok {
@@ -685,6 +790,36 @@ func roleStopWord(role string) bool {
 	head, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(role)), " ")
 	_, stop := roleStop[head]
 	return stop
+}
+
+func doingObjectStopWord(obj string) bool {
+	head, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(obj)), " ")
+	_, stop := doingObjectStop[head]
+	return stop
+}
+
+func toldRecipientFromMatch(raw string, bind *clauseBind, speaker string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	if strings.EqualFold(raw, "you") {
+		if bind == nil || bind.partner == "" {
+			return ""
+		}
+		return bind.partner
+	}
+	if strings.EqualFold(raw, "me") || strings.EqualFold(raw, "us") {
+		return strings.TrimSpace(speaker)
+	}
+	recip := normalizeToldAboutObject(raw)
+	if recip == "" || looksThinToldAboutObject(recip) {
+		return ""
+	}
+	if likelyPersonName(recip) && bind != nil {
+		return bind.canonName(recip)
+	}
+	return recip
 }
 
 func clipCareerTail(s string) string {
@@ -1208,7 +1343,8 @@ func valueNormFromAtomContent(content string) string {
 	lower := strings.ToLower(content)
 	for _, sep := range []string{
 		" moved from ", " moved to ", " is from ", " lives in ", " participates in ", " enjoys ",
-		" kids like ", " read \"", " mentioned \"", " works as ", " realized that ", " is a ", " is ",
+		" kids like ", " read \"", " mentioned \"", " works as ", " realized that ", " thinks ",
+		" told ", " will be a ", " will be an ", " is a ", " is ",
 		" plans career in ", " plans career for ", " plans ", " studies ", " collects ",
 		" researched ", " has known friends for ", " has done ", " attended ",
 	} {

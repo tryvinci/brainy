@@ -215,6 +215,12 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateActivity)
 	case strings.Contains(lower, "name") || strings.Contains(lower, "who is") || strings.Contains(lower, "identity"):
 		add(PredicateIdentity)
+	case looksWouldMemberQuery(query):
+		add(PredicateIdentity)
+		add(PredicateAffiliation)
+	case looksWhatThinkAboutQuery(query):
+		add(PredicateBelief)
+		add(PredicatePlan)
 	case looksTriedPolarQuery(query):
 		add(PredicateActivity)
 		add(PredicatePreference)

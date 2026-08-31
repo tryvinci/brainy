@@ -1109,6 +1109,73 @@ func TestLooksTriedPolarQuery(t *testing.T) {
 	}
 }
 
+func TestLooksWouldMemberQuery(t *testing.T) {
+	if !looksWouldMemberQuery("Would Alex be considered a member of the makers community?") {
+		t.Fatal("would + member")
+	}
+	if !looksPolarQuery("Would Alex be considered a member of the makers community?") {
+		t.Fatal("would-member is polar")
+	}
+	if looksWouldMemberQuery("Would Alex want to move back to her home country soon?") {
+		t.Fatal("would-want must not be membership polar")
+	}
+	if looksWouldMemberQuery("What community activities have Alex and Blake participated in?") {
+		t.Fatal("community list is not would-member")
+	}
+}
+
+func TestRecallPolarYesFromOwnMembership(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["a-mem"] = MemoryRecord{
+		MemoryID: "mem_am", TenantID: "t-member", SubjectID: "u1",
+		Kind: KindFact, Content: "Alex is a member of the makers community",
+		DedupeKey: "am", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "makers community", "subject": "Alex"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "makers community", "subject": "Alex"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateIdentity, val: "makers community", memID: "mem_am"})
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-member", SubjectID: "u1",
+		Query: "Would Alex be considered a member of the makers community?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("own membership must Yes, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
+func TestRecallPolarDoesNotStealMembership(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["b-mem"] = MemoryRecord{
+		MemoryID: "mem_bm", TenantID: "t-member2", SubjectID: "u1",
+		Kind: KindFact, Content: "Blake is a member of the makers community",
+		DedupeKey: "bm", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateIdentity, "value_norm": "makers community", "subject": "Blake"},
+		Explain:  map[string]any{"predicate": PredicateIdentity, "value_norm": "makers community", "subject": "Blake"},
+	}
+	store.atoms = append(store.atoms, stubAtom{pred: PredicateIdentity, val: "makers community", memID: "mem_bm"})
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-member2", SubjectID: "u1",
+		Query: "Would Alex be considered a member of the makers community?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.EqualFold(strings.TrimSpace(out.Answer), "Yes") {
+		t.Fatalf("other person's membership must not prove would-member: %q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+}
+
 func TestRecallPolarYesFromLovedActivity(t *testing.T) {
 	t.Setenv("BRAINY_RECALL_LLM", "")
 	store := newMemoryStoreStub()
@@ -1413,6 +1480,157 @@ func TestRecallFavoriteWorkCurrentlyPlayingQuotedTitle(t *testing.T) {
 	}
 	if gotTitle, gotScore := favoriteWorkTitleFromText("Nate won a Valorant tournament last Saturday.", []string{"game", "games", "play", "played", "playing"}); gotTitle != "" || gotScore != 0 {
 		t.Fatalf("tournament without currently-playing quoted title must not score, got %q score=%d", gotTitle, gotScore)
+	}
+}
+
+func TestRecallThinkAboutPrefersThinkerEncouragement(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-art"] = MemoryRecord{
+		MemoryID: "mem_mart", TenantID: "t-think", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie: Your art's amazing, Caroline.",
+		DedupeKey: "mart", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+	}
+	store.records["m-do"] = MemoryRecord{
+		MemoryID: "mem_mdo", TenantID: "t-think", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie: You're doing something amazing",
+		DedupeKey: "mdo", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+	}
+	store.records["m-mom"] = MemoryRecord{
+		MemoryID: "mem_mmom", TenantID: "t-think", SubjectID: "u1",
+		Kind: KindFact, Content: "You'll be an awesome mom",
+		DedupeKey: "mmom", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Melanie"},
+	}
+	store.records["c-feel"] = MemoryRecord{
+		MemoryID: "mem_cfeel", TenantID: "t-think", SubjectID: "u1",
+		Kind: KindFact, Content: "It's a big decision, but I think I'm ready to give all my love to a child",
+		DedupeKey: "cfeel", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Caroline"},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-think", SubjectID: "u1",
+		Query: "What does Melanie think about Caroline's decision to adopt?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if !strings.Contains(got, "amazing") || !strings.Contains(got, "awesome mom") {
+		t.Fatalf("think-about must join thinker encouragement, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "nervous") || strings.Contains(got, "ready to give") || strings.Contains(got, "your art") {
+		t.Fatalf("topic-person feelings and unrelated art leftover must not cover think-about, answer=%q", out.Answer)
+	}
+}
+
+func TestRecallThinkAboutBindsUnlabeledWillBeOverLongDoing(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-long"] = MemoryRecord{
+		MemoryID: "mem_mlong", TenantID: "t-think3", SubjectID: "u1",
+		Kind: KindPreference, Content: "Melanie: Woah, Caroline, it sounds like you're doing some impressive work",
+		DedupeKey: "mlong", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["m-tight"] = MemoryRecord{
+		MemoryID: "mem_mtight", TenantID: "t-think3", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie: You're doing something amazing",
+		DedupeKey: "mtight", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["m-will"] = MemoryRecord{
+		MemoryID: "mem_mwill", TenantID: "t-think3", SubjectID: "u1",
+		Kind: KindFact, Content: "You'll be an awesome mom",
+		DedupeKey: "mwill", Status: StatusActive, UpdatedAt: now,
+	}
+	store.records["maria"] = MemoryRecord{
+		MemoryID: "mem_maria", TenantID: "t-think3", SubjectID: "u1",
+		Kind: KindFact, Content: "Maria: Wow, what you're doing is truly amazing",
+		DedupeKey: "maria", Status: StatusActive, UpdatedAt: now,
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-think3", SubjectID: "u1",
+		Query: "What does Melanie think about Caroline's decision to adopt?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if !strings.Contains(got, "amazing") || !strings.Contains(got, "awesome mom") {
+		t.Fatalf("unlabeled will-be plus tight doing must win, answer=%q", out.Answer)
+	}
+	if strings.Contains(got, "impressive work") {
+		t.Fatalf("longer vocative doing must not cover tight encouragement, answer=%q", out.Answer)
+	}
+	if strings.Contains(got, "maria") {
+		t.Fatalf("third-speaker you-doing must not bind, answer=%q", out.Answer)
+	}
+
+	john, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-think3", SubjectID: "u1",
+		Query: "What did John think about the yoga classes?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	jgot := strings.ToLower(strings.TrimSpace(john.Answer))
+	if strings.Contains(jgot, "awesome mom") || strings.Contains(jgot, "impressive work") {
+		t.Fatalf("one-name think-about must not steal two-party you-forms, answer=%q", john.Answer)
+	}
+}
+
+func TestRecallThinkAboutPrefersCompiledThinksProjection(t *testing.T) {
+	t.Setenv("BRAINY_RECALL_LLM", "")
+	store := newMemoryStoreStub()
+	svc := NewService(store)
+	now := svc.now()
+	store.records["m-think-do"] = MemoryRecord{
+		MemoryID: "mem_mtd", TenantID: "t-think2", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie thinks Caroline is doing something amazing",
+		DedupeKey: "mtd", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateBelief, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateBelief, "subject": "Melanie"},
+	}
+	store.records["m-think-mom"] = MemoryRecord{
+		MemoryID: "mem_mtm", TenantID: "t-think2", SubjectID: "u1",
+		Kind: KindFact, Content: "Melanie thinks Caroline will be an awesome mom",
+		DedupeKey: "mtm", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateBelief, "subject": "Melanie"},
+		Explain:  map[string]any{"predicate": PredicateBelief, "subject": "Melanie"},
+	}
+	store.records["c-feel2"] = MemoryRecord{
+		MemoryID: "mem_cfeel2", TenantID: "t-think2", SubjectID: "u1",
+		Kind: KindFact, Content: "It's a big decision, but I think I'm ready to give all my love to a child",
+		DedupeKey: "cfeel2", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateActivity, "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateActivity, "subject": "Caroline"},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-think2", SubjectID: "u1",
+		Query: "What does Melanie think about Caroline's decision to adopt?",
+		Mode:  "answer", TopK: 20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(strings.TrimSpace(out.Answer))
+	if !strings.Contains(got, "amazing") || !strings.Contains(got, "awesome mom") {
+		t.Fatalf("think-about must join compiled thinks projection, answer=%q hops=%v", out.Answer, out.Explain["hop_results"])
+	}
+	if strings.Contains(got, "ready to give") {
+		t.Fatalf("topic-person feelings must not cover compiled thinks, answer=%q", out.Answer)
 	}
 }
 

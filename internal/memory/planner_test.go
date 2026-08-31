@@ -535,6 +535,50 @@ func TestPlanQueryTemporalAndEnumerate(t *testing.T) {
 	if looksYearStartQuery("Which year was Riley born?") {
 		t.Fatal("birth-year queries must not count as year-start")
 	}
+	if !looksWhatThinkAboutQuery("What does Melanie think about Caroline's decision to adopt?") {
+		t.Fatal("what-does-think-about must bind as think-about")
+	}
+	if looksWhatThinkAboutQuery("How does Tim stay motivated during difficult study sessions?") {
+		t.Fatal("how-motivated must not count as think-about")
+	}
+	if looksWhatThinkAboutQuery("Why does Maria think it's important for younger generations to visit military memorials?") {
+		t.Fatal("why-think must not count as what-think-about")
+	}
+	if !looksWouldMemberQuery("Would Alex be considered a member of the makers community?") {
+		t.Fatal("would + member must bind as would-member")
+	}
+	if hopComposeAllowed("Would Alex be considered a member of the makers community?") {
+		t.Fatal("would-member must not dump hop values")
+	}
+	member := PlanQuery("Would Alex be considered a member of the makers community?", nil)
+	foundIdent, foundAlex := false, false
+	for _, hop := range member.Hops {
+		if hop.Predicate == PredicateIdentity {
+			foundIdent = true
+		}
+		if strings.EqualFold(hop.Entity, "alex") {
+			foundAlex = true
+		}
+	}
+	if !foundIdent || !foundAlex {
+		t.Fatalf("would-member must hop identity for the query person, hops=%+v", member.Hops)
+	}
+	think := PlanQuery("What does Melanie think about Caroline's decision to adopt?", nil)
+	foundBelief, foundMelanie := false, false
+	for _, hop := range think.Hops {
+		if hop.Predicate == PredicateBelief {
+			foundBelief = true
+		}
+		if strings.EqualFold(hop.Entity, "melanie") {
+			foundMelanie = true
+		}
+	}
+	if !foundBelief || !foundMelanie {
+		t.Fatalf("think-about must hop belief for the thinker, hops=%+v", think.Hops)
+	}
+	if hopComposeAllowed("What does Melanie think about Caroline's decision to adopt?") {
+		t.Fatal("think-about must not dump hop values")
+	}
 	if looksWhenEventQuery("Which year did Riley start practicing yoga?") {
 		t.Fatal("which-year must not take the when-prefix hop-date path")
 	}

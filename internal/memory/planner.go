@@ -82,7 +82,7 @@ func PlanQuery(query string, intents []string) QueryPlan {
 
 	plan.Tools = planTools(plan)
 	plan.CoverageTargets = planCoverageTargets(query, plan)
-	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query) || looksFavoriteWorkQuery(query)) && hopPlanAllowed(query) {
+	if (plan.NeedsMultiHop || plan.NeedsEnumeration || looksWhenEventQuery(query) || looksWhereQuery(query) || looksConsequenceQuery(query) || looksWhichLanguageQuery(query) || looksFavoriteWorkQuery(query) || looksWhatThinkAboutQuery(query) || looksWouldMemberQuery(query)) && hopPlanAllowed(query) {
 		plan.Hops = buildTypedHops(query)
 	}
 	plan.PreferredModeHint = preferredModeHint(plan)
@@ -320,7 +320,8 @@ func personAfterAuxiliary(query string) string {
 	for i := 0; i < len(fields)-1; i++ {
 		w := strings.ToLower(strings.Trim(fields[i], "?,.!\""))
 		switch w {
-		case "does", "did", "do", "has", "have":
+		case "does", "did", "do", "has", "have", "is", "was", "were",
+			"can", "could", "would", "should", "might":
 		default:
 			continue
 		}
@@ -370,7 +371,8 @@ func looksHopPerson(w string) bool {
 		return false
 	}
 	switch strings.ToLower(w) {
-	case "what", "which", "who", "where", "when", "why", "how":
+	case "what", "which", "who", "where", "when", "why", "how",
+		"would", "could", "should", "might":
 		return false
 	}
 	_, stop := hopEntityStop[strings.ToLower(w)]
@@ -519,6 +521,7 @@ func hopEntityName(names []string) string {
 }
 
 var hopEntityStop = map[string]struct{}{
+	"would": {}, "could": {}, "should": {}, "might": {},
 	"career": {}, "path": {}, "occupation": {}, "job": {}, "work": {},
 	"books": {}, "book": {}, "activities": {}, "activity": {},
 	"hobbies": {}, "hobby": {}, "kids": {}, "children": {}, "child": {},
@@ -549,7 +552,7 @@ func relationFollowPredicate(pred string) bool {
 	case PredicateOrigin, PredicateResidence, PredicateActivity,
 		PredicateMediaConsumed, PredicateOccupation, PredicateFamilyMember,
 		PredicateEducation, PredicatePlan, PredicateEvent, PredicateIdentity,
-		PredicatePreference, PredicateRelationshipStatus:
+		PredicatePreference, PredicateRelationshipStatus, PredicateBelief:
 		return true
 	}
 	return false
@@ -590,6 +593,9 @@ func hopComposeAllowed(query string) bool {
 	if looksFavoriteWorkQuery(query) {
 		return false
 	}
+	if looksWhatThinkAboutQuery(query) {
+		return false
+	}
 	return true
 }
 
@@ -625,6 +631,21 @@ func looksWhichLanguageQuery(query string) bool {
 		return false
 	}
 	return strings.HasPrefix(q, "which ") || strings.HasPrefix(q, "what ")
+}
+
+// looksWhatThinkAboutQuery is what-does/did X think about Y. Typed
+// second-person encouragement from the thinker ("you're doing" /
+// "you'll be") over the topic person's own feelings. Not leftover
+// covering and not an evaluative dictionary.
+func looksWhatThinkAboutQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if q == "" {
+		return false
+	}
+	if !strings.HasPrefix(q, "what does ") && !strings.HasPrefix(q, "what did ") {
+		return false
+	}
+	return strings.Contains(q, " think about ") || strings.Contains(q, " thinks about ")
 }
 
 // looksFavoriteWorkQuery is which/what favorite game/book/show. Typed
@@ -692,7 +713,18 @@ func looksPolarQuery(query string) bool {
 			return true
 		}
 	}
-	return false
+	return looksWouldMemberQuery(query)
+}
+
+// looksWouldMemberQuery is would-X-be-a-member. Identity polar from that
+// person's compiled membership only — not another person's group, and not
+// Yes from absence.
+func looksWouldMemberQuery(query string) bool {
+	q := strings.ToLower(strings.TrimSpace(query))
+	if !strings.HasPrefix(q, "would ") {
+		return false
+	}
+	return queryHasToken(query, "member", "members", "membership")
 }
 
 // looksTriedPolarQuery is has/did/have-tried polar. Love/discovered-love of
