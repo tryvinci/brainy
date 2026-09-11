@@ -5,6 +5,13 @@ import re
 from dataclasses import dataclass
 
 from public.llm import LLMConfig, chat_completion, parse_judgment_json, resolve_config
+from public.protocol import PROTOCOL_V1, is_v2, resolve_eval_protocol
+
+
+JUDGE_SYSTEM_PROMPT = (
+    "You are a strict binary grader for long-term conversational memory QA. "
+    'Reply with JSON only: {"judgment":"CORRECT"|"WRONG","reason":"..."}.'
+)
 
 
 @dataclass
@@ -70,16 +77,17 @@ def llm_judge(
     config: LLMConfig,
     *,
     max_attempts: int = 3,
+    protocol: str = "",
 ) -> JudgeResult:
     """Binary LOCOMO-style CORRECT/WRONG judge (temperature 0).
 
-    Parse failures retry, then fall back to a conservative substring check.
-    Remaining infrastructure failures are JUDGE_MISS (not product WRONG).
+    Parse failures retry. Protocol v2 never falls back to substring CORRECT;
+    unresolved output is UNRESOLVED and must block finalization.
     """
-    system = (
-        "You are a strict binary grader for long-term conversational memory QA. "
-        "Reply with JSON only: {\"judgment\":\"CORRECT\"|\"WRONG\",\"reason\":\"...\"}."
-    )
+    import os
+
+    proto = resolve_eval_protocol(protocol or os.environ.get("BRAINY_EVAL_PROTOCOL") or PROTOCOL_V1)
+    system = JUDGE_SYSTEM_PROMPT
     user = (
         f"Question: {question}\n"
         f"Ground truth: {ground_truth}\n"
@@ -113,7 +121,7 @@ def llm_judge(
             model=config.label,
         )
 
-    if _deterministic_contains_gt(answer, ground_truth):
+    if proto == PROTOCOL_V1 and _deterministic_contains_gt(answer, ground_truth):
         return JudgeResult(
             "CORRECT",
             1.0,
@@ -121,7 +129,7 @@ def llm_judge(
             config.label,
         )
     return JudgeResult(
-        "JUDGE_MISS",
+        "UNRESOLVED",
         0.0,
         f"unparseable judge output after {max_attempts} attempts: {last_raw[:180]}",
         config.label,
@@ -154,6 +162,8 @@ def answer_from_memories(
     tenant_id: str = "",
     subject_id: str = "",
     require_product_recall: bool = False,
+    protocol: str = "",
+    client: object | None = None,
 ) -> tuple[str, str]:
     """Generate an answer from retrieved memories.
 
@@ -163,7 +173,13 @@ def answer_from_memories(
     (R10 product lane; fail-closed if require_product_recall). The industry lane is
     search → shared answerer → shared judge and must stay labeled separately.
     """
-    product = _product_recall_answer(question, tenant_id=tenant_id, subject_id=subject_id)
+    product = _product_recall_answer(
+        question,
+        tenant_id=tenant_id,
+        subject_id=subject_id,
+        protocol=protocol,
+        client=client,
+    )
     if product is not None:
         return product
     if require_product_recall:
@@ -212,38 +228,60 @@ def _product_recall_answer(
     *,
     tenant_id: str = "",
     subject_id: str = "",
+    protocol: str = "",
+    client: object | None = None,
 ) -> tuple[str, str] | None:
     import os
 
     if os.environ.get("BRAINY_USE_RECALL", "").lower() not in {"1", "true", "yes"}:
         return None
-    base = (os.environ.get("BRAINY_BASE_URL") or "").rstrip("/")
+    proto = resolve_eval_protocol(protocol or os.environ.get("BRAINY_EVAL_PROTOCOL") or PROTOCOL_V1)
     tenant = tenant_id or os.environ.get("BRAINY_RECALL_TENANT", "")
     subject = subject_id or os.environ.get("BRAINY_RECALL_SUBJECT", "")
+    if client is not None:
+        base = getattr(client, "base_url", "") or ""
+    else:
+        base = (os.environ.get("BRAINY_BASE_URL") or "").rstrip("/")
     if not base or not tenant or not subject:
         return None
+    mode = "answer" if is_v2(proto) else (
+        "enumerate" if _looks_list_question(question) or _looks_multi_evidence(question) else "answer"
+    )
     try:
-        from httputil import post_json
+        if client is not None and hasattr(client, "recall"):
+            body = client.recall(tenant, subject, question, mode=mode, top_k=30)
+        else:
+            from httputil import post_json
 
-        mode = "enumerate" if _looks_list_question(question) or _looks_multi_evidence(question) else "answer"
-        body = post_json(
-            base,
-            "/recall",
-            {"tenant_id": tenant, "subject_id": subject, "q": question, "mode": mode, "top_k": 30},
-            timeout=30,
-            retries=2,
-        )
+            body = post_json(
+                base,
+                "/recall",
+                {"tenant_id": tenant, "subject_id": subject, "q": question, "mode": mode, "top_k": 30},
+                timeout=120 if is_v2(proto) else 30,
+                retries=2,
+            )
         if body.get("abstained"):
-            return "not in memory", "brainy-recall+abstain"
-        if mode == "enumerate" and body.get("items"):
+            ans = (body.get("answer") or "").strip()
+            if is_v2(proto):
+                return ans, "brainy-recall+abstain"
+            return ans or "not in memory", "brainy-recall+abstain"
+        if (not is_v2(proto)) and mode == "enumerate" and body.get("items"):
             vals = [it.get("value") for it in body["items"] if it.get("value")]
             if vals:
                 return ", ".join(vals), "brainy-recall+enumerate"
-        ans = (body.get("answer") or body.get("context_block") or "").strip()
+        ans = (body.get("answer") or "").strip()
+        if not is_v2(proto) and not ans:
+            ans = (body.get("context_block") or "").strip()
         if ans:
             return ans, "brainy-recall+" + mode
+        if is_v2(proto):
+            return "", "brainy-recall+empty"
     except Exception:
+        if is_v2(proto):
+            return "", "brainy-recall+transport"
         return "not in memory", "brainy-recall+error"
+    if is_v2(proto):
+        return "", "brainy-recall+empty"
     return "not in memory", "brainy-recall+empty"
 
 

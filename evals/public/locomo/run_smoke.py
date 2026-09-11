@@ -58,7 +58,7 @@ from public.proveability import (  # noqa: E402
 )
 from public.runtime_manifest import attach_runtime_extras, fetch_runtime  # noqa: E402
 from public.stage_oracle import probe_failure_stages, write_failure_record  # noqa: E402
-from public.schema import (  # noqa: E402
+from public.protocol import PROTOCOL_V1, resolve_eval_protocol  # noqa: E402
     CATEGORY_NAMES,
     CATEGORIES_TO_SCORE,
     EvalItem,
@@ -146,13 +146,18 @@ def ingest_conversation(
                 probes.append(probe)
             remembered += len(batch)
     if backend.async_ingest and remembered and wait_jobs:
-        # Prefer job-completion barrier; fall back to capped search settle
-        # only outside publish mode. Callers that enqueue many subjects first
-        # (so the worker can run them in parallel) pass wait_jobs=False.
+        # Prefer job-completion barrier. Protocol v2 / publish mode never
+        # fall back to search settle — an empty-looking queue is not enough.
         try:
             backend.wait_until_jobs_done(user_id)
         except Exception:
-            if getattr(backend, "publish_mode", False):
+            protocol = (os.environ.get("BRAINY_EVAL_PROTOCOL") or "").strip().lower()
+            strict = bool(getattr(backend, "publish_mode", False)) or protocol in {
+                "eval-protocol-v2",
+                "v2",
+                "qualification",
+            }
+            if strict:
                 raise
             uniq: list[str] = []
             for p in probes:
@@ -177,6 +182,10 @@ def run(args: argparse.Namespace) -> UnifiedResult:
     system = (getattr(args, "system", None) or "brainy").strip().lower()
     lane_flag = str(getattr(args, "eval_lane", "") or "").strip()
     eval_lane = resolve_eval_lane(lane_flag, os.environ.get("BRAINY_USE_RECALL", ""))
+    eval_protocol = resolve_eval_protocol(
+        str(getattr(args, "eval_protocol", "") or os.environ.get("BRAINY_EVAL_PROTOCOL") or PROTOCOL_V1)
+    )
+    os.environ["BRAINY_EVAL_PROTOCOL"] = eval_protocol
     explicit_top_k = getattr(args, "top_k", None)
     args.top_k = default_lane_top_k(
         eval_lane,
@@ -321,9 +330,12 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 tenant_id=tenant_for_recall,
                 subject_id=user_id,
                 require_product_recall=(system == "brainy" and eval_lane == "product-recall"),
+                protocol=eval_protocol,
             )
             if use_llm and judge_cfg is not None:
-                judged = llm_judge(answer, qa["answer"], qa["question"], judge_cfg)
+                judged = llm_judge(
+                    answer, qa["answer"], qa["question"], judge_cfg, protocol=eval_protocol
+                )
             else:
                 judged = lexical_judge(answer, qa["answer"])
 
@@ -358,7 +370,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 and judged.judgment != "CORRECT"
                 and getattr(args, "failure_ledger", None)
             ):
-                if judged.judgment == "JUDGE_MISS":
+                if judged.judgment in {"JUDGE_MISS", "UNRESOLVED", "TRANSPORT_FAIL"}:
                     write_failure_record(
                         args.failure_ledger,
                         dataset="locomo-smoke",
@@ -440,6 +452,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
                 "locomo_paper": LOCOMO_PAPER,
                 "eval_lane": eval_lane,
                 "answer_path": answer_path,
+                "eval_protocol": eval_protocol,
                 "stratified": int(getattr(args, "stratified", 0) or 0),
                 "seed": int(getattr(args, "seed", 1) or 1),
             },
@@ -476,6 +489,7 @@ def run(args: argparse.Namespace) -> UnifiedResult:
             "ingest_mode": "async" if async_ingest else "sync",
             "eval_lane": eval_lane,
             "answer_path": answer_path,
+            "eval_protocol": eval_protocol,
             "tenant_prefix": getattr(backend, "tenant_prefix", ""),
             "skip_ingest": bool(getattr(args, "skip_ingest", False)),
             "embedder": ((runtime.get("api") or {}).get("embedder") or {}),
@@ -592,6 +606,12 @@ def main() -> None:
         default="",
         help="R10 freeze label: product POST /recall vs search+shared-answerer+shared-judge. "
         "industry-search defaults --top-k 200 when --top-k is omitted.",
+    )
+    parser.add_argument(
+        "--eval-protocol",
+        default="",
+        help="eval-protocol-v1 (legacy mode/judge fallback) or eval-protocol-v2 "
+        "(mode=answer, no HTTP→not-in-memory, no substring CORRECT). Default v1 for smoke.",
     )
     # Mem0 reports top_200; product /recall stays at 30 unless overridden.
     parser.add_argument("--top-k", type=int, default=None)

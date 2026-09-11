@@ -215,6 +215,13 @@ class BrainyBackend:
                         + "; ".join(parts)
                         + f" | accounting={summary}"
                     )
+                accounted = len(completed) + len(terminal_failed)
+                if self.publish_mode and accounted != len(initial):
+                    raise RuntimeError(
+                        "publish mode: expected jobs not all accounted "
+                        f"(accounted={accounted} expected={len(initial)} open={open_n}) "
+                        f"| accounting={summary}. empty queue is not sufficient"
+                    )
                 # Clear completed tracked ids for this user.
                 if user_id in self._pending_jobs:
                     done = set(job_ids or []) | set(terminal_failed) | set(completed)

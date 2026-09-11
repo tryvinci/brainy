@@ -69,6 +69,40 @@ python -m public.locomo.run_smoke --lexical-only --conversations 1 --questions 5
 
 Outputs: `{run_id}.json` (UnifiedResult), `{run_id}.manifest.json`, markdown report.
 
+## Evaluation protocol v2 (qualification)
+
+`run_smoke.py` defaults to **eval-protocol-v1** so in-flight smoke / skip-ingest
+scoring is unchanged: the harness may pick `enumerate` vs `answer`, map HTTP
+failures to `not in memory`, and fall back to substring CORRECT when the judge
+JSON is malformed.
+
+Qualification uses **eval-protocol-v2** via the staged runner:
+
+```bash
+python -m public.locomo.run_staged \
+  --base-url "$BRAINY_API" \
+  --run-id locomo-n1540-protocol-v2 \
+  --tenant-prefix locomo-n1540-bbe55f7 \
+  --skip-ingest \
+  --artifact-root /opt/cursor/artifacts/eval-runs
+```
+
+`$BRAINY_API` must be the same local API the tenant was ingested on (loopback, not staging).
+
+Stages: `preflight → enqueue → drain → verify_store → answer → judge → diagnose → finalize`.
+
+- One `BoundAPIClient` (API URL resolved once) for ingest, job status, search, and `/recall`.
+- Product scoring always sends `mode: "answer"`.
+- Transport failures are `TRANSPORT_FAIL` (retried, kept in the denominator).
+- Malformed judge output is `UNRESOLVED` and **blocks** `result.json`.
+- Resume rejects a different API URL, store identity, dataset hash, or protocol.
+- Completed answers are reused when only judging retries.
+- An empty job queue is not success: expected jobs must complete and be searchable.
+- Artifacts are not stored under `/tmp`.
+
+Do not attribute product gains to a v2 score until the recovered `bbe55f7`
+baseline has been remeasured under this protocol.
+
 ## Ladder mapping
 
 | Layer | Status | Entry |
