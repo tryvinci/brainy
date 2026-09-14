@@ -342,8 +342,15 @@ class StagedRunner:
                 raise StagedRunError(f"verify_store: jobs still open {poll}")
         missing_index: list[str] = []
         if self.search_fn is not None:
+            # Presence probe only. Hash+trigram search can miss a single token
+            # ("conversation") even when the subject index is populated.
+            probes = ("the", "I", "conversation")
             for subject in self.spec.subjects:
-                hits = self.search_fn(self.spec.tenant_prefix, subject, "conversation")
+                hits: list = []
+                for probe in probes:
+                    hits = self.search_fn(self.spec.tenant_prefix, subject, probe) or []
+                    if hits:
+                        break
                 if not hits:
                     missing_index.append(subject)
         if missing_index:

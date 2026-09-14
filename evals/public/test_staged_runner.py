@@ -342,6 +342,18 @@ class StagedRunnerTests(unittest.TestCase):
                 runner.verify_store(ident)
             self.assertIn("not searchable", str(ctx.exception))
 
+    def test_verify_store_accepts_high_recall_probe(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            def search(_prefix, _subject, q):
+                if q == "the":
+                    return [{"id": "m1"}]
+                return []
+
+            runner = _runner(pathlib.Path(tmp), search_fn=search)
+            ident = runner.preflight([_question()])
+            report = runner.verify_store(ident)
+            self.assertTrue(report.get("ok"))
+
     def test_store_identity_changes_with_database(self) -> None:
         a = store_identity_from_runtime(_runtime(database="brainy_n1540"))
         b = store_identity_from_runtime(_runtime(database="other"))
