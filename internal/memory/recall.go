@@ -143,6 +143,9 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	// SearchOpt probes (and the hybrid reader after them) can idle past
 	// the harness timeout before leftover covering is allowed to fire.
 	skipHopsForCovering := leftoverCoveringSkipsHybrid(req.Query, leftoverCoveringSpecificAnswer(req.Query, nil, pkt))
+	if RetrievalRRFEnabled() {
+		skipHopsForCovering = false
+	}
 	if skipHopsForCovering {
 		out.Explain["hops_skipped_leftover_covering"] = true
 	}
@@ -609,7 +612,7 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 	if mode == "answer" || mode == "enumerate" {
 		coveringEarly := leftoverCoveringSpecificAnswer(req.Query, hopResults, pkt)
 		var hybrid hybridReaderResult
-		if leftoverCoveringSkipsHybrid(req.Query, coveringEarly) {
+		if leftoverCoveringSkipsHybrid(req.Query, coveringEarly) && !RetrievalRRFEnabled() {
 			hybrid = hybridReaderResult{Reason: "leftover_covering"}
 			out.Explain["hybrid_skipped_leftover_covering"] = true
 		} else {
@@ -747,8 +750,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				!skipSlots &&
 				(len(leftover) == 0 || hopsKeepTypedJoin(hopResults))
 			typedKeep := strings.TrimSpace(out.Answer)
+			// skipSlots means hop dumps are unrelated, not that a structured
+			// SearchOpt fact should be discarded after hybrid abstain.
 			keepTyped := typedKeep != "" && !strings.EqualFold(typedKeep, "not in memory") &&
-				!typedAnswerIsHopDump(typedKeep) && !skipSlots && !hopsAreIdentityOnly(hopResults)
+				!typedAnswerIsHopDump(typedKeep) && !hopsAreIdentityOnly(hopResults)
 			if canComposeHops {
 				if composed := composeFromHopValues(hopResults); hopComposeUsable(composed, hopResults) {
 					out.Answer = composed

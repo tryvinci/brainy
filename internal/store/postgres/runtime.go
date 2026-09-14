@@ -84,6 +84,10 @@ func (s *Store) RuntimeParts(ctx context.Context) (map[string]any, error) {
 	out := map[string]any{
 		"ann": st,
 	}
+	var dbName string
+	if err := s.pool.QueryRow(ctx, "SELECT current_database()").Scan(&dbName); err == nil && dbName != "" {
+		out["database"] = dbName
+	}
 	if payload, updated, ok, err := s.GetProviderRuntime(ctx, "worker"); err == nil && ok {
 		var worker any
 		if json.Unmarshal(payload, &worker) == nil {

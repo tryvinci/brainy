@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"brainy/internal/embedding"
@@ -65,7 +66,10 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	if err != nil || !ok {
 		return ok, err
 	}
+	return true, p.processClaimedJob(ctx, job)
+}
 
+func (p *Processor) processClaimedJob(ctx context.Context, job memory.ExtractionJob) error {
 	memory.NormalizeIngestRequest(&job.Request)
 	// Provider extract/embed often exceeds the 30s job lease. Heartbeat for
 	// the whole ProcessNext so a live owner is not reclaimed mid-call.
@@ -80,7 +84,7 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		// Fail before any upserts so a provider error cannot leave partial
 		// enrichment or mutate the immutable raw_ingests payload.
 		_ = p.failJob(ctx, job, err.Error())
-		return true, err
+		return err
 	}
 
 	mode := memory.WriteMutationModeOf(job.Request)
@@ -98,16 +102,16 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 		record, err := memory.BuildMemoryRecord(p.id("mem"), p.now(), job.Request, item, p.packs)
 		if err != nil {
 			_ = p.failJob(ctx, job, err.Error())
-			return true, err
+			return err
 		}
 		upserted, err := p.store.UpsertMemory(ctx, record)
 		if err != nil {
 			_ = p.failJob(ctx, job, err.Error())
-			return true, err
+			return err
 		}
 		if err := p.persistEmbedding(ctx, upserted.Record); err != nil {
 			_ = p.failJob(ctx, job, err.Error())
-			return true, err
+			return err
 		}
 		p.persistEntityLinks(ctx, upserted.Record)
 		p.persistEvidenceAndEvents(ctx, upserted.Record)
@@ -123,10 +127,10 @@ func (p *Processor) ProcessNext(ctx context.Context) (bool, error) {
 	}
 
 	if err := p.completeJob(ctx, job); err != nil {
-		return true, err
+		return err
 	}
 	p.persistRuntime(ctx)
-	return true, nil
+	return nil
 }
 
 func renewExtractionLease(ctx context.Context, fencer memory.LeaseFencer, job memory.ExtractionJob) {
@@ -169,8 +173,10 @@ func (p *Processor) failJob(ctx context.Context, job memory.ExtractionJob, reaso
 }
 
 // ProcessAvailable drains claimable jobs with up to concurrency workers.
-// Each worker keeps calling ProcessNext until the queue is idle so a single
-// slow extract cannot park the other slots. concurrency<=1 stays serial.
+// Idle slots stay alive while a sibling holds a job so newly enqueued subjects
+// (and FIFO-unblocked follow-ups) are claimed instead of shrinking the pool
+// after ~250ms. Per-subject FIFO and lease fencing stay in ClaimNext.
+// concurrency<=1 stays serial.
 func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int, error) {
 	if concurrency <= 1 {
 		ok, err := p.ProcessNext(ctx)
@@ -185,6 +191,7 @@ func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int,
 		mu        sync.Mutex
 		processed int
 		firstErr  error
+		inFlight  atomic.Int32
 	)
 	worker := func() {
 		defer wg.Done()
@@ -193,12 +200,9 @@ func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int,
 			if ctx.Err() != nil {
 				return
 			}
-			ok, err := p.ProcessNext(ctx)
+			job, ok, err := p.store.ClaimNextExtractionJob(ctx)
 			if err != nil {
 				mu.Lock()
-				if ok {
-					processed++
-				}
 				if firstErr == nil {
 					firstErr = err
 				}
@@ -206,27 +210,43 @@ func (p *Processor) ProcessAvailable(ctx context.Context, concurrency int) (int,
 				if !ok {
 					return
 				}
-				// Job already failed/requeued inside ProcessNext. Keep this
-				// slot on the queue so one provider flake cannot shrink the pool.
 				idleTries = 0
 				continue
 			}
-			if ok {
-				mu.Lock()
-				processed++
-				mu.Unlock()
-				idleTries = 0
+			if !ok {
+				// Keep waiting while another slot is extracting. Empty claims
+				// are normal under per-subject FIFO; exiting here drops
+				// parallelism to the in-flight subject count.
+				if inFlight.Load() > 0 {
+					idleTries = 0
+					select {
+					case <-ctx.Done():
+						return
+					case <-time.After(50 * time.Millisecond):
+					}
+					continue
+				}
+				idleTries++
+				if idleTries >= 5 {
+					return
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case <-time.After(50 * time.Millisecond):
+				}
 				continue
 			}
-			idleTries++
-			if idleTries >= 5 {
-				return
+			idleTries = 0
+			inFlight.Add(1)
+			runErr := p.processClaimedJob(ctx, job)
+			inFlight.Add(-1)
+			mu.Lock()
+			processed++
+			if runErr != nil && firstErr == nil {
+				firstErr = runErr
 			}
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(50 * time.Millisecond):
-			}
+			mu.Unlock()
 		}
 	}
 	wg.Add(concurrency)

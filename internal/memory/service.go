@@ -424,10 +424,12 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 
 	includeSuperseded := opts.IncludeHistorical
 	fusionV2 := FusionV2Enabled()
+	rrfEnabled := RetrievalRRFEnabled()
 	overfetch := CandidatePoolSize(opts)
 	trace := &SearchTrace{
 		CandidateOverfetch: overfetch,
-		FusionV2:           fusionV2,
+		FusionV2:           fusionV2 && !rrfEnabled,
+		RRF:                rrfEnabled,
 		Intents:            intents,
 	}
 
@@ -451,7 +453,7 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	go func() {
 		defer wg.Done()
 		queryVector, _ := s.embed(ctx, query)
-		embedScores = s.embeddingScores(ctx, tenantID, subjectID, queryVector)
+		embedScores = s.embeddingScoresLimited(ctx, tenantID, subjectID, queryVector, overfetch)
 	}()
 	wg.Wait()
 	if lexErr != nil {
@@ -1202,6 +1204,19 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 	trace.EpisodeFallback = fallback
 	trace.RepresentationStatus = status
 
+	var rrfScores map[string]float64
+	if rrfEnabled {
+		denseList := RankIDsByScore(embedScores)
+		lexList := RankIDsByScore(lexRanks)
+		if len(lexList) == 0 {
+			lexList = make([]string, 0, len(memories))
+			for _, m := range memories {
+				lexList = append(lexList, m.MemoryID)
+			}
+		}
+		rrfScores = ReciprocalRankFusion([][]string{denseList, lexList}, RRFK)
+	}
+
 	ranked := make([]rankedSearchResult, 0, len(candidates))
 	entitiesByID := make(map[string][]string, len(candidates))
 	for _, record := range candidates {
@@ -1227,85 +1242,87 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if explain == nil {
 			explain = map[string]any{}
 		}
-		if score <= 0 && looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "advice_directive_floor"
-		}
-		if score <= 0 && looksWhatKindQuery(query) && leftoverCoveringKindListLine(record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "kind_list_floor"
-		}
-		if score <= 0 && looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "process_hortative_floor"
-		}
-		if score <= 0 && looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "motivate_cause_floor"
-		}
-		if score <= 0 && looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "evaluative_they_floor"
-		}
-		if score <= 0 && looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(record.Content) && leftoverCoveringReactLineHasObject(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "react_observation_floor"
-		}
-		if score <= 0 && looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "purpose_action_floor"
-		}
-		if score <= 0 && looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "start_method_floor"
-		}
-		if score <= 0 && looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "duration_floor"
-		}
-		if score <= 0 && leftoverCoveringYearStartDurationLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "year_start_duration_floor"
-		}
-		if score <= 0 && looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "cadence_floor"
-		}
-		if score <= 0 && looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "current_project_floor"
-		}
-		if score <= 0 && looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "become_interested_floor"
-		}
-		if score <= 0 && looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "prep_plan_floor"
-		}
-		if score <= 0 && looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "focusing_besides_floor"
-		}
-		if score <= 0 && looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "titled_show_floor"
-		}
-		if score <= 0 && looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "locative_purpose_floor"
-		}
-		if score <= 0 && looksHowFeelAboutQuery(query) && leftoverCoveringExperiencingFeelingLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "experiencing_feeling_floor"
-		}
-		if score <= 0 && looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "work_determination_floor"
-		}
-		if score <= 0 && looksWhatDidRealizeAfterQuery(query) && leftoverCoveringSelfDirectedRealizeLine(query, record.Content) {
-			score = 0.9
-			explain["ranking_basis"] = "self_directed_realize_floor"
+		if !rrfEnabled {
+			if score <= 0 && looksAdviceQuery(query) && leftoverCoveringAdviceOffQueryLine(record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "advice_directive_floor"
+			}
+			if score <= 0 && looksWhatKindQuery(query) && leftoverCoveringKindListLine(record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "kind_list_floor"
+			}
+			if score <= 0 && looksHowDescribeProcessQuery(query) && leftoverCoveringProcessHortativeLine(record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "process_hortative_floor"
+			}
+			if score <= 0 && looksWhatMotivatesQuery(query) && leftoverCoveringMotivateCauseLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "motivate_cause_floor"
+			}
+			if score <= 0 && looksWhatSayAboutQuery(query) && leftoverCoveringSayAboutTargetLine(record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "evaluative_they_floor"
+			}
+			if score <= 0 && looksHowReactQuery(query) && leftoverCoveringReactionObservationLine(record.Content) && leftoverCoveringReactLineHasObject(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "react_observation_floor"
+			}
+			if score <= 0 && looksWhatDidPurposeQuery(query) && leftoverCoveringPurposeActionLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "purpose_action_floor"
+			}
+			if score <= 0 && looksHowDidStartQuery(query) && leftoverCoveringStartMethodLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "start_method_floor"
+			}
+			if score <= 0 && looksHowLongBeenQuery(query) && leftoverCoveringDurationLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "duration_floor"
+			}
+			if score <= 0 && leftoverCoveringYearStartDurationLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "year_start_duration_floor"
+			}
+			if score <= 0 && looksHowOftenQuery(query) && leftoverCoveringCadenceLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "cadence_floor"
+			}
+			if score <= 0 && looksWhatProjectWorkingQuery(query) && leftoverCoveringCurrentProjectLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "current_project_floor"
+			}
+			if score <= 0 && looksWhatNewHobbyQuery(query) && leftoverCoveringBecomeInterestedLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "become_interested_floor"
+			}
+			if score <= 0 && looksHowPlanDreamQuery(query) && leftoverCoveringPrepPlanLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "prep_plan_floor"
+			}
+			if score <= 0 && looksWhatFocusingBesidesQuery(query) && leftoverCoveringFocusingBesidesLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "focusing_besides_floor"
+			}
+			if score <= 0 && looksWhatNewSeriesQuery(query) && leftoverCoveringTitledShowLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "titled_show_floor"
+			}
+			if score <= 0 && looksWhatDidRecentlyAtQuery(query) && leftoverCoveringLocativePurposeLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "locative_purpose_floor"
+			}
+			if score <= 0 && looksHowFeelAboutQuery(query) && leftoverCoveringExperiencingFeelingLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "experiencing_feeling_floor"
+			}
+			if score <= 0 && looksWhatDoCoordinatedUseQuery(query) && leftoverCoveringWorkDeterminationLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "work_determination_floor"
+			}
+			if score <= 0 && looksWhatDidRealizeAfterQuery(query) && leftoverCoveringSelfDirectedRealizeLine(query, record.Content) {
+				score = 0.9
+				explain["ranking_basis"] = "self_directed_realize_floor"
+			}
 		}
 		// Calibrated semantic + Mem0-style entity-hub boost.
 		embedScore := embedScores[record.MemoryID]
@@ -1313,7 +1330,18 @@ func (s *Service) SearchOpt(ctx context.Context, tenantID, subjectID, vertical, 
 		if hubBoosts != nil {
 			hub = hubBoosts[record.MemoryID]
 		}
-		if fusionV2 {
+		if rrfEnabled {
+			if r := rrfScores[record.MemoryID]; r > 0 {
+				score = rrfToSearchScore(r)
+				explain["fusion"] = "rrf"
+				explain["signal_rrf"] = r
+				if embedScore > 0 {
+					explain["embedding_similarity"] = embedScore
+				}
+			} else if score <= 0 && embedScore < 0.15 {
+				continue
+			}
+		} else if fusionV2 {
 			// Prefer real FTS rank when the ranked searcher returned lexRanks.
 			// Do not pretend token coverage is BM25 when FTS ranks exist.
 			bm25 := 0.0

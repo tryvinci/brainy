@@ -417,3 +417,89 @@ func TestProcessAvailableDrainsQueueWithConcurrency(t *testing.T) {
 		t.Fatalf("expected empty queue, got %d jobs", left)
 	}
 }
+
+type hookExtractor struct {
+	fn func(memory.IngestRequest)
+}
+
+func (h hookExtractor) Extract(_ context.Context, req memory.IngestRequest) ([]memory.ExtractedMemory, error) {
+	if h.fn != nil {
+		h.fn(req)
+	}
+	return nil, nil
+}
+
+func TestProcessAvailableKeepsIdleSlotsWhileSiblingsBusy(t *testing.T) {
+	store := newStoreStub()
+	var (
+		mu      sync.Mutex
+		live    int
+		maxLive int
+	)
+	extractor := hookExtractor{fn: func(req memory.IngestRequest) {
+		slow := strings.Contains(req.Messages[0].Content, "slow")
+		mu.Lock()
+		live++
+		if live > maxLive {
+			maxLive = live
+		}
+		mu.Unlock()
+		if slow {
+			time.Sleep(500 * time.Millisecond)
+		} else {
+			time.Sleep(30 * time.Millisecond)
+		}
+		mu.Lock()
+		live--
+		mu.Unlock()
+	}}
+	processor := NewProcessorWithExtractor(store, observability.NewMetrics(), extractor)
+
+	_, err := store.EnqueueIngestJob(context.Background(), "ing_slow", "job_slow", "", memory.IngestRequest{
+		TenantID:   "t1",
+		SubjectID:  "slow-subject",
+		SourceType: "conversation",
+		Messages:   []memory.Message{{Role: "user", Content: "slow extract"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan struct{})
+	var n int
+	var procErr error
+	go func() {
+		defer close(done)
+		n, procErr = processor.ProcessAvailable(context.Background(), 3)
+	}()
+
+	// Old idle-exit is 5*50ms. Enqueue after that window while the slow
+	// extract is still running so exited slots cannot claim the new work.
+	time.Sleep(320 * time.Millisecond)
+	for i := 0; i < 4; i++ {
+		_, err := store.EnqueueIngestJob(context.Background(), fmt.Sprintf("ing_f%d", i), fmt.Sprintf("job_f%d", i), "", memory.IngestRequest{
+			TenantID:   "t1",
+			SubjectID:  fmt.Sprintf("fast-%d", i),
+			SourceType: "conversation",
+			Messages:   []memory.Message{{Role: "user", Content: fmt.Sprintf("fast extract %d", i)}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	select {
+	case <-done:
+	case <-time.After(3 * time.Second):
+		t.Fatal("ProcessAvailable timed out")
+	}
+	if procErr != nil {
+		t.Fatal(procErr)
+	}
+	if n != 5 {
+		t.Fatalf("expected 5 processed jobs, got %d", n)
+	}
+	if maxLive < 3 {
+		t.Fatalf("idle slots must stay alive and overlap the slow extract, maxLive=%d", maxLive)
+	}
+}

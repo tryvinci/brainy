@@ -179,7 +179,8 @@ func predicateHintsFromQuery(query string) []string {
 		add(PredicateActivity)
 		add(PredicateEvent)
 		add(PredicateResidence)
-	case strings.Contains(lower, "job") || strings.Contains(lower, "work") || strings.Contains(lower, "occupation") || strings.Contains(lower, "career") || strings.Contains(lower, "pursue") || strings.Contains(lower, "educat"):
+	case strings.Contains(lower, "job") || strings.Contains(lower, "work") || strings.Contains(lower, "occupation") || strings.Contains(lower, "career") || strings.Contains(lower, "pursue") || strings.Contains(lower, "educat") ||
+		queryHasToken(query, "study", "studying", "studies", "studied", "learn", "learning"):
 		add(PredicateOccupation)
 		add(PredicateIdentity)
 		add(PredicateEducation)
