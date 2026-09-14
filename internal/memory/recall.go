@@ -750,8 +750,10 @@ func (s *Service) Recall(ctx context.Context, req RecallRequest) (RecallResponse
 				!skipSlots &&
 				(len(leftover) == 0 || hopsKeepTypedJoin(hopResults))
 			typedKeep := strings.TrimSpace(out.Answer)
+			// skipSlots means hop dumps are unrelated, not that a structured
+			// SearchOpt fact should be discarded after hybrid abstain.
 			keepTyped := typedKeep != "" && !strings.EqualFold(typedKeep, "not in memory") &&
-				!typedAnswerIsHopDump(typedKeep) && !skipSlots && !hopsAreIdentityOnly(hopResults)
+				!typedAnswerIsHopDump(typedKeep) && !hopsAreIdentityOnly(hopResults)
 			if canComposeHops {
 				if composed := composeFromHopValues(hopResults); hopComposeUsable(composed, hopResults) {
 					out.Answer = composed

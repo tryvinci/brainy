@@ -763,6 +763,18 @@ func TestHopsKeepTypedJoinKinshipActivity(t *testing.T) {
 	}
 }
 
+func TestSkipUnrelatedHopSlotsEmptyHopsFalse(t *testing.T) {
+	pkt := EvidencePacket{
+		Contents: []string{"Caroline is interested in a career in counseling or mental health."},
+		ContextEvidence: []PacketItem{
+			{Content: "Caroline is interested in a career in counseling or mental health."},
+		},
+	}
+	if skipUnrelatedHopSlots("What is Caroline studying?", nil, pkt) {
+		t.Fatal("empty hops have no unrelated slots to skip")
+	}
+}
+
 func TestRecallHybridKeepsTypedChildhoodPossessions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -1155,6 +1167,50 @@ func TestRecallHybridAbstainKeepsWhenEventDate(t *testing.T) {
 	}
 	if strings.EqualFold(strings.TrimSpace(out.Answer), "not in memory") {
 		t.Fatalf("hybrid abstain overwrote typed date: %q", out.Answer)
+	}
+}
+
+func TestRecallHybridAbstainKeepsEducationFact(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"choices": []map[string]any{
+				{"message": map[string]any{
+					"content": `{"answer":"","supporting_memory_ids":[],"unresolved_targets":["studying"],"abstain":true}`,
+				}},
+			},
+		})
+	}))
+	defer server.Close()
+
+	t.Setenv("BRAINY_RECALL_LLM", "1")
+	store := newMemoryStoreStub()
+	svc := NewService(store).WithHybridReader(HybridReaderConfig{
+		BaseURL: server.URL,
+		APIKey:  "test",
+		Model:   "test-model",
+	})
+	now := svc.now()
+	store.records["edu"] = MemoryRecord{
+		MemoryID: "mem_edu", TenantID: "t-hyb-study", SubjectID: "u1",
+		Kind:      KindFact,
+		Content:   "Caroline is interested in a career in counseling or mental health.",
+		DedupeKey: "edu", Status: StatusActive, UpdatedAt: now,
+		Metadata: map[string]any{"predicate": PredicateOccupation, "value_norm": "counseling", "subject": "Caroline"},
+		Explain:  map[string]any{"predicate": PredicateOccupation, "value_norm": "counseling", "subject": "Caroline"},
+	}
+	out, err := svc.Recall(context.Background(), RecallRequest{
+		TenantID: "t-hyb-study", SubjectID: "u1",
+		Query: "What is Caroline studying?", Mode: "answer", TopK: 10,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.ToLower(out.Answer)
+	if strings.EqualFold(strings.TrimSpace(out.Answer), "not in memory") || out.Abstained {
+		t.Fatalf("hybrid abstain must keep retrieved education/career fact, answer=%q abstained=%v", out.Answer, out.Abstained)
+	}
+	if !strings.Contains(got, "counsel") && !strings.Contains(got, "mental health") {
+		t.Fatalf("expected counseling/education fact, got %q", out.Answer)
 	}
 }
 

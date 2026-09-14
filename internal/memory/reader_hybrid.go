@@ -943,6 +943,9 @@ func skipUnrelatedHopSlots(query string, hops []HopResult, pkt EvidencePacket) b
 	if strings.TrimSpace(query) == "" {
 		return false
 	}
+	if len(hopSlotValues(hops)) == 0 {
+		return false
+	}
 	if hopsKeepTypedJoin(hops) {
 		return false
 	}

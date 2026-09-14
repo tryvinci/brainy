@@ -188,6 +188,19 @@ func TestPredicateHintsFromQuery(t *testing.T) {
 	if !foundPoss {
 		t.Fatalf("expected possession hint, got %#v", own)
 	}
+	study := predicateHintsFromQuery("What is Caroline studying?")
+	foundEdu, foundOcc := false, false
+	for _, p := range study {
+		if p == PredicateEducation {
+			foundEdu = true
+		}
+		if p == PredicateOccupation {
+			foundOcc = true
+		}
+	}
+	if !foundEdu || !foundOcc {
+		t.Fatalf("study/learn queries must hint education and occupation, got %#v", study)
+	}
 }
 
 func TestTemporalScorePrefersSupersededOnHistorical(t *testing.T) {
