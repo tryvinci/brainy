@@ -118,6 +118,22 @@ def require_pins(manifest: RunManifest) -> list[str]:
                 )
         if extras.get("queue_precheck") not in {"idle", "assumed_idle"}:
             gaps.append("queue_precheck must be idle or assumed_idle for product-recall publish")
+        protocol = str(extras.get("eval_protocol") or "")
+        if protocol == "eval-protocol-v2":
+            if not extras.get("store_identity"):
+                gaps.append("extras.store_identity missing for eval-protocol-v2")
+            if extras.get("answer_mode") not in {None, "", "answer"}:
+                gaps.append("eval-protocol-v2 product scoring must use mode=answer")
+            try:
+                unresolved = int(extras.get("unresolved_judgments") or 0)
+                transport = int(extras.get("transport_failures") or 0)
+            except (TypeError, ValueError):
+                gaps.append("extras unresolved_judgments/transport_failures must be integers")
+            else:
+                if unresolved:
+                    gaps.append(f"unresolved_judgments={unresolved} block finalization")
+                if transport:
+                    gaps.append(f"transport_failures={transport} must be retried to 0")
     runtime = extras.get("runtime") or {}
     fail_closed = bool(extras.get("fail_closed") or extras.get("publish_mode"))
     if fail_closed:

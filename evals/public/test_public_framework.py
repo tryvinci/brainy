@@ -107,6 +107,37 @@ class ProveabilityTests(unittest.TestCase):
         )
         self.assertEqual(ok, [])
 
+    def test_require_pins_eval_protocol_v2_blocks_unresolved(self) -> None:
+        m = RunManifest(
+            benchmark="locomo-staged",
+            dataset_url="https://example.com/d.json",
+            dataset_sha256="abc",
+            brainy_url="https://brainy.example",
+            judge_model="gpt-4o-mini",
+            judge_temperature=0.0,
+            extras={
+                "product_recall": True,
+                "answer_path": "/recall",
+                "ingest_mode": "async",
+                "jobs_expected": 1,
+                "jobs_completed": 1,
+                "jobs_failed": 0,
+                "reader_source": {},
+                "queue_precheck": "idle",
+                "eval_protocol": "eval-protocol-v2",
+                "unresolved_judgments": 2,
+                "transport_failures": 1,
+            },
+        )
+        gaps = require_pins(m)
+        self.assertTrue(any("store_identity" in g for g in gaps))
+        self.assertTrue(any("unresolved_judgments" in g for g in gaps))
+        self.assertTrue(any("transport_failures" in g for g in gaps))
+        m.extras["store_identity"] = "abc"
+        m.extras["unresolved_judgments"] = 0
+        m.extras["transport_failures"] = 0
+        self.assertEqual(require_pins(m), [])
+
     def test_sha256_file(self) -> None:
         path = pathlib.Path(__file__).with_name("_tmp_hash.txt")
         path.write_text("hello\n", encoding="utf-8")
@@ -158,12 +189,22 @@ class JudgeTests(unittest.TestCase):
 
 class LLMConfigTests(unittest.TestCase):
     def test_local_ollama_without_key(self) -> None:
-        cfg = resolve_config(base_url="http://127.0.0.1:11434/v1", model="llama3.1")
-        self.assertIsNotNone(cfg)
-        assert cfg is not None
-        self.assertEqual(cfg.api_key, "ollama")
-        self.assertEqual(cfg.model, "llama3.1")
-        self.assertFalse(cfg.json_mode)
+        import os
+
+        old_o = os.environ.pop("OPENAI_API_KEY", None)
+        old_l = os.environ.pop("LLM_API_KEY", None)
+        try:
+            cfg = resolve_config(base_url="http://127.0.0.1:11434/v1", model="llama3.1")
+            self.assertIsNotNone(cfg)
+            assert cfg is not None
+            self.assertEqual(cfg.api_key, "ollama")
+            self.assertEqual(cfg.model, "llama3.1")
+            self.assertFalse(cfg.json_mode)
+        finally:
+            if old_o is not None:
+                os.environ["OPENAI_API_KEY"] = old_o
+            if old_l is not None:
+                os.environ["LLM_API_KEY"] = old_l
 
     def test_remote_requires_key(self) -> None:
         cfg = resolve_config(base_url="https://api.openai.com/v1", api_key="", model="gpt-4o-mini")
