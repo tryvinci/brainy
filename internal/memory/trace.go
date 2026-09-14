@@ -65,6 +65,7 @@ type SearchTrace struct {
 	QueryTokenAdmitted   int                `json:"query_token_admitted,omitempty"`
 	ListedSubject        bool               `json:"listed_subject,omitempty"`
 	FusionV2             bool               `json:"fusion_v2,omitempty"`
+	RRF                  bool               `json:"rrf,omitempty"`
 	Intents              []string           `json:"intents,omitempty"`
 	ChannelScores        map[string]float64 `json:"channel_scores,omitempty"`
 	EpisodesDropped      int                `json:"episodes_dropped,omitempty"`

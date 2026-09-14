@@ -49,9 +49,16 @@ func (s *Service) embed(ctx context.Context, text string) ([]float32, error) {
 }
 
 func (s *Service) embeddingScores(ctx context.Context, tenantID, subjectID string, queryVector []float32) map[string]float64 {
+	return s.embeddingScoresLimited(ctx, tenantID, subjectID, queryVector, 50)
+}
+
+func (s *Service) embeddingScoresLimited(ctx context.Context, tenantID, subjectID string, queryVector []float32, limit int) map[string]float64 {
+	if limit <= 0 {
+		limit = 50
+	}
 	var raw map[string]float64
 	if searcher, ok := s.store.(embeddingSearcher); ok {
-		if scores, err := searcher.SearchByEmbedding(ctx, tenantID, subjectID, queryVector, 50); err == nil && len(scores) > 0 {
+		if scores, err := searcher.SearchByEmbedding(ctx, tenantID, subjectID, queryVector, limit); err == nil && len(scores) > 0 {
 			raw = scores
 		}
 	}
