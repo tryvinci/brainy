@@ -59,6 +59,7 @@ from public.proveability import (  # noqa: E402
 from public.runtime_manifest import attach_runtime_extras, fetch_runtime  # noqa: E402
 from public.stage_oracle import probe_failure_stages, write_failure_record  # noqa: E402
 from public.protocol import PROTOCOL_V1, resolve_eval_protocol  # noqa: E402
+from public.schema import (  # noqa: E402
     CATEGORY_NAMES,
     CATEGORIES_TO_SCORE,
     EvalItem,

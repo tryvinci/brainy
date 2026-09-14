@@ -360,6 +360,12 @@ class StagedRunnerTests(unittest.TestCase):
         self.assertNotEqual(a, b)
 
 
+class ImportTests(unittest.TestCase):
+    def test_run_smoke_and_run_staged_import(self) -> None:
+        import public.locomo.run_smoke  # noqa: F401
+        import public.locomo.run_staged  # noqa: F401
+
+
 class PublishJobAccountingTests(unittest.TestCase):
     def test_wait_until_jobs_done_rejects_unaccounted_jobs(self) -> None:
         from http.server import BaseHTTPRequestHandler, HTTPServer
