@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 
@@ -90,6 +91,8 @@ def build_adapters(names: list[str], base_url: str) -> list:
     registry = {
         "verbatim": lambda: VerbatimBaseline(),
         "brainy": lambda: BrainyAdapter(base_url),
+        "brainy-recall": lambda: BrainyAdapter(base_url, recall_lane="recall"),
+        "brainy-supersede": lambda: BrainyAdapter(base_url, revise_mode="supersede"),
         "mem0": lambda: Mem0OpAdapter(),
     }
     adapters = []
@@ -167,7 +170,9 @@ def main() -> int:
             out = ROOT.parent / out
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(output + "\n", encoding="utf-8")
-    return 1 if infrastructure_errors else 0
+    if infrastructure_errors and not os.environ.get("OPMEM_ALLOW_INFRA_EXIT"):
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
