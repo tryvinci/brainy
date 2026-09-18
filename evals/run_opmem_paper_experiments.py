@@ -153,6 +153,13 @@ def main() -> int:
     (out_dir / "run-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     stability = stability_runs(args.base_url, tasks, args.stability_repeats)
+    valid = [r for r in stability["runs"] if r.get("infrastructure_errors", 0) == 0]
+    stability["valid_runs"] = len(valid)
+    stability["valid_scores"] = sorted({r["overall"] for r in valid})
+    stability["interpretation"] = (
+        "Runs with infrastructure_errors>0 are invalid/incomplete; "
+        "partial denominators (e.g. 9/10) are not comparable to a clean 13/13 pin."
+    )
     stability["manifest"] = manifest
     (out_dir / "opmem-stability.json").write_text(json.dumps(stability, indent=2) + "\n", encoding="utf-8")
 

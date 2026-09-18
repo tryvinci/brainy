@@ -1,6 +1,6 @@
 \evidence{completed}{
-Five consecutive Brainy search-lane runs: stable=no;
-unique scores: 13/13, 9/10.
+Five consecutive Brainy search-lane repeats on one embedded server session.
+\textbf{Valid runs only} (infra errors $=0$): 2/5; scores: 13/13.
 }
 \begin{itemize}
 \item Repeat 1: 13/13 (infra errors=0)
@@ -9,4 +9,5 @@ unique scores: 13/13, 9/10.
 \item Repeat 4: 13/13 (infra errors=0)
 \item Repeat 5: 9/10 (infra errors=3)
 \end{itemize}
-Infra errors indicate HTTP/adapter exceptions (not assertion failures); prefer single-suite pins for publication tables.
+Repeats with infra errors $>0$ (3 of 5) are \textbf{invalid/incomplete}: the harness omits errored tasks from the denominator, so aggregates such as 9/10 are \emph{not} comparable to a clean 13/13 pin.
+Use isolated \texttt{TestOpMemBenchmarkAgainstHTTPServer} for merge-gate stability.

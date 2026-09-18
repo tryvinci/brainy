@@ -153,7 +153,7 @@ From [opmem-spec.md](../opmem-spec.md) roadmap and [inventory-reproduction-plan-
 | Ablation: correction vs suppression vs rank-only | Explain mechanism | No harness |
 | Re-run on current `dev` SHA | Current merge bar | **Done** — `20533f2` pin (`opmem-pin-20260918.json`) |
 | Commit frozen 3-system JSON (per-task) | Artifact review | **Done** — `docs/benchmarks/artifacts/opmem-pin-20260918.json` |
-| Statistical stability | 13 tasks, single run | **Partial** — 5× repeat in `opmem-stability.json` (infra flakiness on correction tasks; see manuscript) |
+| Statistical stability | 13 tasks, single run | **Partial** — 5× repeat in `opmem-stability.json`; only infra-error=0 runs count; 9/10 with errors = invalid/incomplete (not a second valid score) |
 
 ---
 
@@ -249,4 +249,5 @@ Related: PR [#188](https://github.com/tryvinci/brainy/pull/188) (`inventory-repr
 - [ ] Historical reports (`opmem-baseline-report.md`, `launch-narrative.md`, staging JSON) — intentionally **dated**; not rewritten
 - [x] Re-run OpMem on current SHA — `opmem-manuscript-20260918.md`
 - [x] LaTeX manuscript — `docs/research/opmem/paper/`
-- [ ] Mem0 OSS / Zep / Letta / LangMem — **blocked** (adapters or spend approval)
+- [ ] Mem0 OSS / Zep / Letta / LangMem — **blocked** (no adapter, access, or cost worksheet; paid runs need estimate + approval, not denied categorically)
+- [x] Mem0 Platform — **completed** on current pin (negligible API volume; `opmem-pin-20260918.json`)

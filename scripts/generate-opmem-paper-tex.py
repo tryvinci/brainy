@@ -133,22 +133,28 @@ verbatim approximates rank-only recall without governed lifecycle ops.
         + "\n\\end{table}",
     )
 
-    stable = "yes" if stability.get("stable") else "no"
-    uniq = ", ".join(stability.get("unique_scores", []))
-    run_lines = [f"Repeat {r['repeat']}: {r['overall']} (infra errors={r['infrastructure_errors']})" for r in stability["runs"]]
+    runs = stability.get("runs", [])
+    valid = [r for r in runs if r.get("infrastructure_errors", 0) == 0]
+    invalid = [r for r in runs if r.get("infrastructure_errors", 0) > 0]
+    valid_scores = sorted({r["overall"] for r in valid})
+    run_lines = [
+        f"Repeat {r['repeat']}: {r['overall']} (infra errors={r['infrastructure_errors']})"
+        for r in runs
+    ]
     write(
         "stability.tex",
         f"""
 \\evidence{{completed}}{{
-Five consecutive Brainy search-lane runs: stable={stable};
-unique scores: {uniq}.
+Five consecutive Brainy search-lane repeats on one embedded server session.
+\\textbf{{Valid runs only}} (infra errors $=0$): {len(valid)}/{len(runs)}; scores: {', '.join(valid_scores) or 'none'}.
 }}
 \\begin{{itemize}}
 """
         + "\n".join(f"\\item {line}" for line in run_lines)
-        + """
-\\end{itemize}
-Infra errors indicate HTTP/adapter exceptions (not assertion failures); prefer single-suite pins for publication tables.
+        + f"""
+\\end{{itemize}}
+Repeats with infra errors $>0$ ({len(invalid)} of {len(runs)}) are \\textbf{{invalid/incomplete}}: the harness omits errored tasks from the denominator, so aggregates such as 9/10 are \\emph{{not}} comparable to a clean 13/13 pin.
+Use isolated \\texttt{{TestOpMemBenchmarkAgainstHTTPServer}} for merge-gate stability.
 """,
     )
 

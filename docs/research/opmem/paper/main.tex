@@ -38,7 +38,7 @@ leadership is orthogonal to LoCoMo J-scores.
 Production agents fail when suppressed memories leak after re-ingestion, corrections do not
 stick, tenants bleed across isolation boundaries, or stale facts outrank updates.
 Conversational QA benchmarks~\cite{maharana2024locomo,longmemeval2024} do not encode these
-lifecycle contracts; hallucination-oriented memory benchmarks such as HaluMem~\cite{halumem2025}
+lifecycle contracts; hallucination-oriented memory benchmarks such as HaluMem~\cite{chen2025halumem}
 focus on factual faithfulness rather than governed delete/correct semantics.
 
 OpMem targets \textbf{operational correctness}: deterministic scripts, binary scoring, and
@@ -52,12 +52,14 @@ LoCoMo~\cite{maharana2024locomo} and LongMemEval~\cite{longmemeval2024} score en
 answer quality over long conversations; they are not substitutes for lifecycle tests.
 
 \paragraph{Memory products.}
-Mem0 documents accumulation-oriented designs and names staleness as an open problem~\cite{mem0staleness2026}.
+Mem0 documents accumulation-oriented designs and names staleness as an open problem~\cite{mem0state2026}.
 We report Mem0 \textbf{Platform} numbers only on OpMem fixtures; we do not import Mem0 blog
 LoCoMo percentages as same-pin scores.
 
-\paragraph{Blocked comparisons.}
-\todo{Zep, Letta, LangMem, and Mem0 OSS adapters are not implemented in \texttt{evals/opmem\_adapters.py}; no same-pin table rows until adapters and approval for any paid API spend.}
+\paragraph{Pending external comparisons.}
+Paid or vendor-hosted counter-runs are allowed only after a written cost estimate and explicit approval; that gate was not a categorical denial of spend.
+Mem0 Platform on OpMem v0 is \textbf{completed} at negligible API volume (13 tasks, 47 scripted steps; see Section~\ref{sec:external}).
+Mem0 OSS, Zep, Letta, and LangMem remain \textbf{blocked} because no OpMem adapter, access credentials, or line-item cost worksheet exists yet (Section~\ref{sec:cost-plan}).
 
 \section{Neutral operation model}
 \label{sec:model}
@@ -155,11 +157,20 @@ Mem0 failures on that pin: \texttt{cor02} (correction stickiness),
 \input{generated/stability.tex}
 
 \subsection{External systems}
-\evidence{blocked}{
-Mem0 OSS, Zep, Letta, and LangMem: no adapter or no approved spend for same-pin runs.
-Mem0 Platform re-run on current SHA: see \texttt{opmem-mem0-rerun.json} when
-\texttt{MEM0\_API\_KEY} is available; otherwise cite frozen 2026-08-15 pin only.
-}
+\label{sec:external}
+\evidence{completed}{Mem0 \textbf{Platform}: 10/13 on SHA \texttt{20533f2} (\texttt{opmem-pin-20260918.json}); same headline as 2026-08-15 pin. Completed under negligible Platform API use (full suite $\approx$47 scripted steps).}
+\evidence{blocked}{Mem0 OSS, Zep, Letta, LangMem: blocked pending adapter + access + cost worksheet (Section~\ref{sec:cost-plan}); not run on this pass.}
+
+\subsection{Cost-estimation plan (before any new paid run)}
+\label{sec:cost-plan}
+OpMem v0 has 13 tasks and 47 scripted steps (\texttt{fixtures/opmem/}). For each pending system, prepare billing before requesting approval:
+\begin{itemize}
+\item \textbf{Mem0 OSS} --- Implement \texttt{Mem0OSSOpAdapter} (version-pinned \texttt{mem0ai/mem0}); map neutral ops to OSS HTTP/SDK. \emph{Estimate:} count per-step Platform-equivalent calls (remember/recall/revise/forget); self-hosted OSS = engineer time + local compute only; hosted OSS = vendor rate card $\times$ call count (prepare spreadsheet from public pricing when deployment target is chosen).
+\item \textbf{Zep} --- Implement Zep adapter (add/search/update/delete on Zep Cloud or self-hosted Graphiti). \emph{Estimate:} same 47-step script $\times$ mapped Zep API units; obtain unit prices from Zep billing docs/dashboard before run.
+\item \textbf{Letta} --- Implement Letta memory/agent API adapter. \emph{Estimate:} 47 steps $\times$ Letta memory CRUD + search calls; quote from Letta Cloud pricing for memory operations.
+\item \textbf{LangMem} --- Clarify target surface (LangGraph store vs hosted LangMem product); implement adapter. \emph{Estimate:} primarily local/library compute if OSS; if hosted, count store read/write units per step.
+\end{itemize}
+No dollar totals are asserted here until rate cards and deployment mode are pinned; approval requires the completed worksheet, not a categorical spend ban.
 
 \section{Discussion}
 OpMem failures on Mem0 align with accumulation-oriented update semantics:
@@ -175,7 +186,7 @@ Policy disagreements remain (\texttt{sup03} durable forget is a normative contra
 \item Substring scoring does not guarantee semantic safety.
 \item Search vs \texttt{/recall} product path may diverge (lane ablation quantifies on Brainy).
 \item English, domain-neutral fixtures; no concurrency or TTL tests.
-\item Mem0 Platform API drift; OSS not measured unless TODO closed.
+\item Mem0 Platform API drift; OSS/Zep/Letta/LangMem not measured until adapter + cost approval.
 \item Fixture authorship bias; no independent external audit documented.
 \end{enumerate}
 
