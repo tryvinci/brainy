@@ -1,7 +1,8 @@
 # Paper Topics: Publishing Research from Brainy
 
 **Status:** Active publication roadmap (aligned with [path-to-sota.md](./path-to-sota.md))
-**Updated:** 2026-07-24 · originally 2026-07-02
+**Updated:** 2026-07-24 · originally 2026-07-02  
+**Inventory (2026-09-18, not a pin):** [inventory-reproduction-plan-2026-09-18.md](./inventory-reproduction-plan-2026-09-18.md) — manuscript/data/code state, missing experiments, and publication readiness for Papers 1–3. No new scores.
 
 ## Publication roadmap (sequenced)
 

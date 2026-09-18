@@ -67,6 +67,7 @@ Details: [competitive verdict](./external-reviews/2026-08-11-competitive-archite
 | SOTA end-to-end program (prior PoR) | Historical | [sota-end-to-end-program.md](./sota-end-to-end-program.md) |
 | SOTA assessment + action plan (earlier briefing) | Superseded by pack + PoR | [sota-assessment-and-action-plan.md](./sota-assessment-and-action-plan.md) |
 | Paper roadmap | Active | [paper-topics.md](./paper-topics.md) |
+| Inventory / reproduction plan (2026-09-18) | **Not a pin** | [inventory-reproduction-plan-2026-09-18.md](./inventory-reproduction-plan-2026-09-18.md) |
 | OpMem Paper 1 draft | Draft | [posts/2026-07-opmem-v0.md](./posts/2026-07-opmem-v0.md) |
 | Gap crush checklist | **100%** | [gap-crush-checklist.md](./gap-crush-checklist.md) |
 
