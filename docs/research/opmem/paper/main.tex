@@ -1,0 +1,199 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{graphicx}
+
+\newcommand{\todo}[1]{\textcolor{red}{\textbf{TODO:} #1}}
+\newcommand{\evidence}[2]{\textbf{[#1]} #2}
+
+\title{Beyond Recall: Operational Correctness for Agent Memory Systems\\
+\large OpMem v0 Benchmark and Empirical Pins}
+\author{Brainy Research}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Retrieval benchmarks such as LoCoMo and LongMemEval measure whether an agent recalls
+the right fact, but not whether a memory \emph{system} honors forget, correct, isolate,
+and supersede semantics in production.
+We present \textbf{OpMem v0}, a 13-task, pass/fail suite over neutral
+\texttt{remember}/\texttt{recall}/\texttt{revise}/\texttt{forget} scripts with
+substring-based assertions on ranked results.
+On the frozen 2026-08-15 pin (git SHA \texttt{1b5ab3e}), Brainy passes \textbf{13/13}
+via \texttt{GET /memories/search} while Mem0 \textbf{Platform} passes \textbf{10/13}
+(failures: \texttt{cor02}, \texttt{sup03}, \texttt{upd02}).
+This manuscript reports repository evidence, a reproducible protocol, threats to validity,
+and new embedded-harness re-measurements on the current merge-pin git revision where completed.
+We do \emph{not} claim conversational-recall superiority over Mem0; OpMem operational
+leadership is orthogonal to LoCoMo J-scores.
+\end{abstract}
+
+\section{Introduction}
+Production agents fail when suppressed memories leak after re-ingestion, corrections do not
+stick, tenants bleed across isolation boundaries, or stale facts outrank updates.
+Conversational QA benchmarks~\cite{maharana2024locomo,longmemeval2024} do not encode these
+lifecycle contracts; hallucination-oriented memory benchmarks such as HaluMem~\cite{halumem2025}
+focus on factual faithfulness rather than governed delete/correct semantics.
+
+OpMem targets \textbf{operational correctness}: deterministic scripts, binary scoring, and
+explicit adapter mappings to each system's native API surface~\cite{brainyopmem2026}.
+Section~\ref{sec:limitations} lists threats; Section~\ref{sec:results} separates
+\textbf{completed} evidence from \textbf{blocked} external comparisons.
+
+\section{Related work}
+\paragraph{Retrieval QA.}
+LoCoMo~\cite{maharana2024locomo} and LongMemEval~\cite{longmemeval2024} score end-to-end
+answer quality over long conversations; they are not substitutes for lifecycle tests.
+
+\paragraph{Memory products.}
+Mem0 documents accumulation-oriented designs and names staleness as an open problem~\cite{mem0staleness2026}.
+We report Mem0 \textbf{Platform} numbers only on OpMem fixtures; we do not import Mem0 blog
+LoCoMo percentages as same-pin scores.
+
+\paragraph{Blocked comparisons.}
+\todo{Zep, Letta, LangMem, and Mem0 OSS adapters are not implemented in \texttt{evals/opmem\_adapters.py}; no same-pin table rows until adapters and approval for any paid API spend.}
+
+\section{Neutral operation model}
+\label{sec:model}
+Actors are \texttt{(tenant, subject)} pairs.
+Tasks are operation scripts; \texttt{revise} and \texttt{forget} reference prior
+\texttt{remember} step ids.
+Adapters namespace tenants per task (\texttt{opmem-\{nonce\}-\{task\}}) for hermetic runs.
+
+\begin{table}[h]
+\centering
+\caption{Adapter mappings (normative; from \texttt{PUBLICATION\_READINESS.md}).}
+\begin{tabular}{llll}
+\toprule
+Op & Brainy & Verbatim baseline & Mem0 Platform \\
+\midrule
+remember & \texttt{POST /ingest} & append & \texttt{POST /v1/memories/} \\
+recall & \texttt{GET /memories/search} & token overlap & \texttt{POST /v2/memories/search/} \\
+revise & \texttt{POST .../correct} & in-place replace & \texttt{PUT /v1/memories/\{id\}/} \\
+forget & \texttt{POST .../suppress} & delete & \texttt{DELETE /v1/memories/\{id\}/} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Task suite}
+OpMem v0 comprises 13 JSON fixtures under \texttt{fixtures/opmem/}: three suppression,
+three correction, three isolation, three staleness (including \texttt{upd03\_state\_supersession}),
+and one idempotency task.
+Assertions use case-insensitive substring checks on ranked \texttt{content} fields
+(\texttt{min\_results}, \texttt{top\_contains}, \texttt{must\_exclude}, etc.).
+
+\section{Methodology}
+\subsection{Scoring lane}
+Primary pins use Brainy \texttt{/memories/search}, not product \texttt{POST /recall}
+(Section~\ref{sec:lane} reports a \texttt{/recall} lane ablation).
+The harness (\texttt{evals/run\_opmem.py}) exits non-zero only on infrastructure errors,
+not task failures---CI proves runner health, not 13/13, unless JSON is parsed.
+
+\subsection{Reproduction commands}
+\begin{lstlisting}[basicstyle=\ttfamily\small]
+go test ./internal/api/ -run TestOpMemBenchmarkAgainstHTTPServer -count=1
+python3 evals/run_opmem.py --systems verbatim,brainy \
+  --base-url http://127.0.0.1:8080 --json-out opmem-report.json
+\end{lstlisting}
+Paper experiments: \texttt{scripts/run-opmem-manuscript.sh} and
+\texttt{evals/run\_opmem\_paper\_experiments.py}.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Frozen 2026-08-15 pin (historical, SHA \texttt{1b5ab3e})}
+\evidence{completed}{
+Brainy \textbf{13/13}; verbatim \textbf{10/13}; Mem0 Platform \textbf{10/13}
+(artifacts \texttt{opmem-fresh-local-20260815.md}, \texttt{opmem-mem0-fresh-20260815.md}).
+}
+
+\begin{table}[h]
+\centering
+\caption{Category breakdown on 2026-08-15 Mem0 Platform counter-run.}
+\begin{tabular}{lrr}
+\toprule
+Category & Mem0 Platform & Brainy (same cycle) \\
+\midrule
+correction & 2/3 & 3/3 \\
+isolation & 3/3 & 3/3 \\
+suppression & 2/3 & 3/3 \\
+staleness & 2/3 & 3/3 \\
+idempotency & 1/1 & 1/1 \\
+\midrule
+\textbf{overall} & \textbf{10/13} & \textbf{13/13} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Mem0 failures on that pin: \texttt{cor02} (correction stickiness),
+\texttt{sup03} (durable forget leak), \texttt{upd02} (preference ranking).
+
+\subsection{Current-SHA re-measurement}
+\label{sec:current}
+\input{generated/current-sha-results.tex}
+
+\subsection{Combined machine-readable artifact}
+\input{generated/combined-results.tex}
+
+\subsection{Recall vs search lane}
+\label{sec:lane}
+\input{generated/lane-ablation.tex}
+
+\subsection{Correct vs supersede mapping}
+\input{generated/supersede-ablation.tex}
+
+\subsection{Mechanism breakdown}
+\input{generated/mechanism-ablation.tex}
+
+\subsection{Statistical stability}
+\input{generated/stability.tex}
+
+\subsection{External systems}
+\evidence{blocked}{
+Mem0 OSS, Zep, Letta, and LangMem: no adapter or no approved spend for same-pin runs.
+Mem0 Platform re-run on current SHA: see \texttt{opmem-mem0-rerun.json} when
+\texttt{MEM0\_API\_KEY} is available; otherwise cite frozen 2026-08-15 pin only.
+}
+
+\section{Discussion}
+OpMem failures on Mem0 align with accumulation-oriented update semantics:
+corrections and durable forgets are not first-class lifecycle events.
+Verbatim baseline passes 10/13, showing the suite discriminates rank-only stores from
+governed suppression/correction.
+Policy disagreements remain (\texttt{sup03} durable forget is a normative contract).
+
+\section{Limitations}
+\label{sec:limitations}
+\begin{enumerate}
+\item Small $n=13$; each task is $\sim$7.7\% of the aggregate score.
+\item Substring scoring does not guarantee semantic safety.
+\item Search vs \texttt{/recall} product path may diverge (lane ablation quantifies on Brainy).
+\item English, domain-neutral fixtures; no concurrency or TTL tests.
+\item Mem0 Platform API drift; OSS not measured unless TODO closed.
+\item Fixture authorship bias; no independent external audit documented.
+\end{enumerate}
+
+\section{Artifact appendix}
+Committed run manifests and JSON under
+\texttt{docs/benchmarks/artifacts/opmem-manuscript-*}:
+\texttt{run-manifest.json}, \texttt{opmem-primary.json},
+\texttt{opmem-lane-ablation.json}, \texttt{opmem-stability.json},
+\texttt{opmem-mechanism.json}, and \texttt{commands.log}.
+
+Build PDF: \texttt{make -C docs/research/opmem/paper pdf}.
+
+\section{Future work}
+v1 task expansion ($\sim$30 tasks), Zep/Letta/LangMem adapters,
+supersede-native revise mapping as default where lineage is required,
+and fail-closed CI assertion of 13/13 on merge pins.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}

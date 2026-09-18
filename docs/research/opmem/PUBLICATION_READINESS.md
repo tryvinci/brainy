@@ -16,7 +16,7 @@ This package consolidates repo evidence for Paper 1 ([paper-topics.md](../paper-
 | Reproducible protocol | Documented below + [opmem-spec.md](../opmem-spec.md); CI spins embedded API | Pin file (`RunManifest`) for OpMem; SHA `bbe55f7` re-run of Brainy+Mem0 table |
 | Brainy 13/13 evidence | Markdown pin + per-task JSON for Brainy-only integrity pass | Full `result.json` with Brainy+verbatim+mem0 on one commit in git |
 | Mem0 10/13 evidence | Markdown pin with named failures | Per-task Mem0 JSON in git; Mem0 OSS run; API version drift check |
-| Manuscript | Outline below | LaTeX/arXiv; related work prose; formal grammar; camera-ready figures |
+| Manuscript | LaTeX + PDF at [paper/main.pdf](./paper/main.pdf) | arXiv submission; formal grammar; camera-ready figures |
 | Multi-system paper table | Brainy vs Mem0 vs verbatim (partial) | ≥4 systems per paper-topics checklist |
 | Threats / limitations | Section below | External review dedicated to OpMem only |
 
@@ -151,9 +151,9 @@ From [opmem-spec.md](../opmem-spec.md) roadmap and [inventory-reproduction-plan-
 | `revise` vs `POST .../supersede` | ENG-86 supersession API exists | OpMem still maps revise → `/correct` |
 | Brainy `/recall` vs `/search` on OpMem | Product path may differ | Harness fixes search lane only |
 | Ablation: correction vs suppression vs rank-only | Explain mechanism | No harness |
-| Re-run on `bbe55f7` | Current `dev` SHA | **Missing** |
-| Commit frozen `opmem-20260815.json` (3 systems, per-task) | Artifact review | **Missing** (only markdown + Brainy-only JSON) |
-| Statistical stability | 13 tasks, single run | No seeds / repeats documented |
+| Re-run on current `dev` SHA | Current merge bar | **Done** — `20533f2` pin (`opmem-pin-20260918.json`) |
+| Commit frozen 3-system JSON (per-task) | Artifact review | **Done** — `docs/benchmarks/artifacts/opmem-pin-20260918.json` |
+| Statistical stability | 13 tasks, single run | **Partial** — 5× repeat in `opmem-stability.json` (infra flakiness on correction tasks; see manuscript) |
 
 ---
 
@@ -247,5 +247,6 @@ Related: PR [#188](https://github.com/tryvinci/brainy/pull/188) (`inventory-repr
 - [x] [master-plan.md](../master-plan.md) §1.1 OpMem row updated (13 tasks, current pin)
 - [x] [posts/2026-07-opmem-v0.md](../posts/2026-07-opmem-v0.md) supersession banner (July numbers preserved)
 - [ ] Historical reports (`opmem-baseline-report.md`, `launch-narrative.md`, staging JSON) — intentionally **dated**; not rewritten
-- [ ] Re-run OpMem on `bbe55f7` — **out of scope** (no spend)
-- [ ] LaTeX manuscript — **missing**
+- [x] Re-run OpMem on current SHA — `opmem-manuscript-20260918.md`
+- [x] LaTeX manuscript — `docs/research/opmem/paper/`
+- [ ] Mem0 OSS / Zep / Letta / LangMem — **blocked** (adapters or spend approval)
