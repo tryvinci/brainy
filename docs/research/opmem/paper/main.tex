@@ -165,10 +165,11 @@ Mem0 failures on that pin: \texttt{cor02} (correction stickiness),
 \label{sec:cost-plan}
 OpMem v0 has 13 tasks and 47 scripted steps (\texttt{fixtures/opmem/}). For each pending system, prepare billing before requesting approval:
 \begin{itemize}
-\item \textbf{Mem0 OSS} --- Implement \texttt{Mem0OSSOpAdapter} (version-pinned \texttt{mem0ai/mem0}); map neutral ops to OSS HTTP/SDK. \emph{Estimate:} count per-step Platform-equivalent calls (remember/recall/revise/forget); self-hosted OSS = engineer time + local compute only; hosted OSS = vendor rate card $\times$ call count (prepare spreadsheet from public pricing when deployment target is chosen).
-\item \textbf{Zep} --- Implement Zep adapter (add/search/update/delete on Zep Cloud or self-hosted Graphiti). \emph{Estimate:} same 47-step script $\times$ mapped Zep API units; obtain unit prices from Zep billing docs/dashboard before run.
-\item \textbf{Letta} --- Implement Letta memory/agent API adapter. \emph{Estimate:} 47 steps $\times$ Letta memory CRUD + search calls; quote from Letta Cloud pricing for memory operations.
-\item \textbf{LangMem} --- Clarify target surface (LangGraph store vs hosted LangMem product); implement adapter. \emph{Estimate:} primarily local/library compute if OSS; if hosted, count store read/write units per step.
+\item \textbf{Phase 1 (merged)} --- \texttt{evals/opmem\_external/}: deterministic namespaces, per-task reset, dry-run token meter, raw response logs; worksheet \texttt{cost-worksheet-dry-run.json}. Setup: \texttt{external-lanes-setup.md}.
+\item \textbf{Mem0 OSS} --- Local Qdrant + \texttt{OPENAI\_API\_KEY}; ceiling \$1; dry-run projected OpenAI spend in worksheet.
+\item \textbf{Zep} --- Zep Cloud free tier only (\$0 paid); cannot pin OpenAI models (product constraint recorded).
+\item \textbf{Letta} --- Self-hosted App Server; ceiling \$1; no legacy Docker API or Letta Cloud paid plan.
+\item \textbf{LangMem} --- Postgres/pgvector; ceiling \$1; no \texttt{InMemoryStore} on measured runs.
 \end{itemize}
 No dollar totals are asserted here until rate cards and deployment mode are pinned; approval requires the completed worksheet, not a categorical spend ban.
 

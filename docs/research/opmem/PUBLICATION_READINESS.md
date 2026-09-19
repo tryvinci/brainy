@@ -12,7 +12,7 @@ This package consolidates repo evidence for Paper 1 ([paper-topics.md](../paper-
 
 | Area | Ready | Missing |
 | --- | --- | --- |
-| Task fixtures + runner | 13 JSON tasks, `evals/run_opmem.py`, 3 adapters (Brainy, verbatim, Mem0 Platform) | v1 ~30 tasks; Zep/Letta/LangMem adapters; committed multi-system JSON for 13-task freeze |
+| Task fixtures + runner | 13 JSON tasks, `evals/run_opmem.py`, Brainy/verbatim/Platform + **Phase 1** external lane stubs (`evals/opmem_external/`) | v1 ~30 tasks; **live** Zep/Letta/LangMem/Mem0 OSS runs (credentials + worksheet approval) |
 | Reproducible protocol | Documented below + [opmem-spec.md](../opmem-spec.md); CI spins embedded API | Pin file (`RunManifest`) for OpMem; SHA `bbe55f7` re-run of Brainy+Mem0 table |
 | Brainy 13/13 evidence | Markdown pin + per-task JSON for Brainy-only integrity pass | Full `result.json` with Brainy+verbatim+mem0 on one commit in git |
 | Mem0 10/13 evidence | Markdown pin with named failures | Per-task Mem0 JSON in git; Mem0 OSS run; API version drift check |
@@ -249,5 +249,6 @@ Related: PR [#188](https://github.com/tryvinci/brainy/pull/188) (`inventory-repr
 - [ ] Historical reports (`opmem-baseline-report.md`, `launch-narrative.md`, staging JSON) — intentionally **dated**; not rewritten
 - [x] Re-run OpMem on current SHA — `opmem-manuscript-20260918.md`
 - [x] LaTeX manuscript — `docs/research/opmem/paper/`
-- [ ] Mem0 OSS / Zep / Letta / LangMem — **blocked** (no adapter, access, or cost worksheet; paid runs need estimate + approval, not denied categorically)
+- [x] Phase 1 external lanes — adapters + dry-run worksheet ([external-lanes-setup.md](./external-lanes-setup.md), `cost-worksheet-dry-run.json`)
+- [ ] Mem0 OSS / Zep / Letta / LangMem — **live runs blocked** until credentials + measured estimate under ceiling (see worksheet)
 - [x] Mem0 Platform — **completed** on current pin (negligible API volume; `opmem-pin-20260918.json`)

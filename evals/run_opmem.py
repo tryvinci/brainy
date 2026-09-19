@@ -23,6 +23,11 @@ sys.path.insert(0, str(ROOT))
 
 from opmem_adapters import BrainyAdapter, Mem0OpAdapter, VerbatimBaseline
 
+try:
+    from opmem_external import LANE_ADAPTERS
+except ImportError:  # pragma: no cover
+    LANE_ADAPTERS = {}
+
 
 def resolve_actor(task: dict, name: str) -> tuple[str, str]:
     spec = task.get("actors", {}).get(name)
@@ -95,6 +100,9 @@ def build_adapters(names: list[str], base_url: str) -> list:
         "brainy-supersede": lambda: BrainyAdapter(base_url, revise_mode="supersede"),
         "mem0": lambda: Mem0OpAdapter(),
     }
+    live_external = os.environ.get("OPMEM_EXTERNAL_LIVE", "").strip() in ("1", "true", "yes")
+    for lane_name, factory in LANE_ADAPTERS.items():
+        registry[lane_name] = lambda f=factory, live=live_external: f(dry_run=not live)
     adapters = []
     for name in names:
         if name not in registry:
