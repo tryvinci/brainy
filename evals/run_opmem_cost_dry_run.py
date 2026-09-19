@@ -11,6 +11,7 @@ ROOT = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from opmem_external import LANE_ADAPTERS  # noqa: E402
+from opmem_external.cost_budget import build_lane_budgets, build_worksheet_from_budgets  # noqa: E402
 from opmem_external.worksheet import build_worksheet, write_worksheet  # noqa: E402
 from run_opmem import run_task  # noqa: E402
 
@@ -56,6 +57,13 @@ def main() -> int:
 
     worksheet = build_worksheet(lane_stats, task_count=len(tasks), step_count=step_count)
     write_worksheet(out_dir / "cost-worksheet-dry-run.json", worksheet)
+    budgets = build_lane_budgets(tasks)
+    payload_ws = build_worksheet_from_budgets(
+        budgets, task_count=len(tasks), step_count=step_count,
+    )
+    (out_dir / "cost-worksheet-payload-budget.json").write_text(
+        json.dumps(payload_ws, indent=2) + "\n", encoding="utf-8",
+    )
     (out_dir / "dry-run-results.json").write_text(
         json.dumps(
             {
