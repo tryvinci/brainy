@@ -1,6 +1,6 @@
-# OpMem external lanes — Phase 1 setup (no live vendor runs)
+# OpMem external lanes — setup
 
-Phase 1 ships adapters, dry-run token instrumentation, and cost worksheets. **Do not** enable live comparisons until credentials exist and `cost-worksheet-dry-run.json` projects spend under owner ceilings.
+Phase 1 ships adapters and dry-run operation counts. **Spend approval** uses the payload budget worksheet (`cost-worksheet-payload-budget.json`), not the legacy mock token meter in `cost-worksheet-dry-run.json`. Phase 2 live runs: `evals/run_opmem_external_live.py`.
 
 ## Spend authority (USD)
 

@@ -59,7 +59,7 @@ LoCoMo percentages as same-pin scores.
 \paragraph{Pending external comparisons.}
 Paid or vendor-hosted counter-runs are allowed only after a written cost estimate and explicit approval; that gate was not a categorical denial of spend.
 Mem0 Platform on OpMem v0 is \textbf{completed} at negligible API volume (13 tasks, 47 scripted steps; see Section~\ref{sec:external}).
-Mem0 OSS, Zep, Letta, and LangMem remain \textbf{blocked} because no OpMem adapter, access credentials, or line-item cost worksheet exists yet (Section~\ref{sec:cost-plan}).
+Mem0 OSS and LangMem have \textbf{completed} Phase~2 live pins (Section~\ref{sec:external}); Zep and Letta remain \textbf{blocked} on missing vault credentials / App Server infra on the measurement host.
 
 \section{Neutral operation model}
 \label{sec:model}
@@ -159,13 +159,13 @@ Mem0 failures on that pin: \texttt{cor02} (correction stickiness),
 \subsection{External systems}
 \label{sec:external}
 \evidence{completed}{Mem0 \textbf{Platform}: 10/13 on SHA \texttt{20533f2} (\texttt{opmem-pin-20260918.json}); same headline as 2026-08-15 pin. Completed under negligible Platform API use (full suite $\approx$47 scripted steps).}
-\evidence{blocked}{Mem0 OSS, Zep, Letta, LangMem: blocked pending adapter + access + cost worksheet (Section~\ref{sec:cost-plan}); not run on this pass.}
+\input{generated/external-lanes.tex}
 
 \subsection{Cost-estimation plan (before any new paid run)}
 \label{sec:cost-plan}
 OpMem v0 has 13 tasks and 47 scripted steps (\texttt{fixtures/opmem/}). For each pending system, prepare billing before requesting approval:
 \begin{itemize}
-\item \textbf{Phase 1 (merged)} --- \texttt{evals/opmem\_external/}: deterministic namespaces, per-task reset, dry-run token meter, raw response logs; worksheet \texttt{cost-worksheet-dry-run.json}. Setup: \texttt{external-lanes-setup.md}.
+\item \textbf{Phase 1--2} --- \texttt{evals/opmem\_external/}: deterministic namespaces, per-task reset, payload budget (\texttt{cost-worksheet-payload-budget.json}), live harness \texttt{run\_opmem\_external\_live.py}. Setup: \texttt{external-lanes-setup.md}.
 \item \textbf{Mem0 OSS} --- Local Qdrant + \texttt{OPENAI\_API\_KEY}; ceiling \$1; dry-run projected OpenAI spend in worksheet.
 \item \textbf{Zep} --- Zep Cloud free tier only (\$0 paid); cannot pin OpenAI models (product constraint recorded).
 \item \textbf{Letta} --- Self-hosted App Server; ceiling \$1; no legacy Docker API or Letta Cloud paid plan.
@@ -187,7 +187,7 @@ Policy disagreements remain (\texttt{sup03} durable forget is a normative contra
 \item Substring scoring does not guarantee semantic safety.
 \item Search vs \texttt{/recall} product path may diverge (lane ablation quantifies on Brainy).
 \item English, domain-neutral fixtures; no concurrency or TTL tests.
-\item Mem0 Platform API drift; OSS/Zep/Letta/LangMem not measured until adapter + cost approval.
+\item Mem0 Platform API drift; Zep/Letta not measured on Phase~2 host (credential/server block). OSS/LangMem pins are single-pass, small $n$.
 \item Fixture authorship bias; no independent external audit documented.
 \end{enumerate}
 

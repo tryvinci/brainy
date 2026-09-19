@@ -1,0 +1,52 @@
+[
+  {
+    "lane": "mem0-oss",
+    "status": "invalid_incomplete",
+    "mode": "smoke",
+    "run_id": "opmem-phase2-smoke1",
+    "elapsed_seconds": 6.36,
+    "infrastructure_errors": 1,
+    "tasks_run": 1,
+    "tasks_passed": 0,
+    "task_results": [
+      {
+        "task": "dup01_idempotent_remember",
+        "error": "ValueError: Top-level entity parameters frozenset({'user_id'}) are not supported in search(). Use filters={'user_id': '...'} instead.",
+        "invalid_incomplete": true
+      }
+    ],
+    "product_constraints": []
+  },
+  {
+    "lane": "langmem",
+    "status": "invalid_incomplete",
+    "mode": "smoke",
+    "run_id": "opmem-phase2-smoke1",
+    "elapsed_seconds": 3.15,
+    "infrastructure_errors": 1,
+    "tasks_run": 1,
+    "tasks_passed": 0,
+    "task_results": [
+      {
+        "task": "dup01_idempotent_remember",
+        "error": "AttributeError: 'dict' object has no attribute 'lower'",
+        "invalid_incomplete": true
+      }
+    ],
+    "product_constraints": []
+  },
+  {
+    "lane": "zep",
+    "status": "blocked",
+    "reason": "ZEP_API_KEY not present in runtime (vault not injected on this VM)",
+    "infrastructure_errors": 0,
+    "task_results": []
+  },
+  {
+    "lane": "letta",
+    "status": "blocked",
+    "reason": "LETTA_APP_SERVER_TOKEN not present in runtime",
+    "infrastructure_errors": 0,
+    "task_results": []
+  }
+]
