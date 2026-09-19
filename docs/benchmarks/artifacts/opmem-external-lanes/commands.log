@@ -1,0 +1,12 @@
+
+# 2026-09-19T08:28:55Z run_id=opmem-phase2-smoke1
+r u n _ o p m e m _ e x t e r n a l _ l i v e . p y   - - s m o k e   - - l a n e s   m e m 0 - o s s , l a n g m e m , z e p , l e t t a   - - r u n - i d   o p m e m - p h a s e 2 - s m o k e 1
+
+# 2026-09-19T08:29:18Z run_id=opmem-phase2-smoke2
+r u n _ o p m e m _ e x t e r n a l _ l i v e . p y   - - s m o k e   - - l a n e s   m e m 0 - o s s , l a n g m e m   - - r u n - i d   o p m e m - p h a s e 2 - s m o k e 2
+
+# 2026-09-19T08:30:32Z run_id=opmem-phase2-full1
+r u n _ o p m e m _ e x t e r n a l _ l i v e . p y   - - f u l l   - - l a n e s   m e m 0 - o s s , l a n g m e m   - - r u n - i d   o p m e m - p h a s e 2 - f u l l 1   - - s k i p - p r e f l i g h t
+
+# 2026-09-19T08:31:22Z run_id=opmem-phase2-full-mem0
+r u n _ o p m e m _ e x t e r n a l _ l i v e . p y   - - f u l l   - - l a n e s   m e m 0 - o s s   - - r u n - i d   o p m e m - p h a s e 2 - f u l l - m e m 0   - - s k i p - p r e f l i g h t

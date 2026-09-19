@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import sys
 
@@ -21,6 +22,11 @@ ROOT = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 from opmem_adapters import BrainyAdapter, Mem0OpAdapter, VerbatimBaseline
+
+try:
+    from opmem_external import LANE_ADAPTERS
+except ImportError:  # pragma: no cover
+    LANE_ADAPTERS = {}
 
 
 def resolve_actor(task: dict, name: str) -> tuple[str, str]:
@@ -90,8 +96,13 @@ def build_adapters(names: list[str], base_url: str) -> list:
     registry = {
         "verbatim": lambda: VerbatimBaseline(),
         "brainy": lambda: BrainyAdapter(base_url),
+        "brainy-recall": lambda: BrainyAdapter(base_url, recall_lane="recall"),
+        "brainy-supersede": lambda: BrainyAdapter(base_url, revise_mode="supersede"),
         "mem0": lambda: Mem0OpAdapter(),
     }
+    live_external = os.environ.get("OPMEM_EXTERNAL_LIVE", "").strip() in ("1", "true", "yes")
+    for lane_name, factory in LANE_ADAPTERS.items():
+        registry[lane_name] = lambda f=factory, live=live_external: f(dry_run=not live)
     adapters = []
     for name in names:
         if name not in registry:
@@ -167,7 +178,9 @@ def main() -> int:
             out = ROOT.parent / out
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(output + "\n", encoding="utf-8")
-    return 1 if infrastructure_errors else 0
+    if infrastructure_errors and not os.environ.get("OPMEM_ALLOW_INFRA_EXIT"):
+        return 1
+    return 0
 
 
 if __name__ == "__main__":

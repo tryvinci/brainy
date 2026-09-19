@@ -1,0 +1,176 @@
+[
+  {
+    "lane": "mem0-oss",
+    "status": "invalid_incomplete",
+    "mode": "full",
+    "run_id": "opmem-phase2-full1",
+    "elapsed_seconds": 28.41,
+    "infrastructure_errors": 3,
+    "tasks_run": 13,
+    "tasks_passed": 6,
+    "task_results": [
+      {
+        "task": "cor01_basic_revision",
+        "error": "AttributeError: 'dict' object has no attribute 'replace'",
+        "invalid_incomplete": true
+      },
+      {
+        "task": "cor02_correction_stickiness",
+        "error": "AttributeError: 'dict' object has no attribute 'replace'",
+        "invalid_incomplete": true
+      },
+      {
+        "task": "cor03_revised_retrievable",
+        "error": "AttributeError: 'dict' object has no attribute 'replace'",
+        "invalid_incomplete": true
+      },
+      {
+        "task": "dup01_idempotent_remember",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "iso01_subject_isolation",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "iso02_tenant_isolation",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "iso03_forget_isolated",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "sup01_basic_forget",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "sup02_targeted_forget",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "sup03_durable_forget",
+        "passed": false,
+        "failures": [
+          "step3(recall): expected at most 0 results, got 1"
+        ]
+      },
+      {
+        "task": "upd01_stale_fact",
+        "passed": false,
+        "failures": [
+          "step2(recall): top result does not contain 'june'"
+        ]
+      },
+      {
+        "task": "upd02_preference_change",
+        "passed": false,
+        "failures": [
+          "step2(recall): top result does not contain 'sms'"
+        ]
+      },
+      {
+        "task": "upd03_state_supersession",
+        "passed": false,
+        "failures": [
+          "step2(recall): top result does not contain '2222'"
+        ]
+      }
+    ],
+    "product_constraints": []
+  },
+  {
+    "lane": "langmem",
+    "status": "completed",
+    "mode": "full",
+    "run_id": "opmem-phase2-full1",
+    "elapsed_seconds": 42.07,
+    "infrastructure_errors": 0,
+    "tasks_run": 13,
+    "tasks_passed": 8,
+    "task_results": [
+      {
+        "task": "cor01_basic_revision",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "cor02_correction_stickiness",
+        "passed": false,
+        "failures": [
+          "step3(recall): top result does not contain 'ruby'"
+        ]
+      },
+      {
+        "task": "cor03_revised_retrievable",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "dup01_idempotent_remember",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "iso01_subject_isolation",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "iso02_tenant_isolation",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "iso03_forget_isolated",
+        "passed": false,
+        "failures": [
+          "step3(recall): expected at most 0 results, got 1"
+        ]
+      },
+      {
+        "task": "sup01_basic_forget",
+        "passed": false,
+        "failures": [
+          "step3(recall): expected at most 0 results, got 1"
+        ]
+      },
+      {
+        "task": "sup02_targeted_forget",
+        "passed": false,
+        "failures": [
+          "step3(recall): a result contains excluded 'door code'"
+        ]
+      },
+      {
+        "task": "sup03_durable_forget",
+        "passed": false,
+        "failures": [
+          "step3(recall): expected at most 0 results, got 1"
+        ]
+      },
+      {
+        "task": "upd01_stale_fact",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "upd02_preference_change",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "upd03_state_supersession",
+        "passed": true,
+        "failures": []
+      }
+    ],
+    "product_constraints": []
+  }
+]

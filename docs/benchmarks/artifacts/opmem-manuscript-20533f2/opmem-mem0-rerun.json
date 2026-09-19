@@ -1,0 +1,157 @@
+{
+  "benchmark": "opmem-v0",
+  "systems": [
+    "mem0"
+  ],
+  "summary": {
+    "mem0": {
+      "overall": "10/13",
+      "by_category": {
+        "correction": "2/3",
+        "idempotency": "1/1",
+        "isolation": "3/3",
+        "staleness": "2/3",
+        "suppression": "2/3"
+      }
+    }
+  },
+  "infrastructure_errors": 0,
+  "results": [
+    {
+      "task": "cor01_basic_revision",
+      "category": "correction",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "cor02_correction_stickiness",
+      "category": "correction",
+      "systems": {
+        "mem0": {
+          "passed": false,
+          "failures": [
+            "step3(recall): top result does not contain 'ruby'"
+          ]
+        }
+      }
+    },
+    {
+      "task": "cor03_revised_retrievable",
+      "category": "correction",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "dup01_idempotent_remember",
+      "category": "idempotency",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso01_subject_isolation",
+      "category": "isolation",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso02_tenant_isolation",
+      "category": "isolation",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso03_forget_isolated",
+      "category": "isolation",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "sup01_basic_forget",
+      "category": "suppression",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "sup02_targeted_forget",
+      "category": "suppression",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "sup03_durable_forget",
+      "category": "suppression",
+      "systems": {
+        "mem0": {
+          "passed": false,
+          "failures": [
+            "step3(recall): expected at most 0 results, got 1"
+          ]
+        }
+      }
+    },
+    {
+      "task": "upd01_stale_fact",
+      "category": "staleness",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "upd02_preference_change",
+      "category": "staleness",
+      "systems": {
+        "mem0": {
+          "passed": false,
+          "failures": [
+            "step2(recall): top result does not contain 'sms'"
+          ]
+        }
+      }
+    },
+    {
+      "task": "upd03_state_supersession",
+      "category": "staleness",
+      "systems": {
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    }
+  ]
+}

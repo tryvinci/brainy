@@ -1,0 +1,151 @@
+{
+  "generated_utc": "2026-09-19T08:29:00Z",
+  "task_count": 13,
+  "step_count": 47,
+  "rates": {
+    "gpt-4.1-mini-2025-04-14": {
+      "input_per_m": 0.4,
+      "output_per_m": 1.6
+    },
+    "text-embedding-3-small": {
+      "per_m": 0.02
+    }
+  },
+  "pinned_models": {
+    "chat": "gpt-4.1-mini-2025-04-14",
+    "embed": "text-embedding-3-small"
+  },
+  "ceilings_usd": {
+    "mem0-oss": 1.0,
+    "letta": 1.0,
+    "langmem": 1.0,
+    "zep": 0.0,
+    "total": 3.0
+  },
+  "lanes": [
+    {
+      "lane": "langmem",
+      "operations": {
+        "remember": 21,
+        "recall": 19,
+        "revise": 3,
+        "forget": 4,
+        "reset": 13,
+        "http_calls": 47
+      },
+      "tokens": {
+        "chat_model": "gpt-4.1-mini-2025-04-14",
+        "embed_model": "text-embedding-3-small",
+        "chat_input_tokens": 409,
+        "chat_output_tokens": 66,
+        "embed_tokens": 191,
+        "estimated_usd": 0.000273
+      },
+      "product_constraints": [],
+      "credentials_present": false,
+      "missing_credentials": [
+        "DATABASE_URL"
+      ],
+      "projected_usd": 0.000273,
+      "ceiling_usd": 1.0,
+      "within_ceiling": true,
+      "live_run_allowed": false,
+      "live_run_note": "Phase 1 dry-run only; enable after credentials present and measured estimate confirmed under ceiling."
+    },
+    {
+      "lane": "letta",
+      "operations": {
+        "remember": 21,
+        "recall": 19,
+        "revise": 3,
+        "forget": 4,
+        "reset": 13,
+        "http_calls": 47
+      },
+      "tokens": {
+        "chat_model": "gpt-4.1-mini-2025-04-14",
+        "embed_model": "text-embedding-3-small",
+        "chat_input_tokens": 409,
+        "chat_output_tokens": 66,
+        "embed_tokens": 191,
+        "estimated_usd": 0.000273
+      },
+      "product_constraints": [],
+      "credentials_present": false,
+      "missing_credentials": [
+        "LETTA_APP_SERVER_TOKEN"
+      ],
+      "projected_usd": 0.000273,
+      "ceiling_usd": 1.0,
+      "within_ceiling": true,
+      "live_run_allowed": false,
+      "live_run_note": "Phase 1 dry-run only; enable after credentials present and measured estimate confirmed under ceiling."
+    },
+    {
+      "lane": "mem0-oss",
+      "operations": {
+        "remember": 21,
+        "recall": 19,
+        "revise": 3,
+        "forget": 4,
+        "reset": 13,
+        "http_calls": 47
+      },
+      "tokens": {
+        "chat_model": "gpt-4.1-mini-2025-04-14",
+        "embed_model": "text-embedding-3-small",
+        "chat_input_tokens": 409,
+        "chat_output_tokens": 66,
+        "embed_tokens": 191,
+        "estimated_usd": 0.000273
+      },
+      "product_constraints": [],
+      "credentials_present": true,
+      "missing_credentials": [],
+      "projected_usd": 0.000273,
+      "ceiling_usd": 1.0,
+      "within_ceiling": true,
+      "live_run_allowed": false,
+      "live_run_note": "Phase 1 dry-run only; enable after credentials present and measured estimate confirmed under ceiling."
+    },
+    {
+      "lane": "zep",
+      "operations": {
+        "remember": 21,
+        "recall": 19,
+        "revise": 3,
+        "forget": 4,
+        "reset": 13,
+        "http_calls": 47
+      },
+      "tokens": {
+        "chat_model": "gpt-4.1-mini-2025-04-14",
+        "embed_model": "text-embedding-3-small",
+        "chat_input_tokens": 0,
+        "chat_output_tokens": 0,
+        "embed_tokens": 0,
+        "estimated_usd": 0.0
+      },
+      "product_constraints": [
+        "lane zep cannot pin chat model gpt-4.1-mini-2025-04-14",
+        "lane zep cannot pin embed model text-embedding-3-small",
+        "Zep Cloud memory path does not accept OpenAI chat/embed model pins; stop before substituting \u2014 record scores only under Zep-native models."
+      ],
+      "credentials_present": false,
+      "missing_credentials": [
+        "ZEP_API_KEY"
+      ],
+      "projected_usd": 0.0,
+      "ceiling_usd": 0.0,
+      "within_ceiling": true,
+      "live_run_allowed": false,
+      "live_run_note": "Phase 1 dry-run only; enable after credentials present and measured estimate confirmed under ceiling."
+    },
+    {
+      "lane": "_total_openai_estimate",
+      "projected_usd": 0.000819,
+      "ceiling_usd": 3.0,
+      "within_ceiling": true
+    }
+  ]
+}

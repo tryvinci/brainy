@@ -1,0 +1,331 @@
+[
+  {
+    "lane": "zep",
+    "task": "cor01_basic_revision",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-ec287521fe29\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor01_basic_revision",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor01_basic_revision",
+    "op": "revise",
+    "status": 200,
+    "body_preview": "{\"memory_id\": [\"m-ec287521fe29\"], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor01_basic_revision",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-ec287521fe29\", \"content\": \"Prefers Ruby for scripting\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor02_correction_stickiness",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-ec77cf3747d2\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor02_correction_stickiness",
+    "op": "revise",
+    "status": 200,
+    "body_preview": "{\"memory_id\": [\"m-ec77cf3747d2\"], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor02_correction_stickiness",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-ec77cf3747d2\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor02_correction_stickiness",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor03_revised_retrievable",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-97e4481c7620\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor03_revised_retrievable",
+    "op": "revise",
+    "status": 200,
+    "body_preview": "{\"memory_id\": [\"m-97e4481c7620\"], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "cor03_revised_retrievable",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-97e4481c7620\", \"content\": \"Prefers Ruby for scripting\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "dup01_idempotent_remember",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-a2ea413a2ee8\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "dup01_idempotent_remember",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-a2ea413a2ee8\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "dup01_idempotent_remember",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-a2ea413a2ee8\", \"content\": \"The wifi network name is FalconNet.\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso01_subject_isolation",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-f1a8b730d634\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso01_subject_isolation",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso01_subject_isolation",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-f1a8b730d634\", \"content\": \"My name is Alice Chen.\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso02_tenant_isolation",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-c790561d256a\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso02_tenant_isolation",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso02_tenant_isolation",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-c790561d256a\", \"content\": \"The wifi network name is FalconNet.\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso03_forget_isolated",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-b9f3133e0f76\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso03_forget_isolated",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-b9f3133e0f76\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso03_forget_isolated",
+    "op": "forget",
+    "status": 200,
+    "body_preview": "{\"deleted\": [\"m-b9f3133e0f76\"], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso03_forget_isolated",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "iso03_forget_isolated",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-b9f3133e0f76\", \"content\": \"Never share the door code with vendors.\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup01_basic_forget",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-12df728344c1\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup01_basic_forget",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-12df728344c1\", \"content\": \"Never share the door code with vendors.\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup01_basic_forget",
+    "op": "forget",
+    "status": 200,
+    "body_preview": "{\"deleted\": [\"m-12df728344c1\"], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup01_basic_forget",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup02_targeted_forget",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-694a3ac917b4\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup02_targeted_forget",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-abc4cd827fe4\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup02_targeted_forget",
+    "op": "forget",
+    "status": 200,
+    "body_preview": "{\"deleted\": [\"m-694a3ac917b4\"], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup02_targeted_forget",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup02_targeted_forget",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-abc4cd827fe4\", \"content\": \"The wifi network name is FalconNet.\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup03_durable_forget",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-f40e06dae9df\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup03_durable_forget",
+    "op": "forget",
+    "status": 200,
+    "body_preview": "{\"deleted\": [\"m-f40e06dae9df\"], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup03_durable_forget",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-f40e06dae9df\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "sup03_durable_forget",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-f40e06dae9df\", \"content\": \"Never share the door code with vendors.\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd01_stale_fact",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-47fbfe8f74ed\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd01_stale_fact",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-e5330f7a0060\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd01_stale_fact",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-47fbfe8f74ed\", \"content\": \"The launch date is May 12.\"}, {\"id\": \"m-e5330f7a0060\", \"content\": \"The launch date is June 3.\"}], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd02_preference_change",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-e582398e5c23\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd02_preference_change",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-02ba67213b96\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd02_preference_change",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [], \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd03_state_supersession",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-d0cc03c9eecd\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd03_state_supersession",
+    "op": "remember",
+    "status": 200,
+    "body_preview": "{\"memory_id\": \"m-5230d4b1d371\", \"dry_run\": true}"
+  },
+  {
+    "lane": "zep",
+    "task": "upd03_state_supersession",
+    "op": "recall",
+    "status": 200,
+    "body_preview": "{\"results\": [{\"id\": \"m-d0cc03c9eecd\", \"content\": \"The door code is 1111.\"}, {\"id\": \"m-5230d4b1d371\", \"content\": \"The door code is 2222.\"}], \"dry_run\": true}"
+  }
+]

@@ -67,14 +67,14 @@ Recall assertions (all content matching is case-insensitive substring):
 | `must_exclude` | no result contains any of these substrings |
 | `unique_contents` | no two results share identical normalized content |
 
-### Task taxonomy (v0: 12 tasks)
+### Task taxonomy (v0: 13 tasks)
 
 | Category | Tasks | Probes |
 | --- | --- | --- |
 | suppression | `sup01` basic forget, `sup02` targeted forget, `sup03` durable forget | forget leaks; collateral damage; resurrection via re-ingestion |
 | correction | `cor01` basic revision, `cor02` correction stickiness, `cor03` revised retrievable | revision visibility; stale content winning after re-ingestion; retrieval by new terms |
 | isolation | `iso01` subject, `iso02` tenant, `iso03` forget isolation | cross-actor reads; cross-tenant reads; delete affecting a lookalike memory of another actor |
-| staleness | `upd01` stale fact, `upd02` preference change | latest version of a changed fact/preference must outrank the stale one |
+| staleness | `upd01` stale fact, `upd02` preference change, `upd03` state supersession | latest version of a changed fact/preference must outrank the stale one; restated state facts prefer newer value |
 | idempotency | `dup01` idempotent remember | duplicate ingestion polluting recall |
 
 Contents are deliberately domain-neutral (door codes, wifi names, launch dates,
@@ -130,7 +130,7 @@ CI runs the harness end-to-end via `TestOpMemBenchmarkAgainstHTTPServer`
 
 ## Roadmap to the paper
 
-- v0 (this): 12 tasks, 3 adapters (Brainy, verbatim baseline, Mem0), binary scoring.
+- v0 (this): 13 tasks (`upd03` added 2026-08), 3 adapters (Brainy, verbatim baseline, Mem0 Platform), binary scoring.
 - v1: add adapters for Zep, Letta, LangMem; expand to ~30 tasks including
   lifecycle/expiry (needs a neutral expiry attribute), batched/async ingestion
   visibility, and concurrent-write races.

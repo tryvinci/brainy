@@ -1,0 +1,27 @@
+{
+  "lane": "mem0-oss",
+  "usage": {
+    "chat_input_tokens": 0,
+    "chat_output_tokens": 0,
+    "embed_tokens": 0,
+    "estimated_usd": 0.0,
+    "http_requests": 3
+  },
+  "events": [
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '7d6f7716-8895-4a86-839f-25514b82599e', 'memory': \"User's wifi network name is FalconNet\", 'event': 'ADD'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': []}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '7d6f7716-8895-4a86-839f-25514b82599e', 'memory': \"User's wifi network name is FalconNet\", 'hash': '0e881d9cc295e8509eb50d959ed86653', 'metadata': None, 'score': 0.587925614386172, 'created_at': '2026-09-19T08:29:14.005476+00:00', 'updated_at': '2026-09-19T08:29:14.005476+00:00', 'user_id': 'opmem-8d09a77b2f4c4647', 'attributed_to': 'user'}]}"
+    }
+  ]
+}
