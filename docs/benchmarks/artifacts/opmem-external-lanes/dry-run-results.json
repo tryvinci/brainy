@@ -1,0 +1,453 @@
+{
+  "benchmark": "opmem-v0",
+  "mode": "dry_run",
+  "run_id": "opmem-dryrun-0001",
+  "task_count": 13,
+  "step_count": 47,
+  "lanes": {
+    "langmem": {
+      "infrastructure_errors": 0,
+      "results": [
+        {
+          "task": "cor01_basic_revision",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step1(recall): expected at least 1 results, got 0",
+              "step1(recall): top result does not contain 'python'"
+            ]
+          }
+        },
+        {
+          "task": "cor02_correction_stickiness",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step3(recall): expected at least 1 results, got 0",
+              "step3(recall): top result does not contain 'ruby'"
+            ]
+          }
+        },
+        {
+          "task": "cor03_revised_retrievable",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "dup01_idempotent_remember",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso01_subject_isolation",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso02_tenant_isolation",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso03_forget_isolated",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup01_basic_forget",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup02_targeted_forget",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup03_durable_forget",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step3(recall): expected at most 0 results, got 1"
+            ]
+          }
+        },
+        {
+          "task": "upd01_stale_fact",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): top result does not contain 'june'"
+            ]
+          }
+        },
+        {
+          "task": "upd02_preference_change",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): expected at least 1 results, got 0",
+              "step2(recall): top result does not contain 'sms'"
+            ]
+          }
+        },
+        {
+          "task": "upd03_state_supersession",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): top result does not contain '2222'"
+            ]
+          }
+        }
+      ]
+    },
+    "letta": {
+      "infrastructure_errors": 0,
+      "results": [
+        {
+          "task": "cor01_basic_revision",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step1(recall): expected at least 1 results, got 0",
+              "step1(recall): top result does not contain 'python'"
+            ]
+          }
+        },
+        {
+          "task": "cor02_correction_stickiness",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step3(recall): expected at least 1 results, got 0",
+              "step3(recall): top result does not contain 'ruby'"
+            ]
+          }
+        },
+        {
+          "task": "cor03_revised_retrievable",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "dup01_idempotent_remember",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso01_subject_isolation",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso02_tenant_isolation",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso03_forget_isolated",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup01_basic_forget",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup02_targeted_forget",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup03_durable_forget",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step3(recall): expected at most 0 results, got 1"
+            ]
+          }
+        },
+        {
+          "task": "upd01_stale_fact",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): top result does not contain 'june'"
+            ]
+          }
+        },
+        {
+          "task": "upd02_preference_change",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): expected at least 1 results, got 0",
+              "step2(recall): top result does not contain 'sms'"
+            ]
+          }
+        },
+        {
+          "task": "upd03_state_supersession",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): top result does not contain '2222'"
+            ]
+          }
+        }
+      ]
+    },
+    "mem0-oss": {
+      "infrastructure_errors": 0,
+      "results": [
+        {
+          "task": "cor01_basic_revision",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step1(recall): expected at least 1 results, got 0",
+              "step1(recall): top result does not contain 'python'"
+            ]
+          }
+        },
+        {
+          "task": "cor02_correction_stickiness",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step3(recall): expected at least 1 results, got 0",
+              "step3(recall): top result does not contain 'ruby'"
+            ]
+          }
+        },
+        {
+          "task": "cor03_revised_retrievable",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "dup01_idempotent_remember",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso01_subject_isolation",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso02_tenant_isolation",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso03_forget_isolated",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup01_basic_forget",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup02_targeted_forget",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup03_durable_forget",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step3(recall): expected at most 0 results, got 1"
+            ]
+          }
+        },
+        {
+          "task": "upd01_stale_fact",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): top result does not contain 'june'"
+            ]
+          }
+        },
+        {
+          "task": "upd02_preference_change",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): expected at least 1 results, got 0",
+              "step2(recall): top result does not contain 'sms'"
+            ]
+          }
+        },
+        {
+          "task": "upd03_state_supersession",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): top result does not contain '2222'"
+            ]
+          }
+        }
+      ]
+    },
+    "zep": {
+      "infrastructure_errors": 0,
+      "results": [
+        {
+          "task": "cor01_basic_revision",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step1(recall): expected at least 1 results, got 0",
+              "step1(recall): top result does not contain 'python'"
+            ]
+          }
+        },
+        {
+          "task": "cor02_correction_stickiness",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step3(recall): expected at least 1 results, got 0",
+              "step3(recall): top result does not contain 'ruby'"
+            ]
+          }
+        },
+        {
+          "task": "cor03_revised_retrievable",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "dup01_idempotent_remember",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso01_subject_isolation",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso02_tenant_isolation",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "iso03_forget_isolated",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup01_basic_forget",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup02_targeted_forget",
+          "outcome": {
+            "passed": true,
+            "failures": []
+          }
+        },
+        {
+          "task": "sup03_durable_forget",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step3(recall): expected at most 0 results, got 1"
+            ]
+          }
+        },
+        {
+          "task": "upd01_stale_fact",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): top result does not contain 'june'"
+            ]
+          }
+        },
+        {
+          "task": "upd02_preference_change",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): expected at least 1 results, got 0",
+              "step2(recall): top result does not contain 'sms'"
+            ]
+          }
+        },
+        {
+          "task": "upd03_state_supersession",
+          "outcome": {
+            "passed": false,
+            "failures": [
+              "step2(recall): top result does not contain '2222'"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
