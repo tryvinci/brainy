@@ -27,19 +27,31 @@ If a lane cannot accept these pins, record the product constraint in the workshe
 | --- | --- |
 | **mem0-oss** | `OPENAI_API_KEY` (vault); `QDRANT_URL` (default `http://127.0.0.1:6333`); optional `MEM0_OSS_CONFIG_PATH` |
 | **zep** | `ZEP_API_KEY`; optional `ZEP_API_URL` (default `https://api.getzep.com`) |
-| **letta** | `LETTA_APP_SERVER_TOKEN`; `OPENAI_API_KEY`; `LETTA_BASE_URL` (default `http://127.0.0.1:8283`) |
+| **letta** | `OPENAI_API_KEY`; `LETTA_BASE_URL` (default `http://127.0.0.1:8283`); optional `LETTA_APP_SERVER_TOKEN` (required for non-local servers) |
 | **langmem** | `OPENAI_API_KEY`; `DATABASE_URL` (Postgres + pgvector); **do not** set `LANGMEM_STORE=InMemoryStore` for measured runs |
 
 **Not used for mem0-oss lane:** `MEM0_API_KEY` (Platform).
 
 Deterministic namespaces: set `OPMEM_RUN_ID` (e.g. `opmem-pin-20260919`) for reproducible IDs.
 
-## Docker images (pin before live runs)
+## Pinned Python packages
 
-| Service | Image (pin in run manifest before live) | Port |
+Install once: `pip install -r evals/opmem_external/requirements-external-lanes.txt`
+
+| Component | Pin |
+| --- | --- |
+| Letta server | `letta==0.11.7` + `sqlite-vec` |
+| Letta client | `letta-client==0.1.307` |
+| Zep SDK | `zep-cloud==3.28.0` |
+
+Start local Letta (no Docker): `scripts/opmem-start-letta-server.sh`
+
+## Docker images (optional alternative)
+
+| Service | Image | Port |
 | --- | --- | ---: |
 | Qdrant (mem0-oss) | `qdrant/qdrant:v1.12.5` | 6333 |
-| Letta App Server | `letta/letta:latest` (replace with digest pin at live time) | 8283 |
+| Letta | prefer pip pin above; or `letta/letta` digest at live time | 8283 |
 | Postgres (langmem) | `pgvector/pgvector:pg17` | 5432 |
 
 ## Phase 1 commands (no paid vendor API traffic)
@@ -53,11 +65,15 @@ python3 evals/run_opmem_cost_dry_run.py \
 python3 -m unittest evals/opmem_external/test_lane_contract.py -v
 ```
 
-Live harness (blocked until worksheet + credentials):
+Live harness:
 
 ```bash
-export OPMEM_EXTERNAL_LIVE=1
-python3 evals/run_opmem.py --systems mem0-oss,zep,letta,langmem ...
+pip install -r evals/opmem_external/requirements-external-lanes.txt
+scripts/opmem-start-letta-server.sh   # letta lane
+export DATABASE_URL=postgresql://opmem:opmem@127.0.0.1:5432/opmem_langmem
+export ZEP_API_KEY=...               # free tier only
+python3 evals/run_opmem_external_live.py --smoke --lanes mem0-oss,zep,letta,langmem
+python3 evals/run_opmem_external_live.py --full --lanes mem0-oss,zep,letta,langmem
 ```
 
 ## Fairness rules

@@ -22,6 +22,7 @@ SPEND_CEILING_USD: dict[str, float] = {
 LANE_ENV_REQUIRED: dict[str, tuple[str, ...]] = {
     "mem0-oss": ("OPENAI_API_KEY",),  # local Qdrant; no MEM0_API_KEY
     "zep": ("ZEP_API_KEY",),
-    "letta": ("LETTA_APP_SERVER_TOKEN", "OPENAI_API_KEY"),
+    # LETTA_APP_SERVER_TOKEN optional for local `letta server --no-secure` (see external-lanes-setup.md).
+    "letta": ("OPENAI_API_KEY",),
     "langmem": ("OPENAI_API_KEY", "DATABASE_URL"),
 }

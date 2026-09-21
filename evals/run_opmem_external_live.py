@@ -66,9 +66,10 @@ def _lane_blocked(lane: str) -> tuple[bool, str]:
         if not os.environ.get("ZEP_API_KEY", "").strip():
             return True, "ZEP_API_KEY not present in runtime (vault not injected on this VM)"
     if lane == "letta":
-        if not os.environ.get("LETTA_APP_SERVER_TOKEN", "").strip():
-            return True, "LETTA_APP_SERVER_TOKEN not present in runtime"
         base = os.environ.get("LETTA_BASE_URL", "http://127.0.0.1:8283").rstrip("/")
+        local = base.startswith("http://127.0.0.1") or base.startswith("http://localhost")
+        if not local and not os.environ.get("LETTA_APP_SERVER_TOKEN", "").strip():
+            return True, "LETTA_APP_SERVER_TOKEN required for non-local Letta base URL"
         try:
             import urllib.request
 

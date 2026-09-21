@@ -1,0 +1,32 @@
+{
+  "lane": "letta",
+  "usage": {
+    "chat_input_tokens": 0,
+    "chat_output_tokens": 0,
+    "embed_tokens": 0,
+    "estimated_usd": 0.0,
+    "http_requests": 4
+  },
+  "events": [
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-eefd561c-670e-46e2-a634-17a5cb704ba2"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-5ce49f74b219', 'content': 'The wifi network name is FalconNet.'}]"
+    }
+  ]
+}
