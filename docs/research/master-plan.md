@@ -44,7 +44,7 @@ Staging verify: OpMem 13/13, support 3/3, `/recall` enumerate OK.
 
 | Axis | Brainy | Best competitor signal | Comparable? |
 | --- | --- | --- | --- |
-| OpMem (ops correctness, 12 tasks) | **12/12** | Mem0 platform 9/12 (measured, same fixtures) | Yes — our harness, both measured |
+| OpMem (ops correctness, 13 tasks) | **13/13** (`1b5ab3e` pin) | Mem0 Platform **10/13** (`2026-08-15`; July **9/12** was 12-task set) | Yes — our harness; Platform not OSS |
 | Marketing vertical (16 fixtures) | **15/16** empirical | Mem0 4/16 (measured; strict schema = intentional moat) | Yes, with declared policy |
 | LOCOMO smoke (1 convo × 30 Q, gpt-oss pin) | 19/30, MH 5/10 | Mem0 same-pin 12/30, MH 6/10 | Only vs our own same-pin Mem0 run |
 | LOCOMO full (10 convos, 1,540 Q) | **not run** (partial 3-convo old-stack: 31/90) | Mem0 platform 92.5; Hindsight 92.0; corrected Zep 75.1; Letta-filesystem 74.0; full-context ~73 | No — we have no comparable number |

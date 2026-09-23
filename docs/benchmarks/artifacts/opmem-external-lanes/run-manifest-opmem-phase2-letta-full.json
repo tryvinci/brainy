@@ -1,0 +1,133 @@
+{
+  "benchmark": "opmem-v0",
+  "generated_utc": "2026-09-21T17:43:56Z",
+  "run_id": "opmem-phase2-letta-full",
+  "host": "Linux-6.12.94+-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "package_versions": {
+    "mem0ai": "2.1.0",
+    "qdrant-client": "1.19.1",
+    "zep-cloud": "3.28.0",
+    "tiktoken": "0.14.0",
+    "langmem": "0.0.30",
+    "langgraph-checkpoint-postgres": "3.1.2",
+    "openai": "1.109.1",
+    "langchain-openai": "1.1.9"
+  },
+  "pinned_models": {
+    "chat": "gpt-4.1-mini-2025-04-14",
+    "embed": "text-embedding-3-small"
+  },
+  "ceilings_usd": {
+    "mem0-oss": 1.0,
+    "letta": 1.0,
+    "langmem": 1.0,
+    "zep": 0.0,
+    "total": 3.0
+  },
+  "modes": [
+    {
+      "mode": "full",
+      "task_count": 13,
+      "lanes": [
+        {
+          "lane": "letta",
+          "status": "completed",
+          "mode": "full",
+          "run_id": "opmem-phase2-letta-full",
+          "elapsed_seconds": 6.56,
+          "infrastructure_errors": 0,
+          "tasks_run": 13,
+          "tasks_passed": 5,
+          "task_results": [
+            {
+              "task": "cor01_basic_revision",
+              "passed": false,
+              "failures": [
+                "step1(recall): expected at least 1 results, got 0",
+                "step1(recall): top result does not contain 'python'"
+              ]
+            },
+            {
+              "task": "cor02_correction_stickiness",
+              "passed": false,
+              "failures": [
+                "step3(recall): expected at least 1 results, got 0",
+                "step3(recall): top result does not contain 'ruby'"
+              ]
+            },
+            {
+              "task": "cor03_revised_retrievable",
+              "passed": true,
+              "failures": []
+            },
+            {
+              "task": "dup01_idempotent_remember",
+              "passed": true,
+              "failures": []
+            },
+            {
+              "task": "iso01_subject_isolation",
+              "passed": false,
+              "failures": [
+                "step1(recall): expected at most 0 results, got 1"
+              ]
+            },
+            {
+              "task": "iso02_tenant_isolation",
+              "passed": false,
+              "failures": [
+                "step1(recall): expected at most 0 results, got 1"
+              ]
+            },
+            {
+              "task": "iso03_forget_isolated",
+              "passed": false,
+              "failures": [
+                "step4(recall): expected at least 1 results, got 0"
+              ]
+            },
+            {
+              "task": "sup01_basic_forget",
+              "passed": true,
+              "failures": []
+            },
+            {
+              "task": "sup02_targeted_forget",
+              "passed": true,
+              "failures": []
+            },
+            {
+              "task": "sup03_durable_forget",
+              "passed": false,
+              "failures": [
+                "step3(recall): expected at most 0 results, got 1"
+              ]
+            },
+            {
+              "task": "upd01_stale_fact",
+              "passed": false,
+              "failures": [
+                "step2(recall): top result does not contain 'june'"
+              ]
+            },
+            {
+              "task": "upd02_preference_change",
+              "passed": false,
+              "failures": [
+                "step2(recall): expected at least 1 results, got 0",
+                "step2(recall): top result does not contain 'sms'"
+              ]
+            },
+            {
+              "task": "upd03_state_supersession",
+              "passed": true,
+              "failures": []
+            }
+          ],
+          "product_constraints": []
+        }
+      ]
+    }
+  ]
+}

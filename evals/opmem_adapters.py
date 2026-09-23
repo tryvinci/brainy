@@ -62,9 +62,23 @@ class BrainyAdapter:
 
     name = "brainy"
 
-    def __init__(self, base_url: str) -> None:
+    def __init__(
+        self,
+        base_url: str,
+        *,
+        recall_lane: str = "search",
+        revise_mode: str = "correct",
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self._run_nonce = str(int(time.time()))
+        self._recall_lane = recall_lane
+        self._revise_mode = revise_mode
+        if recall_lane == "recall":
+            self.name = "brainy-recall"
+        elif revise_mode == "supersede":
+            self.name = "brainy-supersede"
+        else:
+            self.name = "brainy"
 
     def available(self) -> bool:
         return True
@@ -88,6 +102,24 @@ class BrainyAdapter:
 
     def recall(self, actor: tuple[str, str], query: str) -> list[dict]:
         tenant, subject = self._scope(actor)
+        if self._recall_lane == "recall":
+            body = post_json(self.base_url, "/recall", {
+                "tenant_id": tenant,
+                "subject_id": subject,
+                "q": query,
+                "mode": "context",
+                "top_k": 20,
+            })
+            results = [
+                {"id": r["memory_id"], "content": r["content"]}
+                for r in body.get("memories", [])
+                if isinstance(r, dict) and r.get("content")
+            ]
+            if not results:
+                block = (body.get("context_block") or body.get("answer") or "").strip()
+                if block:
+                    results = [{"id": "recall-context", "content": block}]
+            return results
         body = get_json(self.base_url, "/memories/search", {
             "tenant_id": tenant,
             "subject_id": subject,
@@ -104,10 +136,18 @@ class BrainyAdapter:
     def revise(self, actor: tuple[str, str], memory_ids: list[str], content: str) -> None:
         tenant, subject = self._scope(actor)
         query = urllib.parse.urlencode({"tenant_id": tenant, "subject_id": subject})
+        payload = {"content": content, "source_text": content}
+        if self._revise_mode == "supersede":
+            post_json(
+                self.base_url,
+                f"/memories/{memory_ids[0]}/supersede?{query}",
+                payload,
+            )
+            return
         post_json(
             self.base_url,
             f"/memories/{memory_ids[0]}/correct?{query}",
-            {"content": content, "source_text": content},
+            payload,
         )
 
 

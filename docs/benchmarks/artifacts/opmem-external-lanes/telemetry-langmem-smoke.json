@@ -1,0 +1,27 @@
+{
+  "lane": "langmem",
+  "usage": {
+    "chat_input_tokens": 0,
+    "chat_output_tokens": 0,
+    "embed_tokens": 0,
+    "estimated_usd": 0.0,
+    "http_requests": 3
+  },
+  "events": [
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-4dcb416cf36390f7'], key='e0f473c9-41e7-4cda-9bb3-6fcfd7ddc597', value={'kind': 'Memory', 'content': {'content': 'The wifi network name is FalconNet.'}}, created_at='2026-09-19T08:29:16.603964+00:00', updated_at='2026-09-19T08:29:16.603964+00:00', score=0.44823255645278093)]"
+    }
+  ]
+}

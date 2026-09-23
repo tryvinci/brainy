@@ -1,0 +1,11 @@
+{
+  "lane": "zep",
+  "status": "blocked",
+  "reason": "ZEP_API_KEY not present in runtime (not in CLOUD_AGENT_INJECTED_SECRET_NAMES on 2026-09-21 cloud VM)",
+  "run_id": "opmem-phase2-zep-smoke",
+  "preflight": {
+    "free_tier_check": "not_attempted",
+    "paid_ceiling_usd": 0.0
+  },
+  "reproduce": "export ZEP_API_KEY=<free-tier key>; python3 evals/run_opmem_external_live.py --smoke --lanes zep"
+}

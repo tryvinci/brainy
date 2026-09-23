@@ -1,0 +1,5 @@
+git_sha=20533f2ca83e02265663d5984b49b13de8499231
+date_utc=2026-09-18T23:06:39Z
+go test ./internal/api/ -run TestOpMemBenchmarkAgainstHTTPServer -count=1
+OPMEM_MANUSCRIPT_OUT=docs/benchmarks/artifacts/opmem-manuscript-20533f2 go test ./internal/api/ -run TestOpMemPaperExperiments -count=1
+mem0 run: python3 evals/run_opmem.py --systems mem0 --json-out docs/benchmarks/artifacts/opmem-manuscript-20533f2/opmem-mem0-rerun.json
