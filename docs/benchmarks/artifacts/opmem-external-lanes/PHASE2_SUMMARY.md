@@ -9,7 +9,7 @@
 | mem0-oss | `opmem-phase2-full-mem0` | **9/13** | 0 | `mem0ai` 2.1.0, local Qdrant path |
 | langmem | `opmem-phase2-full1` | **8/13** | 0 | Postgres + pgvector |
 | letta | `opmem-phase2-letta-full` | **5/13** | 0 | `letta==0.11.7`, `opmem_facts` block mapping |
-| zep | — | — | — | **blocked** — no `ZEP_API_KEY` on host (`live-zep-blocked-opmem-phase2-zep-smoke.json`) |
+| zep | **?** | — | — | **blocked (2026-09-23)** — `ZEP_API_KEY` not in process env or `CLOUD_AGENT_INJECTED_SECRET_NAMES` (`zep-env-check-2026-09-23.json`); smoke/full not run |
 
 ## Letta reproduction
 
