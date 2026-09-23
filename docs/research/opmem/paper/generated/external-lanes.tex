@@ -13,12 +13,14 @@ Letta & 5/13 & \texttt{opmem-phase2-letta-full} \\
 Zep & 3/9$^{*}$ & \texttt{opmem-phase2-zep-full} \\
 \bottomrule
 \end{tabular}
-\caption{Phase~2 external lanes: each lane ran the full 13-task OpMem script; Zep is scored on \textbf{9 supported tasks}$^{*}$. $^{*}$Four forget fixtures (\texttt{iso03\_forget\_isolated}, \texttt{sup01--sup03}) are \emph{not supported} on the Zep lane; raw harness tally \textbf{3/13} unchanged on \texttt{live-full-opmem-phase2-zep-full.json}. Forget is not supported (\texttt{zep-cloud} 3.28 thread/graph API has no delete path the adapter can use).}
+\caption{Phase~2 external lanes: each lane ran the full 13-task OpMem script; Zep is scored on \textbf{9 supported tasks}$^{*}$. $^{*}$Four forget fixtures (\texttt{iso03\_forget\_isolated}, \texttt{sup01--sup03}) are \emph{not supported} on the Zep lane; raw harness tally \textbf{3/13} unchanged on \artifact{live-full-opmem-phase2-zep-full.json}. Forget is not supported (\texttt{zep-cloud} 3.28 thread/graph API has no delete path the adapter can use).}
 \label{tab:external-lanes}
 \end{table}
 
-\evidence{completed}{Mem0 \textbf{OSS} (local Qdrant path, \texttt{mem0ai} 2.1.0): \textbf{9/13} on run \texttt{opmem-phase2-full-mem0} (0 infra errors). Artifact: \texttt{live-full-opmem-phase2-full-mem0.json}.}
-\evidence{completed}{LangMem (Postgres 16 + \texttt{pgvector} 0.6): \textbf{8/13} on run \texttt{opmem-phase2-full1} (0 infra errors). Artifact: \texttt{live-full-opmem-phase2-full1.json}.}
-\evidence{completed}{Letta (\texttt{letta==0.11.7}): \textbf{5/13} on run \texttt{opmem-phase2-letta-full} (0 infra errors). Artifact: \texttt{live-full-opmem-phase2-letta-full.json}.}
-\evidence{completed}{Zep (\$0 paid, \texttt{zep-cloud} 3.28.0): \textbf{3/9$^{*}$} on supported tasks from run \texttt{opmem-phase2-zep-full} (0 infra errors). \emph{Not supported} (not scored as failures): \texttt{iso03\_forget\_isolated}, \texttt{sup01\_basic\_forget}, \texttt{sup02\_targeted\_forget}, \texttt{sup03\_durable\_forget}. Raw harness: \textbf{3/13}. Artifact: \texttt{live-full-opmem-phase2-zep-full.json}; interpretation: \texttt{zep-score-interpretation-opmem-phase2-zep-full.json}.}
-\evidence{completed}{Payload budget worksheet: worst-case OpenAI \textbf{\$0.15} vs \$3 ceiling (\texttt{cost-worksheet-payload-budget.json}).}
+{\sloppy
+\evidence{completed}{Mem0 \textbf{OSS} (local Qdrant path, \texttt{mem0ai} 2.1.0): \textbf{9/13} on run \texttt{opmem-phase2-full-mem0} (0 infra errors). Artifact: \artifact{live-full-opmem-phase2-full-mem0.json}.}
+\evidence{completed}{LangMem (Postgres 16 + \texttt{pgvector} 0.6): \textbf{8/13} on run \texttt{opmem-phase2-full1} (0 infra errors). Artifact: \artifact{live-full-opmem-phase2-full1.json}.}
+\evidence{completed}{Letta (\texttt{letta==0.11.7}): \textbf{5/13} on run \texttt{opmem-phase2-letta-full} (0 infra errors). Artifact: \artifact{live-full-opmem-phase2-letta-full.json}.}
+\evidence{completed}{Zep (\$0 paid, \texttt{zep-cloud} 3.28.0): \textbf{3/9$^{*}$} on supported tasks from run \texttt{opmem-phase2-zep-full} (0 infra errors). \emph{Not supported} (not scored as failures): \artifact{iso03\_forget\_isolated}, \artifact{sup01\_basic\_forget}, \artifact{sup02\_targeted\_forget}, \artifact{sup03\_durable\_forget}. Raw harness: \textbf{3/13}.\newline Artifact: \artifact{live-full-opmem-phase2-zep-full.json}; interpretation: \artifact{zep-score-interpretation-opmem-phase2-zep-full.json}.}
+\evidence{completed}{Payload budget worksheet: worst-case OpenAI \textbf{\$0.15} vs \$3 ceiling (\artifact{cost-worksheet-payload-budget.json}).}
+\par}
