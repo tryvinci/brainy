@@ -1,0 +1,56 @@
+{
+  "source_artifact": "live-full-opmem-phase2-zep-full.json",
+  "run_id": "opmem-phase2-zep-full",
+  "harness_raw": {
+    "tasks_run": 13,
+    "tasks_passed": 3,
+    "label": "3/13"
+  },
+  "forget_not_supported": {
+    "reason": "zep-cloud 3.28 thread/graph API: adapter has no delete path for OpMem forget steps (documented noop).",
+    "tasks": [
+      "iso03_forget_isolated",
+      "sup01_basic_forget",
+      "sup02_targeted_forget",
+      "sup03_durable_forget"
+    ],
+    "harness_outcomes_not_counted_as_failures": [
+      {
+        "task": "iso03_forget_isolated",
+        "passed": false,
+        "failures": ["step3(recall): expected at most 0 results, got 1"]
+      },
+      {
+        "task": "sup01_basic_forget",
+        "passed": false,
+        "failures": ["step3(recall): expected at most 0 results, got 1"]
+      },
+      {
+        "task": "sup02_targeted_forget",
+        "passed": false,
+        "failures": ["step3(recall): a result contains excluded 'door code'"]
+      },
+      {
+        "task": "sup03_durable_forget",
+        "passed": false,
+        "failures": ["step3(recall): expected at most 0 results, got 2"]
+      }
+    ]
+  },
+  "scored_supported_tasks": {
+    "supported_task_count": 9,
+    "passed": 3,
+    "label": "3/9",
+    "passed_tasks": ["cor02_correction_stickiness", "cor03_revised_retrievable", "dup01_idempotent_remember"],
+    "failed_supported_tasks": [
+      "cor01_basic_revision",
+      "iso01_subject_isolation",
+      "iso02_tenant_isolation",
+      "upd01_stale_fact",
+      "upd02_preference_change",
+      "upd03_state_supersession"
+    ]
+  },
+  "publication_label": "3/9*",
+  "footnote": "Asterisk: four forget fixtures not supported on Zep lane; raw harness score remains 3/13 on opmem-phase2-zep-full."
+}

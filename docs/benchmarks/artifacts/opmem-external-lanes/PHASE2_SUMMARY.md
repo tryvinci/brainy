@@ -9,19 +9,18 @@
 | mem0-oss | `opmem-phase2-full-mem0` | **9/13** | 0 | `mem0ai` 2.1.0, local Qdrant path |
 | langmem | `opmem-phase2-full1` | **8/13** | 0 | Postgres + pgvector |
 | letta | `opmem-phase2-letta-full` | **5/13** | 0 | `letta==0.11.7` |
-| zep | `opmem-phase2-zep-full` | **3/13** | 0 | `zep-cloud==3.28.0`, free tier, \$0 paid |
+| zep | `opmem-phase2-zep-full` | **3/9\*** | 0 | `zep-cloud==3.28.0`, free tier, $0 paid |
 
-## Zep (2026-09-23)
+**\* Zep (publication line):** Score **3/9** counts only tasks where forget is in scope for the lane. **Not supported** (listed separately, not counted as failures): `iso03_forget_isolated`, `sup01_basic_forget`, `sup02_targeted_forget`, `sup03_durable_forget` — the `zep-cloud` 3.28 thread/graph adapter has no delete path for OpMem `forget`. **Raw harness** on the unchanged artifact `live-full-opmem-phase2-zep-full.json` remains **3/13**. See `zep-score-interpretation-opmem-phase2-zep-full.json`.
 
-- `ZEP_API_KEY` present in `CLOUD_AGENT_INJECTED_SECRET_NAMES`; free-tier preflight OK (`zep-env-check-2026-09-23.json`).
-- Adapter: `thread.add_messages` + recall from thread messages + `graph.search` (SDK 3.x; no legacy `memory` API).
-- Forget: documented noop (no id-level delete in mapping).
+### Zep supported-task breakdown (`opmem-phase2-zep-full`)
 
-```bash
-python3 evals/run_opmem_external_live.py --smoke --lanes zep
-python3 evals/run_opmem_external_live.py --full --lanes zep --run-id opmem-phase2-zep-full
-```
+| Status | Tasks |
+| --- | --- |
+| **Passed (3)** | `cor02_correction_stickiness`, `cor03_revised_retrievable`, `dup01_idempotent_remember` |
+| **Failed, scored (6)** | `cor01_basic_revision`, `iso01_subject_isolation`, `iso02_tenant_isolation`, `upd01_stale_fact`, `upd02_preference_change`, `upd03_state_supersession` |
+| **Not supported — forget (4)** | `iso03_forget_isolated`, `sup01_basic_forget`, `sup02_targeted_forget`, `sup03_durable_forget` |
 
 ## Spend
 
-Payload worst-case OpenAI ~\$0.15 vs \$3 ceiling (`cost-worksheet-payload-budget.json`). Zep lane \$0 paid.
+Payload worst-case OpenAI ~$0.15 vs $3 ceiling (`cost-worksheet-payload-budget.json`). Zep lane $0 paid.
