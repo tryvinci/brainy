@@ -43,8 +43,8 @@ focus on factual faithfulness rather than governed delete/correct semantics.
 
 OpMem targets \textbf{operational correctness}: deterministic scripts, binary scoring, and
 explicit adapter mappings to each system's native API surface~\cite{brainyopmem2026}.
-Section~\ref{sec:limitations} lists threats; Section~\ref{sec:results} separates
-\textbf{completed} evidence from \textbf{blocked} external comparisons.
+Section~\ref{sec:limitations} lists threats; Section~\ref{sec:results} reports primary,
+historical, and Phase~2 external-lane pins (Table~\ref{tab:external-lanes}).
 
 \section{Related work}
 \paragraph{Retrieval QA.}
@@ -56,10 +56,10 @@ Mem0 documents accumulation-oriented designs and names staleness as an open prob
 We report Mem0 \textbf{Platform} numbers only on OpMem fixtures; we do not import Mem0 blog
 LoCoMo percentages as same-pin scores.
 
-\paragraph{Pending external comparisons.}
-Paid or vendor-hosted counter-runs are allowed only after a written cost estimate and explicit approval; that gate was not a categorical denial of spend.
-Mem0 Platform on OpMem v0 is \textbf{completed} at negligible API volume (13 tasks, 47 scripted steps; see Section~\ref{sec:external}).
-All four external lanes have \textbf{completed} Phase~2 live pins (Section~\ref{sec:external}; Table~\ref{tab:external-lanes}): Mem0 OSS 9/13, LangMem 8/13, Letta 5/13, Zep \textbf{3/9$^{*}$} (\$0 paid; raw harness 3/13; forget fixtures not supported on the Zep lane).
+\paragraph{External memory lanes (OpMem v0).}
+Mem0 \textbf{Platform} on OpMem v0 is \textbf{completed} at negligible API volume (13 tasks, 47 scripted steps; Section~\ref{sec:external}).
+Phase~2 counter-runs (after cost worksheet approval) are \textbf{completed} for Mem0 OSS, LangMem, Letta, and Zep; scores in Table~\ref{tab:external-lanes}: \textbf{9/13}, \textbf{8/13}, \textbf{5/13}, and \textbf{3/9$^{*}$} respectively (Zep raw harness \textbf{3/13}; \$0 paid).
+Paid or vendor-hosted lanes require a written estimate before approval; that gate was not a categorical denial of spend.
 
 \section{Neutral operation model}
 \label{sec:model}
@@ -163,7 +163,7 @@ Mem0 failures on that pin: \texttt{cor02} (correction stickiness),
 
 \subsection{Cost-estimation plan (before any new paid run)}
 \label{sec:cost-plan}
-OpMem v0 has 13 tasks and 47 scripted steps (\texttt{fixtures/opmem/}). For each pending system, prepare billing before requesting approval:
+OpMem v0 has 13 tasks and 47 scripted steps (\texttt{fixtures/opmem/}). Before any new paid lane run, prepare billing and approval:
 \begin{itemize}
 \item \textbf{Phase 1--2} --- \texttt{evals/opmem\_external/}: deterministic namespaces, per-task reset, payload budget (\texttt{cost-worksheet-payload-budget.json}), live harness \texttt{run\_opmem\_external\_live.py}. Setup: \texttt{external-lanes-setup.md}.
 \item \textbf{Mem0 OSS} --- Local Qdrant + \texttt{OPENAI\_API\_KEY}; ceiling \$1; dry-run projected OpenAI spend in worksheet.
@@ -187,7 +187,7 @@ Policy disagreements remain (\texttt{sup03} durable forget is a normative contra
 \item Substring scoring does not guarantee semantic safety.
 \item Search vs \texttt{/recall} product path may diverge (lane ablation quantifies on Brainy).
 \item English, domain-neutral fixtures; no concurrency or TTL tests.
-\item Mem0 Platform API drift; Zep/Letta not measured on Phase~2 host (credential/server block). OSS/LangMem pins are single-pass, small $n$.
+\item Mem0 Platform API drift; Phase~2 OSS/LangMem/Letta/Zep pins are single-pass, small $n$. Zep forget fixtures are \emph{not supported} on the lane (Table~\ref{tab:external-lanes} footnote); publication line \textbf{3/9$^{*}$} vs raw harness \textbf{3/13}.
 \item Fixture authorship bias; no independent external audit documented.
 \end{enumerate}
 
@@ -201,7 +201,7 @@ Committed run manifests and JSON under
 Build PDF: \texttt{make -C docs/research/opmem/paper pdf}.
 
 \section{Future work}
-v1 task expansion ($\sim$30 tasks), Zep/Letta/LangMem adapters,
+v1 task expansion ($\sim$30 tasks), Zep forget/delete mapping if a supported API path appears,
 supersede-native revise mapping as default where lineage is required,
 and fail-closed CI assertion of 13/13 on merge pins.
 
