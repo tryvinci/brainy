@@ -1,9 +1,106 @@
 [
   {
     "lane": "zep",
-    "status": "blocked",
-    "reason": "ZEP_API_KEY not present in runtime (vault not injected on this VM)",
+    "status": "completed",
+    "mode": "full",
+    "run_id": "opmem-phase2-zep-full",
+    "elapsed_seconds": 51.01,
     "infrastructure_errors": 0,
-    "task_results": []
+    "tasks_run": 13,
+    "tasks_passed": 3,
+    "task_results": [
+      {
+        "task": "cor01_basic_revision",
+        "passed": false,
+        "failures": [
+          "step1(recall): expected at least 1 results, got 0",
+          "step1(recall): top result does not contain 'python'"
+        ]
+      },
+      {
+        "task": "cor02_correction_stickiness",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "cor03_revised_retrievable",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "dup01_idempotent_remember",
+        "passed": true,
+        "failures": []
+      },
+      {
+        "task": "iso01_subject_isolation",
+        "passed": false,
+        "failures": [
+          "step1(recall): expected at most 0 results, got 1"
+        ]
+      },
+      {
+        "task": "iso02_tenant_isolation",
+        "passed": false,
+        "failures": [
+          "step1(recall): expected at most 0 results, got 1"
+        ]
+      },
+      {
+        "task": "iso03_forget_isolated",
+        "passed": false,
+        "failures": [
+          "step3(recall): expected at most 0 results, got 1"
+        ]
+      },
+      {
+        "task": "sup01_basic_forget",
+        "passed": false,
+        "failures": [
+          "step3(recall): expected at most 0 results, got 1"
+        ]
+      },
+      {
+        "task": "sup02_targeted_forget",
+        "passed": false,
+        "failures": [
+          "step3(recall): a result contains excluded 'door code'"
+        ]
+      },
+      {
+        "task": "sup03_durable_forget",
+        "passed": false,
+        "failures": [
+          "step3(recall): expected at most 0 results, got 2"
+        ]
+      },
+      {
+        "task": "upd01_stale_fact",
+        "passed": false,
+        "failures": [
+          "step2(recall): top result does not contain 'june'"
+        ]
+      },
+      {
+        "task": "upd02_preference_change",
+        "passed": false,
+        "failures": [
+          "step2(recall): expected at least 1 results, got 0",
+          "step2(recall): top result does not contain 'sms'"
+        ]
+      },
+      {
+        "task": "upd03_state_supersession",
+        "passed": false,
+        "failures": [
+          "step2(recall): top result does not contain '2222'"
+        ]
+      }
+    ],
+    "product_constraints": [
+      "lane zep cannot pin chat model gpt-4.1-mini-2025-04-14",
+      "lane zep cannot pin embed model text-embedding-3-small",
+      "Zep Cloud memory path does not accept OpenAI chat/embed model pins; stop before substituting \u2014 record scores only under Zep-native models."
+    ]
   }
 ]
