@@ -12,15 +12,15 @@ This package consolidates repo evidence for Paper 1 ([paper-topics.md](../paper-
 
 | Area | Ready | Missing |
 | --- | --- | --- |
-| Task fixtures + runner | 13 JSON tasks, `evals/run_opmem.py`, Brainy/verbatim/Platform + **Phase 1** external lane stubs (`evals/opmem_external/`) | v1 ~30 tasks; **live** Zep/Letta/LangMem/Mem0 OSS runs (credentials + worksheet approval) |
-| Reproducible protocol | Documented below + [opmem-spec.md](../opmem-spec.md); CI spins embedded API | Pin file (`RunManifest`) for OpMem; SHA `bbe55f7` re-run of Brainy+Mem0 table |
-| Brainy 13/13 evidence | Markdown pin + per-task JSON for Brainy-only integrity pass | Full `result.json` with Brainy+verbatim+mem0 on one commit in git |
-| Mem0 10/13 evidence | Markdown pin with named failures | Per-task Mem0 JSON in git; Mem0 OSS run; API version drift check |
-| Manuscript | LaTeX + PDF at [paper/main.pdf](./paper/main.pdf) | arXiv submission; formal grammar; camera-ready figures |
-| Multi-system paper table | Brainy vs Mem0 vs verbatim (partial) | ≥4 systems per paper-topics checklist |
-| Threats / limitations | Section below | External review dedicated to OpMem only |
+| Task fixtures + runner | 13 JSON tasks, `evals/run_opmem.py`, adapters + `evals/opmem_external/` (Phase~2 live harness) | v1 ~30 tasks; adapter parity audits beyond pinned runs |
+| Reproducible protocol | [opmem-spec.md](../opmem-spec.md), CI embedded API, `scripts/run-opmem-manuscript.sh` | Independent external audit of fixtures |
+| Brainy 13/13 evidence | 2026-08-15 markdown + integrity JSON; **20533f2** pin [`opmem-pin-20260918.json`](../../benchmarks/artifacts/opmem-pin-20260918.json) | Re-pin on every `dev` merge (manual) |
+| Mem0 10/13 evidence | Platform per-task JSON in pin file; 2026-08-15 markdown | Platform API drift re-check; OSS is Phase~2 pin (9/13), not Platform substitute |
+| Manuscript | LaTeX + PDF [paper/main.pdf](./paper/main.pdf); generated tables from `20533f2` artifacts | arXiv submission; formal grammar; camera-ready figures |
+| Multi-system paper table | Primary pin + Phase~2 lanes ([PHASE2_SUMMARY.md](../../benchmarks/artifacts/opmem-external-lanes/PHASE2_SUMMARY.md)) | Paper-topics “≥4 systems” **publication** bar vs workshop draft; Zep 3/9\* forget scope |
+| Threats / limitations | Package section + manuscript §Limitations | External review dedicated to OpMem only |
 
-**Publication verdict:** **not ready** for submission. Closest of the three paper tracks in [inventory-reproduction-plan-2026-09-18.md](../inventory-reproduction-plan-2026-09-18.md) (merge via PR #188), but requires manuscript, expanded systems, and frozen artifact bundle.
+**Publication verdict:** **draft manuscript + frozen pins exist** (PR [#190](https://github.com/tryvinci/brainy/pull/190)); **not ready** for arXiv/camera-ready without figure polish, stability harness fix, and editorial pass. Inventory cross-ref: PR [#188](https://github.com/tryvinci/brainy/pull/188); readiness package: PR [#189](https://github.com/tryvinci/brainy/pull/189).
 
 ---
 

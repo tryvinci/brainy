@@ -13,4 +13,4 @@ Paper-track benchmark for whether a memory system **behaves correctly** under fo
 
 **Code:** `fixtures/opmem/` (13 tasks) · `evals/run_opmem.py` · `evals/opmem_adapters.py` · CI `TestOpMemBenchmarkAgainstHTTPServer`
 
-**Current empirical pin (not re-run on `bbe55f7`):** Brainy **13/13** vs Mem0 Platform **10/13** (2026-08-15, SHA `1b5ab3e`). See [PUBLICATION_READINESS.md](./PUBLICATION_READINESS.md#independent-evidence-review-132-vs-1013).
+**Current merge-pin (embedded harness):** git SHA **`20533f2`** — Brainy **13/13**, verbatim **10/13**, Mem0 Platform **10/13** in [`opmem-pin-20260918.json`](../../benchmarks/artifacts/opmem-pin-20260918.json). Historical 2026-08-15 pin (SHA `1b5ab3e`): [PUBLICATION_READINESS.md](./PUBLICATION_READINESS.md#independent-evidence-review-132-vs-1013). Phase~2 external lanes: [PHASE2_SUMMARY.md](../../benchmarks/artifacts/opmem-external-lanes/PHASE2_SUMMARY.md) (pinned artifacts; no re-run required for doc edits).
