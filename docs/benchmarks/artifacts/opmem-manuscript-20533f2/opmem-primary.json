@@ -1,0 +1,300 @@
+{
+  "benchmark": "opmem-v0",
+  "systems": [
+    "verbatim",
+    "brainy",
+    "mem0"
+  ],
+  "summary": {
+    "verbatim": {
+      "overall": "10/13",
+      "by_category": {
+        "correction": "2/3",
+        "idempotency": "0/1",
+        "isolation": "3/3",
+        "staleness": "3/3",
+        "suppression": "2/3"
+      }
+    },
+    "brainy": {
+      "overall": "13/13",
+      "by_category": {
+        "correction": "3/3",
+        "idempotency": "1/1",
+        "isolation": "3/3",
+        "staleness": "3/3",
+        "suppression": "3/3"
+      }
+    },
+    "mem0": {
+      "overall": "10/13",
+      "by_category": {
+        "correction": "2/3",
+        "idempotency": "1/1",
+        "isolation": "3/3",
+        "staleness": "2/3",
+        "suppression": "2/3"
+      }
+    }
+  },
+  "infrastructure_errors": 0,
+  "results": [
+    {
+      "task": "cor01_basic_revision",
+      "category": "correction",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "cor02_correction_stickiness",
+      "category": "correction",
+      "systems": {
+        "verbatim": {
+          "passed": false,
+          "failures": [
+            "step3(recall): top result does not contain 'ruby'"
+          ]
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": false,
+          "failures": [
+            "step3(recall): top result does not contain 'ruby'"
+          ]
+        }
+      }
+    },
+    {
+      "task": "cor03_revised_retrievable",
+      "category": "correction",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "dup01_idempotent_remember",
+      "category": "idempotency",
+      "systems": {
+        "verbatim": {
+          "passed": false,
+          "failures": [
+            "step2(recall): expected at most 1 results, got 2",
+            "step2(recall): duplicate result contents"
+          ]
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso01_subject_isolation",
+      "category": "isolation",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso02_tenant_isolation",
+      "category": "isolation",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso03_forget_isolated",
+      "category": "isolation",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "sup01_basic_forget",
+      "category": "suppression",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "sup02_targeted_forget",
+      "category": "suppression",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "sup03_durable_forget",
+      "category": "suppression",
+      "systems": {
+        "verbatim": {
+          "passed": false,
+          "failures": [
+            "step3(recall): expected at most 0 results, got 1"
+          ]
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": false,
+          "failures": [
+            "step3(recall): expected at most 0 results, got 1"
+          ]
+        }
+      }
+    },
+    {
+      "task": "upd01_stale_fact",
+      "category": "staleness",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "upd02_preference_change",
+      "category": "staleness",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": false,
+          "failures": [
+            "step2(recall): top result does not contain 'sms'"
+          ]
+        }
+      }
+    },
+    {
+      "task": "upd03_state_supersession",
+      "category": "staleness",
+      "systems": {
+        "verbatim": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "mem0": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    }
+  ],
+  "manifest": {
+    "benchmark": "opmem-v0",
+    "git_sha": "20533f2ca83e02265663d5984b49b13de8499231",
+    "run_utc": "2026-09-18T23:12:29Z",
+    "fixture_dir": "fixtures/opmem",
+    "task_count": 13,
+    "base_url": "http://127.0.0.1:38319",
+    "protocol": "docs/research/opmem/PUBLICATION_READINESS.md",
+    "scoring": "substring assertions on ranked recall results"
+  }
+}

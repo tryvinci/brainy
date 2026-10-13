@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -42,6 +43,30 @@ func TestOpMemBenchmarkAgainstHTTPServer(t *testing.T) {
 	outDir := t.TempDir()
 	runEvalHarness(t, "evals/run_opmem.py", "",
 		"--json-out", filepath.Join(outDir, "opmem-latest.json"),
+	)
+}
+
+func TestOpMemPaperExperiments(t *testing.T) {
+	outDir := os.Getenv("OPMEM_MANUSCRIPT_OUT")
+	if outDir == "" {
+		outDir = t.TempDir()
+	}
+	args := []string{"--out-dir", outDir}
+	if os.Getenv("MEM0_API_KEY") == "" {
+		args = append(args, "--skip-mem0")
+	}
+	runEvalHarness(t, "evals/run_opmem_paper_experiments.py", "", args...)
+}
+
+func TestOpMemLaneAblationOnly(t *testing.T) {
+	outDir := os.Getenv("OPMEM_LANE_OUT")
+	if outDir == "" {
+		t.Skip("set OPMEM_LANE_OUT to write lane ablation JSON")
+	}
+	t.Setenv("OPMEM_ALLOW_INFRA_EXIT", "1")
+	runEvalHarness(t, "evals/run_opmem.py", "",
+		"--systems", "brainy,brainy-recall,brainy-supersede",
+		"--json-out", filepath.Join(outDir, "opmem-lane-ablation-isolated.json"),
 	)
 }
 

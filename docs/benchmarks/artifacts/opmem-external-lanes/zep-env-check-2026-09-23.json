@@ -1,0 +1,12 @@
+{
+  "checked_utc": "2026-09-23T17:55:00Z",
+  "zep_api_key_in_environment": true,
+  "zep_api_key_in_injected_secret_names": true,
+  "free_tier_preflight": "ok",
+  "zep_sdk": "zep-cloud==3.28.0",
+  "paid_ceiling_usd": 0.0,
+  "smoke_run_id": "opmem-phase2-zep-smoke-final",
+  "full_run_id": "opmem-phase2-zep-full",
+  "full_score": "3/13",
+  "infrastructure_errors": 0
+}

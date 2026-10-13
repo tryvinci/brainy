@@ -1,0 +1,86 @@
+{
+  "benchmark": "opmem-v0",
+  "generated_utc": "2026-09-19T08:28:45Z",
+  "run_id": "opmem-phase2-smoke1",
+  "host": "Linux-6.12.94+-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "package_versions": {
+    "mem0ai": "2.1.0",
+    "qdrant-client": "1.19.1",
+    "zep-cloud": "3.28.0",
+    "tiktoken": "0.14.0",
+    "langmem": "0.0.30",
+    "langgraph-checkpoint-postgres": "3.1.2",
+    "openai": "3.16.2",
+    "langchain-openai": "1.6.2"
+  },
+  "pinned_models": {
+    "chat": "gpt-4.1-mini-2025-04-14",
+    "embed": "text-embedding-3-small"
+  },
+  "ceilings_usd": {
+    "mem0-oss": 1.0,
+    "letta": 1.0,
+    "langmem": 1.0,
+    "zep": 0.0,
+    "total": 3.0
+  },
+  "modes": [
+    {
+      "mode": "smoke",
+      "task": "dup01_idempotent_remember",
+      "lanes": [
+        {
+          "lane": "mem0-oss",
+          "status": "invalid_incomplete",
+          "mode": "smoke",
+          "run_id": "opmem-phase2-smoke1",
+          "elapsed_seconds": 6.36,
+          "infrastructure_errors": 1,
+          "tasks_run": 1,
+          "tasks_passed": 0,
+          "task_results": [
+            {
+              "task": "dup01_idempotent_remember",
+              "error": "ValueError: Top-level entity parameters frozenset({'user_id'}) are not supported in search(). Use filters={'user_id': '...'} instead.",
+              "invalid_incomplete": true
+            }
+          ],
+          "product_constraints": []
+        },
+        {
+          "lane": "langmem",
+          "status": "invalid_incomplete",
+          "mode": "smoke",
+          "run_id": "opmem-phase2-smoke1",
+          "elapsed_seconds": 3.15,
+          "infrastructure_errors": 1,
+          "tasks_run": 1,
+          "tasks_passed": 0,
+          "task_results": [
+            {
+              "task": "dup01_idempotent_remember",
+              "error": "AttributeError: 'dict' object has no attribute 'lower'",
+              "invalid_incomplete": true
+            }
+          ],
+          "product_constraints": []
+        },
+        {
+          "lane": "zep",
+          "status": "blocked",
+          "reason": "ZEP_API_KEY not present in runtime (vault not injected on this VM)",
+          "infrastructure_errors": 0,
+          "task_results": []
+        },
+        {
+          "lane": "letta",
+          "status": "blocked",
+          "reason": "LETTA_APP_SERVER_TOKEN not present in runtime",
+          "infrastructure_errors": 0,
+          "task_results": []
+        }
+      ]
+    }
+  ]
+}

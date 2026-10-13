@@ -1,0 +1,247 @@
+{
+  "lane": "zep",
+  "usage": {
+    "chat_input_tokens": 0,
+    "chat_output_tokens": 0,
+    "embed_tokens": 0,
+    "estimated_usd": 0.0,
+    "http_requests": 47
+  },
+  "events": [
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "zep thread.add_messages revise"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-1', 'content': 'Prefers Ruby for scripting'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "zep thread.add_messages revise"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-1', 'content': 'Prefers Ruby for scripting'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "zep thread.add_messages revise"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-1', 'content': 'Prefers Ruby for scripting'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'The wifi network name is FalconNet.'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'My name is Alice Chen.'}]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'My name is Alice Chen.'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'The wifi network name is FalconNet.'}]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'The wifi network name is FalconNet.'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "zep forget noop for ['m-ee3e2e287b7c']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'Never share the door code with vendors.'}]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'Never share the door code with vendors.'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'Never share the door code with vendors.'}]"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "zep forget noop for ['m-ec19f9d4b669']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'Never share the door code with vendors.'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "zep forget noop for ['m-14ada541a648']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'Never share the door code with vendors.'}]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-1', 'content': 'The wifi network name is FalconNet.'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "zep forget noop for ['m-33684a38ce3c']"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'Never share the door code with vendors.'}, {'id': 'cda0240f-f63a-4614-a24e-87a105cab156', 'content': 'OpMem Lane advises never sharing the door code with vendors.'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'The launch date is May 12.'}, {'id': 'zep-msg-1', 'content': 'The launch date is June 3.'}, {'id': 'b61a203c-30ff-4aeb-90de-7b7d2da26023', 'content': 'OpMem Lane stated that the launch date is May 12.'}]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'The door code is 1111.'}, {'id': 'zep-msg-1', 'content': 'The door code is 2222.'}, {'id': '838b7748-642b-4b60-95e0-cc09bb174823', 'content': \"OpMem Lane's door code is 1111.\"}]"
+    }
+  ]
+}

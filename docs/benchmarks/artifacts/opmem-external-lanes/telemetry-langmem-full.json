@@ -1,0 +1,247 @@
+{
+  "lane": "langmem",
+  "usage": {
+    "chat_input_tokens": 0,
+    "chat_output_tokens": 0,
+    "embed_tokens": 0,
+    "estimated_usd": 0.0,
+    "http_requests": 47
+  },
+  "events": [
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-ad77ba8f7f247b76'], key='ff038350-4658-4617-92d9-4c5553430656', value={'kind': 'Memory', 'content': {'content': 'The user prefers Python for scripting.'}}, created_at='2026-09-19T08:29:52.169754+00:00', updated_at='2026-09-19T08:29:52.169754+00:00', score=0.33778279090288055)]"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "langmem revise invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-ad77ba8f7f247b76'], key='ff038350-4658-4617-92d9-4c5553430656', value={'kind': 'Memory', 'content': {'content': 'The user prefers Ruby for scripting.'}}, created_at='2026-09-19T08:29:52.169754+00:00', updated_at='2026-09-19T08:29:54.174845+00:00', score=0.33776719150121126)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "langmem revise invoke"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-59710611587956f7'], key='20fc00d2-bdbe-498b-9cc2-94ae6d6926bc', value={'kind': 'Memory', 'content': {'content': 'User prefers Python for scripting.'}}, created_at='2026-09-19T08:29:57.897057+00:00', updated_at='2026-09-19T08:30:00.641575+00:00', score=0.33639699263808853), Item(namespace=['opmem', 'opmem-59710611587956f7'], key='8cb44cc6-27e1-488b-9394-d695a6bc0365', value={'kind': 'Memory', 'content': {'content': 'User prefers Python for scripting.'}}, created_a"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "langmem revise invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-d89f907bfefacf0a'], key='c801ad89-40f4-4470-bfc4-9fa5cc81c716', value={'kind': 'Memory', 'content': {'content': 'The user prefers Ruby for scripting.'}}, created_at='2026-09-19T08:30:02.205766+00:00', updated_at='2026-09-19T08:30:04.766813+00:00', score=0.39614996459102103)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-231328502e0e8c77'], key='cf5aa7fc-14e2-4b88-9f5d-b7fc78fa702c', value={'kind': 'Memory', 'content': {'content': \"The user's wifi network name is FalconNet.\"}}, created_at='2026-09-19T08:30:06.559814+00:00', updated_at='2026-09-19T08:30:06.559814+00:00', score=0.4307357902741695)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-f8551362a879e5a5'], key='f7dacf51-98ed-4656-baac-525040d049b3', value={'kind': 'Memory', 'content': {'content': \"The user's name is Alice Chen.\"}}, created_at='2026-09-19T08:30:09.585092+00:00', updated_at='2026-09-19T08:30:09.585092+00:00', score=0.4185555945234981)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-0455ead06fd45698'], key='dd6965ac-061d-4b4c-bcd0-be701870e9e4', value={'kind': 'Memory', 'content': {'content': 'The WiFi network name is FalconNet.'}}, created_at='2026-09-19T08:30:11.539575+00:00', updated_at='2026-09-19T08:30:11.539575+00:00', score=0.4365041995152231)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "deleted ['m-3432cec89e27']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-001fc67db28bc8f6'], key='105cdf9d-ab27-471c-9f18-c86f1f0f6ebc', value={'kind': 'Memory', 'content': {'content': 'Never share the door code with vendors.'}}, created_at='2026-09-19T08:30:13.157541+00:00', updated_at='2026-09-19T08:30:13.157541+00:00', score=0.4455942668279429)]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-6ba67fb6e2bcd4a0'], key='7d84ba1f-5876-4885-8513-a87a0fa94c24', value={'kind': 'Memory', 'content': {'content': 'Do not share the door code with vendors.'}}, created_at='2026-09-19T08:30:14.262160+00:00', updated_at='2026-09-19T08:30:14.262160+00:00', score=0.4431479037244387)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-0769c5496ae38e0b'], key='62a0c516-bc1d-4f30-8557-67215486aee8', value={'kind': 'Memory', 'content': {'content': 'The user has a rule to never share the door code with vendors.'}}, created_at='2026-09-19T08:30:15.814395+00:00', updated_at='2026-09-19T08:30:15.814395+00:00', score=0.38258729230241584)]"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "deleted ['m-10416bc6bd04']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-0769c5496ae38e0b'], key='62a0c516-bc1d-4f30-8557-67215486aee8', value={'kind': 'Memory', 'content': {'content': 'The user has a rule to never share the door code with vendors.'}}, created_at='2026-09-19T08:30:15.814395+00:00', updated_at='2026-09-19T08:30:15.814395+00:00', score=0.38258729230241584)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "deleted ['m-d98a3e5fcba9']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-00a5581691894547'], key='2fe0745c-e090-4abb-8ee8-476f82624da3', value={'kind': 'Memory', 'content': {'content': 'Never share the door code with vendors.'}}, created_at='2026-09-19T08:30:17.777570+00:00', updated_at='2026-09-19T08:30:17.777570+00:00', score=0.44552312577829234), Item(namespace=['opmem', 'opmem-00a5581691894547'], key='169a612a-7f1b-43bb-919c-1f952bf3018b', value={'kind': 'Memory', 'content': {'content': 'The wifi network name is FalconNet.'}}, cre"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-00a5581691894547'], key='169a612a-7f1b-43bb-919c-1f952bf3018b', value={'kind': 'Memory', 'content': {'content': 'The wifi network name is FalconNet.'}}, created_at='2026-09-19T08:30:19.181133+00:00', updated_at='2026-09-19T08:30:19.181133+00:00', score=0.44823255645278093), Item(namespace=['opmem', 'opmem-00a5581691894547'], key='2fe0745c-e090-4abb-8ee8-476f82624da3', value={'kind': 'Memory', 'content': {'content': 'Never share the door code with vendors.'}}, cre"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "deleted ['m-357804338ee6']"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-d011d90d55ad1853'], key='567d190a-d2f0-412a-8a2a-62d23bd5802c', value={'kind': 'Memory', 'content': {'content': 'User directive: Never share the door code with vendors.'}}, created_at='2026-09-19T08:30:20.884100+00:00', updated_at='2026-09-19T08:30:20.884100+00:00', score=0.42092394769662933)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-80742538490187d6'], key='575335a6-b0ea-423a-824e-29ff7fab88d4', value={'kind': 'Memory', 'content': {'content': 'The launch date is June 3.'}}, created_at='2026-09-19T08:30:23.681623+00:00', updated_at='2026-09-19T08:30:25.608805+00:00', score=0.4816371075183463)]"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-f9ff0a9d8b5da8ad'], key='29100b9a-a18e-4adf-afce-04fa698148bb', value={'kind': 'Memory', 'content': {'content': 'User preference: prefers SMS updates.'}}, created_at='2026-09-19T08:30:29.174995+00:00', updated_at='2026-09-19T08:30:29.174995+00:00', score=0.30517559730557475), Item(namespace=['opmem', 'opmem-f9ff0a9d8b5da8ad'], key='7f6b6804-28ee-49f5-ae45-15e137a5d47a', value={'kind': 'Memory', 'content': {'content': 'User preference: prefers SMS updates.'}}, cre"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "langmem manager.invoke"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[Item(namespace=['opmem', 'opmem-45283803a0a23fec'], key='4037cfed-accb-40d6-877e-e7075c207a71', value={'kind': 'Memory', 'content': {'content': 'The door code is 2222.'}}, created_at='2026-09-19T08:30:30.507762+00:00', updated_at='2026-09-19T08:30:32.350165+00:00', score=0.4994123415529361)]"
+    }
+  ]
+}

@@ -1,0 +1,282 @@
+{
+  "benchmark": "opmem-v0",
+  "systems": [
+    "brainy",
+    "brainy-recall",
+    "brainy-supersede"
+  ],
+  "summary": {
+    "brainy": {
+      "overall": "13/13",
+      "by_category": {
+        "correction": "3/3",
+        "idempotency": "1/1",
+        "isolation": "3/3",
+        "staleness": "3/3",
+        "suppression": "3/3"
+      }
+    },
+    "brainy-recall": {
+      "overall": "9/13",
+      "by_category": {
+        "correction": "0/3",
+        "idempotency": "1/1",
+        "isolation": "3/3",
+        "staleness": "3/3",
+        "suppression": "2/3"
+      }
+    },
+    "brainy-supersede": {
+      "overall": "11/13",
+      "by_category": {
+        "correction": "2/3",
+        "idempotency": "1/1",
+        "isolation": "3/3",
+        "staleness": "3/3",
+        "suppression": "2/3"
+      }
+    }
+  },
+  "infrastructure_errors": 3,
+  "results": [
+    {
+      "task": "cor01_basic_revision",
+      "category": "correction",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "error": "HTTPError: HTTP Error 409: Conflict"
+        },
+        "brainy-supersede": {
+          "passed": false,
+          "failures": [
+            "step1(recall): top result does not contain 'python'"
+          ]
+        }
+      }
+    },
+    {
+      "task": "cor02_correction_stickiness",
+      "category": "correction",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "error": "HTTPError: HTTP Error 409: Conflict"
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "cor03_revised_retrievable",
+      "category": "correction",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "error": "HTTPError: HTTP Error 409: Conflict"
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "dup01_idempotent_remember",
+      "category": "idempotency",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso01_subject_isolation",
+      "category": "isolation",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso02_tenant_isolation",
+      "category": "isolation",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "iso03_forget_isolated",
+      "category": "isolation",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "sup01_basic_forget",
+      "category": "suppression",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": false,
+          "failures": [
+            "step1(recall): expected at least 1 results, got 0",
+            "step1(recall): top result does not contain 'door code'"
+          ]
+        },
+        "brainy-supersede": {
+          "passed": false,
+          "failures": [
+            "step1(recall): expected at least 1 results, got 0",
+            "step1(recall): top result does not contain 'door code'"
+          ]
+        }
+      }
+    },
+    {
+      "task": "sup02_targeted_forget",
+      "category": "suppression",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "sup03_durable_forget",
+      "category": "suppression",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "upd01_stale_fact",
+      "category": "staleness",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "upd02_preference_change",
+      "category": "staleness",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    },
+    {
+      "task": "upd03_state_supersession",
+      "category": "staleness",
+      "systems": {
+        "brainy": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-recall": {
+          "passed": true,
+          "failures": []
+        },
+        "brainy-supersede": {
+          "passed": true,
+          "failures": []
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "lane": "mem0-oss",
+    "status": "completed",
+    "mode": "smoke",
+    "run_id": "opmem-phase2-smoke2",
+    "elapsed_seconds": 2.9,
+    "infrastructure_errors": 0,
+    "tasks_run": 1,
+    "tasks_passed": 1,
+    "task_results": [
+      {
+        "task": "dup01_idempotent_remember",
+        "passed": true,
+        "failures": []
+      }
+    ],
+    "product_constraints": []
+  },
+  {
+    "lane": "langmem",
+    "status": "completed",
+    "mode": "smoke",
+    "run_id": "opmem-phase2-smoke2",
+    "elapsed_seconds": 3.68,
+    "infrastructure_errors": 0,
+    "tasks_run": 1,
+    "tasks_passed": 1,
+    "task_results": [
+      {
+        "task": "dup01_idempotent_remember",
+        "passed": true,
+        "failures": []
+      }
+    ],
+    "product_constraints": []
+  }
+]

@@ -1,0 +1,87 @@
+{
+  "mode": "payload_budget",
+  "task_count": 13,
+  "step_count": 47,
+  "pinned_chat_model": "gpt-4.1-mini-2025-04-14",
+  "pinned_embed_model": "text-embedding-3-small",
+  "rate_source_url": "https://openai.com/api/pricing/",
+  "rate_source_note": "gpt-4.1-mini-2025-04-14: $0.40/1M input, $1.60/1M output; text-embedding-3-small: $0.02/1M tokens",
+  "ceilings_usd": {
+    "mem0-oss": 1.0,
+    "letta": 1.0,
+    "langmem": 1.0,
+    "zep": 0.0,
+    "total": 3.0
+  },
+  "lanes": [
+    {
+      "lane": "langmem",
+      "worst_case_usd": 0.017537,
+      "token_totals": {
+        "chat_input_tokens": 1447,
+        "chat_output_tokens": 9600,
+        "embed_tokens": 203
+      },
+      "line_count": 47,
+      "product_constraints": [],
+      "retry_margin": 1.1,
+      "projected_worst_case_usd": 0.017537,
+      "ceiling_usd": 1.0,
+      "within_ceiling": true
+    },
+    {
+      "lane": "letta",
+      "worst_case_usd": 0.013526,
+      "token_totals": {
+        "chat_input_tokens": 1930,
+        "chat_output_tokens": 7200,
+        "embed_tokens": 203
+      },
+      "line_count": 47,
+      "product_constraints": [],
+      "retry_margin": 1.1,
+      "projected_worst_case_usd": 0.013526,
+      "ceiling_usd": 1.0,
+      "within_ceiling": true
+    },
+    {
+      "lane": "mem0-oss",
+      "worst_case_usd": 0.11353,
+      "token_totals": {
+        "chat_input_tokens": 186010,
+        "chat_output_tokens": 18000,
+        "embed_tokens": 239
+      },
+      "line_count": 66,
+      "product_constraints": [],
+      "retry_margin": 1.1,
+      "projected_worst_case_usd": 0.11353,
+      "ceiling_usd": 1.0,
+      "within_ceiling": true
+    },
+    {
+      "lane": "zep",
+      "worst_case_usd": 0.0,
+      "token_totals": {
+        "chat_input_tokens": 1122,
+        "chat_output_tokens": 0,
+        "embed_tokens": 0
+      },
+      "line_count": 47,
+      "product_constraints": [
+        "Zep Cloud native extraction; OpenAI pins not applied; $0 paid ceiling."
+      ],
+      "retry_margin": 1.1,
+      "projected_worst_case_usd": 0.0,
+      "ceiling_usd": 0.0,
+      "within_ceiling": true
+    },
+    {
+      "lane": "_total_openai_worst_case",
+      "projected_worst_case_usd": 0.144592,
+      "ceiling_usd": 3.0,
+      "within_ceiling": true
+    }
+  ],
+  "methodology": "tiktoken cl100k_base on serialized request bodies incl. mem0 ADDITIVE_EXTRACTION_PROMPT; conservative max output caps; 1.10 retry margin; Zep excluded from OpenAI totals."
+}

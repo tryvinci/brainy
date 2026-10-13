@@ -1,0 +1,347 @@
+{
+  "lane": "letta",
+  "usage": {
+    "chat_input_tokens": 0,
+    "chat_output_tokens": 0,
+    "embed_tokens": 0,
+    "estimated_usd": 0.0,
+    "http_requests": 67
+  },
+  "events": [
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-0e765134-eef7-40be-bca4-fd55de9054e6"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "updated m-72d0cb92d778"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-72d0cb92d778', 'content': 'Prefers Ruby for scripting'}]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-1980a99b-fa48-4eea-bde4-fb8d923793cc"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "updated m-9bdc773d176d"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-e32f945a-47de-4061-afff-882d2c175d82"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "updated m-e53c02783ebf"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-e53c02783ebf', 'content': 'Prefers Ruby for scripting'}]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-d6215054-0208-4946-a9cf-9e3263da81c2"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-86f89e5fc162', 'content': 'The wifi network name is FalconNet.'}]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-e15bf9de-e27a-4c65-815d-4da1f2b49de0"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-3d6f2ccfc041', 'content': 'My name is Alice Chen.'}]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-3d6f2ccfc041', 'content': 'My name is Alice Chen.'}]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-dc86f6bd-b17c-4219-badd-1e19389c0c91"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-6d39288e1285', 'content': 'The wifi network name is FalconNet.'}]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-6d39288e1285', 'content': 'The wifi network name is FalconNet.'}]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-2c51ef1a-b9b5-407c-9c25-ded27519a2a0"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "0 facts"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "removed ['m-199792273a68']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-8d05177a-19d2-4dbe-ad34-697cc6418823"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-fcff7a76adb5', 'content': 'Never share the door code with vendors.'}]"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "0 facts"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "removed ['m-fcff7a76adb5']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-cd220203-8ef1-42e0-b207-b0c7076560b1"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "2 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "removed ['m-876d3c78fdbb']"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-8a2ae350d5a4', 'content': 'The wifi network name is FalconNet.'}]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-91dd1cc4-65a7-4b6f-a5e7-fff67b8612f8"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "0 facts"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "removed ['m-f372883003fe']"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-f372883003fe', 'content': 'Never share the door code with vendors.'}]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-84ee20a4-8121-4b38-aa77-d6f23aaaa6b6"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "2 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-539fd5974dad', 'content': 'The launch date is May 12.'}, {'id': 'm-a3552df98ca5', 'content': 'The launch date is June 3.'}]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-bcbd0fe3-f78d-497e-a2fd-c79d2331e434"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "2 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[]"
+    },
+    {
+      "op": "reset",
+      "status": 200,
+      "body_preview": "agent agent-019571c6-1f7d-40e1-9300-8e7d32de02a2"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "1 facts"
+    },
+    {
+      "op": "blocks.modify",
+      "status": 200,
+      "body_preview": "2 facts"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'm-6d0ba2632157', 'content': 'The door code is 2222.'}, {'id': 'm-f216d185ca5e', 'content': 'The door code is 1111.'}]"
+    }
+  ]
+}

@@ -1,0 +1,247 @@
+{
+  "lane": "mem0-oss",
+  "usage": {
+    "chat_input_tokens": 0,
+    "chat_output_tokens": 0,
+    "embed_tokens": 0,
+    "estimated_usd": 0.0,
+    "http_requests": 47
+  },
+  "events": [
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5c8819cd-ce54-413d-9e88-03ecd4f70f52', 'memory': 'User prefers Python for scripting tasks', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5c8819cd-ce54-413d-9e88-03ecd4f70f52', 'memory': 'User prefers Python for scripting tasks', 'hash': 'a48dc9b92de4e17c1cc8962e11c6dd48', 'metadata': None, 'score': 0.47747782832465313, 'created_at': '2026-09-19T08:30:48.595042+00:00', 'updated_at': '2026-09-19T08:30:48.595042+00:00', 'user_id': 'opmem-5e7cd8f9c26a01c7', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "updated 5c8819cd-ce54-413d-9e88-03ecd4f70f52"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5c8819cd-ce54-413d-9e88-03ecd4f70f52', 'memory': 'Prefers Ruby for scripting', 'hash': 'f6e4b4415f448d039530b6671977e0b2', 'metadata': None, 'score': 0.5080760678115537, 'created_at': '2026-09-19T08:30:48.595042+00:00', 'updated_at': '2026-09-19T08:30:48.935555+00:00', 'user_id': 'opmem-5e7cd8f9c26a01c7', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '7a05a16c-92e8-4b02-bfe7-c0aaa4fb865b', 'memory': 'User prefers Python for scripting tasks', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "updated 7a05a16c-92e8-4b02-bfe7-c0aaa4fb865b"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '2e2eee9d-57d6-430d-8aa8-7255274580f1', 'memory': 'User prefers Python for scripting, updating their previous preference for Ruby', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '7a05a16c-92e8-4b02-bfe7-c0aaa4fb865b', 'memory': 'Prefers Ruby for scripting', 'hash': 'f6e4b4415f448d039530b6671977e0b2', 'metadata': None, 'score': 0.5080626159016706, 'created_at': '2026-09-19T08:30:52.277528+00:00', 'updated_at': '2026-09-19T08:30:52.458560+00:00', 'user_id': 'opmem-191998c3fb442640', 'attributed_to': 'user'}, {'id': '2e2eee9d-57d6-430d-8aa8-7255274580f1', 'memory': 'User prefers Python for scripting, updating their previous preference for Ruby', 'hash':"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'be262d77-4d24-4228-b910-1bf10000435e', 'memory': 'User prefers Python for scripting tasks.', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "revise",
+      "status": 200,
+      "body_preview": "updated be262d77-4d24-4228-b910-1bf10000435e"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'be262d77-4d24-4228-b910-1bf10000435e', 'memory': 'Prefers Ruby for scripting', 'hash': 'f6e4b4415f448d039530b6671977e0b2', 'metadata': None, 'score': 0.5780423781379709, 'created_at': '2026-09-19T08:30:57.173437+00:00', 'updated_at': '2026-09-19T08:30:57.374013+00:00', 'user_id': 'opmem-59047463df9dc059', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '9388e553-6720-4596-828a-1364e2125f4c', 'memory': \"User's wifi network name is FalconNet\", 'event': 'ADD'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': []}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '9388e553-6720-4596-828a-1364e2125f4c', 'memory': \"User's wifi network name is FalconNet\", 'hash': '0e881d9cc295e8509eb50d959ed86653', 'metadata': None, 'score': 0.587925614386172, 'created_at': '2026-09-19T08:31:00.593416+00:00', 'updated_at': '2026-09-19T08:31:00.593416+00:00', 'user_id': 'opmem-791c09301b2c6c03', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5554baa6-3ca9-47b9-8515-fe42cf7d1a95', 'memory': \"User's name is Alice Chen\", 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': []}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5554baa6-3ca9-47b9-8515-fe42cf7d1a95', 'memory': \"User's name is Alice Chen\", 'hash': 'b7c543b1a5c7edd3d2a5bed7ad46fb84', 'metadata': None, 'score': 0.6258135863190433, 'created_at': '2026-09-19T08:31:02.655875+00:00', 'updated_at': '2026-09-19T08:31:02.655875+00:00', 'user_id': 'opmem-c659fde1c729f26a', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'fc780410-3627-4a3f-9b7e-3083586df000', 'memory': \"User's wifi network name is FalconNet\", 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': []}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'fc780410-3627-4a3f-9b7e-3083586df000', 'memory': \"User's wifi network name is FalconNet\", 'hash': '0e881d9cc295e8509eb50d959ed86653', 'metadata': None, 'score': 0.587925614386172, 'created_at': '2026-09-19T08:31:04.048007+00:00', 'updated_at': '2026-09-19T08:31:04.048007+00:00', 'user_id': 'opmem-fc2994ec968c8c35', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '8a4933cc-883e-4524-a2c1-6f2bb9e2b0cd', 'memory': 'User instructs never to share the door code with vendors to maintain security.', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '77a39bcc-4cd3-44b1-9430-49f57c87496d', 'memory': 'User instructs never to share the door code with vendors to maintain security', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "deleted 8a4933cc-883e-4524-a2c1-6f2bb9e2b0cd"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': []}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '77a39bcc-4cd3-44b1-9430-49f57c87496d', 'memory': 'User instructs never to share the door code with vendors to maintain security', 'hash': '5eef4b9cdafb75fc82e5467f75e2dd30', 'metadata': None, 'score': 0.555903332358419, 'created_at': '2026-09-19T08:31:06.847614+00:00', 'updated_at': '2026-09-19T08:31:06.847614+00:00', 'user_id': 'opmem-3c9b018485c2a47c', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5bb8d9b0-3d68-4c2e-8014-5613f99bbc39', 'memory': 'User has a strict rule to never share the door code with vendors to maintain security.', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5bb8d9b0-3d68-4c2e-8014-5613f99bbc39', 'memory': 'User has a strict rule to never share the door code with vendors to maintain security.', 'hash': 'd2a86a6f638f37284a6e9e69bc78b9b8', 'metadata': None, 'score': 0.5078514150420694, 'created_at': '2026-09-19T08:31:08.562864+00:00', 'updated_at': '2026-09-19T08:31:08.562864+00:00', 'user_id': 'opmem-e915b53e598654e2', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "deleted 5bb8d9b0-3d68-4c2e-8014-5613f99bbc39"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': []}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '74a731ad-891b-44a5-8d47-524a7a69bcc3', 'memory': 'User instructs never to share the door code with vendors to maintain security', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'abbd8373-beca-4604-a351-c869573bed28', 'memory': \"User's wifi network name is FalconNet\", 'event': 'ADD'}]}"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "deleted 74a731ad-891b-44a5-8d47-524a7a69bcc3"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'abbd8373-beca-4604-a351-c869573bed28', 'memory': \"User's wifi network name is FalconNet\", 'hash': '0e881d9cc295e8509eb50d959ed86653', 'metadata': None, 'score': 0.2068300875562672, 'created_at': '2026-09-19T08:31:11.421207+00:00', 'updated_at': '2026-09-19T08:31:11.421207+00:00', 'user_id': 'opmem-327e9acda69047a2', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'abbd8373-beca-4604-a351-c869573bed28', 'memory': \"User's wifi network name is FalconNet\", 'hash': '0e881d9cc295e8509eb50d959ed86653', 'metadata': None, 'score': 0.5879256143861721, 'created_at': '2026-09-19T08:31:11.421207+00:00', 'updated_at': '2026-09-19T08:31:11.421207+00:00', 'user_id': 'opmem-327e9acda69047a2', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'd6481591-450e-4a48-8b08-826548c9cd88', 'memory': 'User instructs never to share the door code with vendors to maintain security.', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "forget",
+      "status": 200,
+      "body_preview": "deleted d6481591-450e-4a48-8b08-826548c9cd88"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'ef10248a-f45e-4f2e-9e0b-2004db58a01a', 'memory': 'User has a strict rule to never share the door code with vendors for security reasons', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': 'ef10248a-f45e-4f2e-9e0b-2004db58a01a', 'memory': 'User has a strict rule to never share the door code with vendors for security reasons', 'hash': 'fbcafb4b09ccf7e171a380515f78367a', 'metadata': None, 'score': 0.5323019705553599, 'created_at': '2026-09-19T08:31:14.079406+00:00', 'updated_at': '2026-09-19T08:31:14.079406+00:00', 'user_id': 'opmem-e929007e8f1422c5', 'attributed_to': 'user'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '355365f8-ebef-4d4d-b914-612e7bf7083e', 'memory': 'User stated that the launch date is May 12', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '97cd9fb1-8a12-465b-8160-0a47bc7d4667', 'memory': 'User updated the launch date to June 3, 2026, replacing the previous date of May 12, 2026', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '355365f8-ebef-4d4d-b914-612e7bf7083e', 'memory': 'User stated that the launch date is May 12', 'hash': 'fa737facb798b3f3fc1535dc256ebf00', 'metadata': None, 'score': 0.6070983935080743, 'created_at': '2026-09-19T08:31:15.501751+00:00', 'updated_at': '2026-09-19T08:31:15.501751+00:00', 'user_id': 'opmem-e98de152102dc08d', 'attributed_to': 'user'}, {'id': '97cd9fb1-8a12-465b-8160-0a47bc7d4667', 'memory': 'User updated the launch date to June 3, 2026, replacing the previous dat"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5b51b507-b33e-408a-8a00-0958ef839ad2', 'memory': 'User prefers to receive updates via email', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '73a3c476-f478-4c49-8163-1296e6546265', 'memory': 'User prefers SMS updates instead of email updates as of September 19, 2026', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '5b51b507-b33e-408a-8a00-0958ef839ad2', 'memory': 'User prefers to receive updates via email', 'hash': '6bfa2475c3bc61a23a48fdff754bfd8d', 'metadata': None, 'score': 0.38536272449852116, 'created_at': '2026-09-19T08:31:18.395105+00:00', 'updated_at': '2026-09-19T08:31:18.395105+00:00', 'user_id': 'opmem-7a5832b838c04f48', 'attributed_to': 'user'}, {'id': '73a3c476-f478-4c49-8163-1296e6546265', 'memory': 'User prefers SMS updates instead of email updates as of September 19, 20"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '34148019-1faf-4ea6-9762-704993a93489', 'memory': 'User shared that the door code is 1111', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '77525f51-2be9-4376-8c70-3b12b05392cd', 'memory': 'User updated the door code to 2222 on September 19, 2026', 'event': 'ADD'}]}"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "{'results': [{'id': '34148019-1faf-4ea6-9762-704993a93489', 'memory': 'User shared that the door code is 1111', 'hash': 'd4ff66858269b4e5157f79c4164a9ed1', 'metadata': None, 'score': 0.6118697230882042, 'created_at': '2026-09-19T08:31:20.904109+00:00', 'updated_at': '2026-09-19T08:31:20.904109+00:00', 'user_id': 'opmem-d3d362b2f352c734', 'attributed_to': 'user'}, {'id': '77525f51-2be9-4376-8c70-3b12b05392cd', 'memory': 'User updated the door code to 2222 on September 19, 2026', 'hash': '1ea2b7f3"
+    }
+  ]
+}

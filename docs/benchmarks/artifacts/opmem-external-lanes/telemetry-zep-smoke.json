@@ -1,0 +1,27 @@
+{
+  "lane": "zep",
+  "usage": {
+    "chat_input_tokens": 0,
+    "chat_output_tokens": 0,
+    "embed_tokens": 0,
+    "estimated_usd": 0.0,
+    "http_requests": 3
+  },
+  "events": [
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "remember",
+      "status": 200,
+      "body_preview": "zep thread.add_messages"
+    },
+    {
+      "op": "recall",
+      "status": 200,
+      "body_preview": "[{'id': 'zep-msg-0', 'content': 'The wifi network name is FalconNet.'}, {'id': '413e2761-df41-49c5-ba6d-d37aaa89fe70', 'content': \"OpMem Lane's wifi network is named FalconNet.\"}]"
+    }
+  ]
+}

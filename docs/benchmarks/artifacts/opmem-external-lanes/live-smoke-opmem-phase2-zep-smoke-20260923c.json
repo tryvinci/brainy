@@ -1,0 +1,26 @@
+[
+  {
+    "lane": "zep",
+    "status": "completed",
+    "mode": "smoke",
+    "run_id": "opmem-phase2-zep-smoke-20260923c",
+    "elapsed_seconds": 3.95,
+    "infrastructure_errors": 0,
+    "tasks_run": 1,
+    "tasks_passed": 0,
+    "task_results": [
+      {
+        "task": "dup01_idempotent_remember",
+        "passed": false,
+        "failures": [
+          "step2(recall): expected at least 1 results, got 0"
+        ]
+      }
+    ],
+    "product_constraints": [
+      "lane zep cannot pin chat model gpt-4.1-mini-2025-04-14",
+      "lane zep cannot pin embed model text-embedding-3-small",
+      "Zep Cloud memory path does not accept OpenAI chat/embed model pins; stop before substituting \u2014 record scores only under Zep-native models."
+    ]
+  }
+]

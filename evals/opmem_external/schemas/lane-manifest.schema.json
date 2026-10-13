@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpMemExternalLaneManifest",
+  "type": "object",
+  "required": ["lane", "pinned_chat_model", "pinned_embed_model", "namespace_scheme"],
+  "properties": {
+    "lane": { "type": "string", "enum": ["mem0-oss", "zep", "letta", "langmem"] },
+    "pinned_chat_model": { "const": "gpt-4.1-mini-2025-04-14" },
+    "pinned_embed_model": { "const": "text-embedding-3-small" },
+    "namespace_scheme": { "const": "opmem-sha256(run_id|lane|task|tenant|subject)[:16]" },
+    "reset_per_task": { "const": true },
+    "dry_run_default": { "const": true },
+    "spend_ceiling_usd": { "type": "number" }
+  }
+}

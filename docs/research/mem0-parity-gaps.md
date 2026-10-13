@@ -11,7 +11,7 @@
 | Axis | Brainy | Mem0 (known) | Verdict |
 | --- | --- | --- | --- |
 | Thin-slice API parity | **4/4** | **4/4** | **Parity** |
-| Operational correctness (OpMem) | **12/12** | **9/12** | **Ahead** |
+| Operational correctness (OpMem) | **13/13** (`1b5ab3e` pin) | **10/13** Platform (`2026-08-15`) | **Ahead on frozen ops pin** (not LoCoMo) |
 | Vertical / governed memory | **16/16** marketing | No equivalent | **Ahead (category)** |
 | Conversational recall (LOCOMO) | **19/30** smoke (gpt-oss, 1×30) | ~92 platform (GPT, top-200, full suite) | **Behind — not comparable pins** |
 | Latency / tokens | p50 ~0.7–1.3s (staging) | Blog ~0.88s p50 @ top-200 | **Unknown fair pin** |

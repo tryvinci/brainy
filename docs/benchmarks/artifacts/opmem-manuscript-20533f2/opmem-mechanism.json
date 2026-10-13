@@ -1,0 +1,37 @@
+{
+  "manifest": {
+    "benchmark": "opmem-v0",
+    "git_sha": "20533f2ca83e02265663d5984b49b13de8499231",
+    "run_utc": "2026-09-18T23:12:29Z",
+    "fixture_dir": "fixtures/opmem",
+    "task_count": 13,
+    "base_url": "http://127.0.0.1:38319",
+    "protocol": "docs/research/opmem/PUBLICATION_READINESS.md",
+    "scoring": "substring assertions on ranked recall results"
+  },
+  "by_category": {
+    "verbatim": {
+      "correction": "2/3",
+      "idempotency": "0/1",
+      "isolation": "3/3",
+      "staleness": "3/3",
+      "suppression": "2/3"
+    },
+    "brainy": {
+      "correction": "3/3",
+      "idempotency": "1/1",
+      "isolation": "3/3",
+      "staleness": "3/3",
+      "suppression": "3/3"
+    },
+    "mem0": {
+      "correction": "2/3",
+      "idempotency": "1/1",
+      "isolation": "3/3",
+      "staleness": "2/3",
+      "suppression": "2/3"
+    },
+    "_note": "verbatim is the rank-only baseline (no correct/suppress lifecycle); correction/suppression/staleness categories map to revise/forget semantics."
+  },
+  "verbatim_overall": "10/13"
+}

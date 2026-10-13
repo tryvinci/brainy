@@ -49,7 +49,7 @@ L6  Vertical “MarketingMem” public track (Brainy’s differentiation)
 | Metric | Brainy | Mem0 | Artifact |
 | --- | ---: | ---: | --- |
 | Parity | 4/4 | 4/4 | [staging report](../benchmarks/staging-competitive-report.md) |
-| OpMem | 12/12 | 9/12 | same |
+| OpMem | **13/13** (`1b5ab3e` pin) | **10/13** Platform (`2026-08-15`) | [opmem-fresh-local-20260815](../benchmarks/artifacts/opmem-fresh-local-20260815.md) · July staging **12/12 vs 9/12** is pre-`upd03` |
 | Marketing vertical | 16/16 | N/A | [moat](../benchmarks/marketing-moat-report.md) |
 
 ---

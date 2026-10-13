@@ -1,0 +1,17 @@
+\begin{table}[h]
+\centering
+\caption{Brainy recall lane and revise mapping (SHA 20533f2ca83e).}
+\begin{tabular}{lc}
+\toprule
+Configuration & Overall \\
+\midrule
+brainy & 13/13 \\
+brainy-recall & 9/13 \\
+brainy-supersede & 11/13 \\
+\bottomrule
+\end{tabular}
+\end{table}
+Search (\texttt{/memories/search}) is the normative pin lane.
+\texttt{brainy-recall} uses \texttt{POST /recall} (context mode).
+Correction tasks on the recall lane may return HTTP 409 during \texttt{/correct}
+(infrastructure errors in artifact JSON).

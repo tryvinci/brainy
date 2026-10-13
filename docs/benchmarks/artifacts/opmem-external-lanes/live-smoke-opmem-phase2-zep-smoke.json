@@ -1,0 +1,9 @@
+[
+  {
+    "lane": "zep",
+    "status": "blocked",
+    "reason": "ZEP_API_KEY not present in runtime (vault not injected on this VM)",
+    "infrastructure_errors": 0,
+    "task_results": []
+  }
+]

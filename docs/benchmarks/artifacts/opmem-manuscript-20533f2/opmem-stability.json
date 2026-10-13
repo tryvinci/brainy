@@ -1,0 +1,48 @@
+{
+  "repeats": 5,
+  "system": "brainy",
+  "recall_lane": "search",
+  "revise_mode": "correct",
+  "runs": [
+    {
+      "repeat": 1,
+      "overall": "13/13",
+      "infrastructure_errors": 0
+    },
+    {
+      "repeat": 2,
+      "overall": "9/10",
+      "infrastructure_errors": 3
+    },
+    {
+      "repeat": 3,
+      "overall": "9/10",
+      "infrastructure_errors": 3
+    },
+    {
+      "repeat": 4,
+      "overall": "13/13",
+      "infrastructure_errors": 0
+    },
+    {
+      "repeat": 5,
+      "overall": "9/10",
+      "infrastructure_errors": 3
+    }
+  ],
+  "stable": false,
+  "unique_scores": [
+    "13/13",
+    "9/10"
+  ],
+  "manifest": {
+    "benchmark": "opmem-v0",
+    "git_sha": "20533f2ca83e02265663d5984b49b13de8499231",
+    "run_utc": "2026-09-18T23:12:29Z",
+    "fixture_dir": "fixtures/opmem",
+    "task_count": 13,
+    "base_url": "http://127.0.0.1:38319",
+    "protocol": "docs/research/opmem/PUBLICATION_READINESS.md",
+    "scoring": "substring assertions on ranked recall results"
+  }
+}
